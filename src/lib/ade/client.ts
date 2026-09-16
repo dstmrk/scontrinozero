@@ -17,7 +17,6 @@ import type {
   AdeResponse,
   AdeSearchParams,
   CieCredentials,
-  AdeUtenza,
   FisconlineCredentials,
   SpidCredentials,
 } from "./types";
@@ -37,15 +36,16 @@ export interface AdeClient {
    * Autentica sul portale AdE con credenziali Fisconline e restituisce una
    * sessione.
    *
-   * `utenza` sceglie l'identità di lavoro quando l'accesso ne offre più d'una
-   * (HAR.md #18). Omessa, vale il comportamento storico: opera sulla P.IVA
-   * intestata a chi accede. Se quella P.IVA non esiste ma degli incarichi sì, il
-   * login lancia `AdeUtenzaSelectionRequiredError` con la lista da mostrare,
-   * invece di sceglierne una arbitrariamente.
+   * `utenzaPiva` sceglie su quale partita IVA operare quando l'accesso ne offre
+   * più d'una (HAR.md #18) — che sia intestata a chi accede o raggiunta tramite
+   * incarico, lo decide il client cercandola nelle liste vive. Omessa, il login
+   * procede da solo SOLO se esiste un'unica P.IVA diretta; in ogni altro caso
+   * lancia `AdeUtenzaSelectionRequiredError` con i candidati, invece di
+   * sceglierne uno arbitrariamente.
    */
   login(
     credentials: FisconlineCredentials,
-    utenza?: AdeUtenza,
+    utenzaPiva?: string,
   ): Promise<AdeSession>;
 
   /**
@@ -67,7 +67,7 @@ export interface AdeClient {
    */
   loginCie(
     credentials: CieCredentials,
-    utenza?: AdeUtenza,
+    utenzaPiva?: string,
   ): Promise<AdeSession>;
 
   /** Invia un documento commerciale di vendita */

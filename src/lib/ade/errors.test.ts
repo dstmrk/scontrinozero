@@ -143,14 +143,14 @@ describe("AdeNoPartitaIvaError", () => {
 });
 
 describe("AdeUtenzaSelectionRequiredError", () => {
-  it("trasporta gli incarichi da mostrare e conta i soggetti nel messaggio", () => {
+  it("trasporta i candidati da mostrare e li conta nel messaggio", () => {
     const err = new AdeUtenzaSelectionRequiredError([
-      { piva: "11111111111", raw: "{}" },
-      { piva: "22222222222", raw: "{}" },
+      { piva: "11111111111", denominazione: "ACME SRL" },
+      { piva: "22222222222" },
     ]);
     expect(err.code).toBe("ADE_UTENZA_SELECTION_REQUIRED");
     expect(err.name).toBe("AdeUtenzaSelectionRequiredError");
-    expect(err.incarichi).toHaveLength(2);
+    expect(err.candidates).toHaveLength(2);
     expect(err.message).toContain("2");
     expect(err).toBeInstanceOf(AdeError);
   });

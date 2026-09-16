@@ -195,12 +195,30 @@ Tre invarianti da non rompere:
   dice che quell'opzione non è disponibile; sceglierla comunque fa rispondere
   al portale `Utenza di lavoro non valida o non autorizzata`.
 
-Quando manca una scelta e degli incarichi ci sono,
-`AdeUtenzaSelectionRequiredError` **trasporta la lista**: è il punto di aggancio
-del picker, così l'interfaccia non deve rifare il giro del wizard per sapere
-cosa mostrare. E gli incarichi non portano le denominazioni — solo P.IVA, come
-la tendina del portale: il nome arriva dalla risposta del secondo
-`procediWizard`, dopo la scelta.
+**Multi-P.IVA è un caso solo, non due.** Più partite IVA proprie e più
+incarichi arrivano da chiavi diverse di `wizardTemplate`, ma per chi sceglie la
+domanda è identica: su quale partita IVA voglio operare. Quindi la scelta
+persistita è una **stringa**, non un tipo con discriminante, e il client decide
+quale corpo di `setUserChoice` usare cercandola in entrambe le liste vive. Una
+P.IVA che l'AdE spostasse fra diretta e incarico non romperebbe niente.
+
+Il login procede da solo **solo** con un'unica P.IVA diretta. In ogni altro
+caso — più candidati, oppure un solo incarico — lancia
+`AdeUtenzaSelectionRequiredError`, che **trasporta la lista**: è il punto di
+aggancio del picker. Anche per un singolo incarico: la scelta è immutabile alla
+prima verifica riuscita, e legare un account a una società per conto terzi senza
+conferma si ripara solo aprendo un altro account.
+
+Asimmetria da ricordare: le P.IVA **dirette** portano la `denominazione`, gli
+incarichi solo il numero (`HAR.md` #18.1). Il picker mostra il nome quando c'è;
+per gli incarichi arriverebbe solo dal secondo `procediWizard`, cioè dopo la
+scelta.
+
+**Il messaggio e la UI vanno spediti insieme.** Fra due slice consecutive il
+testo «non gestiamo ancora questo caso» è rimasto in produzione una release
+oltre il picker che lo gestiva, contraddicendolo a schermo. Quando una slice
+rimuove un limite, il messaggio che lo dichiarava è parte della slice, non un
+residuo da ripulire dopo.
 
 ### Failure mode noto: dato del cedente non normalizzato (`EF0`)
 

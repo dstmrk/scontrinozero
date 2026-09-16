@@ -62,11 +62,15 @@ export function getUserFacingAdeErrorMessage(
     };
   }
   if (err instanceof AdeUtenzaSelectionRequiredError) {
-    // Il picker non esiste ancora (REVIEW.md #106, slice 3): finché non c'è, il
-    // messaggio dice quello che è vero oggi — la condizione è riconosciuta, il
-    // caso non è servito — senza promettere una scelta che non possiamo offrire.
+    // Non è una scusa, è un'istruzione: il picker è renderizzato subito sotto
+    // questo testo. La versione precedente diceva "non gestiamo ancora questo
+    // caso" ed è rimasta in produzione una release oltre il picker che lo
+    // gestisce, contraddicendolo a schermo.
     return {
-      message: `Le credenziali sono corrette, ma questo accesso opera per conto di altri soggetti e non ha una partita IVA propria. ScontrinoZero non gestisce ancora questo caso: serve l'utenza di chi possiede la partita IVA. Scrivici a ${CONTACT_EMAIL} e ti aggiorniamo appena è disponibile.`,
+      message:
+        err.candidates.length > 1
+          ? "Questo accesso può operare su più partite IVA. Scegli qui sotto quella dell'attività per cui stai usando ScontrinoZero."
+          : "Questo accesso opera per conto di un altro soggetto. Conferma qui sotto la partita IVA su cui vuoi operare.",
     };
   }
   if (err instanceof AdeUtenzaNotAvailableError) {

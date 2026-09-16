@@ -759,7 +759,7 @@ describe("RealAdeClient", () => {
       expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
       // L'errore trasporta la lista: è quello che il picker consumerà (slice 3).
       expect(
-        (err as AdeUtenzaSelectionRequiredError).incarichi.map((i) => i.piva),
+        (err as AdeUtenzaSelectionRequiredError).candidates.map((i) => i.piva),
       ).toEqual(["11111111111", "22222222222"]);
       // Non è AdeNoPartitaIvaError: una P.IVA c'è, va solo scelta.
       expect(err).not.toBeInstanceOf(AdeNoPartitaIvaError);
@@ -793,10 +793,7 @@ describe("RealAdeClient", () => {
       ); // procediWizard 2
       fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
 
-      const session = await client.login(mockCredentials, {
-        tipo: "incaricato",
-        piva: "22222222222",
-      });
+      const session = await client.login(mockCredentials, "22222222222");
 
       expect(session.partitaIva).toBe("22222222222");
 
@@ -839,7 +836,7 @@ describe("RealAdeClient", () => {
       ); // F
 
       const err = await client
-        .login(mockCredentials, { tipo: "incaricato", piva: "99999999999" })
+        .login(mockCredentials, "99999999999")
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(AdeUtenzaNotAvailableError);
@@ -849,7 +846,7 @@ describe("RealAdeClient", () => {
     it("utenza meStesso esplicita si comporta come l'assenza di selezione", async () => {
       mockLoginSequence(fetchMock);
 
-      const session = await client.login(mockCredentials, { tipo: "meStesso" });
+      const session = await client.login(mockCredentials, "12345678901");
 
       expect(session.partitaIva).toBe("12345678901");
       const choice = fetchMock.mock.calls.find((c) =>
@@ -880,7 +877,7 @@ describe("RealAdeClient", () => {
 
       expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
       expect(
-        (err as AdeUtenzaSelectionRequiredError).incarichi.map((i) => i.piva),
+        (err as AdeUtenzaSelectionRequiredError).candidates.map((i) => i.piva),
       ).toEqual(["33333333333"]);
     });
 
@@ -898,6 +895,107 @@ describe("RealAdeClient", () => {
       await expect(client.login(mockCredentials)).rejects.toThrow(
         AdeNoPartitaIvaError,
       );
+    });
+
+    it("più P.IVA dirette: non si sceglie per conto dell'utente", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            PIva: [
+              { piva: "11111111111", denominazione: "ALFA SRL" },
+              { piva: "22222222222", denominazione: "BETA SNC" },
+            ],
+          },
+        }),
+      ); // F
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      // Prima di questo, prendevamo PIva[0] alla cieca.
+      expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+      const { candidates } = err as AdeUtenzaSelectionRequiredError;
+      expect(candidates).toEqual([
+        { piva: "11111111111", denominazione: "ALFA SRL" },
+        { piva: "22222222222", denominazione: "BETA SNC" },
+      ]);
+    });
+
+    it("una sola P.IVA diretta resta il percorso silenzioso di sempre", async () => {
+      mockLoginSequence(fetchMock);
+
+      const session = await client.login(mockCredentials);
+
+      expect(session.partitaIva).toBe("12345678901");
+    });
+
+    it("un solo incarico richiede comunque conferma esplicita", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["33333333333"]) }),
+      ); // F
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      // La scelta è immutabile alla prima verifica riuscita: legare un account
+      // a una società per conto terzi senza conferma si ripara solo aprendone
+      // un altro.
+      expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+      expect((err as AdeUtenzaSelectionRequiredError).candidates).toEqual([
+        { piva: "33333333333" },
+      ]);
+    });
+
+    it("una P.IVA diretta scelta usa il body meStesso, non quello incaricato", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            PIva: [
+              { piva: "11111111111", denominazione: "ALFA SRL" },
+              { piva: "22222222222", denominazione: "BETA SNC" },
+            ],
+          },
+        }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+
+      const session = await client.login(mockCredentials, "22222222222");
+
+      expect(session.partitaIva).toBe("22222222222");
+      const choice = fetchMock.mock.calls.find((c) =>
+        String(c[0]).includes("setUserChoice"),
+      )!;
+      const body = JSON.parse(choice[1].body);
+      expect(body).toEqual({
+        cf: "RSSMRA80A01H501A",
+        pIva: "22222222222",
+        tipoutenza: "meStesso",
+      });
+      // Nessun giro di wizard: la P.IVA è intestata a chi accede.
+      expect(
+        fetchMock.mock.calls.filter((c) =>
+          String(c[0]).includes("procediWizard"),
+        ),
+      ).toHaveLength(0);
+    });
+
+    it("una P.IVA che non è né diretta né incarico è un'utenza non più disponibile", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            PIva: [{ piva: "11111111111" }],
+          },
+        }),
+      ); // F
+
+      await expect(
+        client.login(mockCredentials, "99999999999"),
+      ).rejects.toThrow(AdeUtenzaNotAvailableError);
     });
 
     it("Phase G: POST setUserChoice con x-appl header e body corretto", async () => {
@@ -1435,10 +1533,7 @@ describe("RealAdeClient", () => {
 
       mockPhasesBeforeWizard(fetchMock);
       queueIncaricatoLogin();
-      await client.login(mockCredentials, {
-        tipo: "incaricato",
-        piva: "22222222222",
-      });
+      await client.login(mockCredentials, "22222222222");
 
       fetchMock.mockClear();
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 })); // submit → 401

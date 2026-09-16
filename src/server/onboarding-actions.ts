@@ -32,7 +32,7 @@ import {
   AdeUtenzaSelectionRequiredError,
 } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
-import type { AdeLoginMethod, AdeUtenza } from "@/lib/ade/types";
+import type { AdeLoginMethod } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -93,12 +93,12 @@ export type OnboardingActionResult = {
    */
   trialAlreadyUsed?: boolean;
   /**
-   * L'accesso AdE opera per conto di altri soggetti e non ha una partita IVA
-   * propria: il portale pretende che se ne scelga una (HAR.md #18). La UI usa
-   * questa lista per mostrare il picker; il portale stesso espone solo le
-   * partite IVA, senza denominazioni, quindi non ce ne sono da mostrare qui.
+   * Le partite IVA su cui questo accesso può operare, quando sono più d'una o
+   * quando l'unica passa da un incarico (HAR.md #18). La UI la usa per il
+   * picker. La `denominazione` c'è solo per le P.IVA **dirette**: il portale
+   * non la espone per gli incarichi, dove resta il solo numero.
    */
-  utenzaChoices?: { piva: string }[];
+  utenzaChoices?: { piva: string; denominazione?: string }[];
 };
 
 const changePasswordLimiter = new RateLimiter({
@@ -834,7 +834,12 @@ async function finalizeAdeVerification(params: {
 async function attemptAdeLoginForVerification(
   doLogin: () => Promise<unknown>,
   businessId: string,
-  opts: { flow: string; defaultMessage: string; method: AdeLoginMethod },
+  opts: {
+    flow: string;
+    defaultMessage: string;
+    method: AdeLoginMethod;
+    wasAlreadyOnboarded: boolean;
+  },
 ): Promise<OnboardingActionResult | null> {
   try {
     await doLogin();
@@ -855,16 +860,32 @@ async function attemptAdeLoginForVerification(
         failure: "AdE credential verification failed",
       },
     );
-    // L'accesso opera per conto di altri soggetti: la lista degli incarichi
-    // risale alla UI, che la trasforma nel picker (HAR.md #18, REVIEW.md #106).
+    // Più partite IVA disponibili: la lista risale alla UI, che la trasforma nel
+    // picker (HAR.md #18, REVIEW.md #106).
+    //
+    // Su un business già collegato il picker NON si offre: `applyUtenzaSelection`
+    // rifiuta ogni scelta, quindi mostrarlo sarebbe un vicolo cieco — l'utente
+    // sceglie e riceve "non può essere cambiata". Se un business onboardato
+    // arriva qui, la P.IVA a cui era legato non è più raggiungibile da queste
+    // credenziali, che è la stessa sostanza di AdeUtenzaNotAvailableError.
     if (err instanceof AdeUtenzaSelectionRequiredError) {
+      if (opts.wasAlreadyOnboarded) {
+        return {
+          error:
+            "La partita IVA collegata a questo account non risulta più raggiungibile con queste credenziali. Verifica le abilitazioni sul portale Agenzia delle Entrate.",
+          pivaMismatch: true,
+        };
+      }
       return {
         error: getUserFacingAdeErrorMessage(
           err,
           opts.defaultMessage,
           opts.method,
         ).message,
-        utenzaChoices: err.incarichi.map(({ piva }) => ({ piva })),
+        utenzaChoices: err.candidates.map(({ piva, denominazione }) => ({
+          piva,
+          denominazione,
+        })),
       };
     }
     const userFacing = getUserFacingAdeErrorMessage(
@@ -892,7 +913,7 @@ function buildVerificationLogin(
   adeClient: ReturnType<typeof createAdeClient>,
   cred: typeof adeCredentials.$inferSelect,
   keys: Map<number, Buffer>,
-  utenza: AdeUtenza | undefined,
+  utenzaPiva: string | undefined,
 ):
   | {
       doLogin: () => Promise<unknown>;
@@ -908,7 +929,7 @@ function buildVerificationLogin(
     const username = decrypt(cred.encryptedUsername, keys);
     const password = decrypt(cred.encryptedPassword, keys);
     return {
-      doLogin: () => adeClient.loginCie({ username, password }, utenza),
+      doLogin: () => adeClient.loginCie({ username, password }, utenzaPiva),
       flow: "onboarding-verify-cie",
       defaultMessage: "Verifica fallita. Controlla le credenziali CIE.",
       method: "cie",
@@ -934,20 +955,12 @@ function buildVerificationLogin(
   const password = decrypt(cred.encryptedPassword, keys);
   const pin = decrypt(cred.encryptedPin, keys);
   return {
-    doLogin: () => adeClient.login({ codiceFiscale, password, pin }, utenza),
+    doLogin: () =>
+      adeClient.login({ codiceFiscale, password, pin }, utenzaPiva),
     flow: "onboarding-verify",
     defaultMessage: "Verifica fallita. Controlla le credenziali Fisconline.",
     method: "fisconline",
   };
-}
-
-/**
- * Traduce la scelta persistita (`ade_credentials.utenza_piva`, migrazione 0037)
- * nel parametro che il client AdE si aspetta. NULL = utenza "me stesso", cioè
- * il comportamento storico e il caso di gran lunga più comune.
- */
-function toAdeUtenza(utenzaPiva: string | null): AdeUtenza | undefined {
-  return utenzaPiva ? { tipo: "incaricato", piva: utenzaPiva } : undefined;
 }
 
 /**
@@ -1124,7 +1137,7 @@ export async function verifyAdeCredentials(
     adeClient,
     cred,
     keys,
-    toAdeUtenza(effectiveUtenzaPiva),
+    effectiveUtenzaPiva ?? undefined,
   );
   if ("error" in loginPlan) return loginPlan;
 
@@ -1135,6 +1148,7 @@ export async function verifyAdeCredentials(
       flow: loginPlan.flow,
       defaultMessage: loginPlan.defaultMessage,
       method: loginPlan.method,
+      wasAlreadyOnboarded,
     },
   );
   if (loginError) return loginError;
