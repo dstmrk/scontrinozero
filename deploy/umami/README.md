@@ -126,10 +126,76 @@ tunnel): bloccante, non considerare il deploy concluso.
 
 Definiti in `src/lib/umami.ts` (`UMAMI_EVENTS`), inviati via `track()`:
 
-| Evento                      | Dove                                    | Dati        |
-| --------------------------- | --------------------------------------- | ----------- |
-| `receipt_emitted`           | emissione scontrino OK (`cassa-client`) | —           |
-| `plan_upgrade_click`        | CTA checkout (`checkout-button`)        | `{priceId}` |
-| `onboarding_step_completed` | step del tour (`onboarding-tour`)       | `{step}`    |
+| Evento                      | Dove                                         | Dati        |
+| --------------------------- | -------------------------------------------- | ----------- |
+| `receipt_emitted`           | emissione scontrino OK (`cassa-client`)      | —           |
+| `plan_upgrade_click`        | CTA checkout (`checkout-button`)             | `{priceId}` |
+| `onboarding_step_completed` | step del tour (`onboarding-tour`)            | `{step}`    |
+| `printer_paired`            | stampante Bluetooth accoppiata               | —           |
+| `receipt_printed`           | scontrino stampato su termica (auto/manuale) | —           |
+| `pwa_installed`             | evento `appinstalled` (Android/desktop)      | —           |
 
-Nomi **stabili**: cambiarli spezza la continuità storica del report.
+Nomi **stabili**: cambiarli spezza la continuità storica del report. La
+tabella si aggiorna insieme a `UMAMI_EVENTS`: al 2026-09-17 ne elencava tre su
+sei, e una tabella che mente su cosa è tracciato fa pianificare misure
+impossibili.
+
+**Nessun evento segna la registrazione**, e non è una dimenticanza: vedi
+`REVIEW.md` #109 prima di provare ad aggiungerlo.
+
+## Misurare il funnel: quale pagina porta registrazioni
+
+La domanda ricorrente è "questa pagina di contenuto porta iscritti o solo
+traffico?". Search Console risponde a metà — dà i clic, non cosa succede
+dopo. Questa query chiude il cerchio. Gira sul Postgres di Umami, in sola
+lettura.
+
+Il website id:
+
+```bash
+docker exec -i umami-db psql -U umami -d umami -c \
+  "SELECT website_id, name, domain FROM website;"
+```
+
+Il funnel per pagina, ultimi 120 giorni:
+
+```sql
+WITH reg AS (
+  SELECT DISTINCT session_id FROM website_event
+  WHERE website_id = '<WEBSITE_ID>' AND event_type = 1
+    AND url_path = '/register'
+    AND created_at >= now() - interval '120 days'
+)
+SELECT e.url_path,
+       count(DISTINCT e.session_id) AS sessioni,
+       count(DISTINCT e.session_id) FILTER (WHERE r.session_id IS NOT NULL) AS a_register
+FROM website_event e
+LEFT JOIN reg r ON r.session_id = e.session_id
+WHERE e.website_id = '<WEBSITE_ID>' AND e.event_type = 1
+  AND (e.url_path LIKE '/guide/%' OR e.url_path LIKE '/help/%' OR e.url_path = '/')
+  AND e.created_at >= now() - interval '120 days'
+GROUP BY e.url_path
+ORDER BY sessioni DESC;
+```
+
+In CSV, sostituendo `<la query>` con quella sopra:
+
+```bash
+docker exec -i umami-db psql -U umami -d umami \
+  -c "\copy (<la query>) TO STDOUT WITH CSV HEADER" > funnel.csv
+```
+
+**Come si legge, e cosa non dice.**
+
+- Conta le sessioni che hanno toccato la pagina **e** `/register`, in
+  qualsiasi ordine: non è attribuzione sull'entry page, quindi la home
+  assorbe credito da sessioni partite altrove. Uno **zero** invece è
+  inequivocabile: nessuna sessione ha mai fatto entrambe le cose.
+- Umami è cookieless, quindi misura la conversione **nella stessa sessione**.
+  Chi legge oggi e si iscrive fra due settimane è invisibile per costruzione.
+- L'ultimo passo è una pageview di `/register`, **non** un'iscrizione: chi
+  apre il form e rinuncia conta lo stesso. Di nuovo `REVIEW.md` #109.
+- I numeri sono piccoli: il segnale è la direzione, non la seconda cifra.
+
+Esito della prima esecuzione (2026-09-17, 120 giorni) in `REVIEW.md` #109 —
+vale come baseline per il confronto successivo.

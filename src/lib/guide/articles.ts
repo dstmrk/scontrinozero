@@ -1395,7 +1395,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     relatedHelp: ["primo-scontrino", "annullare-scontrino", "errori-ade"],
     relatedGuides: [
       "obbligo-scontrino-elettronico-2026",
-      "chiusura-giornaliera-corrispettivi",
+      "scontrino-senza-registratore-di-cassa",
       "annullare-scontrino-elettronico",
     ],
   },

@@ -887,6 +887,64 @@ guardando un solo artefatto (regola 5). Va affettato per conto suo.
 GSC con impressioni proprie, oppure si decide che il cluster non vale
 l'intervento e la voce si chiude come rischio accettato.
 
+### 109. Il traffico di contenuto non converte, e non possiamo misurarlo bene
+
+- **Categoria:** prodotto/acquisizione · **Severità:** Medium — nessun impatto funzionale, ma orienta male ogni decisione SEO finché resta aperta
+- **File:** `src/lib/umami.ts` (`UMAMI_EVENTS`), `src/server/auth-actions.ts` (`signUp`, redirect anti-enumeration), `deploy/umami/README.md` (query e caveat)
+
+**Il dato.** Funnel Umami del 2026-09-17, 120 giorni, sessioni che hanno
+toccato una pagina e poi `/register` (query e limiti nel runbook Umami):
+
+| Pagina                                           | sessioni | a `/register` |    tasso |
+| ------------------------------------------------ | -------: | ------------: | -------: |
+| `/guide/sanzioni-mancato-scontrino`              |      267 |             0 |   **0%** |
+| `/`                                              |      247 |            40 |    16,2% |
+| `/guide/codici-natura-iva`                       |      104 |             0 |       0% |
+| `/guide/cassetto-fiscale-dove-trovare-scontrini` |       75 |             0 |       0% |
+| `/guide/scontrino-senza-registratore-di-cassa`   |       48 |             4 | **8,3%** |
+| `/help/api` (+ ancora)                           |       16 |             4 |      25% |
+
+525 sessioni, il 37% del totale, su pagine a conversione zero.
+
+La pagina più visitata del sito converte zero, e non è rumore: se il tasso
+reale fosse il 2%, la probabilità di osservare zero su 267 sessioni sarebbe
+dello 0,45%; all'1,5% è dell'1,8%.
+
+**La lettura.** Convertono le pagine a intento **commerciale o di prodotto**
+— chi cerca un'alternativa al registratore di cassa sta comprando, chi guarda
+le API sta valutando l'integrazione. Non convertono le pagine **normative**:
+chi ha preso una multa vuole sapere quanto paga, non comprare una cassa. Non
+è una coda informazionale che converte più avanti, è un pubblico diverso.
+
+**Perché non basta aggiungere un evento `registration_completed`.** Umami è
+client-side e l'unico segnale disponibile al client dopo il submit è
+l'approdo a `/verify-email`. Ma quel redirect è il finale di molti flussi:
+signUp reale, email già registrata (anti-enumeration, `auth-actions.ts`), e
+il re-invio della conferma. Il client **non può** distinguerli, e non per una
+svista: dirglielo sarebbe la user-enumeration che quel disegno esiste per
+impedire. Un evento sparato lì conterebbe re-invii come iscrizioni.
+
+Il server invece sa benissimo chi si è registrato; quello che non sa è **da
+quale pagina arrivava**. Colmare quel buco vuol dire trasportare la pagina di
+atterraggio fino al signup, cioè storage lato client — e il progetto è
+cookieless by design, con la cookie policy `/cookie-policy` che ci si appoggia
+per non chiedere consenso. Non è una scelta tecnica, è una scelta legale: da
+valutare con chi di dovere prima di scrivere codice.
+
+**Fix (non ambiguo), in ordine di costo.**
+
+1. Niente evento client su `/verify-email`: conterebbe il falso. Chiuso.
+2. Se serve attribuzione vera, la strada praticabile è server-side con la
+   sorgente passata esplicitamente (il campo `ref` di `signUp` esiste già e
+   `normalizeSignupSource` lo normalizza): estenderlo alle CTA delle pagine
+   di contenuto è a costo zero di storage e non tocca la cookie policy.
+3. Fino ad allora la misura resta quella del runbook, con i suoi limiti
+   dichiarati: pageview di `/register`, stessa sessione, niente entry page.
+
+**Trigger di chiusura.** Quando esiste una misura di registrazione
+attribuibile alla pagina di atterraggio senza rompere la proprietà cookieless,
+questa voce si chiude e la baseline qui sopra diventa il termine di paragone.
+
 ### 50. CIE checkpush: rilevamento approvazione "any-change" fragile (falso timeout / falso proceed)
 
 - **Categoria:** correttezza/robustezza · **Severità:** Low — dichiarato "da validare su AdE reale" nella PR #695, va chiuso col primo rollout

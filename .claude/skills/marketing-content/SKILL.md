@@ -386,6 +386,46 @@ verticali di settore, pagina stampanti, credenziali via SPID. Decisione presa:
 `/confronto` (`src/lib/confronto/comparisons.ts`), da aggiornare
 trimestralmente perché i pricing dei competitor cambiano.
 
+## Il traffico non è un asset finché non sai se converte
+
+Tutto quello che sta sopra ottimizza **posizione e citabilità**. Nessuna riga
+dice se quel traffico porta iscritti, e la differenza non è accademica: al
+funnel Umami del 2026-09-17 il 37% delle sessioni del sito stava su pagine a
+conversione **zero**.
+
+| Pagina                                           | sessioni | a `/register` |
+| ------------------------------------------------ | -------: | ------------: |
+| `/guide/sanzioni-mancato-scontrino`              |      267 |    **0 (0%)** |
+| `/guide/codici-natura-iva`                       |      104 |        0 (0%) |
+| `/guide/cassetto-fiscale-dove-trovare-scontrini` |       75 |        0 (0%) |
+| `/guide/scontrino-senza-registratore-di-cassa`   |       48 |  **4 (8,3%)** |
+| `/help/api` (+ ancora)                           |       16 |       4 (25%) |
+
+La pagina più visitata del sito converte zero, e non è rumore: con un tasso
+reale del 2% la probabilità di osservare zero su 267 sessioni è dello 0,45%.
+Dati e limiti in `REVIEW.md` #109, query ripetibile in
+`deploy/umami/README.md`.
+
+**La regola che ne esce.** Le pagine si dividono per **intento d'acquisto**,
+non per argomento:
+
+- **Normative** (sanzioni, codici natura IVA, scadenze, dove trovare un
+  documento): rankano bene, portano volume, convertono ~0%. Chi ha preso una
+  multa vuole sapere quanto paga, non comprare una cassa.
+- **Commerciali e di prodotto** (alternative al registratore, API, primo
+  scontrino, home): meno volume, conversione fra l'8% e il 25%.
+
+Non è una coda informazionale che converte più avanti — è **un pubblico
+diverso**. Il contenuto normativo resta utile per autorità di dominio e
+citabilità AI, ma non va contato come leva di acquisizione né usato per
+giustificare priorità.
+
+**Prima di dichiarare una pagina "l'asset del sito"** perché ha traffico o
+posizione, guarda la sua riga nel funnel. Vale anche al contrario: una pagina
+a posizione 22 che converte all'8% merita più lavoro di una a posizione 5 che
+converte a zero. Su questo repo la conclusione si è ribaltata esattamente
+così, dopo tre giri di analisi fatti sulla sola Search Console.
+
 ## Produzione contenuti
 
 Contenuti generati via LLM con **review umana**, in italiano, target Italia.
