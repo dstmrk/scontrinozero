@@ -36,7 +36,7 @@ import {
   classifyAdeLoginFailure,
   type RecordedVerifyOutcome,
 } from "@/lib/ade/verify-outcome";
-import type { AdeLoginMethod } from "@/lib/ade/types";
+import type { AdeLoginMethod, AdeUtenzaCandidate } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -103,7 +103,7 @@ export type OnboardingActionResult = {
    * picker. La `denominazione` c'è solo per le P.IVA **dirette**: il portale
    * non la espone per gli incarichi, dove resta il solo numero.
    */
-  utenzaChoices?: { piva: string; denominazione?: string }[];
+  utenzaChoices?: AdeUtenzaCandidate[];
 };
 
 const changePasswordLimiter = new RateLimiter({

@@ -203,25 +203,42 @@ opposti" nella skill `ade-integration`.
 
 ## P3 — Bassa priorità
 
-### 102. `cassa-client.tsx` è escluso dalla coverage ma ora ha dei test
+### 102. Orchestratori UI esclusi dalla coverage che ormai hanno dei test
 
 - **Categoria:** tech debt · **Severità:** Low — nessun rischio in produzione, solo misura mancante
-- **File:** `vitest.config.ts`, `sonar-project.properties`, `src/components/cassa/cassa-client.test.tsx`
+- **File:** `vitest.config.ts`, `sonar-project.properties`, `src/components/cassa/cassa-client.test.tsx`, `src/app/onboarding/onboarding-form.test.tsx`
 
-Il file è elencato fra le esclusioni di coverage in entrambi i config con la
-motivazione "UI orchestrator — pure render + setState, no testable logic". Da
-`src/components/cassa/cassa-client.test.tsx` quella motivazione non è più
-interamente vera: il gating fra `canAdd`, il link sconto e il CTA "Aggiungi" è
-logica, ed è testata.
+Due file sono elencati fra le esclusioni di coverage in entrambi i config con la
+motivazione "UI orchestrator / pure UI shells, no testable logic". Per entrambi
+la motivazione non è più vera:
 
-L'esclusione è rimasta di proposito. Toglierla significa pretendere l'80% di
-coverage on new code su un orchestratore di ~600 righe che oggi ne ha misurate
-zero: è un lavoro suo, non la coda di un fix di layout.
+- **`cassa-client.tsx`** — il gating fra `canAdd`, il link sconto e il CTA
+  "Aggiungi" è logica, ed è testata in `cassa-client.test.tsx`.
+- **`onboarding-form.tsx`** — l'orchestrazione della verifica AdE (picker delle
+  utenze, reset dell'esito, redirect) è logica, ed è testata in
+  `onboarding-form.test.tsx`. Misurato togliendo l'esclusione: 52,6% di righe,
+  il resto sono i tre submit degli step 0/1.
 
-Quando lo si affronta, la sequenza che costa meno è: coprire prima i tre step
-(`cart`, `add-item`, `summary`) col mock di `useMutation` già scritto nel file
-di test, poi togliere il path dalle due liste nello stesso PR — mai prima, o il
-quality gate diventa rosso su una PR che non c'entra.
+L'esclusione è rimasta di proposito in entrambi i casi. Toglierla significa
+pretendere l'80% di coverage on new code su orchestratori che oggi hanno zero
+righe misurate: è un lavoro suo, non la coda di un altro fix. Misurato sul
+secondo: rimuoverlo e basta porta la coverage globale da 96,54% a 96,10% di
+statement.
+
+**Costo di tenerle.** Nessuna metrica ha visto che `onboarding-form.tsx`
+riceveva `utenzaChoices` e lo scartava per tre release (#106 slice 7). Onestà
+sul perché: nemmeno il 100% di coverage l'avrebbe visto — la coverage misura le
+righe eseguite, non le funzionalità mancanti, e quel buco era una riga **non
+scritta**. Quello che lo previene è il gate di contratto
+(`utenza-picker.contract.test.ts`), non la percentuale. L'esclusione resta
+tech debt di misura, non la causa.
+
+Quando si affrontano, la sequenza che costa meno è la stessa per entrambi:
+coprire prima gli step mancanti (per `cassa-client` i tre `cart`/`add-item`/
+`summary` col mock di `useMutation` già scritto nel file di test; per
+`onboarding-form` i submit di step 0 e 1 con react-hook-form + zod), poi
+togliere il path dalle due liste nello stesso PR — mai prima, o il quality gate
+diventa rosso su una PR che non c'entra.
 
 ### 100. DMARC su `.it`: alzare la policy da `p=none` dopo i report
 
@@ -623,9 +640,12 @@ login dalla lista, così un incarico revocato lo scopre il login stesso
 (`AdeUtenzaNotAvailableError`).
 
 **Slice 3 rilasciata.** Colonna `ade_credentials.utenza_piva` (migrazione 0037,
-nullable: NULL = "me stesso"), picker in `ade-credentials-section` — lo stesso
-componente serve onboarding e impostazioni, quindi la condizione è sullo stato
-(`fiscal_code IS NULL`) e non sulla pagina. `verifyAdeCredentials(businessId,
+nullable: NULL = "me stesso"), picker in `ade-credentials-section`. La spec
+diceva «lo stesso componente serve onboarding e impostazioni, quindi la
+condizione è sullo stato (`fiscal_code IS NULL`) e non sulla pagina»: **era
+falso**. `AdeCredentialsSection` è montata solo in `/dashboard/settings`;
+l'onboarding ha il proprio wizard (`src/app/onboarding/onboarding-form.tsx`).
+Vedi slice 4. `verifyAdeCredentials(businessId,
 utenzaPiva?)` persiste la scelta **prima** del login, perché è un input della
 procedura, e rifiuta la riscrittura su un business già onboardato: lasciarla
 mutabile punterebbe i re-auth silenziosi a un'altra società, e l'esercente se ne
@@ -784,6 +804,31 @@ almeno quattro in un giorno. Il dataset campiona e scarta: qualunque conteggio
 basato su di esso è inaffidabile. La query deterministica è sul DB —
 `ade_credentials` con `verified_at IS NULL` join `businesses` con `fiscal_code
 IS NULL` — che elenca chi è fermo a metà onboarding qualunque sia la causa.
+
+**Slice 7 rilasciata — il picker non era mai arrivato in onboarding.** La slice
+3 dichiarava «lo stesso componente serve onboarding e impostazioni»: non era
+vero, e nessuno l'ha verificato. `AdeCredentialsSection` è montata solo in
+`/dashboard/settings`; l'onboarding ha il proprio wizard, che chiamava
+`verifyAdeCredentials(id)` senza il secondo argomento e **scartava**
+`result.utenzaChoices`. Per tre release chi arrivava lì con un'utenza incaricata
+leggeva «conferma qui sotto la partita IVA su cui vuoi operare» con niente
+sotto: vicolo cieco, e l'onboarding è l'unica superficie che un esercente nuovo
+attraversa.
+
+Segnalato dal secondo esercente bloccato (17/09/2026, zero P.IVA dirette più un
+incarico): tre tentativi, `last_verify_outcome = utenza_selection_required`,
+`utenza_piva` mai scritta, e una mail all'assistenza convinta che le credenziali
+fossero sbagliate — cioè l'esatto contrario di quello che il DB registrava.
+
+Il picker vive ora in `src/components/ade/utenza-picker.tsx` e lo montano
+entrambe le superfici. Il gate che sostituisce la prosa (regola 7):
+`src/components/ade/utenza-picker.contract.test.ts` enumera i file che importano
+`verifyAdeCredentials` e pretende che ognuno monti il picker e legga
+`utenzaChoices`. Le esenzioni sono esplicite e motivate — oggi solo
+`cie-reauth-banner.tsx`, che parte da business già onboardati dove il ramo
+`wasAlreadyOnboarded` non offre scelte per costruzione — e un'esenzione che
+smette di corrispondere a un chiamante reale fa fallire la suite. Il gate ha
+trovato quel terzo chiamante da solo, alla prima esecuzione.
 
 ### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
 
