@@ -1,4 +1,5 @@
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeNoPartitaIvaError,
   AdePasswordExpiredError,
@@ -28,6 +29,10 @@ import { isTransientAdeError } from "./error-messages";
  * Mappa ramo d'uscita -> valore:
  *  - `success`                    verifica completata, `verified_at` scritto.
  *  - `auth_error`                 AdeAuthError: credenziali rifiutate.
+ *  - `account_locked`             AdeAccountLockedError: utenza bloccata
+ *                                 dall'AdE. Separato da `auth_error` perche'
+ *                                 il rimedio e' opposto — le credenziali sono
+ *                                 giuste e riscriverle non sblocca niente.
  *  - `password_expired`           AdePasswordExpiredError.
  *  - `utenza_selection_required`  picker mostrato: si è fermato DAVANTI
  *                                 alla scelta, non davanti a un errore.
@@ -55,6 +60,7 @@ import { isTransientAdeError } from "./error-messages";
 export const RECORDED_VERIFY_OUTCOMES = [
   "success",
   "auth_error",
+  "account_locked",
   "password_expired",
   "utenza_selection_required",
   "utenza_not_available",
@@ -86,6 +92,7 @@ export type RecordedVerifyOutcome = (typeof RECORDED_VERIFY_OUTCOMES)[number];
  */
 export function classifyAdeLoginFailure(err: unknown): RecordedVerifyOutcome {
   if (err instanceof AdePasswordExpiredError) return "password_expired";
+  if (err instanceof AdeAccountLockedError) return "account_locked";
   if (err instanceof AdeAuthError) return "auth_error";
   if (err instanceof AdeUtenzaSelectionRequiredError)
     return "utenza_selection_required";

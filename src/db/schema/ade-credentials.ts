@@ -47,8 +47,9 @@ export const adeCredentials = pgTable("ade_credentials", {
   utenzaPiva: text("utenza_piva"),
   /**
    * Esito dell'ultimo tentativo di verifica, da vocabolario chiuso (CHECK
-   * della migrazione 0038, elenco in `RECORDED_VERIFY_OUTCOMES` in
-   * `src/server/onboarding-actions.ts`). Mai il messaggio d'errore: serve a
+   * della migrazione 0038, esteso dalla 0041; elenco in
+   * `RECORDED_VERIFY_OUTCOMES` in
+   * `src/lib/ade/verify-outcome.ts`). Mai il messaggio d'errore: serve a
    * raggruppare, non a leggere (REVIEW.md #107).
    *
    * NULL = mai tentato, per le righe create dalla 0038 in poi;

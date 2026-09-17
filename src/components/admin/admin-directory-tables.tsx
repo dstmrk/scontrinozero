@@ -87,6 +87,7 @@ const HEADINGS = {
 const OUTCOME_LABELS: Record<RecordedVerifyOutcome, string> = {
   success: "Verificato",
   auth_error: "Credenziali rifiutate",
+  account_locked: "Utenza AdE bloccata",
   password_expired: "Password scaduta",
   utenza_selection_required: "Fermo sulla scelta P.IVA",
   utenza_not_available: "Utenza non più disponibile",

@@ -25,6 +25,7 @@ import type {
 } from "./types";
 import { CookieJar } from "./cookie-jar";
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeError,
   AdeNetworkError,
@@ -577,10 +578,18 @@ export class RealAdeClient implements AdeClient {
         throw new AdePasswordExpiredError();
       }
 
+      // Utenza bloccata: credenziali giuste, rimedio opposto a quello che il
+      // messaggio di AdeAuthError suggerisce. Niente CF nel log — qui basta
+      // sapere che è successo, e il CF è PII (regola 22).
+      if (details === "ACCOUNT_LOCKED") {
+        logger.warn({ phase: "A" }, "ade:account_locked");
+        throw new AdeAccountLockedError();
+      }
+
+      // `details` resta nel log: è l'unico posto da cui si scopre un valore
+      // AdE che non conosciamo ancora e che meriterebbe la sua classe.
       logger.warn({ phase: "A", details }, "ade:auth_failed");
-      throw new AdeAuthError(
-        "Login failed: invalid credentials or account locked",
-      );
+      throw new AdeAuthError("Login failed: invalid credentials");
     }
   }
 

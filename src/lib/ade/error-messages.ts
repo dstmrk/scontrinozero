@@ -1,4 +1,5 @@
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeNetworkError,
   AdeNoPartitaIvaError,
@@ -33,15 +34,34 @@ export type UserFacingAdeError = {
  * password e PIN" (campi che non ha mai inserito). Omesso o `"fisconline"` →
  * i messaggi Fisconline storici, così i call-site emit/void restano invariati.
  */
-export function getUserFacingAdeErrorMessage(
+/**
+ * I tre modi in cui il **login** non passa: password scaduta, utenza bloccata,
+ * credenziali rifiutate. Ritorna `null` quando l'errore non è di questa
+ * famiglia, così il chiamante prosegue con i casi post-login.
+ *
+ * Stanno insieme perché sono la stessa domanda per chi legge — "perché non mi
+ * fa entrare?" — con tre risposte che mandano l'esercente in tre posti diversi.
+ * Estratti anche per tenere `getUserFacingAdeErrorMessage` sotto la soglia
+ * S3776 di Cognitive Complexity: l'aggiunta di `AdeAccountLockedError` l'aveva
+ * portata a 16.
+ */
+function getLoginFailureMessage(
   err: unknown,
-  fallback: string,
   method?: AdeLoginMethod,
-): UserFacingAdeError {
+): UserFacingAdeError | null {
   if (err instanceof AdePasswordExpiredError) {
     return {
       message: "La password Fisconline è scaduta.",
       passwordExpired: true,
+    };
+  }
+  if (err instanceof AdeAccountLockedError) {
+    // Non method-aware, a differenza di AdeAuthError: il blocco sta
+    // sull'utenza, non sui campi che sono stati digitati. E soprattutto non
+    // dice "verifica le credenziali" — sono giuste, ed è riscrivendole che
+    // l'esercente perde tempo (e a volte prolunga il blocco).
+    return {
+      message: `La tua utenza dell'Agenzia delle Entrate risulta bloccata. Non dipende dai dati che hai inserito: sono corretti. Per sbloccarla entra nel portale dell'Agenzia delle Entrate, oppure scrivici a ${CONTACT_EMAIL}.`,
     };
   }
   if (err instanceof AdeAuthError) {
@@ -52,6 +72,17 @@ export function getUserFacingAdeErrorMessage(
           : "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
     };
   }
+  return null;
+}
+
+export function getUserFacingAdeErrorMessage(
+  err: unknown,
+  fallback: string,
+  method?: AdeLoginMethod,
+): UserFacingAdeError {
+  const loginFailure = getLoginFailureMessage(err, method);
+  if (loginFailure) return loginFailure;
+
   if (err instanceof AdeNoPartitaIvaError) {
     // SCONTRINOZERO-13: il login è riuscito, la P.IVA no. Il messaggio storico
     // ("Verifica fallita. Controlla le credenziali") mandava l'utente a
@@ -153,6 +184,9 @@ export function isTransientAdeError(err: unknown): boolean {
 export function isExpectedUserAdeError(err: unknown): boolean {
   if (err instanceof AdeAuthError) return true;
   if (err instanceof AdePasswordExpiredError) return true;
+  // Utenza bloccata: deterministica (nessun retry la sblocca) e risolvibile
+  // solo sul portale AdE. Come le altre, warn e non issue Sentry.
+  if (err instanceof AdeAccountLockedError) return true;
   // SCONTRINOZERO-13: utenza AdE senza partita IVA. Il login è andato a buon
   // fine, quindi non è un guasto nostro né del portale; è deterministico
   // (nessun retry produce una P.IVA che non esiste) e si corregge solo

@@ -40,6 +40,31 @@ export class AdePasswordExpiredError extends AdeError {
   }
 }
 
+/**
+ * Utenza Fisconline **bloccata** dall'Agenzia delle Entrate.
+ *
+ * HAR/produzione (17/09/2026): `POST /api/login/telematico` risponde `401` con
+ * `{"details":"ACCOUNT_LOCKED"}`. Distinto da credenziali sbagliate
+ * (`INVALID_CREDENTIALS`) e da password scaduta (`PASSWORD_EXPIRED`).
+ *
+ * Perché una classe dedicata e non un `AdeAuthError`: il rimedio è opposto.
+ * Con credenziali sbagliate si ricontrollano CF, password e PIN; con l'utenza
+ * bloccata quei campi sono **giusti** e riscriverli non sblocca niente — anzi,
+ * ogni tentativo in più può prolungare il blocco. Il primo esercente che ci è
+ * finito dentro ha letto "Credenziali Fisconline non valide. Verifica codice
+ * fiscale, password e PIN", le ha riscritte tre volte e ha scritto
+ * all'assistenza dicendo che i dati erano corretti. Lo erano.
+ *
+ * Stessa famiglia di `AdeNoPartitaIvaError` (SCONTRINOZERO-13): incolpare le
+ * credenziali per qualcosa che non sono le credenziali.
+ */
+export class AdeAccountLockedError extends AdeError {
+  constructor() {
+    super("ADE_ACCOUNT_LOCKED", "Utenza Fisconline bloccata");
+    this.name = "AdeAccountLockedError";
+  }
+}
+
 /** Session expired, re-auth was attempted and also failed. */
 export class AdeSessionExpiredError extends AdeError {
   constructor() {
