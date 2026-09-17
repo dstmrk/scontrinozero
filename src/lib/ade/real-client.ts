@@ -713,7 +713,19 @@ export class RealAdeClient implements AdeClient {
     const direct = parseDirectPive(data);
     const incarichi = parseIncarichi(data);
 
-    if (direct.length === 0) {
+    // Zero candidati in assoluto: né P.IVA proprie né incarichi. È l'unica
+    // forma ancora anomala — non c'è niente su cui questo accesso possa
+    // operare. Nel chiamante diventa `AdeNoPartitaIvaError` al primo
+    // collegamento, o `AdeUtenzaNotAvailableError` quando una scelta era già
+    // stata salvata: due errori, la stessa risposta vuota da diagnosticare.
+    //
+    // NON basta `direct.length === 0`: quando il warn è nato (REVIEW.md #32)
+    // quella condizione significava fallimento certo, ma da quando l'accesso
+    // incaricato è supportato è uno **stato normale**. Lasciandola larga, ogni
+    // login di ogni utenza incaricata produceva un warn su un flusso sano —
+    // misurato in produzione il 17/09/2026: undici eventi in un giorno, dieci
+    // dei quali da un esercente che stava emettendo scontrini.
+    if (direct.length === 0 && incarichi.length === 0) {
       // Diagnostica struttura-only (no PII): distingue "lista PIva vuota" da
       // "entry presente senza piva" da "shape cambiata". REVIEW.md #32: questo
       // throw è arrivato su un 200 senza alcun contesto sulla response.
@@ -724,7 +736,15 @@ export class RealAdeClient implements AdeClient {
           pIvaIsArray: Array.isArray(data?.PIva),
           pIvaLength: Array.isArray(data?.PIva) ? data.PIva.length : null,
           firstEntryKeys: objectKeysOrNull(data?.PIva?.[0]),
-          incarichiCount: incarichi.length,
+          // Quante entry di incarico il portale ha MANDATO, non quante ne
+          // abbiamo lette: sotto questo `if` le lette sono zero per
+          // costruzione, quindi il conteggio parsato sarebbe una costante.
+          // La differenza fra i due numeri e' l'unica cosa che distingue
+          // "questa utenza non ha incarichi" da "ne ha, e non sappiamo
+          // leggerli" — cioe' un problema dell'utente da un problema nostro.
+          incarichiRawCount: Array.isArray(data?.richiestaIncarichi?.incarichi)
+            ? data.richiestaIncarichi.incarichi.length
+            : null,
         },
         "ade:wizard_piva_missing",
       );

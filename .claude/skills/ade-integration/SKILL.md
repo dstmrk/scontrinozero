@@ -208,6 +208,20 @@ Classe dedicata `AdeNoPartitaIvaError`, ramo `ade_user_error` di
 status inventato per una response sana finisce nel ramo `ade_failure`, apre
 una issue Sentry per tentativo e non dice niente a nessuno.
 
+Il `warn` compagno, `ade:wizard_piva_missing`, scatta su
+`direct.length === 0 && incarichi.length === 0` — **entrambi**. La prima
+versione guardava solo le P.IVA dirette, ed era giusta finché "zero dirette"
+significava fallimento certo; da quando l'accesso incaricato è supportato è uno
+stato normale, e per tre release il log ha registrato utenze che emettevano
+scontrini senza problemi (undici eventi in un giorno, misurati il 17/09/2026).
+
+Lezione che vale oltre questo log: **una feature che rende normale una
+condizione di errore deve spostare anche il log che la sorvegliava.** Se non lo
+fai, la telemetria continua a suonare l'allarme per il caso che hai appena
+imparato a gestire, e smette di essere leggibile proprio quando ti serve. Il
+gate sono i due test in `real-client.test.ts` che pretendono il **silenzio** su
+un'utenza incaricata, con e senza scelta già fatta.
+
 Due lezioni di contorno che valgono oltre questo caso:
 
 - **Il messaggio d'errore decide quante volte l'utente riprova.** Con
