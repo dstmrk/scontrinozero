@@ -19,8 +19,30 @@ Approccio:
 - Il backend replica il flusso con chiamate HTTP dirette (fetch/axios)
 - **NO Playwright/headless browser** — troppo pesante per VPS limitata
   (~400MB RAM per Chromium). Solo HTTP leggero.
-- **Base legale:** Interpello AdE n. 956-1523/2020 — l'AdE non si oppone ai
-  "velocizzatori" purché rispettino le prescrizioni normative
+
+### Tre invarianti che l'integrazione non può rompere
+
+La risposta a interpello AdE **n. 413 del 25 settembre 2020** fissa le
+condizioni per i software che automatizzano la procedura web. Tradotte in
+vincoli di design, sono quelle che il codice già rispetta — e che una
+"ottimizzazione" futura romperebbe senza accorgersene:
+
+1. **Un solo adempimento contestuale.** Memorizzazione, emissione del
+   documento e trasmissione non sono separabili. Il documento nasce `PENDING`
+   e diventa valido **solo** con `adeTransactionId` + `adeProgressive`
+   restituiti dall'AdE: l'optimistic UI è presentazione, mai anticipo
+   dell'adempimento.
+2. **Nessun colloquio automatizzato con l'AdE fuori da una richiesta utente.**
+   La stale-recovery è **pull-based** — il suo unico ingresso è il ramo di
+   collisione sull'idempotency key, cioè un'azione dell'esercente in sessione
+   — e `src/lib/services/pending-verification.ts` **verifica senza
+   ri-sottomettere** (un "nessun match" porta a `ERROR` e all'invito a
+   riemettere, mai a un nuovo `submitSale`). Uno sweep in background in `src/instrumentation.ts` che
+   parli con l'AdE romperebbe questo invariante **e** il precedente: è il
+   motivo per cui non esiste, oltre al fatto che fuori da una richiesta utente
+   non c'è sessione AdE né chi sappia se la vendita è avvenuta davvero.
+3. **Nessuna alterazione** dei dati trasmessi né di quanto l'AdE genera in
+   risposta. Il progressivo e l'esito sono sempre quelli dell'Agenzia.
 
 ---
 

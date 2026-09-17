@@ -21,7 +21,7 @@ In Italia, chi effettua vendite al dettaglio è obbligato a memorizzare e trasme
 
 ## La soluzione
 
-ScontrinoZero sfrutta la procedura web "Documento Commerciale Online" messa a disposizione dall'Agenzia delle Entrate, automatizzandone l'utilizzo nel pieno rispetto della normativa vigente (cfr. [Interpello AdE n. 956-1523/2020](https://www.my-cassa.it/wp-content/uploads/Interpello_CassApp.pdf)).
+ScontrinoZero usa la procedura web "Documento Commerciale Online" dell'Agenzia delle Entrate, automatizzando i passaggi che l'esercente farebbe a mano sul portale. Memorizzazione, emissione e trasmissione restano un unico adempimento contestuale: lo scontrino esiste solo dopo la conferma dell'AdE e porta il progressivo assegnato da lei. Nessun archivio fiscale parallelo, nessuna alterazione dei dati inviati o ricevuti in risposta.
 
 ### Funzionalità principali
 

@@ -76,9 +76,11 @@ export default function SicurezzaCredenzialiPage() {
           sicuro per poterle usare al momento dell&apos;invio.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Questa pratica è esplicitamente contemplata dall&apos;Interpello AdE
-          n. 956-1523/2020, che ammette i &quot;velocizzatori&quot; di processo
-          nel rispetto della normativa.
+          Le credenziali restano cifrate e vengono usate solo per le operazioni
+          che avvii tu: emettere uno scontrino, annullarlo, consultare i tuoi
+          documenti sul portale. Non vengono condivise con terzi e nessun
+          processo automatico le usa a tua insaputa — ogni collegamento
+          all&apos;Agenzia parte da una tua azione nell&apos;app.
         </p>
 
         {/* ─── Come sono cifrate ─── */}
