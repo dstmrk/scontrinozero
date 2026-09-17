@@ -6,9 +6,11 @@ import type { AdminDocumentKpis, AdminUserKpis } from "@/server/admin-metrics";
 const USER_KPIS: AdminUserKpis = {
   usersTotal: 1234,
   usersInRange: 12,
-  usersSparkline: [{ date: "2026-08-26", value: 12 }],
-  trialsActive: 7,
-  trialConversionRate: 0.2537,
+  usersSparkline: [
+    { date: "2026-08-25", value: 5 },
+    { date: "2026-08-26", value: 7 },
+  ],
+  trialsOnboarded: 9,
 };
 
 const DOCUMENT_KPIS: AdminDocumentKpis = {
@@ -18,7 +20,8 @@ const DOCUMENT_KPIS: AdminDocumentKpis = {
   revenueCentsTotal: 123456789,
   revenueCentsInRange: 4567800,
   revenueSparkline: [{ date: "2026-08-26", value: 4567800 }],
-  voidedInRange: 3,
+  fisconlineUsers: 40,
+  cieUsers: 12,
 };
 
 describe("AdminUserKpiCards", () => {
@@ -29,32 +32,35 @@ describe("AdminUserKpiCards", () => {
     expect(screen.getByText(/1\.?234 in totale/)).toBeInTheDocument();
   });
 
-  it("arrotonda la conversione trial a una cifra decimale percentuale", () => {
-    render(<AdminUserKpiCards kpis={USER_KPIS} />);
-
-    expect(screen.getByText("25,4%")).toBeInTheDocument();
-  });
-
-  it("mostra 0% quando nessun trial è ancora partito", () => {
-    render(
-      <AdminUserKpiCards kpis={{ ...USER_KPIS, trialConversionRate: 0 }} />,
-    );
-
-    expect(screen.getByText("0,0%")).toBeInTheDocument();
-  });
-
-  it("mostra i trial attivi", () => {
-    render(<AdminUserKpiCards kpis={USER_KPIS} />);
-
-    expect(screen.getByText("7")).toBeInTheDocument();
-  });
-
-  it("etichetta la sparkline con la metrica che rappresenta", () => {
+  it("mostra i trial attivi che hanno completato l'onboarding", () => {
     render(<AdminUserKpiCards kpis={USER_KPIS} />);
 
     expect(
-      screen.getByLabelText(/andamento nuovi utenti/i),
+      screen.getByText("Trial: onboarding completato"),
     ).toBeInTheDocument();
+    expect(screen.getByText("9")).toBeInTheDocument();
+  });
+
+  it("etichetta la sparkline come cumulata", () => {
+    render(<AdminUserKpiCards kpis={USER_KPIS} />);
+
+    expect(
+      screen.getByLabelText(/andamento cumulato nuovi utenti/i),
+    ).toBeInTheDocument();
+  });
+
+  it("cumula i punti della sparkline invece di mostrare il valore giornaliero", () => {
+    // Il secondo giorno (7 nuovi utenti) deve leggersi come 5 + 7 = 12, non 7.
+    render(<AdminUserKpiCards kpis={USER_KPIS} />);
+
+    const svg = screen.getByLabelText(/andamento cumulato nuovi utenti/i);
+    const polyline = svg.querySelector("polyline");
+    const points = polyline?.getAttribute("points")?.split(" ") ?? [];
+    const lastY = Number(points.at(-1)?.split(",")[1]);
+    const firstY = Number(points.at(0)?.split(",")[1]);
+    // Coordinate y più piccole = valori più alti (asse SVG capovolto): il
+    // punto cumulato finale (12) deve stare più in alto del primo (5).
+    expect(lastY).toBeLessThan(firstY);
   });
 
   it("non rende nessuna card degli scontrini", () => {
@@ -82,10 +88,11 @@ describe("AdminDocumentKpiCards", () => {
     expect(screen.getByText(/45\.?678,00/)).toBeInTheDocument();
   });
 
-  it("mostra gli annullati del periodo", () => {
+  it("mostra fisconline e CIE fianco a fianco", () => {
     render(<AdminDocumentKpiCards kpis={DOCUMENT_KPIS} />);
 
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("Fisconline vs CIE")).toBeInTheDocument();
+    expect(screen.getByText("40 / 12")).toBeInTheDocument();
   });
 
   it("etichetta ogni sparkline con la metrica che rappresenta", () => {
@@ -99,12 +106,14 @@ describe("AdminDocumentKpiCards", () => {
     render(<AdminDocumentKpiCards kpis={DOCUMENT_KPIS} />);
 
     expect(screen.queryByText("Nuovi utenti")).not.toBeInTheDocument();
-    expect(screen.queryByText("Trial attivi")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Trial: onboarding completato"),
+    ).not.toBeInTheDocument();
   });
 });
 
 describe("le due metà insieme", () => {
-  it("compongono le sei card del pannello senza sovrapporsi", () => {
+  it("compongono le cinque card del pannello senza sovrapporsi", () => {
     render(
       <>
         <AdminUserKpiCards kpis={USER_KPIS} />
@@ -114,11 +123,10 @@ describe("le due metà insieme", () => {
 
     for (const title of [
       "Nuovi utenti",
-      "Trial attivi",
-      "Conversione trial",
+      "Trial: onboarding completato",
       "Scontrini",
       "Incasso",
-      "Annullati",
+      "Fisconline vs CIE",
     ]) {
       expect(screen.getByText(title)).toBeInTheDocument();
     }

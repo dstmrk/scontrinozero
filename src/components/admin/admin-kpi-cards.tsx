@@ -1,41 +1,60 @@
 import { KpiCard } from "@/components/kpi-card";
 import { formatCurrency } from "@/lib/utils";
-import type { AdminDocumentKpis, AdminUserKpis } from "@/server/admin-metrics";
+import type {
+  AdminDocumentKpis,
+  AdminSparklinePoint,
+  AdminUserKpis,
+} from "@/server/admin-metrics";
 import { AdminSparkline } from "./admin-sparkline";
 
 // Module-scope: costruire un Intl.NumberFormat è costoso e le opzioni sono
 // costanti (stesso motivo di `src/components/analytics/kpi-cards.tsx`).
 const countFormatter = new Intl.NumberFormat("it-IT");
-const percentFormatter = new Intl.NumberFormat("it-IT", {
-  style: "percent",
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 /**
- * Le sei card del pannello operatore, in **due gruppi da tre**.
+ * Le cinque card del pannello operatore, in **due gruppi**: due utenti, tre
+ * scontrini.
  *
- * Il taglio segue la query che le alimenta, non l'estetica: le tre card utenti
- * vengono da `profiles`, le tre scontrini da `commercial_documents`. Ognuno dei
- * due gruppi sta dietro al proprio boundary Suspense, così le card utenti
- * compaiono senza aspettare la scansione dello storico scontrini.
+ * Il taglio segue la query che le alimenta, non l'estetica: le card utenti
+ * vengono da `profiles`, quelle scontrini da `commercial_documents` (più
+ * `ade_credentials` per il conteggio dei metodi di accesso). Ognuno dei due
+ * gruppi sta dietro al proprio boundary Suspense, così le card utenti
+ * compaiono senza aspettare la scansione dello storico scontrini. Il funnel
+ * trial per periodo, che affianca queste card nella stessa griglia, ha una
+ * sua lettura e un suo componente a parte (`AdminTrialFunnelCard`): tocca
+ * `commercial_documents` come le card scontrini, e bloccarlo dietro lo stesso
+ * boundary delle card utenti le farebbe aspettare la stessa scansione che
+ * questo taglio vuole evitare.
  *
  * Entrambi rendono un **frammento**, non un contenitore: la griglia è della
  * pagina, e `<Suspense>` non produce un nodo DOM, quindi le card restano figlie
  * dirette della griglia sia da skeleton sia da contenuto.
  *
- * L'ordine visivo è cambiato con la separazione — prima le card si alternavano
- * (utenti, scontrini, incasso, trial…), ora ogni riga è un tema solo. È un
- * effetto del taglio, ma anche una riga che si legge meglio.
- *
- * Ogni card del periodo porta il totale storico come footnote: sono le due
- * domande che si fanno insieme ("quanti nuovi utenti questo mese" / "quanti in
- * tutto") e separarle in due griglie raddoppiava le card senza aggiungere
- * informazione.
+ * La card del periodo (Nuovi utenti, Scontrini, Incasso) porta il totale
+ * storico come footnote: sono le due domande che si fanno insieme ("quanti
+ * nuovi utenti questo mese" / "quanti in tutto") e separarle in due griglie
+ * raddoppiava le card senza aggiungere informazione.
  */
 
 interface AdminUserKpiCardsProps {
   readonly kpis: AdminUserKpis;
+}
+
+/**
+ * Somma cumulata dei punti di una sparkline: il primo punto di `points`
+ * diventa la base (0 + il suo valore), ogni punto successivo aggiunge il
+ * proprio delta. Una sparkline di "nuovi utenti al giorno" letta così mostra
+ * la curva di crescita del periodo, non l'oscillazione giorno per giorno —
+ * che con un asse fiscale pieno di zeri (weekend, notti) è quasi illeggibile.
+ */
+function cumulative(
+  points: readonly AdminSparklinePoint[],
+): AdminSparklinePoint[] {
+  let running = 0;
+  return points.map((point) => {
+    running += point.value;
+    return { date: point.date, value: running };
+  });
 }
 
 export function AdminUserKpiCards({ kpis }: AdminUserKpiCardsProps) {
@@ -47,19 +66,14 @@ export function AdminUserKpiCards({ kpis }: AdminUserKpiCardsProps) {
         footnote={`${countFormatter.format(kpis.usersTotal)} in totale`}
       >
         <AdminSparkline
-          points={kpis.usersSparkline}
-          label="Andamento nuovi utenti"
+          points={cumulative(kpis.usersSparkline)}
+          label="Andamento cumulato nuovi utenti"
         />
       </KpiCard>
       <KpiCard
-        title="Trial attivi"
-        value={countFormatter.format(kpis.trialsActive)}
-        footnote="Bonus referral incluso"
-      />
-      <KpiCard
-        title="Conversione trial"
-        value={percentFormatter.format(kpis.trialConversionRate)}
-        footnote="Trial partiti negli ultimi 90 giorni"
+        title="Trial: onboarding completato"
+        value={countFormatter.format(kpis.trialsOnboarded)}
+        footnote="Trial ancora attivi, credenziali AdE verificate"
       />
     </>
   );
@@ -93,9 +107,9 @@ export function AdminDocumentKpiCards({ kpis }: AdminDocumentKpiCardsProps) {
         />
       </KpiCard>
       <KpiCard
-        title="Annullati"
-        value={countFormatter.format(kpis.voidedInRange)}
-        footnote="Scontrini annullati nel periodo"
+        title="Fisconline vs CIE"
+        value={`${countFormatter.format(kpis.fisconlineUsers)} / ${countFormatter.format(kpis.cieUsers)}`}
+        footnote="Business con credenziali AdE salvate, per metodo di accesso"
       />
     </>
   );

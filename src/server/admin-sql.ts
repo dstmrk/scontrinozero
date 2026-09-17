@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import { type DrizzleTx, withStatementTimeout } from "@/lib/db-timeout";
+import { TRIAL_DAYS } from "@/lib/plans";
 import { type AnalyticsRange, rangeToBounds } from "./analytics-helpers";
 
 /**
@@ -70,6 +71,58 @@ export function adminRangeParams(range: AnalyticsRange, reference: Date) {
     rangeEnd: sql`${to.toISOString()}::timestamptz`,
   };
 }
+
+/**
+ * Scadenza trial come la calcola l'app: `trial_started_at` traslato in avanti
+ * dei giorni bonus referral, più `TRIAL_DAYS`. Assume le righe `profiles`
+ * aliasate `p`.
+ *
+ * Gemello SQL di `trialStartWithReferralBonus` + `isTrialExpired`
+ * (`src/lib/plans-shared.ts`). Un `trial_started_at + 30 days` secco
+ * mostrerebbe come scaduta la prova di chiunque avesse un bonus referral,
+ * mentre l'app gliela tiene aperta.
+ *
+ * Owner unico: prima viveva duplicata (quasi identica, ma non testualmente)
+ * fra `admin-directory.ts` e `admin-metrics.ts`, ognuna a rischio di
+ * divergere dall'altra a un tocco.
+ */
+export const trialExpiresAtSql = sql`(
+  p.trial_started_at
+  + make_interval(days => p.referral_bonus_days)
+  + make_interval(days => ${TRIAL_DAYS})
+)`;
+
+/**
+ * Vero quando la riga `profiles` (aliasata `p`) è un trial ancora attivo
+ * ADESSO: piano `trial`, prova iniziata, e non ancora scaduta secondo
+ * `trialExpiresAtSql`. Owner unico del predicato "trial attivo", usato dal
+ * KPI omonimo, dal funnel per periodo, dalla tabella onboarding fermi e
+ * dalla classifica esercenti-trial: divergessero, un pannello mostrerebbe una
+ * popolazione diversa dall'altro per la stessa domanda.
+ */
+export const trialActiveSql = sql`(
+  p.plan = 'trial'
+  AND p.trial_started_at IS NOT NULL
+  AND ${trialExpiresAtSql} > now()
+)`;
+
+/**
+ * "Città (Provincia)" di un esercente, o NULL quando mancano entrambe. Assume
+ * le righe `businesses` aliasate `b`. Owner unico condiviso dalle classifiche
+ * esercenti (per incasso/scontrini) e da quella degli esercenti in trial
+ * attivo, che condividono la stessa forma di riga (`AdminMerchant`).
+ */
+export const merchantLocationSql = sql`nullif(
+  trim(concat_ws(' ',
+    nullif(b.city, ''),
+    nullif(
+      CASE WHEN nullif(b.province, '') IS NOT NULL
+        THEN '(' || b.province || ')'
+      END,
+    '')
+  )),
+  ''
+)`;
 
 export type RawRow = Record<string, unknown>;
 

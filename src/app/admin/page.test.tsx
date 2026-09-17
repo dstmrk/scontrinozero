@@ -13,14 +13,18 @@ import { describe, expect, it, vi } from "vitest";
 const { mockInvoked } = vi.hoisted(() => ({ mockInvoked: [] as string[] }));
 
 vi.mock("./sections", () => ({
-  AdminStalePendingSection: () => mockInvoked.push("in-sospeso") && null,
   AdminUserKpisSection: () => mockInvoked.push("utenti") && null,
+  AdminTrialFunnelSection: () => mockInvoked.push("funnel") && null,
   AdminDocumentKpisSection: () => mockInvoked.push("scontrini") && null,
+  AdminStalePendingDocumentsSection: () =>
+    mockInvoked.push("in-sospeso") && null,
+  AdminStalledOnboardingSection: () => mockInvoked.push("fermi") && null,
   AdminTopMerchantsSection: () => mockInvoked.push("classifiche") && null,
   AdminTrialExpiringSection: () => mockInvoked.push("trial") && null,
+  AdminTrialActiveMerchantsSection: () =>
+    mockInvoked.push("trial-esercenti") && null,
   AdminPaidUsersSection: () => mockInvoked.push("paganti") && null,
   AdminRecentProfilesSection: () => mockInvoked.push("registrati") && null,
-  AdminStalledOnboardingSection: () => mockInvoked.push("fermi") && null,
 }));
 
 import * as sections from "./sections";
@@ -50,7 +54,7 @@ type WalkableProps = {
  * per ciascuna se è avvolta in un boundary Suspense con fallback.
  *
  * Assert strutturale e non visivo per necessità: una pagina che manda in
- * streaming sei blocchi non è osservabile da Testing Library, che renderizza
+ * streaming dieci blocchi non è osservabile da Testing Library, che renderizza
  * tutto in un colpo solo. L'albero però lo è, ed è esattamente il contratto —
  * "ogni lettura sta dietro al suo boundary" — che questo lavoro introduce.
  */
@@ -94,22 +98,20 @@ async function sectionsOf(range?: string): Promise<FoundSection[]> {
 }
 
 describe("AdminPage — streaming", () => {
-  it("monta tutte e otto le letture, ognuna dietro un proprio Suspense", async () => {
+  it("monta tutte e dieci le letture, ognuna dietro un proprio Suspense", async () => {
     const found = await sectionsOf();
 
-    expect(found).toHaveLength(8);
+    expect(found).toHaveLength(10);
     expect(found.every((section) => section.suspended)).toBe(true);
   });
 
-  it("dà un fallback a tutte tranne al rilevatore, che di norma non rende nulla", async () => {
+  it("dà un fallback visibile a tutte le sezioni", async () => {
     const found = await sectionsOf();
 
-    // Uno scheletro per il rilevatore lampeggerebbe a ogni apertura per poi
-    // sparire nel caso normale, che è "niente in sospeso": sarebbe rumore.
-    const senzaFallback = found
-      .filter((section) => !section.streamed)
-      .map((section) => section.name);
-    expect(senzaFallback).toEqual(["AdminStalePendingSection"]);
+    // A differenza del vecchio rilevatore-banner, ogni blocco ora è una card
+    // o una tabella con un proprio stato vuoto: nessuno deve restare muto
+    // durante il caricamento.
+    expect(found.every((section) => section.streamed)).toBe(true);
   });
 
   it("non invoca nessuna lettura prima di restituire il guscio", async () => {
@@ -133,15 +135,16 @@ describe("AdminPage — streaming", () => {
     const found = await sectionsOf();
 
     expect(found.map((section) => section.name)).toEqual([
-      "AdminStalePendingSection",
       "AdminUserKpisSection",
+      "AdminTrialFunnelSection",
       "AdminDocumentKpisSection",
-      // Prima delle classifiche: è il collo di bottiglia dell'attivazione
-      // (REVIEW.md #107), e la coda è FIFO — chi sta più in alto qui arriva
-      // prima in pagina.
+      // Documenti in sospeso e onboarding fermi: le due tabelle che chiedono
+      // un'azione, non solo che si guardano.
+      "AdminStalePendingDocumentsSection",
       "AdminStalledOnboardingSection",
       "AdminTopMerchantsSection",
       "AdminTrialExpiringSection",
+      "AdminTrialActiveMerchantsSection",
       "AdminPaidUsersSection",
       "AdminRecentProfilesSection",
     ]);
@@ -172,25 +175,23 @@ describe("AdminPage — periodo", () => {
     const found = await sectionsOf("30d");
 
     const conRange = found.filter((section) => section.range !== undefined);
-    expect(conRange).toHaveLength(4);
+    expect(conRange).toHaveLength(5);
     expect(conRange.every((section) => section.range === "30d")).toBe(true);
   });
 
   it("non passa un periodo alle letture ancorate ad adesso", async () => {
     const found = await sectionsOf("30d");
 
-    // Il rilevatore dei documenti in sospeso è fra queste per scelta: un
-    // orfano di tre settimane fa deve restare visibile anche guardando gli
-    // ultimi 7 giorni.
     const senzaRange = found
       .filter((section) => section.range === undefined)
       .map((section) => section.name);
     expect(senzaRange).toEqual([
-      "AdminStalePendingSection",
-      // Come sopra: un onboarding arenato a maggio deve comparire anche col
-      // periodo a 7 giorni.
+      // Un orfano di tre settimane fa, o un onboarding arenato a maggio,
+      // devono restare visibili anche guardando gli ultimi 7 giorni.
+      "AdminStalePendingDocumentsSection",
       "AdminStalledOnboardingSection",
       "AdminTrialExpiringSection",
+      "AdminTrialActiveMerchantsSection",
       "AdminPaidUsersSection",
     ]);
   });

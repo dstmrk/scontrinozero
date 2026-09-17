@@ -1,23 +1,13 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  mockExecute,
-  mockLoggerWarn,
-  mockWithStatementTimeout,
-  mockCountStalePendingDocuments,
-} = vi.hoisted(() => ({
-  mockExecute: vi.fn(),
-  mockLoggerWarn: vi.fn(),
-  mockWithStatementTimeout: vi.fn(),
-  mockCountStalePendingDocuments: vi.fn(),
-}));
-
-// Il conteggio vero è testato in `ade-recovery.test.ts` con i suoi mock
-// Drizzle: qui interessa che passi dal boundary del pannello e che degradi.
-vi.mock("@/lib/services/ade-recovery", () => ({
-  countStalePendingDocuments: mockCountStalePendingDocuments,
-}));
+const { mockExecute, mockLoggerWarn, mockWithStatementTimeout } = vi.hoisted(
+  () => ({
+    mockExecute: vi.fn(),
+    mockLoggerWarn: vi.fn(),
+    mockWithStatementTimeout: vi.fn(),
+  }),
+);
 
 // `withStatementTimeout` avvolge le query in una transazione con
 // `SET LOCAL statement_timeout`. Nei test è un passthrough che invoca la
@@ -41,7 +31,7 @@ vi.mock("@/lib/logger", () => ({
 import { sqlTextOf } from "../../tests/_helpers/sql-text";
 import {
   getAdminDocumentKpis,
-  getAdminStalePendingKpi,
+  getAdminTrialFunnel,
   getAdminUserKpis,
 } from "./admin-metrics";
 
@@ -56,9 +46,7 @@ function usersRow(over: Record<string, unknown> = {}) {
     users_total: "120",
     users_in_range: "8",
     users_sparkline: [],
-    trials_active: "5",
-    trial_cohort_started: "20",
-    trial_cohort_converted: "5",
+    trials_onboarded: "3",
     ...over,
   };
 }
@@ -69,8 +57,18 @@ function docsRow(over: Record<string, unknown> = {}) {
     receipts_in_range: "30",
     revenue_cents_total: "1234567",
     revenue_cents_in_range: "45678",
-    voided_in_range: "2",
+    fisconline_users: "40",
+    cie_users: "12",
     daily: [],
+    ...over,
+  };
+}
+
+function funnelRow(over: Record<string, unknown> = {}) {
+  return {
+    registered: "10",
+    onboarded: "6",
+    issued_receipts: "4",
     ...over,
   };
 }
@@ -79,6 +77,8 @@ const USERS_ERROR =
   "Impossibile caricare le metriche utenti. Riprova tra qualche istante.";
 const DOCUMENTS_ERROR =
   "Impossibile caricare le metriche scontrini. Riprova tra qualche istante.";
+const TRIAL_FUNNEL_ERROR =
+  "Impossibile caricare il funnel trial. Riprova tra qualche istante.";
 
 const REFERENCE = new Date("2026-08-26T10:00:00Z");
 
@@ -93,28 +93,8 @@ describe("getAdminUserKpis", () => {
     const result = await getAdminUserKpis("30d", REFERENCE);
 
     expect(result).toMatchObject({
-      kpis: { usersTotal: 120, usersInRange: 8, trialsActive: 5 },
+      kpis: { usersTotal: 120, usersInRange: 8, trialsOnboarded: 3 },
     });
-  });
-
-  it("calcola il tasso di conversione trial come convertiti/partiti", async () => {
-    mockExecute.mockResolvedValueOnce([
-      usersRow({ trial_cohort_started: "20", trial_cohort_converted: "7" }),
-    ]);
-
-    const result = await getAdminUserKpis("30d", REFERENCE);
-
-    expect(result).toMatchObject({ kpis: { trialConversionRate: 0.35 } });
-  });
-
-  it("ritorna conversione 0 quando nessun trial è partito nella finestra", async () => {
-    mockExecute.mockResolvedValueOnce([
-      usersRow({ trial_cohort_started: "0", trial_cohort_converted: "0" }),
-    ]);
-
-    const result = await getAdminUserKpis("30d", REFERENCE);
-
-    expect(result).toMatchObject({ kpis: { trialConversionRate: 0 } });
   });
 
   it("riempie di zeri i giorni senza dati, sull'asse fiscale italiano", async () => {
@@ -236,8 +216,8 @@ describe("getAdminUserKpis", () => {
 
   it("non legge i documenti: le card utenti non aspettano lo storico scontrini", async () => {
     // Il motivo per cui questa lettura è separata. Se un domani qualcuno
-    // rimettesse dentro una query su `commercial_documents`, le tre card
-    // utenti tornerebbero ad aspettare la scansione più lenta del pannello.
+    // rimettesse dentro una query su `commercial_documents`, le card utenti
+    // tornerebbero ad aspettare la scansione più lenta del pannello.
     mockExecute.mockResolvedValueOnce([usersRow()]);
 
     await getAdminUserKpis("30d", REFERENCE);
@@ -245,6 +225,16 @@ describe("getAdminUserKpis", () => {
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
     expect(queried).toContain("profiles");
     expect(queried).not.toContain("commercial_documents");
+  });
+
+  it("conta l'onboarding completato solo fra i trial ancora attivi", async () => {
+    mockExecute.mockResolvedValueOnce([usersRow()]);
+
+    await getAdminUserKpis("30d", REFERENCE);
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("fiscal_code IS NOT NULL");
+    expect(queried).toContain("p.plan");
   });
 });
 
@@ -260,7 +250,8 @@ describe("getAdminDocumentKpis", () => {
         receiptsInRange: 30,
         revenueCentsTotal: 1234567,
         revenueCentsInRange: 45678,
-        voidedInRange: 2,
+        fisconlineUsers: 40,
+        cieUsers: 12,
       },
     });
   });
@@ -306,9 +297,6 @@ describe("getAdminDocumentKpis", () => {
   });
 
   it("marca il log con la lettura caduta, non solo con il pannello", async () => {
-    // Gemello del campo `list` degli elenchi: con sei blocchi indipendenti un
-    // `errorClass` uguale per tutti dice che il pannello ha un problema, non
-    // quale delle sei query lo ha.
     mockExecute.mockRejectedValueOnce(new Error("boom"));
 
     await getAdminDocumentKpis("30d", REFERENCE);
@@ -323,7 +311,6 @@ describe("getAdminDocumentKpis", () => {
   });
 
   it("distingue il proprio messaggio d'errore da quello delle metriche utenti", async () => {
-    // Con sei blocchi indipendenti un testo generico non direbbe QUALE è caduto.
     mockExecute.mockRejectedValueOnce(new Error("boom"));
     const documenti = await getAdminDocumentKpis("30d", REFERENCE);
 
@@ -389,59 +376,69 @@ describe("getAdminDocumentKpis", () => {
       expect.any(Function),
     );
   });
+
+  it("conta i business per metodo di accesso da ade_credentials", async () => {
+    mockExecute.mockResolvedValueOnce([docsRow()]);
+
+    await getAdminDocumentKpis("30d", REFERENCE);
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("ade_credentials");
+    expect(queried).toContain("fisconline");
+    expect(queried).toContain("cie");
+  });
 });
 
-describe("getAdminStalePendingKpi", () => {
-  beforeEach(() => vi.clearAllMocks());
+describe("getAdminTrialFunnel", () => {
+  it("converte in numeri i bigint che il driver restituisce come stringhe", async () => {
+    mockExecute.mockResolvedValueOnce([funnelRow()]);
 
-  it("ritorna il conteggio dei documenti in sospeso", async () => {
-    const oldest = new Date("2026-09-01T08:00:00.000Z");
-    mockCountStalePendingDocuments.mockResolvedValue({
-      sale: 2,
-      void: 0,
-      oldestCreatedAt: oldest,
-    });
-
-    const result = await getAdminStalePendingKpi();
+    const result = await getAdminTrialFunnel("30d", REFERENCE);
 
     expect(result).toEqual({
-      kpi: { sale: 2, void: 0, oldestCreatedAt: oldest },
+      funnel: { registered: 10, onboarded: 6, issuedReceipts: 4 },
     });
   });
 
-  it("gira dentro il budget di timeout del pannello", async () => {
-    mockCountStalePendingDocuments.mockResolvedValue({
-      sale: 0,
-      void: 0,
-      oldestCreatedAt: null,
-    });
+  it("filtra la coorte su trial_started_at nel range e trial ancora attivo", async () => {
+    mockExecute.mockResolvedValueOnce([funnelRow()]);
 
-    await getAdminStalePendingKpi();
+    await getAdminTrialFunnel("30d", REFERENCE);
 
-    expect(mockWithStatementTimeout).toHaveBeenCalledWith(
-      10_000,
-      expect.any(Function),
-    );
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("trial_started_at");
+    expect(queried).toContain("p.plan");
+    expect(queried).toContain("commercial_documents");
   });
 
-  it("degrada a { error } senza propagare (regola 19)", async () => {
-    mockCountStalePendingDocuments.mockRejectedValue(new Error("DB giù"));
+  it("degrada a { error } se il DB fallisce, senza propagare (regola 19)", async () => {
+    mockExecute.mockRejectedValueOnce(new Error("boom"));
 
-    const result = await getAdminStalePendingKpi();
+    const result = await getAdminTrialFunnel("30d", REFERENCE);
 
-    // Un throw sostituirebbe il boundary Suspense di questo blocco con
-    // l'error boundary di segmento, portandosi via anche le altre sei letture.
-    expect(result).toEqual({
-      error:
-        "Impossibile contare gli scontrini in sospeso. Riprova tra qualche istante.",
-    });
+    expect(result).toEqual({ error: TRIAL_FUNNEL_ERROR });
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       expect.objectContaining({
         errorClass: "admin_metrics_load",
-        metric: "stale_pending",
-        range: null,
+        metric: "trial_funnel",
       }),
-      "admin metrics: conteggio scontrini in sospeso fallito",
+      expect.any(String),
     );
+  });
+
+  it("degrada a { error } anche se la query non restituisce righe", async () => {
+    mockExecute.mockResolvedValueOnce([]);
+
+    const result = await getAdminTrialFunnel("30d", REFERENCE);
+
+    expect(result).toEqual({ error: TRIAL_FUNNEL_ERROR });
+  });
+
+  it("tratta come 0 colonne null o non numeriche invece di propagare NaN", async () => {
+    mockExecute.mockResolvedValueOnce([funnelRow({ registered: null })]);
+
+    const result = await getAdminTrialFunnel("30d", REFERENCE);
+
+    expect(result).toMatchObject({ funnel: { registered: 0 } });
   });
 });
