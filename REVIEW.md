@@ -805,6 +805,25 @@ basato su di esso è inaffidabile. La query deterministica è sul DB —
 `ade_credentials` con `verified_at IS NULL` join `businesses` con `fiscal_code
 IS NULL` — che elenca chi è fermo a metà onboarding qualunque sia la causa.
 
+**Slice 8 rilasciata — il warn aveva smesso di essere diagnostico.**
+`ade:wizard_piva_missing` scattava su `direct.length === 0`. Quando è nato
+(REVIEW.md #32) quella condizione significava fallimento certo: stavamo per
+lanciare `AdeNoPartitaIvaError`. Da quando l'accesso incaricato è supportato è
+uno **stato normale**, e nessuno ha spostato il log dietro alla feature.
+Misurato sui log di produzione del 17/09/2026: undici eventi in un giorno, dieci
+dei quali da un esercente già onboardato su un incarico che stava emettendo e
+annullando scontrini senza un problema — il warn era il log di qualcuno che
+lavora.
+
+Ora la condizione è `direct.length === 0 && incarichi.length === 0`, cioè
+esattamente il caso che diventa `AdeNoPartitaIvaError`. Niente si perde: chi ha
+candidati è già registrato da `AdeUtenzaSelectionRequiredError`, che porta la
+lista, e nessun conteggio si appoggiava a questo log (vedi il paragrafo qui
+sopra). Nello stesso giro `incarichiCount` è diventato `incarichiRawCount`: sotto
+la condizione nuova il conteggio **parsato** sarebbe costante a zero, mentre
+quello **ricevuto** distingue "questa utenza non ha incarichi" da "ne ha, e non
+sappiamo leggerli" — il secondo è un problema nostro.
+
 **Slice 7 rilasciata — il picker non era mai arrivato in onboarding.** La slice
 3 dichiarava «lo stesso componente serve onboarding e impostazioni»: non era
 vero, e nessuno l'ha verificato. `AdeCredentialsSection` è montata solo in

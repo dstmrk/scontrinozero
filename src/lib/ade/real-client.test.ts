@@ -902,6 +902,77 @@ describe("RealAdeClient", () => {
       ).toEqual(["33333333333"]);
     });
 
+    it("Phase F: incarichi ricevuti ma illeggibili restano un caso da diagnosticare", async () => {
+      // `incarichiRawCount` > 0 con zero letti: il portale ha mandato qualcosa
+      // che non sappiamo leggere. E' un problema nostro, non dell'utente, e va
+      // distinto da "questa utenza non ha proprio incarichi" (`null` o 0).
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            richiestaIncarichi: {
+              incarichi: [{ incaricante: { sede: "FOL" } }, {}],
+            },
+          },
+        }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing");
+      expect((call![0] as Record<string, unknown>).incarichiRawCount).toBe(2);
+    });
+
+    it("Phase F: un'utenza incaricata NON logga wizard_piva_missing", async () => {
+      // Il warn e' nato quando `direct.length === 0` significava fallimento
+      // certo. Da quando l'accesso incaricato e' supportato quella condizione
+      // e' uno stato normale, e il log ha smesso di essere diagnostico:
+      // misurato in produzione il 17/09/2026, undici eventi in un giorno di cui
+      // dieci da un'utenza che stava emettendo scontrini senza problemi.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["33333333333"]) }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeUtenzaSelectionRequiredError,
+      );
+
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing");
+      expect(call).toBeUndefined();
+    });
+
+    it("Phase F: con una scelta gia' fatta il login incaricato non logga nulla", async () => {
+      // Il caso piu' rumoroso: un esercente gia' onboardato su un incarico
+      // rifa' il login a ogni emissione. Prima ogni sessione produceva un warn
+      // su un flusso perfettamente sano.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["33333333333"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // procediWizard 1
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // procediWizard 2
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+
+      const session = await client.login(mockCredentials, "33333333333");
+
+      expect(session.partitaIva).toBe("33333333333");
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing");
+      expect(call).toBeUndefined();
+    });
+
     it("Phase F: richiestaIncarichi con forma inattesa non fa lanciare un TypeError", async () => {
       mockPhasesBeforeWizard(fetchMock);
       fetchMock.mockResolvedValueOnce(
