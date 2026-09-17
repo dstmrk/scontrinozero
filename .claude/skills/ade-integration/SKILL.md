@@ -166,9 +166,10 @@ esatta, prima ancora di aprire i log server.
 (SPID) rispondono `200` con un body valido in cui la P.IVA non c'è. Il login è
 **riuscito** — `cfUidUltimo` è popolato — quindi la causa non è nelle
 credenziali: la persona che accede non ha nessuna partita IVA intestata.
-Succede a chi opera per una società, con delega a intermediario o come tutore;
-il portale in quei casi fa scegliere l'utenza di lavoro, noi inviamo sempre
-`tipoutenza: "meStesso"` (REVIEW.md #106).
+Succede a chi opera per una società, con delega a intermediario o come tutore.
+Da quando la scelta dell'utenza di lavoro è cablata (sezione qui sotto) questo
+ramo scatta solo a **zero** candidati — nessuna P.IVA diretta e nessun
+incarico: non c'è niente da scegliere, e quell'accesso non può emettere.
 
 Lo riconosci dalle chiavi che **restano** quando `PIva` manca: `hasDelega`,
 `intermediario`, `richiestaIncarichi`, `soloPerMe`, `tutore`, `tutore_AT`. Sono
@@ -235,6 +236,17 @@ Asimmetria da ricordare: le P.IVA **dirette** portano la `denominazione`, gli
 incarichi solo il numero (`HAR.md` #18.1). Il picker mostra il nome quando c'è;
 per gli incarichi arriverebbe solo dal secondo `procediWizard`, cioè dopo la
 scelta.
+
+**Il login ha due porte, non una.** Una sessione AdE si apre in due punti, e
+implementando la scelta se ne vede uno solo: la **verifica credenziali**
+(`onboarding-actions.ts`, l'utente è davanti allo schermo) e la **sessione
+operativa** (`session-cache.ts` dietro `withAdeSession`, che serve emissione,
+annullo, ricerca e recovery — nessuno davanti). Cablare `utenzaPiva` solo nella
+prima ha prodotto la regressione v1.8.4: onboarding riuscito, primo scontrino
+rifiutato con il messaggio del picker davanti a un esercente che la scelta
+l'aveva già fatta. Il test che l'avrebbe vista non sta sul client, dove i
+parametri si vedono: sta sul percorso che apre la sessione. Vale per qualunque
+prossimo input del login — SPID, un secondo fattore, un header.
 
 **Il messaggio e la UI vanno spediti insieme.** Fra due slice consecutive il
 testo «non gestiamo ancora questo caso» è rimasto in produzione una release

@@ -5,10 +5,9 @@
  */
 
 import type { AdeClient } from "./client";
-import type { FisconlineCredentials } from "./types";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
-import { adeSessionCache } from "./session-cache";
+import { adeSessionCache, type AdeLoginInputs } from "./session-cache";
 import { adeInteractiveSessionStore } from "./interactive-session-store";
 import { logger } from "@/lib/logger";
 
@@ -66,18 +65,15 @@ export function createAdeClient(mode: AdeMode): AdeClient {
 
 /**
  * Parametri di `withAdeSession`, discriminati sul metodo di accesso AdE.
- *  - `fisconline`: il server ha le credenziali e può ri-loggarsi in silenzio →
- *    sessione riusata/creata da `adeSessionCache`.
+ *  - `fisconline`: il server ha gli input del login (credenziali + utenza
+ *    scelta) e può ri-loggarsi in silenzio → sessione riusata/creata da
+ *    `adeSessionCache`.
  *  - `cie`: sessione stabilita interattivamente (push), non ri-creabile in
  *    silenzio → riusata dallo store interattivo; se assente/scaduta →
  *    `AdeReauthRequiredError`.
  */
 export type WithAdeSessionParams =
-  | {
-      businessId: string;
-      method: "fisconline";
-      credentials: FisconlineCredentials;
-    }
+  | ({ businessId: string; method: "fisconline" } & AdeLoginInputs)
   | { businessId: string; method: "cie" };
 
 /**
@@ -102,7 +98,7 @@ export async function withAdeSession<T>(
     if (params.method === "cie") {
       await client.loginCie({ username: "mock", password: "mock" });
     } else {
-      await client.login(params.credentials);
+      await client.login(params.credentials, params.utenzaPiva);
     }
     try {
       return await fn(client);
@@ -117,7 +113,11 @@ export async function withAdeSession<T>(
     return adeInteractiveSessionStore.run(params.businessId, fn);
   }
 
-  return adeSessionCache.run(params.businessId, params.credentials, fn);
+  return adeSessionCache.run(
+    params.businessId,
+    { credentials: params.credentials, utenzaPiva: params.utenzaPiva },
+    fn,
+  );
 }
 
 /**

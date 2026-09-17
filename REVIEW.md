@@ -763,6 +763,18 @@ un lettore che gira comunque.
   (`HAR.md` 18.5-bis), e il nome adesso compare comunque subito dopo la scelta.
 - **I rami `delega` e `tutore`** restano non osservati (`HAR.md` 18.6).
 
+**Regressione v1.8.4 corretta — la scelta non arrivava all'emissione.**
+Segnalata dal primo esercente che ha usato il picker: onboarding riuscito,
+primo scontrino rifiutato con il testo del picker stesso. `utenzaPiva` era
+cablata solo nel login della verifica credenziali; ogni operazione (emissione,
+annullo, ricerca, recovery) apre invece la sua sessione da `AdeSessionCache`,
+che chiamava `login(credentials)` senza scelta — quattro candidati, e il
+portale la ripropone a un percorso dove non c'è nessuno a sceglierla. Ora gli
+input del login sono un tipo solo (`AdeLoginInputs`), letto da
+`fetchAdePrerequisites` e passato da `withAdeSession` alla cache. Il ramo CIE
+non era toccato: la sua sessione la deposita il login interattivo, che la
+scelta l'aveva già applicata.
+
 **Trigger di riapertura — la query Sentry NON funziona.** La versione
 precedente di questa voce diceva di contare `ade:wizard_piva_missing` nei Sentry
 Logs. Misurato il 16/09/2026: una query a 24h restituiva due eventi che una

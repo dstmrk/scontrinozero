@@ -1601,6 +1601,43 @@ describe("RealAdeClient", () => {
       expect(result.esito).toBe(true);
     });
 
+    it("il ciclo della cache (clear + set) non perde l'utenza scelta", async () => {
+      // La cache azzera le credenziali a fine operazione e le re-inietta prima
+      // della successiva: `utenzaPiva` NON è un segreto e deve sopravvivere a
+      // quel giro, altrimenti il re-auth su 401 riaprirebbe la scelta davanti a
+      // nessuno (regressione v1.8.4, HAR.md #18).
+      const wizard = wizardTemplateIncaricato(["22222222222"]);
+      const queueIncaricatoLogin = () => {
+        fetchMock.mockResolvedValueOnce(mockResponse({ body: wizard })); // F
+        fetchMock.mockResolvedValueOnce(mockResponse({ body: wizard })); // procedi 1
+        fetchMock.mockResolvedValueOnce(
+          mockResponse({
+            body: { ...wizard, PIva: [{ piva: "22222222222" }] },
+          }),
+        ); // procedi 2
+        fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+      };
+
+      mockPhasesBeforeWizard(fetchMock);
+      queueIncaricatoLogin();
+      await client.login(mockCredentials, "22222222222");
+
+      client.clearCredentials();
+      client.setCredentials(mockCredentials);
+
+      fetchMock.mockClear();
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+      mockPhasesBeforeWizard(fetchMock);
+      queueIncaricatoLogin();
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
+
+      const result = await client.submitSale(makeSalePayload());
+
+      expect(result.esito).toBe(true);
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.filter((u) => u.includes("procediWizard"))).toHaveLength(2);
+    });
+
     // -------------------------------------------------------------------
     // SCONTRINOZERO-M: la sessione morta segnalata come 4xx non-JSON
     // -------------------------------------------------------------------
