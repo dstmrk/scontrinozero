@@ -562,16 +562,38 @@ componente, è una macchina lenta.
 - **Spostare l'attesa dalla sparizione alla comparsa non protegge da nulla**:
   `findBy*` ha lo stesso tetto di `waitFor`. È l'errore che ha lasciato flaky
   `pending-sales-banner.test.tsx` ("chiude la scelta fra candidati dopo una
-  conferma riuscita") dopo una fix che si credeva risolutiva — fallito a 1109ms
-  in una run completa, verde 3 volte su 3 da solo. Il test esposto è quello che
-  attende **due** aggiornamenti di stato in fila, guidati da due mock che
-  risolvono separatamente: è l'esposizione cumulativa che conta, non la singola
-  attesa.
+  conferma riuscita") dopo una fix che si credeva risolutiva.
+- **Un test che consuma il tetto INTERO non è lento: aspetta qualcosa che non
+  arriva.** Lo stesso test è poi fallito a 5054ms su un tetto di 5000, e quella
+  cifra è la diagnosi — un runner carico fallisce di poco. La causa vera è
+  nella voce qui sotto; l'attribuzione precedente («esposizione cumulativa a
+  due aggiornamenti di stato in fila») era sbagliata.
 
 Il tetto alzato non nasconde regressioni — un'attesa che non si risolve fallisce
 ancora, solo più tardi — e non rallenta il verde, perché `waitFor` esce al primo
 poll che passa. Resta comunque sotto `testTimeout`, così il fallimento porta con
 sé il dump del DOM invece di essere troncato da vitest.
+
+### Un bottone renderizzato dentro una transition è già nel DOM e ancora inerte
+
+Un componente che fa `startTransition(async () => applyResult(await action()))`
+e disabilita i bottoni con `disabled={isPending}` ha una finestra in cui il
+bottone nuovo è **montato e ancora `disabled`**. `findByRole` risolve lì,
+`fireEvent.click` cade nel vuoto, e il test resta appeso all'aggiornamento di
+stato che quel click avrebbe prodotto — fino al tetto di `asyncUtilTimeout`.
+
+La fix è un'asserzione, non un `{ timeout: … }`:
+
+```tsx
+const candidate = await screen.findByRole("button", { name: /è questo/i });
+await waitFor(() => expect(candidate).not.toBeDisabled());
+fireEvent.click(candidate);
+```
+
+Misurato su `pending-sales-banner.test.tsx`: due test cliccano lo stesso
+bottone, uno aveva già la guardia e l'altro no — ed era l'unico dei due a
+fallire, una run completa su quattro. Quando un flake sparisce su un test e
+resta su quello accanto, la differenza fra i due è la diagnosi.
 
 ## Assert su una query Drizzle: `String(sql\`…\`)` non guarda niente
 
