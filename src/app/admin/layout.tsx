@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -58,7 +58,7 @@ export default async function AdminLayout({
             aria-label="Torna all'app"
             className="text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="size-5" aria-hidden="true" />
+            <ArrowRight className="size-5" aria-hidden="true" />
           </Link>
         </div>
       </header>
