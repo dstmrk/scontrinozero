@@ -34,11 +34,21 @@ export type UserFacingAdeError = {
  * password e PIN" (campi che non ha mai inserito). Omesso o `"fisconline"` →
  * i messaggi Fisconline storici, così i call-site emit/void restano invariati.
  */
-export function getUserFacingAdeErrorMessage(
+/**
+ * I tre modi in cui il **login** non passa: password scaduta, utenza bloccata,
+ * credenziali rifiutate. Ritorna `null` quando l'errore non è di questa
+ * famiglia, così il chiamante prosegue con i casi post-login.
+ *
+ * Stanno insieme perché sono la stessa domanda per chi legge — "perché non mi
+ * fa entrare?" — con tre risposte che mandano l'esercente in tre posti diversi.
+ * Estratti anche per tenere `getUserFacingAdeErrorMessage` sotto la soglia
+ * S3776 di Cognitive Complexity: l'aggiunta di `AdeAccountLockedError` l'aveva
+ * portata a 16.
+ */
+function getLoginFailureMessage(
   err: unknown,
-  fallback: string,
   method?: AdeLoginMethod,
-): UserFacingAdeError {
+): UserFacingAdeError | null {
   if (err instanceof AdePasswordExpiredError) {
     return {
       message: "La password Fisconline è scaduta.",
@@ -62,6 +72,17 @@ export function getUserFacingAdeErrorMessage(
           : "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
     };
   }
+  return null;
+}
+
+export function getUserFacingAdeErrorMessage(
+  err: unknown,
+  fallback: string,
+  method?: AdeLoginMethod,
+): UserFacingAdeError {
+  const loginFailure = getLoginFailureMessage(err, method);
+  if (loginFailure) return loginFailure;
+
   if (err instanceof AdeNoPartitaIvaError) {
     // SCONTRINOZERO-13: il login è riuscito, la P.IVA no. Il messaggio storico
     // ("Verifica fallita. Controlla le credenziali") mandava l'utente a
