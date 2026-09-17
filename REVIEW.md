@@ -840,6 +840,53 @@ primo è un messaggio, il secondo un blocco.
 indicare una causa dominante, questa voce si chiude e si riapre come finding
 specifico su quella causa.
 
+### 108. `/help/cassetto-fiscale` è cannibalizzata dalla guida omonima
+
+- **Categoria:** SEO/contenuti · **Severità:** Low — nessun impatto funzionale, costo opportunità su un cluster esercente piccolo
+- **File:** `src/lib/help/articles.ts` (`cassetto-fiscale`), `src/lib/guide/articles.ts` (`cassetto-fiscale-dove-trovare-scontrini`)
+
+**Problema.** Export GSC 2026-09-17, ultimi 12 mesi.
+`/guide/cassetto-fiscale-dove-trovare-scontrini` prende 5.602 impressioni a
+posizione 8,64 con CTR 0,80%; `/help/cassetto-fiscale` ("Verificare i
+corrispettivi nel cassetto fiscale") **non compare affatto** fra le 80 pagine
+con almeno una impressione. La pagina non è thin (215 righe di JSX) ed è
+linkata da cinque punti del registry, con un test che ne asserisce il
+collegamento dalla guida (`src/lib/guide/articles.test.ts`): Google ha
+semplicemente eletto la guida come unica risposta del cluster.
+
+Il dato che rende la cosa interessante è **l'intento**. L'export filtrato per
+pagina sulla guida mostra 179 query per 1.086 impressioni e 6 clic, e la coda
+è consumer, non esercente: "dove recuperare gli scontrini per il 730",
+"scontrini farmacia dove trovarli", "come recuperare spese mediche per 730",
+"i miei scontrini fiscali" (81 impressioni da sole). Lo 0,80% di CTR non è un
+titolo debole — il metaTitle riprende già la query alla lettera — è un
+pubblico che non compra e che se ne accorge leggendo il titolo.
+
+La domanda esercente esiste ma è piccola e usa una parola diversa,
+_corrispettivi_ invece di _scontrini_: "dove vedere i corrispettivi
+trasmessi", "corrispettivi cassetto fiscale", "dove trovo i corrispettivi nel
+cassetto fiscale" — circa 40 impressioni nel campione. È esattamente ciò di
+cui parla la pagina `/help` che prende zero.
+
+**Fix (non ambiguo).** Separare i due intent invece di lasciarli competere:
+
+1. Sulla guida, qualificare il lettore nelle prime due righe (regola "risposta
+   secca" della skill `marketing-content`): chi cerca i propri scontrini per il
+   730 va indirizzato fuori, chi è esercente verso `/help/cassetto-fiscale`.
+   Effetto atteso: CTR della guida **in calo**, che qui è il risultato voluto.
+2. Sulla pagina `/help`, spostare metaTitle e description sul lessico
+   _corrispettivi trasmessi_, che è la formulazione della domanda esercente e
+   non collide con la guida.
+
+**Perché non è stato fatto ora.** Il ritorno atteso è modesto e incerto — la
+domanda esercente vale decine di impressioni, non migliaia — e l'intervento
+tocca il corpo della guida, non solo i metadati, quindi non si accetta
+guardando un solo artefatto (regola 5). Va affettato per conto suo.
+
+**Riaprire/chiudere quando:** `/help/cassetto-fiscale` compare stabilmente in
+GSC con impressioni proprie, oppure si decide che il cluster non vale
+l'intervento e la voce si chiude come rischio accettato.
+
 ### 50. CIE checkpush: rilevamento approvazione "any-change" fragile (falso timeout / falso proceed)
 
 - **Categoria:** correttezza/robustezza · **Severità:** Low — dichiarato "da validare su AdE reale" nella PR #695, va chiuso col primo rollout

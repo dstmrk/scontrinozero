@@ -30,7 +30,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     datePublished: "2026-04-11",
     dateModified: "2026-07-22",
     title: "Annullare uno scontrino: quando si può e come fare",
-    metaTitle: "Annullare scontrino elettronico: come fare ed entro quando",
+    metaTitle: "Annullare uno scontrino da ScontrinoZero: la procedura",
     description:
       "Entro quanto tempo si può annullare uno scontrino elettronico e come farlo da ScontrinoZero: la procedura, cosa succede sul portale AdE e quando emettere un reso invece dell'annullo.",
     related: [

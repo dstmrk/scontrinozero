@@ -749,3 +749,29 @@ describe("fusione del cluster documento commerciale online", () => {
     expect(faq).toMatch(/stesso valore|fiscalmente equivalent/i);
   });
 });
+
+/**
+ * Cluster annullamento, export GSC 2026-09-17: la guida sta a posizione 9,29
+ * con CTR 1,05% su 3.529 impressioni. Nelle query il modificatore dominante è
+ * il termine temporale — "entro quanto si può annullare uno scontrino fiscale"
+ * (55 impressioni), "si può annullare uno scontrino il giorno dopo" (95) — e la
+ * risposta che la pagina già dà, cioè che un termine perentorio non esiste, non
+ * arrivava mai in SERP. Questi test bloccano l'intento nel metaTitle e nella
+ * metaDescription, così una riscrittura futura non lo perde per strada.
+ */
+describe("metaTitle allineati all'intento di ricerca (dati GSC 2026-09-17)", () => {
+  it("annullare-scontrino-elettronico anticipa la risposta temporale", () => {
+    const t =
+      guideArticles["annullare-scontrino-elettronico"].metaTitle.toLowerCase();
+    expect(t).toContain("annullare");
+    expect(t).toMatch(/giorni dopo|giorno dopo|nessun termine|termine fisso/);
+  });
+
+  it("annullare-scontrino-elettronico dichiara l'assenza di termine nella description", () => {
+    const d =
+      guideArticles[
+        "annullare-scontrino-elettronico"
+      ].metaDescription.toLowerCase();
+    expect(d).toMatch(/non fissa un termine|nessun termine perentorio/);
+  });
+});

@@ -310,3 +310,23 @@ describe("getHelpArticle", () => {
     expect(() => getHelpArticle("nope")).toThrow();
   });
 });
+
+/**
+ * Cluster annullamento (export GSC 2026-09-17): questo articolo e la guida
+ * omonima avevano metaTitle quasi sovrapponibili — "come fare ed entro quando"
+ * contro "come fare e quando" — e si cannibalizzavano, 2.646 e 3.529
+ * impressioni con CTR sotto l'1% da posizione 9-11. La separazione degli slug
+ * /help e /guide vale solo se i due intent restano distinti anche nel titolo:
+ * qui l'operativo in-app, alla guida il normativo.
+ */
+describe("annullare-scontrino: taglio operativo distinto dalla guida", () => {
+  const article = helpArticles["annullare-scontrino"];
+
+  it("nomina il prodotto nel metaTitle (intent operativo, non normativo)", () => {
+    expect(article.metaTitle).toContain("ScontrinoZero");
+  });
+
+  it("non duplica l'angolo normativo della guida nel metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).not.toContain("entro quando");
+  });
+});

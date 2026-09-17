@@ -203,6 +203,36 @@ guida/help/tool nuovo o revisionato rispetta:
    titolo che non riprende la query stavano a CTR 0,36-0,99% da posizione
    9-10, cioè un ordine di grandezza sotto la norma per quelle posizioni.
 
+### Prima di riscrivere un titolo per CTR basso: due controlli
+
+Il punto 7 è vero ma si applica male, e sbagliarlo costa lavoro speso per
+attirare le persone sbagliate. Prima di toccare un `metaTitle` perché il CTR
+è basso rispetto alla posizione:
+
+1. **Leggi il `metaTitle` nel registry, non lo slug e non il `title`.** Sono
+   tre stringhe diverse e solo la prima finisce in SERP. Sull'analisi GSC
+   2026-09 la guida `scontrino-senza-registratore-di-cassa` è stata
+   diagnosticata "il titolo non usa la formulazione della query" guardando
+   slug e H1: il `metaTitle` era già `Scontrino senza cassa: si può, ecco come
+farlo (2026)`, cioè la query esatta. Il fix proposto era già in produzione
+   da mesi.
+2. **Guarda l'export filtrato per pagina prima di concludere.** Un CTR basso a
+   posizione buona ha due cause che si somigliano in aggregato e divergono
+   nell'intervento: titolo che non risponde (si riscrive) oppure **pubblico
+   sbagliato** (non si riscrive — alzare il CTR peggiora tutto il resto).
+   `cassetto-fiscale-dove-trovare-scontrini` sta a 0,80% da posizione 8,64 con
+   un metaTitle che riprende la query alla lettera: la coda delle query è
+   consumer che cerca gli scontrini per il 730, non esercenti. Vedi
+   `REVIEW.md` #108. Stesso esito per `codici-natura-iva` (0,23% da posizione
+   8,85) con in più la risposta già resa in SERP: il grappolo di query a
+   posizione 2-3 con zero clic è la firma di quel caso.
+
+Il segnale che distingue le due cause si legge nel modificatore dominante
+delle query, non nel volume. Se il modificatore è una domanda a cui la pagina
+risponde ed è assente dal titolo, si riscrive: il cluster annullamento chiedeva
+"entro quanto tempo" e il titolo diceva "quando", mentre la risposta — nessun
+termine perentorio — era già nelle FAQ.
+
 ## Cadenza di revisione: la freschezza è metà del vantaggio
 
 La profondità la costruisci una volta, la freschezza la perdi da sola. Un
