@@ -5,16 +5,22 @@ import {
   AdminPaidUsersTable,
   AdminRecentProfilesSkeleton,
   AdminRecentProfilesTable,
+  AdminStalePendingDocumentsSkeleton,
+  AdminStalePendingDocumentsTable,
   AdminStalledOnboardingSkeleton,
   AdminStalledOnboardingTable,
   AdminTopMerchantsSkeleton,
   AdminTopMerchantsTables,
+  AdminTrialActiveMerchantsSkeleton,
+  AdminTrialActiveMerchantsTable,
   AdminTrialExpiringSkeleton,
   AdminTrialExpiringTable,
 } from "./admin-directory-tables";
 import type {
+  AdminMerchant,
   AdminPaidUserRow,
   AdminProfileRow,
+  AdminStalePendingDocumentRow,
   AdminStalledOnboarding,
   AdminTopMerchants,
   AdminTrialRow,
@@ -117,12 +123,97 @@ describe("AdminTrialExpiringTable", () => {
     expect(screen.getByText("28/08/2026")).toBeInTheDocument();
   });
 
+  it("mostra i giorni restanti per un trial non ancora scaduto", () => {
+    render(
+      <AdminTrialExpiringTable
+        rows={TRIALS}
+        now={new Date("2026-08-25T09:00:00.000Z")}
+      />,
+    );
+
+    expect(screen.getByText("restano 3 giorni")).toBeInTheDocument();
+  });
+
+  it("mostra da quanto è scaduto un trial già finito", () => {
+    render(
+      <AdminTrialExpiringTable
+        rows={TRIALS}
+        now={new Date("2026-08-30T09:00:00.000Z")}
+      />,
+    );
+
+    expect(screen.getByText("scaduto 2 giorni fa")).toBeInTheDocument();
+  });
+
   it("mostra lo stato vuoto quando non c'è nessun trial in scadenza", () => {
     render(<AdminTrialExpiringTable rows={[]} />);
 
     expect(
       screen.getByText("Nessun trial in scadenza nei prossimi 7 giorni."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AdminTrialActiveMerchantsTable", () => {
+  const MERCHANT: AdminMerchant = {
+    businessId: "b1",
+    businessName: "Bar Centrale",
+    ownerName: "Mario Rossi",
+    location: "Milano (MI)",
+    email: "mario@example.com",
+    receipts: 12,
+    revenueCents: 45000,
+  };
+
+  it("rende le stesse colonne della classifica esercenti", () => {
+    render(<AdminTrialActiveMerchantsTable merchants={[MERCHANT]} />);
+
+    expect(screen.getByText("Bar Centrale")).toBeInTheDocument();
+    expect(screen.getByText(/450,00/)).toBeInTheDocument();
+  });
+
+  it("mostra lo stato vuoto quando nessun trial attivo ha ancora emesso scontrini", () => {
+    render(<AdminTrialActiveMerchantsTable merchants={[]} />);
+
+    expect(
+      screen.getByText("Nessun trial attivo ha ancora emesso uno scontrino."),
+    ).toBeInTheDocument();
+  });
+
+  it("lo scheletro mostra il titolo vero della tabella", () => {
+    render(<AdminTrialActiveMerchantsSkeleton />);
+
+    expect(screen.getByText("Trial attivi con scontrini")).toBeInTheDocument();
+  });
+});
+
+describe("AdminStalePendingDocumentsTable", () => {
+  const ROW: AdminStalePendingDocumentRow = {
+    businessName: "Bar Centrale",
+    createdAt: "2026-09-17T08:00:00.000Z",
+    amountCents: 1250,
+  };
+
+  it("mostra esercente, data scontrino e importo", () => {
+    render(<AdminStalePendingDocumentsTable rows={[ROW]} />);
+
+    expect(screen.getByText("Bar Centrale")).toBeInTheDocument();
+    expect(screen.getByText("17/09/2026")).toBeInTheDocument();
+    expect(screen.getByText(/12,50/)).toBeInTheDocument();
+  });
+
+  it("mostra lo stato vuoto quando non c'è nessun documento in sospeso", () => {
+    render(<AdminStalePendingDocumentsTable rows={[]} />);
+
+    expect(
+      screen.getByText("Nessun documento in sospeso oltre la soglia."),
+    ).toBeInTheDocument();
+  });
+
+  it("lo scheletro mostra il titolo vero della tabella", () => {
+    render(<AdminStalePendingDocumentsSkeleton />);
+
+    expect(screen.getByText("Documenti in sospeso")).toBeInTheDocument();
   });
 });
 
@@ -221,7 +312,6 @@ describe("AdminStalledOnboardingTable", () => {
   const BASE_ROW = {
     name: "Mario Rossi",
     email: "fermo@example.com",
-    loginMethod: "fisconline",
     outcome: "auth_error",
     attempts: 4,
     createdAt: "2026-05-19T08:00:00.000Z",
@@ -270,6 +360,27 @@ describe("AdminStalledOnboardingTable", () => {
         /10 fermi in totale — 2 da meno di 7 giorni, 3 da 7 a 30, 5 da oltre 30\./,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("non mostra più la colonna Accesso", () => {
+    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+
+    expect(screen.queryByText("Accesso")).not.toBeInTheDocument();
+  });
+
+  it("un esito ignoto (precedente al tracciamento) si riduce a un trattino", () => {
+    render(
+      <AdminStalledOnboardingTable
+        stalled={stalled({
+          rows: [{ ...BASE_ROW, outcome: "unknown_pre_tracking" }],
+        })}
+      />,
+    );
+
+    expect(screen.queryByText(/ignoto/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("table", { name: /onboarding fermi/i }),
+    ).toHaveTextContent("—");
   });
 
   it("un esito fuori vocabolario ricade sul valore grezzo invece di sparire", () => {

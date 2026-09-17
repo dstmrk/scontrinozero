@@ -2,17 +2,13 @@ import { sql } from "drizzle-orm";
 
 import { logger } from "@/lib/logger";
 import {
-  countStalePendingDocuments,
-  type StalePendingCount,
-} from "@/lib/services/ade-recovery";
-import { PAID_SELF_SERVICE_PLANS, TRIAL_DAYS } from "@/lib/plans";
-import {
   type RawRow,
   adminRangeParams,
   lineCentsSql,
   runAdminRead,
   toNumber,
   toRows,
+  trialActiveSql,
 } from "./admin-sql";
 import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
 
@@ -22,20 +18,14 @@ import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
  * RPC raggiungibile dal browser. Il gate è il layout (`isAdminEmail`), che
  * resta l'unico punto d'ingresso.
  *
- * **Due letture, non una.** `getAdminUserKpis` interroga `profiles`,
- * `getAdminDocumentKpis` interroga `commercial_documents`: erano due query
- * dentro la stessa transazione e sono diventate due letture separate, ognuna
- * dietro il proprio boundary Suspense in `src/app/admin/page.tsx`. Le tre card
- * degli utenti compaiono senza aspettare la scansione di ogni scontrino mai
- * emesso, che è la query più lenta del pannello.
- *
- * **Perché separarle non rompe la coerenza** che la transazione condivisa
- * proteggeva: quell'invariante era "un profilo creato fra una query e l'altra
- * non deve comparire nei nuovi iscritti ma non nel totale", e vive INTERNA a
- * ciascuna query — `users_total` e `users_in_range` sono due colonne della
- * stessa SELECT, come `receipts_total` e `receipts_in_range`. Nessun KPI
- * mescola `profiles` con `commercial_documents`, quindi non c'è nessuno
- * snapshot che le due letture debbano condividere.
+ * **Tre letture, non una.** `getAdminUserKpis` interroga `profiles`,
+ * `getAdminDocumentKpis` interroga `commercial_documents` (e `ade_credentials`
+ * per il conteggio fisconline/CIE, che non dipende dal periodo ma vive qui
+ * perché sta nella stessa riga di card), `getAdminTrialFunnel` interroga
+ * entrambe per la coorte trial del periodo. Ognuna sta dietro il proprio
+ * boundary Suspense in `src/app/admin/page.tsx`: le card utenti compaiono
+ * senza aspettare la scansione di ogni scontrino mai emesso, che è la query
+ * più lenta del pannello.
  *
  * **Perché aggrega in SQL e non in JS** come `analytics-actions.ts`: là il
  * dataset è di un solo esercente e viene riusato per KPI, timeseries e
@@ -63,10 +53,14 @@ export type AdminUserKpis = {
   readonly usersTotal: number;
   readonly usersInRange: number;
   readonly usersSparkline: readonly AdminSparklinePoint[];
-  /** Trial ancora attivi ADESSO (bonus referral incluso). */
-  readonly trialsActive: number;
-  /** Frazione 0..1 di trial partiti negli ultimi 90 giorni passati a pagamento. */
-  readonly trialConversionRate: number;
+  /**
+   * Trial ancora attivi ADESSO (bonus referral incluso) che hanno completato
+   * l'onboarding — `businesses.fiscal_code` valorizzato, lo stesso segnale
+   * canonico che `onboarding-actions.ts` usa per "onboarding mai completato".
+   * Non filtrato dal range: fotografia dello stato attuale, come lo era il
+   * vecchio KPI "trial attivi" che sostituisce.
+   */
+  readonly trialsOnboarded: number;
 };
 
 export type AdminDocumentKpis = {
@@ -74,12 +68,36 @@ export type AdminDocumentKpis = {
   readonly receiptsTotal: number;
   readonly receiptsInRange: number;
   readonly receiptsSparkline: readonly AdminSparklinePoint[];
-  /** Incasso lordo in centesimi, solo scontrini accettati e non annullati. */
+  /** Incasso lordo in centesimi, solo scontrini accettati. */
   readonly revenueCentsTotal: number;
   readonly revenueCentsInRange: number;
   readonly revenueSparkline: readonly AdminSparklinePoint[];
-  /** Scontrini annullati nel range (SALE passati a VOID_ACCEPTED). */
-  readonly voidedInRange: number;
+  /**
+   * Business con credenziali AdE salvate, per metodo di accesso —
+   * indipendentemente dall'esito di verifica: risponde a "quale metodo hanno
+   * scelto", non a "chi ha finito l'onboarding". Non filtrato dal range:
+   * fotografia dello stato attuale delle credenziali salvate, come i trial
+   * attivi.
+   */
+  readonly fisconlineUsers: number;
+  readonly cieUsers: number;
+};
+
+/**
+ * Funnel di attivazione della coorte trial del periodo selezionato: chi ha
+ * iniziato il trial nel range **ed è tuttora in trial attivo** (non scaduto,
+ * non convertito a pagamento) — quanti di questi hanno completato
+ * l'onboarding, quanti hanno emesso almeno uno scontrino.
+ *
+ * Sostituisce la vecchia "conversione trial" (coorte fissa a 90 giorni,
+ * indipendente dal periodo selezionato): quella rispondeva "quanti convertono
+ * a pagamento", questa risponde "quanti, di chi è arrivato in questo periodo
+ * ed è ancora con noi, stanno effettivamente usando il prodotto".
+ */
+export type AdminTrialFunnel = {
+  readonly registered: number;
+  readonly onboarded: number;
+  readonly issuedReceipts: number;
 };
 
 export type AdminUserKpisResult = { kpis: AdminUserKpis } | { error: string };
@@ -87,11 +105,11 @@ export type AdminUserKpisResult = { kpis: AdminUserKpis } | { error: string };
 export type AdminDocumentKpisResult =
   { kpis: AdminDocumentKpis } | { error: string };
 
-export type AdminStalePendingKpiResult =
-  { kpi: StalePendingCount } | { error: string };
+export type AdminTrialFunnelResult =
+  { funnel: AdminTrialFunnel } | { error: string };
 
 /**
- * Messaggi distinti per blocco: con sei letture indipendenti un unico testo
+ * Messaggi distinti per blocco: con più letture indipendenti un unico testo
  * generico non direbbe QUALE è caduta, e l'avviso compare al posto delle sole
  * card che dipendevano da quella query.
  */
@@ -99,16 +117,8 @@ const USERS_LOAD_ERROR =
   "Impossibile caricare le metriche utenti. Riprova tra qualche istante.";
 const DOCUMENTS_LOAD_ERROR =
   "Impossibile caricare le metriche scontrini. Riprova tra qualche istante.";
-const STALE_PENDING_LOAD_ERROR =
-  "Impossibile contare gli scontrini in sospeso. Riprova tra qualche istante.";
-
-/**
- * Finestra della coorte per il tasso di conversione, **indipendente dal range
- * selezionato**: è un segnale stabile che non deve ridursi a rumore quando si
- * guardano 7 giorni. Scelta ereditata dalla dashboard che questo pannello
- * sostituisce.
- */
-const TRIAL_CONVERSION_WINDOW_DAYS = 90;
+const TRIAL_FUNNEL_LOAD_ERROR =
+  "Impossibile caricare il funnel trial. Riprova tra qualche istante.";
 
 /**
  * Espande le righe `{ date, … }` di una serie giornaliera sull'asse completo
@@ -136,12 +146,12 @@ function fillSeries(
 /**
  * Logga il fallimento di una lettura di metriche.
  *
- * `metric` distingue le due letture come `list` fa per gli elenchi: con sei
+ * `metric` distingue le letture come `list` fa per gli elenchi: con più
  * blocchi indipendenti, un `errorClass` uguale per tutti direbbe che il
  * pannello ha un problema, non quale.
  */
 function logMetricsFailure(
-  metric: "users" | "documents" | "stale_pending",
+  metric: "users" | "documents" | "trial_funnel",
   range: AnalyticsRange | null,
   message: string,
   err?: unknown,
@@ -154,12 +164,12 @@ function logMetricsFailure(
 
 /**
  * KPI utenti del pannello operatore: iscritti nel periodo, totale storico,
- * trial attivi e conversione della coorte a 90 giorni.
+ * trial attivi che hanno completato l'onboarding.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19): la pagina è
  * server-rendered e un throw sostituirebbe il boundary Suspense di questo
  * blocco con l'error boundary di segmento, portandosi via anche gli altri
- * cinque.
+ * blocchi.
  *
  * `reference` è iniettabile per i test — in produzione è sempre "adesso".
  */
@@ -180,23 +190,6 @@ export async function getAdminUserKpis(
       ),
       by_day AS (
         SELECT day, count(*)::bigint AS value FROM in_range GROUP BY day
-      ),
-      cohort AS (
-        -- trial_started_at GREZZO, senza bonus referral: qui la domanda è
-        -- "chi ha iniziato la prova negli ultimi 90 giorni", cioè quando si è
-        -- iscritto, non quando la prova scade.
-        SELECT
-          count(*) FILTER (
-            WHERE p.trial_started_at >= now() - make_interval(days => ${TRIAL_CONVERSION_WINDOW_DAYS})
-          )::bigint AS started,
-          count(*) FILTER (
-            WHERE p.trial_started_at >= now() - make_interval(days => ${TRIAL_CONVERSION_WINDOW_DAYS})
-              AND p.plan IN (${sql.join(
-                PAID_SELF_SERVICE_PLANS.map((plan) => sql`${plan}`),
-                sql`, `,
-              )})
-          )::bigint AS converted
-        FROM profiles p
       )
       SELECT
         (SELECT count(*)::bigint FROM profiles WHERE created_at < ${rangeEnd}) AS users_total,
@@ -212,18 +205,14 @@ export async function getAdminUserKpis(
           FROM by_day
         ) AS users_sparkline,
         (
-          -- Scadenza trial DERIVATA come nell'app (trialStartWithReferralBonus
-          -- + TRIAL_DAYS): il bonus referral sposta lo start in avanti, quindi
-          -- ignorarlo dichiarerebbe scaduta una prova che l'app tiene aperta.
-          SELECT count(*)::bigint FROM profiles p
-          WHERE p.plan = 'trial'
-            AND p.trial_started_at IS NOT NULL
-            AND p.trial_started_at
-                + make_interval(days => p.referral_bonus_days)
-                + make_interval(days => ${TRIAL_DAYS}) > now()
-        ) AS trials_active,
-        (SELECT started   FROM cohort) AS trial_cohort_started,
-        (SELECT converted FROM cohort) AS trial_cohort_converted
+          -- Onboarding completato = businesses.fiscal_code valorizzato, il
+          -- segnale canonico di onboarding-actions.ts.
+          SELECT count(*)::bigint
+          FROM profiles p
+          JOIN businesses b ON b.profile_id = p.id
+          WHERE ${trialActiveSql}
+            AND b.fiscal_code IS NOT NULL
+        ) AS trials_onboarded
     `)) as unknown as RawRow[];
     });
 
@@ -236,9 +225,6 @@ export async function getAdminUserKpis(
       return { error: USERS_LOAD_ERROR };
     }
 
-    const started = toNumber(row.trial_cohort_started);
-    const converted = toNumber(row.trial_cohort_converted);
-
     return {
       kpis: {
         usersTotal: toNumber(row.users_total),
@@ -249,8 +235,7 @@ export async function getAdminUserKpis(
           from,
           to,
         ),
-        trialsActive: toNumber(row.trials_active),
-        trialConversionRate: started === 0 ? 0 : converted / started,
+        trialsOnboarded: toNumber(row.trials_onboarded),
       },
     };
   } catch (err) {
@@ -266,7 +251,7 @@ export async function getAdminUserKpis(
 
 /**
  * KPI scontrini del pannello operatore: emessi e incassati nel periodo, totali
- * storici, annullati.
+ * storici, business per metodo di accesso AdE.
  *
  * È la lettura più cara del pannello — `created_at < rangeEnd` significa tutto
  * lo storico, e il join sulle righe non ha indice utile perché non si filtra
@@ -287,35 +272,41 @@ export async function getAdminDocumentKpis(
       WITH sale AS (
         SELECT
           cd.id,
-          cd.status,
           (cd.created_at AT TIME ZONE 'Europe/Rome')::date AS day,
           cd.created_at >= ${rangeStart} AS in_range
         FROM commercial_documents cd
         WHERE cd.kind = 'SALE'
+          AND cd.status = 'ACCEPTED'
           AND cd.created_at < ${rangeEnd}
       ),
       totals AS (
         SELECT
-          s.status,
           s.day,
           s.in_range,
           coalesce(sum(${lineCentsSql}), 0)::bigint AS cents
         FROM sale s
         LEFT JOIN commercial_document_lines l ON l.document_id = s.id
-        GROUP BY s.id, s.status, s.day, s.in_range
+        GROUP BY s.id, s.day, s.in_range
       ),
       by_day AS (
         SELECT day, count(*)::bigint AS receipts, sum(cents)::bigint AS cents
         FROM totals
-        WHERE status = 'ACCEPTED' AND in_range
+        WHERE in_range
         GROUP BY day
+      ),
+      methods AS (
+        SELECT
+          count(*) FILTER (WHERE login_method = 'fisconline')::bigint AS fisconline_users,
+          count(*) FILTER (WHERE login_method = 'cie')::bigint AS cie_users
+        FROM ade_credentials
       )
       SELECT
-        count(*) FILTER (WHERE status = 'ACCEPTED')::bigint AS receipts_total,
-        count(*) FILTER (WHERE status = 'ACCEPTED' AND in_range)::bigint AS receipts_in_range,
-        coalesce(sum(cents) FILTER (WHERE status = 'ACCEPTED'), 0)::bigint AS revenue_cents_total,
-        coalesce(sum(cents) FILTER (WHERE status = 'ACCEPTED' AND in_range), 0)::bigint AS revenue_cents_in_range,
-        count(*) FILTER (WHERE status = 'VOID_ACCEPTED' AND in_range)::bigint AS voided_in_range,
+        count(*)::bigint                                   AS receipts_total,
+        count(*) FILTER (WHERE in_range)::bigint            AS receipts_in_range,
+        coalesce(sum(cents), 0)::bigint                     AS revenue_cents_total,
+        coalesce(sum(cents) FILTER (WHERE in_range), 0)::bigint AS revenue_cents_in_range,
+        (SELECT fisconline_users FROM methods)              AS fisconline_users,
+        (SELECT cie_users FROM methods)                      AS cie_users,
         (
           SELECT coalesce(
             json_agg(
@@ -352,7 +343,8 @@ export async function getAdminDocumentKpis(
         revenueCentsTotal: toNumber(row.revenue_cents_total),
         revenueCentsInRange: toNumber(row.revenue_cents_in_range),
         revenueSparkline: fillSeries(daily, "cents", from, to),
-        voidedInRange: toNumber(row.voided_in_range),
+        fisconlineUsers: toNumber(row.fisconline_users),
+        cieUsers: toNumber(row.cie_users),
       },
     };
   } catch (err) {
@@ -367,34 +359,73 @@ export async function getAdminDocumentKpis(
 }
 
 /**
- * Documenti `PENDING` fermi oltre la soglia stale, su tutti i tenant.
+ * Funnel di attivazione della coorte trial del periodo selezionato (vedi
+ * `AdminTrialFunnel`). Popolazione: trial iniziati dentro `[rangeStart,
+ * rangeEnd)` e tuttora attivi ADESSO — chi ha già convertito o il cui trial è
+ * scaduto esce dal funnel, perché la domanda è "di chi è arrivato in questo
+ * periodo ed è ancora con noi, quanti stanno usando il prodotto".
  *
- * È il rilevatore di REVIEW.md #103: una riga il cui esito su AdE resta
- * ignoto non compare né nello storico né nelle analytics — entrambi filtrano
- * `ACCEPTED`/`VOID_ACCEPTED` — quindi finora si trovava solo ispezionando il
- * DB a mano. La conseguenza non è un doppione: è un documento che potrebbe
- * esistere su AdE e non da noi, oppure un corrispettivo mai trasmesso, e le
- * due ipotesi sono indistinguibili senza interrogare il portale.
+ * Tocca `commercial_documents` (per "ha emesso scontrini"), quindi condivide
+ * il costo di `getAdminDocumentKpis` — ma filtrato a una coorte tipicamente
+ * piccola via `EXISTS` correlato su `business_id`, non una scansione intera.
  *
- * **Fuori dal range selezionato, per scelta.** Un orfano di tre settimane fa
- * è esattamente quello che interessa vedere, e `buildAdeSearchWindow` sa
- * ancora riconciliarlo — la finestra ±24h la costruisce da `created_at`.
- * Restringerlo al periodo del pannello lo renderebbe invisibile appena
- * qualcuno guarda gli ultimi 7 giorni.
- *
- * Degrada a `{ error }` come le altre letture (regola 19).
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
  */
-export async function getAdminStalePendingKpi(): Promise<AdminStalePendingKpiResult> {
+export async function getAdminTrialFunnel(
+  range: AnalyticsRange,
+  reference: Date = new Date(),
+): Promise<AdminTrialFunnelResult> {
+  const { rangeStart, rangeEnd } = adminRangeParams(range, reference);
+
   try {
-    const kpi = await runAdminRead((tx) => countStalePendingDocuments(tx));
-    return { kpi };
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
+      WITH cohort AS (
+        SELECT b.id AS business_id, b.fiscal_code
+        FROM profiles p
+        JOIN businesses b ON b.profile_id = p.id
+        WHERE p.trial_started_at >= ${rangeStart}
+          AND p.trial_started_at <  ${rangeEnd}
+          AND ${trialActiveSql}
+      )
+      SELECT
+        count(*)::bigint AS registered,
+        count(*) FILTER (WHERE fiscal_code IS NOT NULL)::bigint AS onboarded,
+        count(*) FILTER (
+          WHERE EXISTS (
+            SELECT 1 FROM commercial_documents cd
+            WHERE cd.business_id = cohort.business_id
+              AND cd.kind = 'SALE'
+              AND cd.status = 'ACCEPTED'
+          )
+        )::bigint AS issued_receipts
+      FROM cohort
+    `)) as unknown as RawRow[];
+    });
+
+    if (!row) {
+      logMetricsFailure(
+        "trial_funnel",
+        range,
+        "admin metrics: query funnel trial senza righe",
+      );
+      return { error: TRIAL_FUNNEL_LOAD_ERROR };
+    }
+
+    return {
+      funnel: {
+        registered: toNumber(row.registered),
+        onboarded: toNumber(row.onboarded),
+        issuedReceipts: toNumber(row.issued_receipts),
+      },
+    };
   } catch (err) {
     logMetricsFailure(
-      "stale_pending",
-      null,
-      "admin metrics: conteggio scontrini in sospeso fallito",
+      "trial_funnel",
+      range,
+      "admin metrics: query funnel trial fallita",
       err,
     );
-    return { error: STALE_PENDING_LOAD_ERROR };
+    return { error: TRIAL_FUNNEL_LOAD_ERROR };
   }
 }

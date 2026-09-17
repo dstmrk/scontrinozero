@@ -6,6 +6,7 @@ import type {
   AdminMerchant,
   AdminPaidUserRow,
   AdminProfileRow,
+  AdminStalePendingDocumentRow,
   AdminStalledOnboarding,
   AdminStalledOnboardingRow,
   AdminTopMerchants,
@@ -13,7 +14,7 @@ import type {
 } from "@/server/admin-directory";
 
 /**
- * Le cinque tabelle del pannello operatore, una per lettura.
+ * Le tabelle del pannello operatore, una per lettura.
  *
  * Ogni tabella esporta anche il **proprio skeleton**, che vive qui accanto e
  * non in `admin-skeletons.tsx`: titolo e descrizione sono gli stessi del
@@ -49,6 +50,11 @@ const HEADINGS = {
     description:
       "Finestra fissa di ±7 giorni da oggi, indipendente dal periodo selezionato. Scadenza calcolata includendo il bonus referral.",
   },
+  trialActiveMerchants: {
+    title: "Trial attivi con scontrini",
+    description:
+      "Utenti in trial ancora attivo che hanno emesso almeno uno scontrino, storico completo.",
+  },
   paid: {
     title: "Utenti paganti",
     description:
@@ -61,7 +67,12 @@ const HEADINGS = {
   stalled: {
     title: "Onboarding fermi",
     description:
-      "Credenziali AdE salvate ma mai verificate, dal più vecchio. Finestra ancorata a oggi, indipendente dal periodo selezionato.",
+      "Credenziali AdE salvate ma mai verificate, trial ancora attivo, dal più vecchio. Finestra ancorata a oggi, indipendente dal periodo selezionato.",
+  },
+  stalePending: {
+    title: "Documenti in sospeso",
+    description:
+      "Vendite PENDING ferme oltre la soglia stale: l'esito su AdE resta ignoto.",
   },
 } as const;
 
@@ -91,7 +102,11 @@ const OUTCOME_LABELS: Record<RecordedVerifyOutcome, string> = {
   finalize_failed: "Salvataggio fallito dopo la verifica",
   transient: "Guasto temporaneo",
   failure: "Errore non classificato",
-  unknown_pre_tracking: "Ignoto (precedente al tracciamento)",
+  // Precedente al tracciamento (migrazione 0038): un esito ignoto non è
+  // "mai tentato" (che resta il suo trattamento a parte, sotto), quindi non
+  // può condividerne l'etichetta — ma non è nemmeno un esito su cui
+  // l'operatore possa agire, quindi in tabella si riduce a un trattino.
+  unknown_pre_tracking: DASH,
 };
 
 /**
@@ -109,7 +124,6 @@ const STALLED_COLUMNS: ReadonlyArray<
 > = [
   { header: "Nome", cell: (r) => text(r.name) },
   { header: "Email", cell: (r) => r.email },
-  { header: "Accesso", cell: (r) => r.loginMethod },
   { header: "Ultimo esito", cell: (r) => outcomeLabel(r.outcome) },
   {
     header: "Tentativi",
@@ -152,15 +166,40 @@ const PROFILE_COLUMNS: ReadonlyArray<AdminTableColumn<AdminProfileRow>> = [
   },
 ];
 
-const TRIAL_COLUMNS: ReadonlyArray<AdminTableColumn<AdminTrialRow>> = [
-  { header: "Nome", cell: (t) => text(t.name) },
-  { header: "Email", cell: (t) => t.email },
-  {
-    header: "Scade il",
-    cell: (t) => formatDate(t.trialExpiresAt),
-    align: "right",
-  },
-];
+/** Millisecondi in un giorno, per il conto alla rovescia del trial. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * "Restano N giorni" o "scaduto N giorni fa" — stesse condizioni della
+ * query (`getAdminTrialExpiring`, finestra ±7 giorni), solo una lettura più
+ * diretta della data che già mostra la colonna "Scade il".
+ */
+function trialCountdown(trialExpiresAt: string, now: Date): string {
+  const days = Math.round(
+    (new Date(trialExpiresAt).getTime() - now.getTime()) / DAY_MS,
+  );
+  if (days >= 0) return `restano ${countFormatter.format(days)} giorni`;
+  return `scaduto ${countFormatter.format(Math.abs(days))} giorni fa`;
+}
+
+function trialColumns(
+  now: Date,
+): ReadonlyArray<AdminTableColumn<AdminTrialRow>> {
+  return [
+    { header: "Nome", cell: (t) => text(t.name) },
+    { header: "Email", cell: (t) => t.email },
+    {
+      header: "Scade il",
+      cell: (t) => formatDate(t.trialExpiresAt),
+      align: "right",
+    },
+    {
+      header: "Giorni",
+      cell: (t) => trialCountdown(t.trialExpiresAt, now),
+      align: "right",
+    },
+  ];
+}
 
 const PAID_COLUMNS: ReadonlyArray<AdminTableColumn<AdminPaidUserRow>> = [
   { header: "Nome", cell: (u) => text(u.name) },
@@ -221,15 +260,18 @@ export function AdminTopMerchantsSkeleton() {
 
 interface AdminTrialExpiringTableProps {
   readonly rows: readonly AdminTrialRow[];
+  /** Iniettabile per i test — in produzione è sempre "adesso". */
+  readonly now?: Date;
 }
 
 export function AdminTrialExpiringTable({
   rows,
+  now = new Date(),
 }: AdminTrialExpiringTableProps) {
   return (
     <AdminTable
       {...HEADINGS.trials}
-      columns={TRIAL_COLUMNS}
+      columns={trialColumns(now)}
       rows={rows}
       rowKey={(t) => t.email}
       empty="Nessun trial in scadenza nei prossimi 7 giorni."
@@ -239,6 +281,71 @@ export function AdminTrialExpiringTable({
 
 export function AdminTrialExpiringSkeleton() {
   return <AdminTableSkeleton {...HEADINGS.trials} />;
+}
+
+interface AdminTrialActiveMerchantsTableProps {
+  readonly merchants: readonly AdminMerchant[];
+}
+
+/**
+ * Utenti in trial attivo che hanno emesso scontrini — stesse colonne e stesso
+ * ordinamento di "Top esercenti per scontrini" (`merchantColumns`), perché è
+ * la stessa domanda ristretta a una popolazione diversa.
+ */
+export function AdminTrialActiveMerchantsTable({
+  merchants,
+}: AdminTrialActiveMerchantsTableProps) {
+  return (
+    <AdminTable
+      {...HEADINGS.trialActiveMerchants}
+      columns={merchantColumns()}
+      rows={merchants}
+      rowKey={(m) => m.businessId}
+      empty="Nessun trial attivo ha ancora emesso uno scontrino."
+    />
+  );
+}
+
+export function AdminTrialActiveMerchantsSkeleton() {
+  return <AdminTableSkeleton {...HEADINGS.trialActiveMerchants} />;
+}
+
+const STALE_PENDING_COLUMNS: ReadonlyArray<
+  AdminTableColumn<AdminStalePendingDocumentRow>
+> = [
+  { header: "Esercente", cell: (d) => text(d.businessName) },
+  {
+    header: "Data scontrino",
+    cell: (d) => formatDate(d.createdAt),
+    align: "right",
+  },
+  {
+    header: "Importo",
+    cell: (d) => formatCurrency(d.amountCents / 100),
+    align: "right",
+  },
+];
+
+interface AdminStalePendingDocumentsTableProps {
+  readonly rows: readonly AdminStalePendingDocumentRow[];
+}
+
+export function AdminStalePendingDocumentsTable({
+  rows,
+}: AdminStalePendingDocumentsTableProps) {
+  return (
+    <AdminTable
+      {...HEADINGS.stalePending}
+      columns={STALE_PENDING_COLUMNS}
+      rows={rows}
+      rowKey={(d) => `${d.businessName ?? ""}-${d.createdAt}`}
+      empty="Nessun documento in sospeso oltre la soglia."
+    />
+  );
+}
+
+export function AdminStalePendingDocumentsSkeleton() {
+  return <AdminTableSkeleton {...HEADINGS.stalePending} />;
 }
 
 interface AdminPaidUsersTableProps {

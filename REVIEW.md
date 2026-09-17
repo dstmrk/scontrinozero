@@ -817,6 +817,12 @@ primo è un messaggio, il secondo un blocco.
   maschera. `verify_attempts` limita il danno (chi ha riprovato molte volte si
   vede lo stesso), e una politica di non-sovrascrittura è complessità che si
   aggiunge solo se i dati mostrano che serve.
+- **La tabella ora mostra solo chi ha ancora un trial attivo.** Scelta di
+  prodotto: la vista serve a intervenire, e chi ha già lasciato scadere il
+  trial senza completare l'onboarding non è più un caso su cui si possa fare
+  qualcosa dal pannello. Le quattro persone di cui sopra col trial scaduto
+  restano in `ade_credentials` (la query di misurazione le trova ancora) ma
+  non compaiono più nell'elenco — solo nel conteggio storico citato qui sopra.
 
 **Trigger di chiusura.** Quando il breakdown su `/admin` ha abbastanza righe da
 indicare una causa dominante, questa voce si chiude e si riapre come finding

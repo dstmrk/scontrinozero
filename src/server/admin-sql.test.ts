@@ -16,14 +16,18 @@ vi.mock("@/lib/db-timeout", () => ({
   },
 }));
 
+import { sqlTextOf } from "../../tests/_helpers/sql-text";
 import {
   ADMIN_MAX_CONCURRENT_READS,
   ADMIN_QUERY_TIMEOUT_MS,
+  merchantLocationSql,
   runAdminRead,
   toNullableText,
   toNumber,
   toRows,
   toText,
+  trialActiveSql,
+  trialExpiresAtSql,
 } from "./admin-sql";
 
 /** Cede il controllo al loop: garantisce che ogni microtask pendente sia girato. */
@@ -88,6 +92,31 @@ describe("toNullableText / toText", () => {
   it("toText non restituisce mai null", () => {
     expect(toText("a@b.it")).toBe("a@b.it");
     expect(toText(null)).toBe("");
+  });
+});
+
+describe("trialExpiresAtSql", () => {
+  it("include il bonus referral e TRIAL_DAYS, non solo trial_started_at", () => {
+    const text = sqlTextOf(trialExpiresAtSql);
+    expect(text).toContain("trial_started_at");
+    expect(text).toContain("referral_bonus_days");
+  });
+});
+
+describe("trialActiveSql", () => {
+  it("richiede il piano trial, una prova iniziata e non ancora scaduta", () => {
+    const text = sqlTextOf(trialActiveSql);
+    expect(text).toContain("p.plan");
+    expect(text).toContain("trial_started_at IS NOT NULL");
+    expect(text).toContain("now()");
+  });
+});
+
+describe("merchantLocationSql", () => {
+  it("compone città e provincia dalla riga businesses aliasata b", () => {
+    const text = sqlTextOf(merchantLocationSql);
+    expect(text).toContain("b.city");
+    expect(text).toContain("b.province");
   });
 });
 

@@ -27,8 +27,10 @@ import { sqlTextOf } from "../../tests/_helpers/sql-text";
 import {
   getAdminPaidUsers,
   getAdminRecentProfiles,
+  getAdminStalePendingDocuments,
   getAdminStalledOnboarding,
   getAdminTopMerchants,
+  getAdminTrialActiveMerchants,
   getAdminTrialExpiring,
 } from "./admin-directory";
 
@@ -345,7 +347,6 @@ describe("getAdminStalledOnboarding", () => {
   const STALLED_ROW = {
     name: "Mario Rossi",
     email: "fermo@example.com",
-    login_method: "cie",
     outcome: "auth_error",
     attempts: "3",
     created_at: "2026-05-19T08:00:00.000Z",
@@ -375,7 +376,6 @@ describe("getAdminStalledOnboarding", () => {
     expect(result.stalled.rows[0]).toEqual({
       name: "Mario Rossi",
       email: "fermo@example.com",
-      loginMethod: "cie",
       outcome: "auth_error",
       attempts: 3,
       createdAt: "2026-05-19T08:00:00.000Z",
@@ -424,6 +424,20 @@ describe("getAdminStalledOnboarding", () => {
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
     expect(queried).toContain("c.verified_at IS NULL");
     expect(queried).toContain("b.fiscal_code IS NULL");
+  });
+
+  it("mostra solo chi ha ancora un trial attivo", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
+    ]);
+
+    await getAdminStalledOnboarding();
+
+    // Chi ha lasciato scadere il trial senza completare l'onboarding non è
+    // più un caso su cui intervenire.
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("p.plan");
+    expect(queried).toContain("trial_started_at IS NOT NULL");
   });
 
   it("i conteggi per età sono ancorati a now(), non al range selezionato", async () => {
@@ -475,6 +489,113 @@ describe("getAdminStalledOnboarding", () => {
     mockExecute.mockResolvedValueOnce([]);
 
     const result = await getAdminStalledOnboarding();
+
+    expect("error" in result).toBe(true);
+  });
+});
+
+describe("getAdminStalePendingDocuments", () => {
+  const REFERENCE = new Date("2026-09-17T10:00:00Z");
+
+  it("mappa esercente, data e importo, convertendo i centesimi da stringa", async () => {
+    mockExecute.mockResolvedValueOnce([
+      {
+        rows: [
+          {
+            business_name: "Bar Centrale",
+            created_at: "2026-09-17T08:00:00.000Z",
+            amount_cents: "1250",
+          },
+        ],
+      },
+    ]);
+
+    const result = await getAdminStalePendingDocuments(REFERENCE);
+
+    expect(result).toEqual({
+      rows: [
+        {
+          businessName: "Bar Centrale",
+          createdAt: "2026-09-17T08:00:00.000Z",
+          amountCents: 1250,
+        },
+      ],
+    });
+  });
+
+  it("guarda solo le vendite PENDING, mai gli annulli", async () => {
+    mockExecute.mockResolvedValueOnce([{ rows: [] }]);
+
+    await getAdminStalePendingDocuments(REFERENCE);
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("'SALE'");
+    expect(queried).toContain("'PENDING'");
+  });
+
+  it("degrada a { error } se il DB fallisce", async () => {
+    mockExecute.mockRejectedValueOnce(new Error("boom"));
+
+    const result = await getAdminStalePendingDocuments(REFERENCE);
+
+    expect(result).toEqual({
+      error:
+        "Impossibile caricare i documenti in sospeso. Riprova tra qualche istante.",
+    });
+  });
+
+  it("degrada a { error } se la query non restituisce righe", async () => {
+    mockExecute.mockResolvedValueOnce([]);
+
+    const result = await getAdminStalePendingDocuments(REFERENCE);
+
+    expect("error" in result).toBe(true);
+  });
+});
+
+describe("getAdminTrialActiveMerchants", () => {
+  it("converte in numeri i contatori e gli importi restituiti come stringhe", async () => {
+    mockExecute.mockResolvedValueOnce([{ rows: [MERCHANT] }]);
+
+    const result = await getAdminTrialActiveMerchants();
+
+    if ("error" in result) throw new Error("atteso successo");
+    expect(result.merchants[0]).toEqual({
+      businessId: "b1",
+      businessName: "Bar Centrale",
+      ownerName: "Mario Rossi",
+      location: "Milano (MI)",
+      email: "mario@example.com",
+      receipts: 12,
+      revenueCents: 45000,
+    });
+  });
+
+  it("non filtra per periodo: è storico completo, come il trial", async () => {
+    mockExecute.mockResolvedValueOnce([{ rows: [] }]);
+
+    await getAdminTrialActiveMerchants();
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("p.plan");
+    expect(queried).not.toContain("timestamptz");
+  });
+
+  it("degrada a { error } se il DB fallisce", async () => {
+    mockExecute.mockRejectedValueOnce(new Error("boom"));
+
+    const result = await getAdminTrialActiveMerchants();
+
+    expect(result).toEqual({
+      error:
+        "Impossibile caricare gli esercenti in trial. Riprova tra qualche istante.",
+    });
+  });
+
+  it("degrada a { error } se la query non restituisce righe", async () => {
+    mockExecute.mockResolvedValueOnce([]);
+
+    const result = await getAdminTrialActiveMerchants();
 
     expect("error" in result).toBe(true);
   });
