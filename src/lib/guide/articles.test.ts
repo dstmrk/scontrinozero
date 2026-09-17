@@ -775,3 +775,36 @@ describe("metaTitle allineati all'intento di ricerca (dati GSC 2026-09-17)", () 
     expect(d).toMatch(/non fissa un termine|nessun termine perentorio/);
   });
 });
+
+/**
+ * Funnel Umami 2026-09-17, 120 giorni, sessioni che toccano la pagina e poi
+ * `/register`. `sanzioni-mancato-scontrino` è la pagina più visitata del sito
+ * (267 sessioni) e converte **zero**; `scontrino-senza-registratore-di-cassa`
+ * converte 4 su 48, il tasso più alto fra le guide. Le tre relatedGuides di
+ * partenza puntavano tutte a pagine fra lo 0% e l'1,5%.
+ *
+ * Attenzione a non leggerci più di quello che c'è: la guida commerciale aveva
+ * **già 14 link interni in entrata**, è la più linkata del registry, e questo
+ * non l'ha portata oltre la posizione 22. Il collo di bottiglia è l'autorità
+ * di dominio, non il link interno (`REVIEW.md` #109). Questa riga si giustifica
+ * sulla **pertinenza per chi legge** — chi teme la multa spesso il registratore
+ * non ce l'ha — non su un atteso guadagno di ranking o di conversione.
+ *
+ * Il vincolo è 2-3 relatedGuides, quindi l'aggiunta ha sostituito
+ * `chiusura-giornaliera-corrispettivi` (0 su 41, e il legame tematico con le
+ * sanzioni era il più debole dei tre). Costo dichiarato: quella guida scende
+ * da 2 inbound a 1.
+ */
+describe("instradamento verso le pagine che convertono (funnel Umami 2026-09-17)", () => {
+  it("sanzioni-mancato-scontrino offre una via alla guida commerciale", () => {
+    expect(guideArticles["sanzioni-mancato-scontrino"].relatedGuides).toContain(
+      "scontrino-senza-registratore-di-cassa",
+    );
+  });
+
+  it("la guida commerciale resta raggiungibile dal cluster chiusura", () => {
+    expect(
+      guideArticles["chiusura-giornaliera-corrispettivi"].relatedGuides,
+    ).toContain("scontrino-senza-registratore-di-cassa");
+  });
+});
