@@ -290,6 +290,39 @@ describe("server-auth", () => {
       expect(mockBuildCedenteFromBusiness).toHaveBeenCalledWith(FAKE_BUSINESS);
     });
 
+    // Regressione v1.8.4 (HAR.md #18): senza questo campo l'emissione apriva
+    // un login senza scelta dell'utenza di lavoro e il portale la rifiutava,
+    // pur avendola l'esercente già scelta in onboarding.
+    it("carries the chosen utenza di lavoro when the row has one", async () => {
+      mockLimit.mockResolvedValueOnce([
+        {
+          cred: { ...FAKE_CRED, utenzaPiva: "07790350966" },
+          business: FAKE_BUSINESS,
+        },
+      ]);
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect(result).toMatchObject({
+        method: "fisconline",
+        utenzaPiva: "07790350966",
+      });
+    });
+
+    it("leaves the utenza undefined when the row has none (caso storico)", async () => {
+      mockLimit.mockResolvedValueOnce([
+        { cred: { ...FAKE_CRED, utenzaPiva: null }, business: FAKE_BUSINESS },
+      ]);
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect("error" in result).toBe(false);
+      if ("error" in result || result.method !== "fisconline") return;
+      expect(result.utenzaPiva).toBeUndefined();
+    });
+
     it("returns error when credentials are not found", async () => {
       mockLimit.mockResolvedValueOnce([]);
 
@@ -341,6 +374,21 @@ describe("server-auth", () => {
           pin: "12345678",
         },
       });
+    });
+
+    it("carries the utenza di lavoro through to the session params", async () => {
+      const { toAdeSessionParams } = await import("./server-auth");
+
+      const params = toAdeSessionParams("biz-789", {
+        method: "fisconline",
+        codiceFiscale: "RSSMRA80A01H501U",
+        password: "secret-pw",
+        pin: "12345678",
+        utenzaPiva: "07790350966",
+        cedentePrestatore: CEDENTE,
+      });
+
+      expect(params).toMatchObject({ utenzaPiva: "07790350966" });
     });
 
     it("maps cie prerequisites to session params without credentials", async () => {

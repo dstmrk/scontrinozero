@@ -33,6 +33,22 @@ export interface CachedAdeClient extends AdeClient {
   clearCredentials(): void;
 }
 
+/**
+ * Gli input della procedura di login, come li legge `fetchAdePrerequisites`
+ * dalla riga `ade_credentials`.
+ *
+ * `utenzaPiva` sta qui e non dentro `FisconlineCredentials` perché non è un
+ * segreto e non è un'identità: è la scelta di **su quale partita IVA
+ * operare** fra quelle che quell'accesso offre (HAR.md #18, migrazione 0037).
+ * Va rigiocata a ogni login — quello che apre la sessione come quello che la
+ * rinnova su 401 — o il portale ripropone la scelta a un'operazione automatica,
+ * che non ha nessuno davanti a cui riproporla.
+ */
+export interface AdeLoginInputs {
+  credentials: FisconlineCredentials;
+  utenzaPiva?: string;
+}
+
 /** TTL di default: sotto la scadenza sessione AdE (~20 min osservati). */
 const DEFAULT_ADE_SESSION_TTL_MS = 10 * 60 * 1000;
 
@@ -78,13 +94,13 @@ export class AdeSessionCache {
    */
   async run<T>(
     businessId: string,
-    credentials: FisconlineCredentials,
+    login: AdeLoginInputs,
     fn: (client: AdeClient) => Promise<T>,
   ): Promise<T> {
     const prev = this.chains.get(businessId) ?? Promise.resolve();
     // `prev` è sempre un guard già protetto da `.catch` (vedi sotto), quindi non
     // rifiuta mai: basta il ramo fulfilled per accodarsi dopo l'op precedente.
-    const task = prev.then(() => this.execute(businessId, credentials, fn));
+    const task = prev.then(() => this.execute(businessId, login, fn));
     const guard = task.catch(() => {});
     this.chains.set(businessId, guard);
     try {
@@ -112,10 +128,10 @@ export class AdeSessionCache {
 
   private async execute<T>(
     businessId: string,
-    credentials: FisconlineCredentials,
+    login: AdeLoginInputs,
     fn: (client: AdeClient) => Promise<T>,
   ): Promise<T> {
-    const entry = await this.acquireEntry(businessId, credentials);
+    const entry = await this.acquireEntry(businessId, login);
 
     try {
       return await fn(entry.client);
@@ -133,7 +149,7 @@ export class AdeSessionCache {
 
   private async acquireEntry(
     businessId: string,
-    credentials: FisconlineCredentials,
+    login: AdeLoginInputs,
   ): Promise<CacheEntry> {
     const existing = this.entries.get(businessId);
 
@@ -142,7 +158,10 @@ export class AdeSessionCache {
       // re-auth, e sposta la entry in coda (most-recently-used).
       this.entries.delete(businessId);
       this.entries.set(businessId, existing);
-      existing.client.setCredentials(credentials);
+      // Solo le credenziali: `utenzaPiva` è già sul client dal suo login e
+      // `clearCredentials` non la tocca — non è un segreto, è un parametro
+      // della procedura.
+      existing.client.setCredentials(login.credentials);
       logger.info(
         { businessId, event: "ade_session_reuse" },
         "AdE session reused",
@@ -157,7 +176,7 @@ export class AdeSessionCache {
     }
 
     const client = this.createClient();
-    await client.login(credentials);
+    await client.login(login.credentials, login.utenzaPiva);
     const entry: CacheEntry = { client, expiresAt: this.now() + this.ttlMs };
     this.entries.set(businessId, entry);
     this.evictIfNeeded();

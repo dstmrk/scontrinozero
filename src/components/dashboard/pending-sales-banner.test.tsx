@@ -252,18 +252,20 @@ describe("PendingSalesBanner", () => {
     renderBanner();
 
     fireEvent.click(screen.getByRole("button", { name: /verifica/i }));
-    fireEvent.click(await screen.findByRole("button", { name: /è questo/i }));
+
+    // Stessa finestra del test sopra: il candidato è nel DOM prima che la
+    // transition si chiuda, quindi `disabled` lo rende ancora inerte. Senza
+    // questa attesa il click cade nel vuoto e il test resta appeso allo stato
+    // che non arriverà mai, fino al tetto di `asyncUtilTimeout` (misurato: una
+    // run completa su quattro finiva così a 5054ms).
+    const candidate = await screen.findByRole("button", { name: /è questo/i });
+    await waitFor(() => expect(candidate).not.toBeDisabled());
+    fireEvent.click(candidate);
 
     // Attende la comparsa del messaggio, non la sparizione dei candidati:
     // `applyResult` azzera i candidati e scrive il messaggio nello stesso
     // aggiornamento di stato, quindi quando il messaggio è nel DOM la lista è
     // già sparita, e una sola attesa copre entrambe le metà.
-    //
-    // Il tetto delle utility async non c'entra con questa scelta: `findBy*` ha
-    // lo stesso default di `waitFor`, quindi spostare l'attesa dalla sparizione
-    // alla comparsa non proteggeva da un runner carico — e infatti questo test
-    // è poi fallito a 1109ms in una run completa. Quel tetto ora è alzato una
-    // volta per tutti in `tests/setup.ts` (ASYNC_UTIL_TIMEOUT_MS).
     expect(await screen.findByRole("status")).toHaveTextContent(
       /non riemetterlo/i,
     );

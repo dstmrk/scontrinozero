@@ -122,7 +122,7 @@ describe("withAdeSession (mock mode)", () => {
     );
 
     expect(result).toBe("done");
-    expect(loginSpy).toHaveBeenCalledWith(FAKE_CREDENTIALS);
+    expect(loginSpy).toHaveBeenCalledWith(FAKE_CREDENTIALS, undefined);
     expect(fn).toHaveBeenCalledOnce();
     expect(logoutSpy).toHaveBeenCalled();
   });
@@ -184,6 +184,53 @@ describe("withAdeSession (mock mode)", () => {
     );
 
     expect(result).toBe("from-cache");
-    expect(runSpy).toHaveBeenCalledWith("biz-1", FAKE_CREDENTIALS, fn);
+    expect(runSpy).toHaveBeenCalledWith(
+      "biz-1",
+      { credentials: FAKE_CREDENTIALS, utenzaPiva: undefined },
+      fn,
+    );
+  });
+
+  // Regressione v1.8.4: la scelta dell'utenza (HAR.md #18) arrivava al login
+  // della verifica credenziali ma non a quello che apre la sessione operativa.
+  it("real mode: forwards the stored utenza to the session cache", async () => {
+    vi.stubEnv("ADE_MODE", "real");
+    const runSpy = vi
+      .spyOn(adeSessionCache, "run")
+      .mockResolvedValue("from-cache" as never);
+    const fn = vi.fn();
+
+    await withAdeSession(
+      {
+        businessId: "biz-1",
+        method: "fisconline",
+        credentials: FAKE_CREDENTIALS,
+        utenzaPiva: "07790350966",
+      },
+      fn,
+    );
+
+    expect(runSpy).toHaveBeenCalledWith(
+      "biz-1",
+      { credentials: FAKE_CREDENTIALS, utenzaPiva: "07790350966" },
+      fn,
+    );
+  });
+
+  it("mock mode: the chosen utenza is the P.IVA the session operates on", async () => {
+    vi.stubEnv("ADE_MODE", "mock");
+
+    const partitaIva = await withAdeSession(
+      {
+        businessId: "biz-1",
+        method: "fisconline",
+        credentials: FAKE_CREDENTIALS,
+        utenzaPiva: "07790350966",
+      },
+      async (client) =>
+        (await client.getFiscalData()).identificativiFiscali.partitaIva,
+    );
+
+    expect(partitaIva).toBe("07790350966");
   });
 });

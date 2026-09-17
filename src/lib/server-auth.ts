@@ -21,6 +21,11 @@ export type AdePrerequisites =
       codiceFiscale: string;
       password: string;
       pin: string;
+      /**
+       * Utenza di lavoro scelta al primo collegamento (migrazione 0037).
+       * Assente = la P.IVA è intestata a chi accede, il caso storico.
+       */
+      utenzaPiva?: string;
       cedentePrestatore: AdeCedentePrestatore;
     }
   | {
@@ -33,8 +38,10 @@ export type AdePrerequisites =
 /**
  * Mappa `AdePrerequisites` → `WithAdeSessionParams` (REVIEW.md #55).
  *
- * Fisconline porta le credenziali ri-loggabili; CIE no (la sessione è quella
- * interattiva depositata nello store). Estratta qui — accanto al tipo
+ * Fisconline porta le credenziali ri-loggabili **e** l'utenza di lavoro scelta,
+ * perché ogni sua sessione nasce da un login che il server rifà da solo. CIE no:
+ * la sessione è quella interattiva depositata nello store dal login umano, che
+ * la scelta l'ha già applicata sul client. Estratta qui — accanto al tipo
  * `AdePrerequisites` — per non far dipendere `lib/ade` dai tipi di server-auth
  * e per avere un solo punto da aggiornare al prossimo login method (es. SPID).
  * Prima era duplicata verbatim in receipt-service e void-service.
@@ -54,6 +61,7 @@ export function toAdeSessionParams(
       password: prerequisites.password,
       pin: prerequisites.pin,
     },
+    utenzaPiva: prerequisites.utenzaPiva,
   };
 }
 
@@ -237,6 +245,7 @@ export async function fetchAdePrerequisites(
     codiceFiscale,
     password,
     pin,
+    utenzaPiva: row.cred.utenzaPiva ?? undefined,
     cedentePrestatore,
   };
 }
