@@ -254,6 +254,21 @@ oltre il picker che lo gestiva, contraddicendolo a schermo. Quando una slice
 rimuove un limite, il messaggio che lo dichiarava è parte della slice, non un
 residuo da ripulire dopo.
 
+**Anche il picker ha due porte** — e questa è la terza volta che la stessa forma
+di bug passa: impostazioni (`ade-credentials-section`) e onboarding
+(`src/app/onboarding/onboarding-form.tsx`) sono **componenti diversi**, non uno
+condiviso, e per tre release solo il primo montava il picker. Il secondo
+riceveva `utenzaChoices` e lo scartava, mostrando «conferma qui sotto la partita
+IVA» con niente sotto: vicolo cieco sull'unica superficie che un esercente nuovo
+attraversa per forza.
+
+Gate che sostituisce questa prosa (regola 7):
+`src/components/ade/utenza-picker.contract.test.ts` enumera chi importa
+`verifyAdeCredentials` e pretende che monti `UtenzaPicker` e legga
+`utenzaChoices`. Le esenzioni stanno in `PICKER_NOT_REACHABLE`, una riga di
+motivazione ciascuna, e devono corrispondere a un chiamante reale. Aggiungi una
+superficie che chiama l'azione e `npm run test` te lo dice.
+
 ### Il cedente che mandiamo è nostro, non dell'AdE: sanno cose diverse
 
 `getFiscalData()` (`GET .../doc/documenti/dati/fiscali`) restituisce l'intero

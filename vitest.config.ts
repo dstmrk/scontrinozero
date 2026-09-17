@@ -46,7 +46,10 @@ export default defineConfig({
         "src/app/**/layout.tsx", // layout shells — pure presentation, no testable logic
         "src/app/**/loading.tsx", // loading skeletons — pure UI, no logic
         "src/app/**/opengraph-image.tsx", // OG route files — thin next/og wrappers, render covered via og-image-template
-        // UI orchestration components — pure UI shells, no testable logic
+        // Wizard di onboarding: l'orchestrazione della verifica AdE È testata
+        // (onboarding-form.test.tsx), i tre submit di step 0/1 no. L'esclusione
+        // resta finché non lo sono; la motivazione storica "nessuna logica
+        // testabile" era falsa (REVIEW.md #102).
         "src/app/onboarding/onboarding-form.tsx",
         // Auth form shell (Turnstile + react-hook-form), già escluso quando era
         // register/page.tsx; la logica force+lock è verificata server-side in

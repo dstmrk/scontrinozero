@@ -36,6 +36,8 @@ import {
   saveAdeCredentials,
   verifyAdeCredentials,
 } from "@/server/onboarding-actions";
+import { UtenzaPicker } from "@/components/ade/utenza-picker";
+import type { AdeUtenzaCandidate } from "@/lib/ade/types";
 import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
 
@@ -120,6 +122,9 @@ export function OnboardingForm({
   );
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyPivaConflict, setVerifyPivaConflict] = useState(false);
+  // Le partite IVA fra cui scegliere quando l'accesso AdE ne serve più d'una,
+  // o una sola per conto terzi (HAR.md #18). Vuoto in tutti gli altri casi.
+  const [utenzaChoices, setUtenzaChoices] = useState<AdeUtenzaCandidate[]>([]);
   const [trialAlreadyUsed, setTrialAlreadyUsed] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -200,17 +205,30 @@ export function OnboardingForm({
     });
   }
 
-  function handleVerify() {
+  /**
+   * Azzera l'esito dell'ultima verifica. Le scelte valgono per l'esito che le
+   * ha prodotte: sopravvivere a un errore diverso — o alle credenziali che
+   * l'utente è appena tornato a cambiare — le renderebbe righe cliccabili sotto
+   * un messaggio che parla d'altro, e un clic ri-verificherebbe una partita IVA
+   * che le nuove credenziali magari non offrono nemmeno.
+   */
+  function resetVerifyState() {
     setVerifyError(null);
     setVerifyPivaConflict(false);
+    setUtenzaChoices([]);
     setTrialAlreadyUsed(false);
+  }
+
+  function handleVerify(utenzaPiva?: string) {
+    resetVerifyState();
     if (!businessId) return;
     const id = businessId;
     startTransition(async () => {
-      const result = await verifyAdeCredentials(id);
+      const result = await verifyAdeCredentials(id, utenzaPiva);
       if (result.error) {
         setVerifyError(result.error);
         setVerifyPivaConflict(!!result.pivaConflict);
+        setUtenzaChoices(result.utenzaChoices ?? []);
         return;
       }
       if (result.trialAlreadyUsed) {
@@ -508,6 +526,12 @@ export function OnboardingForm({
                       per sbloccarla.
                     </p>
                   )}
+                  {utenzaChoices.length > 0 && (
+                    <UtenzaPicker
+                      choices={utenzaChoices}
+                      onSelect={handleVerify}
+                    />
+                  )}
                 </div>
               )}
 
@@ -533,7 +557,7 @@ export function OnboardingForm({
               ) : (
                 <>
                   <div className="flex flex-col gap-2">
-                    <Button onClick={handleVerify} disabled={isPending}>
+                    <Button onClick={() => handleVerify()} disabled={isPending}>
                       {isPending
                         ? "Verifica in corso…"
                         : "Verifica connessione"}
@@ -550,7 +574,10 @@ export function OnboardingForm({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setStep(1)}
+                    onClick={() => {
+                      resetVerifyState();
+                      setStep(1);
+                    }}
                     className="mt-2"
                   >
                     Modifica credenziali
