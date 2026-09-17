@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
  *
  * Vive fuori da `analytics/` e da `admin/` perché la usano entrambi: la
  * analytics dell'esercente (`src/components/analytics/kpi-cards.tsx`) e il
- * pannello operatore (`src/components/admin/admin-kpi-cards.tsx`). Erano lo
+ * pannello amministratore (`src/components/admin/admin-kpi-cards.tsx`). Erano lo
  * stesso markup scritto due volte; la seconda copia è nata con questo
  * pannello e sarebbe divergita al primo ritocco di stile.
  *

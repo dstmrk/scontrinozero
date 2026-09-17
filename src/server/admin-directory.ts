@@ -19,7 +19,7 @@ import {
 import type { AnalyticsRange } from "./analytics-helpers";
 
 /**
- * Elenchi del pannello operatore (`/admin`) — le tabelle che affiancano i KPI
+ * Elenchi del pannello amministratore (`/admin`) — le tabelle che affiancano i KPI
  * di `admin-metrics.ts`: classifiche esercenti (globali e in trial attivo),
  * documenti in sospeso, onboarding fermi, trial in scadenza, utenti paganti,
  * ultimi registrati.

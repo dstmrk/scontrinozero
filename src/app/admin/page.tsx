@@ -30,12 +30,14 @@ import {
 } from "./sections";
 
 /**
- * Pannello operatore — KPI ed elenchi aggregati su tutti i tenant.
+ * Pannello amministratore — KPI ed elenchi aggregati su tutti i tenant.
  *
- * Server component puro: nessun JavaScript spedito al browser oltre a quello
- * del root layout, e nessuna server action esposta. Il periodo è un deep link
- * (`?range=`) validato contro l'allowlist di `parseAnalyticsRange`, che su
- * valore ignoto ricade sul default invece di lanciare (regola 19).
+ * Server component, nessuna server action esposta. L'unico JavaScript
+ * spedito oltre a quello del root layout è il selettore di periodo
+ * (`AdminRangeTabs`), un Client Component minimo — vedi il suo file per il
+ * perché. Il periodo è un deep link (`?range=`) validato contro l'allowlist
+ * di `parseAnalyticsRange`, che su valore ignoto ricade sul default invece di
+ * lanciare (regola 19).
  *
  * **La pagina non aspetta nessuna query.** Il guscio — selettore di periodo —
  * esce subito; le dieci letture stanno dietro ad altrettanti `<Suspense>` e
@@ -43,6 +45,15 @@ import {
  * `await Promise.all(...)` in cima non partirebbe finché non c'è l'ultimo
  * dato, e la scansione dello storico scontrini si porterebbe dietro anche i
  * blocchi che sono pronti da un pezzo.
+ *
+ * **`key={range}` sui boundary che leggono `range`.** Senza, un cambio di
+ * periodo è un update dentro lo stesso transition di navigazione: React
+ * tiene il contenuto vecchio finché la query nuova non risponde, quindi lo
+ * skeleton non si vede mai. La `key` forza React a smontare e rimontare quel
+ * `<Suspense>` sul nuovo periodo, che quindi mostra di nuovo il fallback. I
+ * boundary ancorati ad "adesso" (documenti in sospeso, onboarding fermi,
+ * trial in scadenza, trial attivi, utenti paganti) non hanno la key: non
+ * dipendono da `range`, quindi non devono ripartire quando cambia.
  *
  * **Il tetto sul pool viene prima della velocità del pannello.** Le dieci
  * letture NON girano in parallelo: `runAdminRead` (`src/server/admin-sql.ts`)
@@ -57,7 +68,7 @@ import {
  * subito dopo, appaiato all'onboarding fermi.
  */
 export const metadata: Metadata = {
-  title: "Pannello operatore",
+  title: "Pannello amministratore",
   robots: { index: false, follow: false },
 };
 
@@ -100,6 +111,7 @@ export default async function AdminPage({
             utenti, 2 su 3 fra gli scontrini — così le card non cambiano
             altezza quando il contenuto prende il posto dello scheletro. */}
         <Suspense
+          key={`user-kpis-${range}`}
           fallback={
             <AdminKpiCardsSkeleton
               count={2}
@@ -111,11 +123,13 @@ export default async function AdminPage({
           <AdminUserKpisSection range={range} />
         </Suspense>
         <Suspense
+          key={`trial-funnel-${range}`}
           fallback={<AdminKpiCardsSkeleton count={1} label="funnel trial" />}
         >
           <AdminTrialFunnelSection range={range} />
         </Suspense>
         <Suspense
+          key={`document-kpis-${range}`}
           fallback={
             <AdminKpiCardsSkeleton
               count={3}
@@ -141,7 +155,10 @@ export default async function AdminPage({
           </Suspense>
         </div>
 
-        <Suspense fallback={<AdminTopMerchantsSkeleton />}>
+        <Suspense
+          key={`top-merchants-${range}`}
+          fallback={<AdminTopMerchantsSkeleton />}
+        >
           <AdminTopMerchantsSection range={range} />
         </Suspense>
 
@@ -158,7 +175,10 @@ export default async function AdminPage({
           <Suspense fallback={<AdminPaidUsersSkeleton />}>
             <AdminPaidUsersSection />
           </Suspense>
-          <Suspense fallback={<AdminRecentProfilesSkeleton />}>
+          <Suspense
+            key={`recent-profiles-${range}`}
+            fallback={<AdminRecentProfilesSkeleton />}
+          >
             <AdminRecentProfilesSection range={range} />
           </Suspense>
         </div>

@@ -362,6 +362,15 @@ describe("AdminStalledOnboardingTable", () => {
     ).toBeInTheDocument();
   });
 
+  it("mostra i conteggi dentro la card 'Onboarding fermi', non sopra", () => {
+    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+
+    const counts = screen.getByText(/10 fermi in totale/);
+    const card = counts.closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    expect(card).toContainElement(screen.getByText("Onboarding fermi"));
+  });
+
   it("non mostra più la colonna Accesso", () => {
     render(<AdminStalledOnboardingTable stalled={stalled()} />);
 

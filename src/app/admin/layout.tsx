@@ -1,12 +1,14 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { isAdminEmail } from "@/lib/admin-gate";
 import { logger } from "@/lib/logger";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+import { APP_VERSION, getBuildLabel } from "@/lib/version";
 
 /**
- * Shell del pannello operatore.
+ * Shell del pannello amministratore.
  *
  * È l'**unico** gate di `/admin/*`: le funzioni che leggono le metriche non
  * sono server action e non hanno un endpoint proprio, quindi passare di qui è
@@ -46,13 +48,19 @@ export default async function AdminLayout({
   return (
     <div className="container mx-auto min-h-screen px-4 py-6">
       <header className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-xl font-bold">Pannello operatore</h1>
-        <Link
-          href="/dashboard"
-          className="text-muted-foreground hover:text-foreground text-sm"
-        >
-          Torna all&apos;app
-        </Link>
+        <h1 className="text-xl font-bold">Pannello amministratore</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground text-sm">
+            ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
+          </span>
+          <Link
+            href="/dashboard"
+            aria-label="Torna all'app"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-5" aria-hidden="true" />
+          </Link>
+        </div>
       </header>
       {children}
     </div>

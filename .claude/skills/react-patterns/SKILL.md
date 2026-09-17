@@ -524,7 +524,7 @@ Quattro cose che si imparano solo sbagliandole:
 Sei boundary indipendenti significano sei query che partono insieme, e con un
 pool condiviso (10 connessioni in `src/db/index.ts`, le stesse che servono la
 cassa) una pagina secondaria può prendersene la maggioranza. Se le query sono
-già costose — nel pannello operatore nessuna può usare un indice, perché sono
+già costose — nel pannello amministratore nessuna può usare un indice, perché sono
 tutti prefissati `business_id` — il parallelismo peggiora il problema invece di
 risolverlo.
 

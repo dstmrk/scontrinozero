@@ -14,7 +14,7 @@ import type {
 } from "@/server/admin-directory";
 
 /**
- * Le tabelle del pannello operatore, una per lettura.
+ * Le tabelle del pannello amministratore, una per lettura.
  *
  * Ogni tabella esporta anche il **proprio skeleton**, che vive qui accanto e
  * non in `admin-skeletons.tsx`: titolo e descrizione sono gli stessi del
@@ -395,7 +395,7 @@ interface AdminStalledOnboardingTableProps {
 }
 
 /**
- * Onboarding fermi, con il conteggio per fascia d'età sopra la tabella.
+ * Onboarding fermi, con il conteggio per fascia d'età nell'header della card.
  *
  * Il conteggio non è decorazione: le righe sono tagliate a 50, i totali no, e
  * «fermo da tre giorni» e «fermo da quattro mesi» sono due problemi diversi che
@@ -406,24 +406,24 @@ export function AdminStalledOnboardingTable({
 }: AdminStalledOnboardingTableProps) {
   const { counts } = stalled;
   return (
-    <div className="space-y-2">
-      <p className="text-muted-foreground text-xs">
-        {countFormatter.format(counts.total)} fermi in totale —{" "}
-        {countFormatter.format(counts.recent)} da meno di 7 giorni,{" "}
-        {countFormatter.format(counts.weeks)} da 7 a 30,{" "}
-        {countFormatter.format(counts.stale)} da oltre 30.
-      </p>
-      <AdminTable
-        {...HEADINGS.stalled}
-        columns={STALLED_COLUMNS}
-        rows={stalled.rows}
-        rowKey={(r) => r.email}
-        empty="Nessun onboarding fermo."
-      />
-    </div>
+    <AdminTable
+      {...HEADINGS.stalled}
+      note={
+        <p className="text-muted-foreground text-xs">
+          {countFormatter.format(counts.total)} fermi in totale —{" "}
+          {countFormatter.format(counts.recent)} da meno di 7 giorni,{" "}
+          {countFormatter.format(counts.weeks)} da 7 a 30,{" "}
+          {countFormatter.format(counts.stale)} da oltre 30.
+        </p>
+      }
+      columns={STALLED_COLUMNS}
+      rows={stalled.rows}
+      rowKey={(r) => r.email}
+      empty="Nessun onboarding fermo."
+    />
   );
 }
 
 export function AdminStalledOnboardingSkeleton() {
-  return <AdminTableSkeleton {...HEADINGS.stalled} />;
+  return <AdminTableSkeleton {...HEADINGS.stalled} note />;
 }

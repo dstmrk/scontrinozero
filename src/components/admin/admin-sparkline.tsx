@@ -1,7 +1,7 @@
 import type { AdminSparklinePoint } from "@/server/admin-metrics";
 
 /**
- * Sparkline del pannello operatore: una `polyline` SVG e nulla più.
+ * Sparkline del pannello amministratore: una `polyline` SVG e nulla più.
  *
  * **Perché non Recharts** (che il progetto ha già, regola 29): Recharts è un
  * client component e trascinerebbe ~90 KB di JS su una pagina che altrimenti è

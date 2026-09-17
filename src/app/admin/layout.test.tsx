@@ -61,6 +61,32 @@ describe("AdminLayout — gate operatore", () => {
     expect(mockNotFound).not.toHaveBeenCalled();
   });
 
+  it("mostra il link icona per tornare all'app, senza il testo esplicito", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "u1",
+      email: "marco@scontrinozero.it",
+    });
+    mockIsAdminEmail.mockReturnValue(true);
+
+    render(await AdminLayout({ children: <p>contenuto</p> }));
+
+    const backLink = screen.getByRole("link", { name: "Torna all'app" });
+    expect(backLink).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByText("Torna all'app")).not.toBeInTheDocument();
+  });
+
+  it("mostra versione e build accanto al link di ritorno", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "u1",
+      email: "marco@scontrinozero.it",
+    });
+    mockIsAdminEmail.mockReturnValue(true);
+
+    render(await AdminLayout({ children: <p>contenuto</p> }));
+
+    expect(screen.getByText(/ScontrinoZero .+ — build .+/)).toBeInTheDocument();
+  });
+
   it("risponde 404 (non 403) a un utente autenticato ma non operatore", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "u2",

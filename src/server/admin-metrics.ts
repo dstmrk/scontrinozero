@@ -13,7 +13,7 @@ import {
 import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
 
 /**
- * Metriche del pannello operatore (`/admin`) — lettura sola, aggregata su
+ * Metriche del pannello amministratore (`/admin`) — lettura sola, aggregata su
  * TUTTI i tenant. Server-only: nessun `"use server"`, quindi nessuna action
  * RPC raggiungibile dal browser. Il gate è il layout (`isAdminEmail`), che
  * resta l'unico punto d'ingresso.
@@ -163,7 +163,7 @@ function logMetricsFailure(
 }
 
 /**
- * KPI utenti del pannello operatore: iscritti nel periodo, totale storico,
+ * KPI utenti del pannello amministratore: iscritti nel periodo, totale storico,
  * trial attivi che hanno completato l'onboarding.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19): la pagina è
@@ -250,7 +250,7 @@ export async function getAdminUserKpis(
 }
 
 /**
- * KPI scontrini del pannello operatore: emessi e incassati nel periodo, totali
+ * KPI scontrini del pannello amministratore: emessi e incassati nel periodo, totali
  * storici, business per metodo di accesso AdE.
  *
  * È la lettura più cara del pannello — `created_at < rangeEnd` significa tutto

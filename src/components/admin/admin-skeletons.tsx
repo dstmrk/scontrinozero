@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Segnaposto dei blocchi del pannello operatore, mostrati dai boundary
+ * Segnaposto dei blocchi del pannello amministratore, mostrati dai boundary
  * Suspense di `src/app/admin/page.tsx` mentre la loro query è in coda o in
  * volo.
  *
@@ -72,6 +72,12 @@ export function AdminKpiCardsSkeleton({
 interface AdminTableSkeletonProps {
   readonly title: string;
   readonly description?: string;
+  /**
+   * Riserva lo spazio della `note` dell'header (es. i conteggi di "Onboarding
+   * fermi"): senza, il contenuto vero arriverebbe con una riga in più che
+   * lo scheletro non aveva disegnato.
+   */
+  readonly note?: boolean;
   /** Quante righe finte disegnare. */
   readonly rows?: number;
 }
@@ -80,6 +86,7 @@ interface AdminTableSkeletonProps {
 export function AdminTableSkeleton({
   title,
   description,
+  note = false,
   rows = 5,
 }: AdminTableSkeletonProps) {
   return (
@@ -89,6 +96,7 @@ export function AdminTableSkeleton({
         {description && (
           <p className="text-muted-foreground text-xs">{description}</p>
         )}
+        {note && <Skeleton className="mt-1 h-3 w-64" aria-hidden="true" />}
       </CardHeader>
       <CardContent>
         <div className="space-y-3" aria-hidden="true">

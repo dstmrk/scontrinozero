@@ -33,7 +33,7 @@ const ANALYTICS_RANGES: ReadonlySet<AnalyticsRange> = new Set([
  * di lanciare: il deep link è una comodità, non deve mai rompere il render
  * (coerente con regola 19 — degradare, non lanciare).
  *
- * `fallback` esiste perché il pannello operatore apre su 7 giorni mentre
+ * `fallback` esiste perché il pannello amministratore apre su 7 giorni mentre
  * l'analytics esercente resta su 30: due default, un solo vocabolario di
  * periodi. Senza il parametro l'unico modo di differenziarli sarebbe una
  * seconda funzione di parsing, cioè una seconda allowlist da tenere allineata.
@@ -218,7 +218,7 @@ export function fillMissingDays(
  * ordine crescente.
  *
  * È l'asse temporale condiviso da ogni serie giornaliera: `fillMissingDays`
- * (analytics dell'esercente) e le sparkline del pannello operatore
+ * (analytics dell'esercente) e le sparkline del pannello amministratore
  * (`src/server/admin-metrics.ts`) devono produrre lo stesso numero di punti
  * per lo stesso range, altrimenti due grafici affiancati raccontano periodi
  * diversi.

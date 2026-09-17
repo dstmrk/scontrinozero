@@ -5,7 +5,7 @@ import { TRIAL_DAYS } from "@/lib/plans";
 import { type AnalyticsRange, rangeToBounds } from "./analytics-helpers";
 
 /**
- * Primitive condivise dalle letture del pannello operatore
+ * Primitive condivise dalle letture del pannello amministratore
  * (`admin-metrics.ts`, `admin-directory.ts`).
  *
  * Stanno insieme perché sono lo stesso contratto verso Postgres: come si
