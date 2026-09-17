@@ -10,6 +10,7 @@ import {
   resolveAdeRedirect,
 } from "./real-client";
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeError,
   AdeNetworkError,
@@ -476,6 +477,26 @@ describe("RealAdeClient", () => {
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
         AdePasswordExpiredError,
+      );
+    });
+
+    it("Phase A: lancia AdeAccountLockedError se details è ACCOUNT_LOCKED", async () => {
+      // Osservato in produzione il 17/09/2026: un'utenza bloccata riceveva il
+      // messaggio "verifica codice fiscale, password e PIN" su credenziali
+      // corrette. Il blocco non si sblocca riscrivendo i campi.
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 401,
+          body: {
+            error: "Autenticazione fallita",
+            errorCode: "AUTH_ERROR",
+            details: "ACCOUNT_LOCKED",
+          },
+        }),
+      );
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeAccountLockedError,
       );
     });
 

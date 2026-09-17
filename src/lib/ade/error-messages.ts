@@ -1,4 +1,5 @@
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeNetworkError,
   AdeNoPartitaIvaError,
@@ -42,6 +43,15 @@ export function getUserFacingAdeErrorMessage(
     return {
       message: "La password Fisconline è scaduta.",
       passwordExpired: true,
+    };
+  }
+  if (err instanceof AdeAccountLockedError) {
+    // Non method-aware, a differenza di AdeAuthError: il blocco sta
+    // sull'utenza, non sui campi che sono stati digitati. E soprattutto non
+    // dice "verifica le credenziali" — sono giuste, ed è riscrivendole che
+    // l'esercente perde tempo (e a volte prolunga il blocco).
+    return {
+      message: `La tua utenza dell'Agenzia delle Entrate risulta bloccata. Non dipende dai dati che hai inserito: sono corretti. Per sbloccarla entra nel portale dell'Agenzia delle Entrate, oppure scrivici a ${CONTACT_EMAIL}.`,
     };
   }
   if (err instanceof AdeAuthError) {
@@ -153,6 +163,9 @@ export function isTransientAdeError(err: unknown): boolean {
 export function isExpectedUserAdeError(err: unknown): boolean {
   if (err instanceof AdeAuthError) return true;
   if (err instanceof AdePasswordExpiredError) return true;
+  // Utenza bloccata: deterministica (nessun retry la sblocca) e risolvibile
+  // solo sul portale AdE. Come le altre, warn e non issue Sentry.
+  if (err instanceof AdeAccountLockedError) return true;
   // SCONTRINOZERO-13: utenza AdE senza partita IVA. Il login è andato a buon
   // fine, quindi non è un guasto nostro né del portale; è deterministico
   // (nessun retry produce una P.IVA che non esiste) e si corregge solo

@@ -3167,6 +3167,23 @@ describe("onboarding-actions", () => {
       expect(compiled.params).toContain("fisconline");
     });
 
+    it("utenza bloccata: non dice 'password attuale non corretta', che è falso", async () => {
+      // Il ramo `instanceof AdeAuthError` di formatChangePasswordError
+      // intercettava anche l'utenza bloccata, perché prima ACCOUNT_LOCKED
+      // diventava un AdeAuthError. Il risultato era un secondo messaggio
+      // sbagliato sullo stesso problema: la password attuale è giusta.
+      arrangeChangePassword();
+      const { AdeAccountLockedError } = await import("@/lib/ade/errors");
+      mockChangePasswordFisconline.mockRejectedValue(
+        new AdeAccountLockedError(),
+      );
+
+      const result = await runChangePassword();
+
+      expect(result.error).not.toBe("Password attuale non corretta.");
+      expect(result.error).toMatch(/bloccat/i);
+    });
+
     it("lock miss (0 righe): nessun revalidate e messaggio che spinge alla ri-verifica (REVIEW #60)", async () => {
       arrangeChangePassword();
       mockUpdateReturning.mockReset().mockResolvedValue([]);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeError,
   AdeNetworkError,
@@ -196,6 +197,53 @@ describe("getUserFacingAdeErrorMessage", () => {
         "Non hai approvato la richiesta SPID in tempo. Riprova.",
       );
     });
+  });
+});
+
+describe("utenza AdE bloccata (ACCOUNT_LOCKED)", () => {
+  const FALLBACK_LOCKED = "Verifica fallita.";
+
+  it("non manda l'utente a ricontrollare credenziali che sono giuste", () => {
+    const result = getUserFacingAdeErrorMessage(
+      new AdeAccountLockedError(),
+      FALLBACK_LOCKED,
+    );
+
+    expect(result.message).not.toMatch(/non valide/i);
+    expect(result.message).not.toMatch(/verifica codice fiscale/i);
+  });
+
+  it("dice che l'utenza è bloccata e dove si sblocca", () => {
+    const result = getUserFacingAdeErrorMessage(
+      new AdeAccountLockedError(),
+      FALLBACK_LOCKED,
+    );
+
+    expect(result.message).toMatch(/bloccat/i);
+    expect(result.message).toMatch(/Agenzia delle Entrate/i);
+  });
+
+  it("non è method-aware: il blocco sta sull'utenza, non sui campi", () => {
+    const fisconline = getUserFacingAdeErrorMessage(
+      new AdeAccountLockedError(),
+      FALLBACK_LOCKED,
+      "fisconline",
+    );
+    const cie = getUserFacingAdeErrorMessage(
+      new AdeAccountLockedError(),
+      FALLBACK_LOCKED,
+      "cie",
+    );
+
+    expect(cie.message).toBe(fisconline.message);
+  });
+
+  it("non è transient: nessun retry sblocca un'utenza", () => {
+    expect(isTransientAdeError(new AdeAccountLockedError())).toBe(false);
+  });
+
+  it("è un caso utente prevedibile: warn, non issue Sentry (regola 20)", () => {
+    expect(isExpectedUserAdeError(new AdeAccountLockedError())).toBe(true);
   });
 });
 

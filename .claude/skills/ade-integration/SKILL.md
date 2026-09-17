@@ -160,6 +160,33 @@ frontend: la response `text/x-component` contiene il JSON `{ error }` — da lì
 si risale al messaggio in `error-messages.ts` e quindi alla classe d'errore
 esatta, prima ancora di aprire i log server.
 
+### Il `401` di Phase A non è un caso solo: leggi sempre `details`
+
+`POST /api/login/telematico` risponde `401` con un body JSON che porta un campo
+`details`, e quel campo è l'unica cosa che distingue tre situazioni con tre
+rimedi **diversi**:
+
+| `details`             | Classe                    | Cosa deve fare l'esercente           |
+| --------------------- | ------------------------- | ------------------------------------ |
+| `INVALID_CREDENTIALS` | `AdeAuthError`            | ricontrollare CF, password, PIN      |
+| `PASSWORD_EXPIRED`    | `AdePasswordExpiredError` | cambiare la password (dialog in-app) |
+| `ACCOUNT_LOCKED`      | `AdeAccountLockedError`   | sbloccare l'utenza sul portale AdE   |
+
+Il riflesso sbagliato — e il default storico — è mappare tutto ciò che non è
+`PASSWORD_EXPIRED` su `AdeAuthError`, cioè su «verifica codice fiscale,
+password e PIN». Per un'utenza **bloccata** quel messaggio è falso due volte:
+i dati sono giusti, e riscriverli è l'unica cosa che non serve — anzi, ogni
+tentativo in più può prolungare il blocco. Misurato in produzione il
+17/09/2026: tre riscritture e una mail all'assistenza che diceva, correttamente,
+«ho richiesto questi dati stamattina e quindi sono giusti».
+
+Regola generale che ne esce, valida oltre il `401`: **un campo diagnostico che
+l'AdE manda e noi scartiamo diventa un messaggio che incolpa l'utente.** Quando
+compare un `details` nuovo, gli si dà una classe e un messaggio prima di
+lasciarlo cadere nel ramo generico. Il costo è una migrazione additiva sul
+vocabolario di `last_verify_outcome` (la 0038 lo mette in conto, la 0041 è
+l'esempio) e sono poche righe.
+
 ### Failure mode noto: `200` senza P.IVA = utenza sbagliata, non guasto
 
 `wizardTemplate` (Fisconline/CIE, Phase F) o `dati/fiscali` / `gestori/me`

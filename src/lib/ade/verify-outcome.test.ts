@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AdeAccountLockedError,
   AdeAuthError,
   AdeError,
   AdeNetworkError,
@@ -28,6 +29,7 @@ import {
 describe("classifyAdeLoginFailure", () => {
   it.each([
     [new AdeAuthError(), "auth_error"],
+    [new AdeAccountLockedError(), "account_locked"],
     [new AdePasswordExpiredError(), "password_expired"],
     [
       new AdeUtenzaSelectionRequiredError([{ piva: "07790350966" }]),
