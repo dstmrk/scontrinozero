@@ -32,8 +32,8 @@ src/
     (marketing)/    sito pubblico SSG/SEO (/help, /guide, /per, /confronto, /strumenti, /termini)
     admin/          pannello operatore: KPI ed elenchi su tutti i tenant
                     (gate allowlist email, fuori dall'area prodotto).
-                    page.tsx e' solo il guscio: sei <Suspense> in streaming
-                    sulle sei letture di sections.tsx
+                    page.tsx e' solo il guscio: dieci <Suspense> in streaming
+                    sulle dieci letture di sections.tsx
     dashboard/      area autenticata: cassa, storico, analytics, settings
     onboarding/     wizard collegamento credenziali AdE
     api/            route handler (vedi sotto)
