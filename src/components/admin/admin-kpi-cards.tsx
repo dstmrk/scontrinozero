@@ -12,7 +12,7 @@ import { AdminSparkline } from "./admin-sparkline";
 const countFormatter = new Intl.NumberFormat("it-IT");
 
 /**
- * Le cinque card del pannello operatore, in **due gruppi**: due utenti, tre
+ * Le cinque card del pannello amministratore, in **due gruppi**: due utenti, tre
  * scontrini.
  *
  * Il taglio segue la query che le alimenta, non l'estetica: le card utenti

@@ -24,12 +24,12 @@ Vivono in `src/lib/receipts/receipt-totals.ts`, modulo **puro e client-safe**:
 
 Ogni nuovo punto che tocca un totale monetario deve passare da questi helper.
 
-### L'unica eccezione ammessa: il gemello SQL del pannello operatore
+### L'unica eccezione ammessa: il gemello SQL del pannello amministratore
 
 C'è **un solo** posto in cui la formula è riscritta fuori da
 `receipt-totals.ts`: `lineCentsSql` in `src/server/admin-sql.ts`, la
 traduzione in Postgres di `lineTotalCents`, condivisa dalle letture del
-pannello operatore.
+pannello amministratore.
 
 Perché esiste: quel pannello aggrega su **tutti** i tenant, e tirarsi in memoria
 ogni riga di ogni scontrino per sommarle sarebbe l'unica parte del progetto che

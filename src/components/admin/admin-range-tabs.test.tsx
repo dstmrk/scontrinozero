@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AdminRangeTabs } from "./admin-range-tabs";
 
@@ -34,6 +34,38 @@ describe("AdminRangeTabs", () => {
       "page",
     );
     expect(screen.getByRole("link", { name: "7 giorni" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("evidenzia la tab appena cliccata subito, senza aspettare la navigazione", () => {
+    // La prop `active` resta quella di partenza — come durante il transition
+    // di Next, che non l'aggiorna finché la pagina nuova non è pronta — ma il
+    // click deve già spostare l'evidenza: le due cose sono disaccoppiate.
+    render(<AdminRangeTabs active="7d" />);
+
+    fireEvent.click(screen.getByRole("link", { name: "30 giorni" }));
+
+    expect(screen.getByRole("link", { name: "30 giorni" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "7 giorni" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("risincronizza sulla prop quando la navigazione finisce (es. back/forward)", () => {
+    const { rerender } = render(<AdminRangeTabs active="7d" />);
+
+    fireEvent.click(screen.getByRole("link", { name: "30 giorni" }));
+    rerender(<AdminRangeTabs active="90d" />);
+
+    expect(screen.getByRole("link", { name: "90 giorni" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "30 giorni" })).not.toHaveAttribute(
       "aria-current",
     );
   });

@@ -91,7 +91,7 @@ export interface ReceiptTotals {
  * propagherebbe fino all'`ammontareComplessivo` trasmesso all'AdE.
  *
  * ⚠️ **Ha un gemello in SQL**: `lineCentsSql` in `src/server/admin-sql.ts`
- * è la stessa formula scritta in Postgres, perché il pannello operatore
+ * è la stessa formula scritta in Postgres, perché il pannello amministratore
  * aggrega su tutti i tenant e non può tirarsi in memoria ogni riga di ogni
  * scontrino. Nessun test può confrontarle (una gira in JS, l'altra nel DB):
  * cambiare questa e non quella fa divergere in silenzio il totale del pannello

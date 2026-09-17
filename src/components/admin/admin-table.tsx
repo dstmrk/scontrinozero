@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
- * Tabella del pannello operatore: intestazione, righe, stato vuoto.
+ * Tabella del pannello amministratore: intestazione, righe, stato vuoto.
  *
  * Server component senza stato — niente ordinamento o paginazione lato client,
  * quindi niente TanStack Table (che lo storico usa perché lì servono davvero
@@ -20,6 +20,12 @@ export interface AdminTableColumn<T> {
 interface AdminTableProps<T> {
   readonly title: string;
   readonly description?: string;
+  /**
+   * Contenuto extra nell'header, sotto la descrizione (es. i conteggi per
+   * fascia d'età di "Onboarding fermi"). Nell'header e non sopra la card:
+   * altrimenti è un paragrafo slegato che il proprio skeleton non riserva.
+   */
+  readonly note?: React.ReactNode;
   readonly columns: ReadonlyArray<AdminTableColumn<T>>;
   readonly rows: readonly T[];
   /**
@@ -36,6 +42,7 @@ interface AdminTableProps<T> {
 export function AdminTable<T>({
   title,
   description,
+  note,
   columns,
   rows,
   rowKey,
@@ -48,6 +55,7 @@ export function AdminTable<T>({
         {description && (
           <p className="text-muted-foreground text-xs">{description}</p>
         )}
+        {note}
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (

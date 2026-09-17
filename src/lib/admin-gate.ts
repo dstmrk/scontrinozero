@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import { normalizeEmail } from "./validation";
 
 /**
- * Gate del pannello operatore (`/admin`).
+ * Gate del pannello amministratore (`/admin`).
  *
  * L'allowlist vive in `ADMIN_EMAILS` (env **runtime**, non `NEXT_PUBLIC_*`:
  * l'elenco non deve finire nel bundle del browser) come lista di indirizzi

@@ -30,7 +30,7 @@ import {
 import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 /**
- * Le dieci sezioni del pannello operatore: una lettura, un boundary Suspense,
+ * Le dieci sezioni del pannello amministratore: una lettura, un boundary Suspense,
  * un pezzo di pagina.
  *
  * Ognuna è un server component asincrono che `await`a la **sua** query e rende
