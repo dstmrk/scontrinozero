@@ -548,9 +548,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "annullare-scontrino-elettronico": {
     slug: "annullare-scontrino-elettronico",
     title: "Annullare uno scontrino elettronico: procedura e normativa",
-    metaTitle: "Annullare scontrino elettronico: come fare e quando",
+    metaTitle: "Annullare scontrino elettronico: si può anche giorni dopo",
     metaDescription:
-      "Come annullare un documento commerciale elettronico già trasmesso all'AdE: termini, procedura tecnica, differenza fra annullamento e reso, casi pratici.",
+      "La normativa non fissa un termine perentorio: un documento commerciale si annulla anche nei giorni successivi. Procedura sul portale AdE, annullo o reso.",
     heroIntro:
       'Sì, uno scontrino elettronico si può annullare, anche nei giorni successivi all\'emissione: lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici, e quando invece è più corretto gestire un reso.',
     publishedAt: "2026-05-15",
