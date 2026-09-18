@@ -193,18 +193,35 @@ const SEDE_LEGALE_FIELDS: {
  *    entrano e lasciare indietro i due che non entrano produrrebbe un
  *    indirizzo meta' AdE e meta' digitato, che non e' nessuno dei due.
  *
- * Il gate su `utenzaPiva` e la forma del confronto sono gli stessi di
- * `getDenominazioneMismatch`: si tace sulle utenze "me stesso", e maiuscole e
- * spazi ripetuti non distinguono, la punteggiatura si'.
+ * La forma del confronto e' la stessa di `getDenominazioneMismatch` —
+ * maiuscole e spazi ripetuti non distinguono, la punteggiatura si'. Il gate
+ * invece e' **piu' stretto**: oltre a tacere sulle utenze "me stesso"
+ * (`utenzaPiva` assente), tace su ogni P.IVA intestata a una persona fisica.
+ * Vedi il corpo.
  */
 export function getSedeLegaleMismatch(params: {
   current: StampatoSedeLegale;
   ade: AdeSedeLegale;
   utenzaPiva: string | null | undefined;
+  adeDenominazione: string | null | undefined;
 }): SedeLegaleMismatch | null {
-  const { current, ade, utenzaPiva } = params;
+  const { current, ade, utenzaPiva, adeDenominazione } = params;
 
   if (!utenzaPiva) return null;
+
+  // Solo i soggetti giuridici. `adeDenominazione` valorizzata E' il test:
+  // l'AdE manda quel campo per una societa' e lo lascia vuoto per una persona
+  // fisica, di cui manda nome e cognome (misurato in produzione il
+  // 18/09/2026). Per una persona la "sede legale" e' la residenza, e che
+  // differisca dal punto vendita e' la norma — segnalarlo e' rumore in cassa,
+  // dove l'avviso vive.
+  //
+  // `utenzaPiva` da sola non basta piu'. Finche' le P.IVA dirette arrivavano
+  // solo da `wizardTemplate`, una scelta salvata implicava un incarico e il
+  // gate reggeva; da quando la sonda `meStesso` rivela anche le dirette di
+  // un'utenza multi-persona (HAR.md #18.7), "ha scelto" e "opera per un
+  // altro" hanno smesso di coincidere.
+  if (!normalizeDenominazione(adeDenominazione)) return null;
 
   const fields: SedeLegaleMismatch["fields"] = [];
   const patch: SedeLegalePatch = {};
@@ -303,6 +320,7 @@ export function getAdeIdentityMismatches(
         provincia: business?.adeProvincia,
       },
       utenzaPiva,
+      adeDenominazione: business?.adeDenominazione,
     }),
   };
 }
