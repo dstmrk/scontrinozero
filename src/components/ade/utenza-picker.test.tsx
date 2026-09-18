@@ -114,6 +114,30 @@ describe("UtenzaPicker", () => {
     expect(screen.queryByText("La tua partita IVA")).not.toBeInTheDocument();
   });
 
+  it("resta allineato a sinistra dentro una superficie centrata", () => {
+    // L'onboarding rende lo step dentro un contenitore `text-center`, e il
+    // picker ne ereditava l'allineamento: le partite IVA finivano sfalsate
+    // l'una rispetto all'altra — undici cifre da confrontare a colpo d'occhio,
+    // rese incomparabili dal centraggio. In impostazioni, che centrata non e',
+    // lo stesso componente era gia' corretto: l'allineamento e' del picker,
+    // non della pagina che lo ospita.
+    const { container } = render(
+      <div className="text-center">
+        <UtenzaPicker
+          choices={[
+            { piva: "11111111111", provenienza: "diretta" },
+            { piva: "22222222222", provenienza: "incarico" },
+          ]}
+          onSelect={vi.fn()}
+        />
+      </div>,
+    );
+
+    expect(container.firstElementChild?.firstElementChild).toHaveClass(
+      "text-left",
+    );
+  });
+
   describe("un solo candidato", () => {
     it("chiede di confermare, non di scegliere", () => {
       render(

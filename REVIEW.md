@@ -929,6 +929,21 @@ quindi la derivazione costa poco — ma nessun caso reale la esercita e nessun
 tracciato dice cosa cambia a valle, quindi scriverla ora sarebbe codice non
 verificabile. Si apre quando arriva il primo incarico con un flag acceso.
 
+**Coda della slice 9 — il picker ereditava l'allineamento della pagina.**
+Trovato rendendo il componente per mostrarlo all'owner, non da un test: in
+onboarding lo step vive dentro un contenitore `text-center` e il picker ne
+prendeva il centraggio, quindi le partite IVA finivano sfalsate l'una rispetto
+all'altra. In impostazioni, che centrata non è, lo stesso componente era già
+corretto — ed è il sintomo: l'allineamento è del picker, non della superficie
+che lo ospita. Il centraggio c'era anche prima della slice 9, con una riga sola
+per candidato; la seconda riga lo ha reso visibile. Ora il componente porta il
+proprio `text-left`, con un test che lo rende dentro un contenitore centrato.
+
+Lezione che vale oltre questo caso: un componente condiviso da due superfici
+non può lasciare all'ospite le proprietà **ereditate** (allineamento, colore
+del testo, interlinea) da cui dipende la sua leggibilità. Il gate qui è il
+test, non la prosa.
+
 ### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
 
 - **Categoria:** prodotto/funnel · **Severità:** Medium — non rompe niente, ma è il collo di bottiglia dell'attivazione
