@@ -248,6 +248,17 @@ type WizardTemplateResponse = {
   richiestaIncarichi?: {
     incarichi?: { incaricante?: { cf?: string } }[];
   };
+  /**
+   * I quattro flag di persona. Non li leggiamo per decidere niente — solo per
+   * loggarli quando l'accesso non offre nessun candidato: dicono **quali
+   * personae** l'utenza ha, e sono l'unica cosa che distingua, da un log, un
+   * accesso davvero senza partite IVA da uno che ne ha dietro una persona che
+   * non abbiamo dichiarato.
+   */
+  soloPerMe?: unknown;
+  hasDelega?: unknown;
+  intermediario?: unknown;
+  tutore?: unknown;
 };
 
 /**
@@ -288,6 +299,17 @@ function objectKeysOrNull(value: unknown): string[] | null {
   return typeof value === "object" && value !== null
     ? Object.keys(value)
     : null;
+}
+
+/**
+ * Il valore se è un booleano, `null` altrimenti — chiave assente compresa.
+ *
+ * `false` e "il portale non l'ha mandato" sono due diagnosi diverse, e
+ * coercizzare la seconda nella prima cancella proprio l'informazione per cui
+ * questi campi finiscono nel log.
+ */
+function booleanOrNull(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
 }
 
 /**
@@ -745,6 +767,14 @@ export class RealAdeClient implements AdeClient {
           incarichiRawCount: Array.isArray(data?.richiestaIncarichi?.incarichi)
             ? data.richiestaIncarichi.incarichi.length
             : null,
+          // I quattro flag di persona, con il loro valore: booleani, mai PII.
+          // `topLevelKeys` ne dice solo il nome, e il nome c'è sempre — è il
+          // valore che separa un'utenza con la sola persona "me stesso" da una
+          // che ne ha due (HAR.md #18.1).
+          soloPerMe: booleanOrNull(data?.soloPerMe),
+          hasDelega: booleanOrNull(data?.hasDelega),
+          intermediario: booleanOrNull(data?.intermediario),
+          tutore: booleanOrNull(data?.tutore),
         },
         "ade:wizard_piva_missing",
       );

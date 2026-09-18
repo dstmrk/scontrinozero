@@ -902,6 +902,70 @@ describe("RealAdeClient", () => {
       ).toEqual(["33333333333"]);
     });
 
+    it("Phase F: logga i quattro flag di persona con il loro valore", async () => {
+      // I flag dicono quali personae l'utenza ha (HAR.md #18.1). Le chiavi
+      // nude di `topLevelKeys` dicono solo che esistono: e' il **valore** che
+      // distingue un'utenza con la sola persona "me stesso" da una che ne ha
+      // due. Sono booleani, non sono PII, e sono l'unica cosa che ci fa capire
+      // da un log cos'era l'utenza che e' finita qui.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            soloPerMe: false,
+            hasDelega: true,
+            intermediario: false,
+            tutore: true,
+          },
+        }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+
+      const ctx = vi
+        .mocked(logger.warn)
+        .mock.calls.find(
+          (c) => c[1] === "ade:wizard_piva_missing",
+        )![0] as Record<string, unknown>;
+      expect(ctx).toMatchObject({
+        soloPerMe: false,
+        hasDelega: true,
+        intermediario: false,
+        tutore: true,
+      });
+    });
+
+    it("Phase F: un flag assente o non booleano si logga null, non si inventa", async () => {
+      // `false` e "il portale non l'ha mandato" sono due diagnosi diverse:
+      // coercizzare il secondo nel primo cancella proprio l'informazione per
+      // cui questi campi sono nel log.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: { cfUidUltimo: "RSSMRA80A01H501A", soloPerMe: "true" },
+        }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+
+      const ctx = vi
+        .mocked(logger.warn)
+        .mock.calls.find(
+          (c) => c[1] === "ade:wizard_piva_missing",
+        )![0] as Record<string, unknown>;
+      expect(ctx.soloPerMe).toBeNull();
+      expect(ctx.hasDelega).toBeNull();
+      expect(ctx.intermediario).toBeNull();
+      expect(ctx.tutore).toBeNull();
+    });
+
     it("Phase F: incarichi ricevuti ma illeggibili restano un caso da diagnosticare", async () => {
       // `incarichiRawCount` > 0 con zero letti: il portale ha mandato qualcosa
       // che non sappiamo leggere. E' un problema nostro, non dell'utente, e va
