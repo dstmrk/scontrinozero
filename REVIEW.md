@@ -614,9 +614,10 @@ non è un parametro da rendere variabile: sono due body distinti.
 Quattro conseguenze di progetto, tutte da decidere prima di scrivere codice:
 
 - ~~`soloPerMe: false` va letto **prima** di offrire "Me stesso"~~: lettura
-  **sbagliata**, corretta in `HAR.md` #18.1 il 18/09/2026. Il flag dice che
-  l'utenza non è a sola persona "Me stesso", non che "Me stesso" sia vuota.
-  Sull'utenza catturata le due cose coincidevano.
+  **sbagliata**, chiusa leggendo il bundle React del wizard (`HAR.md` #18.7).
+  La voce "Me stesso" è nell'elenco delle personae sempre, senza condizione.
+  `soloPerMe: true` con una sola `PIva` fa saltare il wizard per intero — è
+  una scorciatoia, non un gate.
 - `incarichi[]` non porta le denominazioni, solo le P.IVA. Un elenco leggibile
   costa una chiamata `procediWizard` per incarico.
 - `dati/fiscali` restituisce l'identità della **società**, quindi l'identity
@@ -905,10 +906,28 @@ picker, o `AdeUtenzaNotAvailableError`) o con `setUserChoice` diretto. Nessun
 incarico viene mai rigiocato sopra una persona già dichiarata. C'è un test che
 lo dice.
 
-Resta estrapolata una cosa sola: la grafia `meStesso` nel body di
-`procediWizard`, dedotta da `setUserChoice` (`HAR.md` #18.6). Fallisce in modo
-leggibile — un 4xx o un payload senza `PIva` danno il comportamento di prima —
-e la sonda degrada invece di lanciare, con `ade:mestesso_probe_failed` a dirlo.
+**Misurato dopo, prima del merge: non restava estrapolato niente.** La grafia
+`meStesso` era l'unica incognita della slice. Il bundle React del wizard è
+**dentro la cattura del 16/09/2026** che avevamo già — nessuno l'aveva aperto,
+perché il metodo di questo repo guarda le richieste e non il codice che le
+produce. Ci stava la risposta a quattro domande in una volta (`HAR.md` #18.7):
+la grafia, le sei personae con il flag che abilita ciascuna, il significato
+vero di `soloPerMe`, e il fatto che `procediWizard` sostituisce il template —
+cioè il meccanismo su cui la sonda si regge.
+
+Lezione di metodo, non di dominio: quando il portale è una SPA, il suo bundle è
+nella cattura e **dice la regola invece di farla inferire**. Prima di marcare
+qualcosa "non osservato", aprire il JS. Costa una `grep`.
+
+Resta aperto un punto che il bundle ha scoperchiato e questa slice non chiude:
+`tipoincaricante` nel portale è **derivato** dai tre booleani dell'incarico
+scelto (`deleghe`, `tutore`, `intermediario`), e `incaricoDiretto` è solo il suo
+default. Il nostro `ADE_TIPO_INCARICANTE` è quel default cablato: corretto per
+l'unica utenza incaricata che abbiamo, dove tutte le entry hanno i tre flag
+falsi, e sbagliato per le altre. I flag arrivano già dentro `AdeIncarico.raw`,
+quindi la derivazione costa poco — ma nessun caso reale la esercita e nessun
+tracciato dice cosa cambia a valle, quindi scriverla ora sarebbe codice non
+verificabile. Si apre quando arriva il primo incarico con un flag acceso.
 
 ### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
 
