@@ -1202,10 +1202,14 @@ Tre letture che il codice non sa dire da solo:
   **dopo** che l'incaricante è stato scelto (18.3).
 - **`incaricante.cf` contiene la partita IVA**, non un codice fiscale a 16
   caratteri: sono le P.IVA delle società a 11 cifre. Il nome del campo mente.
-- **`soloPerMe: false` è il segnale leggibile a macchina che "Me stesso" non è
-  disponibile.** Sceglierlo comunque fa rispondere al portale
-  `Utenza di lavoro non valida o non autorizzata: <CF-PERSONA>`. Va letto prima
-  di offrire l'opzione, non dopo averla tentata.
+- **`soloPerMe: false` dice che l'utenza non è a sola persona "Me stesso", non
+  che "Me stesso" sia vuota.** Su questa utenza le due cose coincidevano —
+  sceglierlo faceva rispondere al portale
+  `Utenza di lavoro non valida o non autorizzata: <CF-PERSONA>` — e la prima
+  stesura di questa voce le ha confuse. Un'utenza con **entrambe** le personae
+  ha lo stesso `soloPerMe: false` e una "Me stesso" popolata (18.5-ter): il
+  flag non è il discriminante che sembrava, e l'unico modo di sapere cosa c'è
+  sotto "Me stesso" è dichiararla e guardare la risposta.
 
 `incarichi[]` **non contiene le denominazioni**: solo P.IVA, `sede` e `tipo`. Chi
 deve mostrare un elenco leggibile di società ha due sole strade — visualizzare le
@@ -1348,6 +1352,35 @@ _come_ (nessun endpoint associato).
   va spiegata all'utente. Lato implementazione non cambia nulla: il replay
   headless rifà comunque il login da zero a ogni sessione.
 
+### 18.5-ter Il wizard ha sempre tre passi (osservazione del 18/09/2026)
+
+Osservazione diretta dell'owner sull'interfaccia del portale, due giorni dopo la
+cattura e su un'utenza diversa. Stesso statuto di 18.5-bis: affidabile sul
+_cosa_, muta sul _come_.
+
+- **I passi restano tre in ogni caso.** Il wizard non si accorcia quando non c'è
+  niente da scegliere: cambia il contenuto del passo 2, non il loro numero.
+- **Il passo 2 mostra una lista di partite IVA anche per "Me stesso".** Non è un
+  passo riservato al ramo incaricato: chi ha partite IVA intestate alla persona
+  le sceglie lì, con la stessa schermata.
+- **Senza partite IVA, il passo 2 mostra un messaggio che dice che non ce ne
+  sono**, e il passo 3 (Conferma) diventa irraggiungibile. L'owner ha visto
+  personalmente questo messaggio.
+
+Quello che questo cambia per noi: `wizardTemplate` non è la fonte delle P.IVA
+dirette, è la fonte delle **personae**. Le P.IVA — di qualunque provenienza —
+compaiono solo dopo che una persona è stata dichiarata con `procediWizard`
+(18.2). Su un'utenza a sola persona il portale ci risparmia il giro e le mette
+già in `wizardTemplate`; su un'utenza che ne ha due, no. Leggere `PIva` dal solo
+`wizardTemplate` significa quindi non vedere mai le P.IVA dirette di chi ha
+anche un incarico — che è esattamente il caso in cui a un esercente veniva
+offerta solo la società sbagliata.
+
+Corollario di metodo: il giro di ritorno alla scelta della persona (18.5-bis) è
+comodo per un umano davanti al browser, ma a noi non serve. Una sonda che scopre
+cosa c'è sotto una persona finisce comunque con l'utente che sceglie, e la
+scelta fa ripartire un login pulito.
+
 ### 18.6 Cosa questa cattura NON dice
 
 - **Il ramo `delega` e il ramo `tutore`.** Questa utenza ha `hasDelega: false` e
@@ -1364,4 +1397,11 @@ _come_ (nessun endpoint associato).
   elenca i servizi — ma resta **inferenza, non misura** (regola 13). Da trattare
   come tale finché la prima emissione reale non la conferma.
 - **L'endpoint che riporta alla scelta utenza.** Sappiamo che il giro esiste
-  (18.5-bis), non come si chiama.
+  (18.5-bis), non come si chiama. Non è più un buco da chiudere per poter
+  procedere: nessun nostro flusso ne ha bisogno (18.5-ter).
+- **La grafia di `tipoutenza` per il ramo "Me stesso".** `setUserChoice` usa
+  `meStesso` in camelCase (18.4) e `procediWizard` usa `incaricato` in
+  minuscolo (18.2): la combinazione `procediWizard` + persona "Me stesso" non è
+  sul tracciato, e la grafia è estrapolata dalle due. Fallisce in modo
+  leggibile — una grafia sbagliata dà un 4xx o un payload senza `PIva`, cioè il
+  comportamento che avevamo prima.
