@@ -6,7 +6,10 @@ describe("UtenzaPicker", () => {
   it("mostra una riga per ogni partita IVA offerta dall'AdE", () => {
     render(
       <UtenzaPicker
-        choices={[{ piva: "11111111111" }, { piva: "22222222222" }]}
+        choices={[
+          { piva: "11111111111", provenienza: "diretta" },
+          { piva: "22222222222", provenienza: "incarico" },
+        ]}
         onSelect={vi.fn()}
       />,
     );
@@ -24,8 +27,12 @@ describe("UtenzaPicker", () => {
     render(
       <UtenzaPicker
         choices={[
-          { piva: "11111111111", denominazione: "ALFA SRL" },
-          { piva: "22222222222" },
+          {
+            piva: "11111111111",
+            denominazione: "ALFA SRL",
+            provenienza: "diretta",
+          },
+          { piva: "22222222222", provenienza: "incarico" },
         ]}
         onSelect={vi.fn()}
       />,
@@ -40,7 +47,10 @@ describe("UtenzaPicker", () => {
     const onSelect = vi.fn();
     render(
       <UtenzaPicker
-        choices={[{ piva: "11111111111" }, { piva: "22222222222" }]}
+        choices={[
+          { piva: "11111111111", provenienza: "diretta" },
+          { piva: "22222222222", provenienza: "incarico" },
+        ]}
         onSelect={onSelect}
       />,
     );
@@ -54,16 +64,63 @@ describe("UtenzaPicker", () => {
     // L'AdE espone solo numeri: senza l'avviso, sbagliare azienda è facile e
     // irreversibile (l'identità si cristallizza alla prima verifica riuscita).
     render(
-      <UtenzaPicker choices={[{ piva: "11111111111" }]} onSelect={vi.fn()} />,
+      <UtenzaPicker
+        choices={[{ piva: "11111111111", provenienza: "diretta" }]}
+        onSelect={vi.fn()}
+      />,
     );
 
     expect(screen.getByText(/non potrai più cambiarla/i)).toBeInTheDocument();
   });
 
+  it("etichetta ogni riga con la persona da cui la partita IVA arriva", () => {
+    // Il motivo per cui questa etichetta esiste: un'utenza con entrambe le
+    // personae mette in elenco la partita IVA dell'esercente accanto a quella
+    // di un soggetto per cui lavora. Due numeri di undici cifre, senza
+    // etichetta, non si distinguono — e sbagliare qui è irreversibile.
+    render(
+      <UtenzaPicker
+        choices={[
+          { piva: "11111111111", provenienza: "diretta" },
+          { piva: "22222222222", provenienza: "incarico" },
+        ]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("La tua partita IVA")).toBeInTheDocument();
+    expect(
+      screen.getByText("Per conto di un altro soggetto"),
+    ).toBeInTheDocument();
+  });
+
+  it("etichetta anche quando la provenienza è una sola", () => {
+    // Nessun ramo che salta l'etichetta quando tutte le righe coincidono: chi
+    // ha un solo incarico ha comunque diritto di sapere che sta collegando la
+    // partita IVA di qualcun altro.
+    render(
+      <UtenzaPicker
+        choices={[
+          { piva: "11111111111", provenienza: "incarico" },
+          { piva: "22222222222", provenienza: "incarico" },
+        ]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Per conto di un altro soggetto")).toHaveLength(
+      2,
+    );
+    expect(screen.queryByText("La tua partita IVA")).not.toBeInTheDocument();
+  });
+
   describe("un solo candidato", () => {
     it("chiede di confermare, non di scegliere", () => {
       render(
-        <UtenzaPicker choices={[{ piva: "11111111111" }]} onSelect={vi.fn()} />,
+        <UtenzaPicker
+          choices={[{ piva: "11111111111", provenienza: "diretta" }]}
+          onSelect={vi.fn()}
+        />,
       );
 
       expect(
@@ -78,7 +135,7 @@ describe("UtenzaPicker", () => {
       const onSelect = vi.fn();
       render(
         <UtenzaPicker
-          choices={[{ piva: "11111111111" }]}
+          choices={[{ piva: "11111111111", provenienza: "diretta" }]}
           onSelect={onSelect}
         />,
       );

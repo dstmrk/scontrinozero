@@ -994,10 +994,13 @@ async function attemptAdeLoginForVerification(
             opts.defaultMessage,
             opts.method,
           ).message,
-          utenzaChoices: err.candidates.map(({ piva, denominazione }) => ({
-            piva,
-            denominazione,
-          })),
+          utenzaChoices: err.candidates.map(
+            ({ piva, denominazione, provenienza }) => ({
+              piva,
+              denominazione,
+              provenienza,
+            }),
+          ),
         },
         outcome: "utenza_selection_required",
       };

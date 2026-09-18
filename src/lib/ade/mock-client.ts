@@ -15,10 +15,40 @@ import type {
   AdeProduct,
   AdeResponse,
   AdeSearchParams,
+  AdeUtenzaCandidate,
   CieCredentials,
   SpidCredentials,
 } from "./types";
+import {
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
+} from "./errors";
 import { buildCedenteFromBusiness } from "./mapper";
+
+/**
+ * PIN sentinella che, in mock, simula un'utenza AdE con **entrambe** le
+ * personae del wizard: una partita IVA propria e un incarico su un altro
+ * soggetto (HAR.md #18.5-ter).
+ *
+ * Esiste perché il flusso che quella forma produce — il picker delle utenze —
+ * non era percorribile fuori dalla produzione: il mock rispondeva sempre con
+ * una sessione, quindi ogni verifica passava dal portale vero, che in dev va
+ * toccato con parsimonia (rate limit AdE sull'IP di uscita, REVIEW.md #36).
+ *
+ * È un PIN valido per `adePinSchema` (dieci cifre), quindi attraversa il
+ * boundary come uno qualunque e la sentinella resta confinata qui.
+ */
+export const ADE_MOCK_MULTI_PERSONA_PIN = "1111111111";
+
+/** Le due P.IVA offerte dall'utenza multi-persona simulata. */
+const MOCK_MULTI_PERSONA_CANDIDATES: readonly AdeUtenzaCandidate[] = [
+  {
+    piva: "11111111111",
+    denominazione: "LA TUA ATTIVITÀ",
+    provenienza: "diretta",
+  },
+  { piva: "22222222222", provenienza: "incarico" },
+];
 
 export class MockAdeClient implements AdeClient {
   private session: AdeSession | null = null;
@@ -33,12 +63,39 @@ export class MockAdeClient implements AdeClient {
     },
     utenzaPiva?: string,
   ): Promise<AdeSession> {
+    if (credentials.pin === ADE_MOCK_MULTI_PERSONA_PIN) {
+      return this.loginMultiPersona(utenzaPiva);
+    }
+
     this.session = {
       pAuth: `mock_p_auth_${Date.now()}`,
       // Con una P.IVA scelta si opera su quella, non su quella derivata dal
       // codice fiscale di chi accede (HAR.md #18.4).
       partitaIva:
         utenzaPiva ?? credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
+      createdAt: Date.now(),
+    };
+    return this.session;
+  }
+
+  /**
+   * L'utenza con due personae: senza una scelta chiede di sceglierla, con una
+   * scelta che non offre la rifiuta. Sono i due errori che il flusso reale
+   * produce, con gli stessi tipi — il chiamante non distingue mock da reale.
+   */
+  private loginMultiPersona(utenzaPiva?: string): AdeSession {
+    if (!utenzaPiva) {
+      throw new AdeUtenzaSelectionRequiredError([
+        ...MOCK_MULTI_PERSONA_CANDIDATES,
+      ]);
+    }
+    if (!MOCK_MULTI_PERSONA_CANDIDATES.some((c) => c.piva === utenzaPiva)) {
+      throw new AdeUtenzaNotAvailableError(utenzaPiva);
+    }
+
+    this.session = {
+      pAuth: `mock_p_auth_${Date.now()}`,
+      partitaIva: utenzaPiva,
       createdAt: Date.now(),
     };
     return this.session;

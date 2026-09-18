@@ -248,6 +248,17 @@ type WizardTemplateResponse = {
   richiestaIncarichi?: {
     incarichi?: { incaricante?: { cf?: string } }[];
   };
+  /**
+   * I quattro flag di persona. Non li leggiamo per decidere niente — solo per
+   * loggarli quando l'accesso non offre nessun candidato: dicono **quali
+   * personae** l'utenza ha, e sono l'unica cosa che distingua, da un log, un
+   * accesso davvero senza partite IVA da uno che ne ha dietro una persona che
+   * non abbiamo dichiarato.
+   */
+  soloPerMe?: unknown;
+  hasDelega?: unknown;
+  intermediario?: unknown;
+  tutore?: unknown;
 };
 
 /**
@@ -267,8 +278,12 @@ function parseDirectPive(data: WizardTemplateResponse): AdeUtenzaCandidate[] {
     if (typeof piva !== "string" || piva.length === 0) return [];
     return [
       typeof entry.denominazione === "string" && entry.denominazione.length > 0
-        ? { piva, denominazione: entry.denominazione }
-        : { piva },
+        ? {
+            piva,
+            denominazione: entry.denominazione,
+            provenienza: "diretta" as const,
+          }
+        : { piva, provenienza: "diretta" as const },
     ];
   });
 }
@@ -288,6 +303,72 @@ function objectKeysOrNull(value: unknown): string[] | null {
   return typeof value === "object" && value !== null
     ? Object.keys(value)
     : null;
+}
+
+/**
+ * Il valore se è un booleano, `null` altrimenti — chiave assente compresa.
+ *
+ * `false` e "il portale non l'ha mandato" sono due diagnosi diverse, e
+ * coercizzare la seconda nella prima cancella proprio l'informazione per cui
+ * questi campi finiscono nel log.
+ */
+function booleanOrNull(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+/**
+ * L'unione delle due personae, etichettata (HAR.md #18).
+ *
+ * Le dirette per prime: su un'utenza che ha entrambe, la propria partita IVA è
+ * quasi sempre quella che si sta cercando.
+ *
+ * Una P.IVA presente in entrambe le liste si offre una volta sola, come
+ * `diretta`. Le due liste sono indipendenti e niente garantisce che siano
+ * disgiunte; offrire due volte lo stesso numero con due etichette diverse
+ * chiederebbe di distinguere due cose identiche, in una scelta irreversibile.
+ */
+function unionCandidates(
+  direct: AdeUtenzaCandidate[],
+  incarichi: AdeIncarico[],
+): AdeUtenzaCandidate[] {
+  const seen = new Set(direct.map((c) => c.piva));
+  return [
+    ...direct,
+    ...incarichi
+      .filter(({ piva }) => !seen.has(piva))
+      .map(({ piva }) => ({ piva, provenienza: "incarico" as const })),
+  ];
+}
+
+/**
+ * Se dichiarare la persona "Me stesso" al portale per farsi elencare le P.IVA
+ * dirette (HAR.md #18.5-ter). È un POST in più, quindi si fa solo quando c'è
+ * davvero qualcosa da scoprire.
+ *
+ * Non si fa quando:
+ * - **`wizardTemplate` ha già portato delle P.IVA dirette.** È la forma
+ *   dell'utenza a persona singola, cioè quasi tutti: lì il portale ci
+ *   risparmia il giro e una sonda sarebbe un round-trip per niente a ogni
+ *   login di ogni esercente.
+ * - **la scelta già salvata è uno degli incarichi offerti.** La strada è
+ *   decisa e la sonda non la cambierebbe: chi opera da incaricato rifà il
+ *   login a ogni scontrino, e gli aggiungeremmo un round-trip più un cambio di
+ *   persona lato server ogni volta.
+ *
+ * Si fa in tutti gli altri casi, che sono due: la scoperta di un'utenza che
+ * offre solo incarichi (può avere anche delle dirette, e non lo sapremmo mai),
+ * e una scelta salvata che non corrisponde a niente di quello che vediamo —
+ * che è esattamente come si presenta, a ogni accesso successivo, una P.IVA
+ * diretta scelta su un'utenza multi-persona.
+ */
+function shouldProbeMeStesso(
+  direct: AdeUtenzaCandidate[],
+  incarichi: AdeIncarico[],
+  utenzaPiva: string | undefined,
+): boolean {
+  if (direct.length > 0) return false;
+  if (utenzaPiva && incarichi.some((i) => i.piva === utenzaPiva)) return false;
+  return true;
 }
 
 /**
@@ -691,8 +772,16 @@ export class RealAdeClient implements AdeClient {
    * codice fiscale non è un input: si legge qui da `cfUidUltimo`. Per Fisconline
    * il CF è già noto (credenziali), quindi `cf` può risultare undefined senza
    * errore — solo la P.IVA mancante è fatale.
+   *
+   * `utenzaPiva` è la scelta già salvata, se c'è. Non serve a filtrare — le
+   * liste tornano intere — ma a decidere se la sonda `meStesso` va fatta
+   * (`shouldProbeMeStesso`): quando la scelta è già un incarico non c'è niente
+   * da scoprire.
    */
-  private async fetchWizardIdentity(xAppl: string): Promise<{
+  private async fetchWizardIdentity(
+    xAppl: string,
+    utenzaPiva: string | undefined,
+  ): Promise<{
     cf: string | undefined;
     direct: AdeUtenzaCandidate[];
     incarichi: AdeIncarico[];
@@ -710,8 +799,12 @@ export class RealAdeClient implements AdeClient {
     }
 
     const data = (await response.json()) as WizardTemplateResponse;
-    const direct = parseDirectPive(data);
+    let direct = parseDirectPive(data);
     const incarichi = parseIncarichi(data);
+
+    if (shouldProbeMeStesso(direct, incarichi, utenzaPiva)) {
+      direct = await this.probeMeStesso(xAppl);
+    }
 
     // Zero candidati in assoluto: né P.IVA proprie né incarichi. È l'unica
     // forma ancora anomala — non c'è niente su cui questo accesso possa
@@ -745,6 +838,14 @@ export class RealAdeClient implements AdeClient {
           incarichiRawCount: Array.isArray(data?.richiestaIncarichi?.incarichi)
             ? data.richiestaIncarichi.incarichi.length
             : null,
+          // I quattro flag di persona, con il loro valore: booleani, mai PII.
+          // `topLevelKeys` ne dice solo il nome, e il nome c'è sempre — è il
+          // valore che separa un'utenza con la sola persona "me stesso" da una
+          // che ne ha due (HAR.md #18.1).
+          soloPerMe: booleanOrNull(data?.soloPerMe),
+          hasDelega: booleanOrNull(data?.hasDelega),
+          intermediario: booleanOrNull(data?.intermediario),
+          tutore: booleanOrNull(data?.tutore),
         },
         "ade:wizard_piva_missing",
       );
@@ -756,17 +857,54 @@ export class RealAdeClient implements AdeClient {
   }
 
   /**
-   * Passo del wizard utenza (HAR.md #18.2 e #18.3). Due POST allo stesso
-   * endpoint: la prima dichiara il tipo di utenza, la seconda l'incaricante.
+   * Dichiara la persona "Me stesso" e legge le P.IVA che il portale elenca
+   * (HAR.md #18.5-ter). È l'unico modo di vedere le partite IVA proprie di
+   * un'utenza che ha anche degli incarichi: `wizardTemplate` non le porta.
    *
-   * La prima risponde con lo stesso payload di `wizardTemplate` e non aggiunge
-   * informazione; la mandiamo perché la cattura la contiene e saltarla non è
-   * verificato (HAR.md #18.2). La seconda è quella che fa comparire `PIva`.
+   * **Degrada, non lancia.** La sonda è un di più: se il portale la rifiuta
+   * restiamo con i candidati che già avevamo. Propagare l'errore
+   * trasformerebbe "ti offro la partita IVA sbagliata" in "il portale non
+   * risponde", che per chi sta collegando l'account è un peggioramento netto.
+   *
+   * La grafia `meStesso` è estrapolata da `setUserChoice` (HAR.md #18.4), non
+   * misurata: la combinazione `procediWizard` + persona propria non è sul
+   * tracciato (HAR.md #18.6). Sbagliarla dà un 4xx o un payload senza `PIva` —
+   * in entrambi i casi il comportamento di prima, con un warn che lo dice.
+   */
+  private async probeMeStesso(xAppl: string): Promise<AdeUtenzaCandidate[]> {
+    try {
+      const payload = await this.procediWizardStep(
+        { tipoutenza: "meStesso" },
+        xAppl,
+      );
+      return parseDirectPive((payload ?? {}) as WizardTemplateResponse);
+    } catch (err) {
+      logger.warn(
+        { errorClass: err instanceof Error ? err.name : typeof err },
+        "ade:mestesso_probe_failed",
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Passo del wizard utenza (HAR.md #18.2 e #18.3): dichiara al portale quale
+   * persona — e, nel ramo incaricato, quale incaricante — si sta assumendo.
+   *
+   * Ritorna il payload della risposta perché nel ramo `meStesso` **è**
+   * l'informazione: le P.IVA dirette di un'utenza multi-persona compaiono solo
+   * qui, mai in `wizardTemplate` (HAR.md #18.5-ter). Nel ramo incaricato il
+   * primo passo risponde con lo stesso payload di `wizardTemplate` e il
+   * chiamante lo scarta.
+   *
+   * Un body non-JSON ritorna `null` invece di lanciare: il valore di ritorno
+   * serve a un chiamante che sa già degradare, e una risposta illeggibile è per
+   * lui indistinguibile da una vuota.
    */
   private async procediWizardStep(
     body: Record<string, unknown>,
     xAppl: string,
-  ): Promise<void> {
+  ): Promise<unknown> {
     const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/procediWizard?v=${Date.now()}`;
     const response = await this.request(url, {
       method: "POST",
@@ -780,6 +918,8 @@ export class RealAdeClient implements AdeClient {
         `procediWizard failed with status ${response.status}`,
       );
     }
+
+    return response.json().catch(() => null);
   }
 
   /**
@@ -1072,7 +1212,7 @@ export class RealAdeClient implements AdeClient {
       };
     }
 
-    const identity = await this.fetchWizardIdentity(xAppl);
+    const identity = await this.fetchWizardIdentity(xAppl, opts.utenzaPiva);
     const cf = opts.knownCf ?? identity.cf;
 
     // Scelta già fatta: la si cerca in ENTRAMBE le liste. Quale delle due la
@@ -1101,10 +1241,7 @@ export class RealAdeClient implements AdeClient {
     }
 
     // Nessuna scelta: decidiamo solo quando non c'è niente da decidere.
-    const candidates: AdeUtenzaCandidate[] = [
-      ...identity.direct,
-      ...identity.incarichi.map(({ piva }) => ({ piva })),
-    ];
+    const candidates = unionCandidates(identity.direct, identity.incarichi);
 
     if (candidates.length === 0) {
       throw new AdeNoPartitaIvaError("wizardTemplate");

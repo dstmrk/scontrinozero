@@ -1250,7 +1250,9 @@ describe("onboarding-actions", () => {
         { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
       ]);
       mockLogin.mockRejectedValueOnce(
-        new AdeUtenzaSelectionRequiredError([{ piva: "11111111111" }]),
+        new AdeUtenzaSelectionRequiredError([
+          { piva: "11111111111", provenienza: "diretta" },
+        ]),
       );
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
@@ -1272,8 +1274,12 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockRejectedValueOnce(
         new AdeUtenzaSelectionRequiredError([
-          { piva: "11111111111", denominazione: "ALFA SRL" },
-          { piva: "22222222222" },
+          {
+            piva: "11111111111",
+            denominazione: "ALFA SRL",
+            provenienza: "diretta",
+          },
+          { piva: "22222222222", provenienza: "incarico" },
         ]),
       );
 
@@ -1283,8 +1289,16 @@ describe("onboarding-actions", () => {
       );
 
       expect(result.utenzaChoices).toEqual([
-        { piva: "11111111111", denominazione: "ALFA SRL" },
-        { piva: "22222222222", denominazione: undefined },
+        {
+          piva: "11111111111",
+          denominazione: "ALFA SRL",
+          provenienza: "diretta",
+        },
+        {
+          piva: "22222222222",
+          denominazione: undefined,
+          provenienza: "incarico",
+        },
       ]);
     });
 
@@ -2682,8 +2696,12 @@ describe("onboarding-actions", () => {
           await import("@/lib/ade/errors");
         queueFailedLogin(
           new AdeUtenzaSelectionRequiredError([
-            { piva: "07790350966", denominazione: "ACME SRL" },
-            { piva: "12345678901" },
+            {
+              piva: "07790350966",
+              denominazione: "ACME SRL",
+              provenienza: "diretta",
+            },
+            { piva: "12345678901", provenienza: "incarico" },
           ]),
         );
 

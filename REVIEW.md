@@ -613,8 +613,10 @@ non è un parametro da rendere variabile: sono due body distinti.
 
 Quattro conseguenze di progetto, tutte da decidere prima di scrivere codice:
 
-- `soloPerMe: false` va letto **prima** di offrire "Me stesso": il portale
-  altrimenti risponde `Utenza di lavoro non valida o non autorizzata`.
+- ~~`soloPerMe: false` va letto **prima** di offrire "Me stesso"~~: lettura
+  **sbagliata**, corretta in `HAR.md` #18.1 il 18/09/2026. Il flag dice che
+  l'utenza non è a sola persona "Me stesso", non che "Me stesso" sia vuota.
+  Sull'utenza catturata le due cose coincidevano.
 - `incarichi[]` non porta le denominazioni, solo le P.IVA. Un elenco leggibile
   costa una chiamata `procediWizard` per incarico.
 - `dati/fiscali` restituisce l'identità della **società**, quindi l'identity
@@ -848,6 +850,65 @@ entrambe le superfici. Il gate che sostituisce la prosa (regola 7):
 `wasAlreadyOnboarded` non offre scelte per costruzione — e un'esenzione che
 smette di corrispondere a un chiamante reale fa fallire la suite. Il gate ha
 trovato quel terzo chiamante da solo, alla prima esecuzione.
+
+**Slice 9 rilasciata — le due personae si vedono insieme.** Segnalata dal terzo
+esercente bloccato (18/09/2026). La sua utenza ha **entrambe** le personae del
+wizard: una partita IVA propria, attiva, quella su cui vuole lavorare, e un
+incarico su una società che ha chiuso anni fa. Il picker le offriva soltanto la
+società cessata, e lei ha risposto che quella partita IVA non era più sua — con
+ragione. Non era un caso raro mal gestito: era l'unica forma che non potevamo
+vedere affatto.
+
+La causa è in `HAR.md` #18.5-ter, misurata sull'interfaccia del portale:
+`wizardTemplate` non è la fonte delle P.IVA, è la fonte delle **personae**. Le
+partite IVA — dirette comprese — compaiono solo dopo che una persona è stata
+dichiarata con `procediWizard`. Su un'utenza a persona singola il portale ci
+risparmia il giro e le mette già lì, ed è per questo che il difetto è rimasto
+invisibile finché non è arrivato qualcuno che ne ha due.
+
+Tre cose, una slice:
+
+- **La sonda `meStesso`, dentro la scoperta.** Prima del bivio fra i due rami,
+  non in uno dei due. Metterla nel ramo di scoperta soltanto avrebbe risolto
+  l'onboarding e rotto tutto il resto: `utenzaPiva` viene rigiocata a **ogni**
+  accesso — emissione, annullo, ricerca, recovery — e una diretta scoperta dalla
+  sonda, al login successivo, sarebbe finita su `activateIncaricato` →
+  `AdeUtenzaNotAvailableError`. È la quarta volta che la stessa famiglia di
+  difetto si ripresenta ("il login ha due porte", regressione v1.8.4).
+- **L'unione, etichettata.** `AdeUtenzaCandidate` porta `provenienza`
+  (`diretta` | `incarico`) e il picker la stampa: due numeri di undici cifre
+  senza etichetta non si distinguono, e la scelta è irreversibile. Una P.IVA
+  presente in entrambe le liste si offre una volta sola, come diretta.
+- **Il mock sa fare multi-persona** (PIN sentinella `1111111111`). Il picker
+  esisteva da tre release senza che si potesse raggiungerlo fuori dalla
+  produzione: il `MockAdeClient` rispondeva sempre con una sessione, quindi ogni
+  verifica passava dal portale vero — che ha un rate limit sull'IP di uscita
+  condiviso (#36) e un'utente sola su cui provare.
+
+Due decisioni contro l'istinto:
+
+- **"Me stesso" non vince per default.** Sarebbe stato un clic in meno e
+  avrebbe risolto questo caso da solo. Ma è la stessa regola che questa voce ha
+  già scritto due volte: legare un account a una partita IVA senza che nessuno
+  l'abbia confermata si ripara solo aprendo un altro account. Si decide solo
+  quando non c'è niente da decidere.
+- **La sonda è gated, e il gate protegge chi lavora già.** Non parte quando
+  `wizardTemplate` ha già delle dirette (l'utenza a persona singola, cioè quasi
+  tutti) né quando la scelta salvata è uno degli incarichi offerti — che è il
+  caso dell'unico esercente che opera da incaricato, e che rifà il login a ogni
+  scontrino. Per lui il numero di chiamate non cambia di una.
+
+Ne segue un'invariante che vale la pena tenere: **la sonda non precede mai
+l'attivazione di un incarico.** Dopo la sonda la persona dichiarata lato server
+è `meStesso`, e i due rami che possono seguirla o finiscono con un throw (il
+picker, o `AdeUtenzaNotAvailableError`) o con `setUserChoice` diretto. Nessun
+incarico viene mai rigiocato sopra una persona già dichiarata. C'è un test che
+lo dice.
+
+Resta estrapolata una cosa sola: la grafia `meStesso` nel body di
+`procediWizard`, dedotta da `setUserChoice` (`HAR.md` #18.6). Fallisce in modo
+leggibile — un 4xx o un payload senza `PIva` danno il comportamento di prima —
+e la sonda degrada invece di lanciare, con `ade:mestesso_probe_failed` a dirlo.
 
 ### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
 
