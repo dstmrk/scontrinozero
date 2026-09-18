@@ -47,7 +47,12 @@ export function UtenzaPicker({
   const onlyOne = choices.length === 1;
 
   return (
-    <div className="space-y-2 pt-1">
+    // `text-left` e' del picker, non della pagina: l'onboarding rende il suo
+    // step dentro un contenitore `text-center` e le partite IVA finivano
+    // sfalsate l'una rispetto all'altra. Undici cifre si confrontano a colpo
+    // d'occhio solo se partono dalla stessa colonna, e qui la scelta e'
+    // irreversibile.
+    <div className="space-y-2 pt-1 text-left">
       <p className="text-sm font-medium">
         {onlyOne
           ? "Conferma la partita IVA su cui operare"
