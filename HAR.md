@@ -1202,14 +1202,14 @@ Tre letture che il codice non sa dire da solo:
   **dopo** che l'incaricante è stato scelto (18.3).
 - **`incaricante.cf` contiene la partita IVA**, non un codice fiscale a 16
   caratteri: sono le P.IVA delle società a 11 cifre. Il nome del campo mente.
-- **`soloPerMe: false` dice che l'utenza non è a sola persona "Me stesso", non
-  che "Me stesso" sia vuota.** Su questa utenza le due cose coincidevano —
-  sceglierlo faceva rispondere al portale
-  `Utenza di lavoro non valida o non autorizzata: <CF-PERSONA>` — e la prima
-  stesura di questa voce le ha confuse. Un'utenza con **entrambe** le personae
-  ha lo stesso `soloPerMe: false` e una "Me stesso" popolata (18.5-ter): il
-  flag non è il discriminante che sembrava, e l'unico modo di sapere cosa c'è
-  sotto "Me stesso" è dichiararla e guardare la risposta.
+- **`soloPerMe` non gate-a "Me stesso".** La prima stesura di questa voce
+  diceva che `soloPerMe: false` è il segnale che "Me stesso" non è
+  disponibile. È **falso**, e lo dice il codice del portale (18.7): la voce
+  "Me stesso" è nell'elenco delle personae **sempre**, senza condizione.
+  `soloPerMe: true` serve a tutt'altro — insieme a `PIva` di lunghezza 1 fa
+  saltare il wizard per intero. Su questa utenza le due letture coincidevano
+  per caso, e l'errore è rimasto in piedi fino a che non è arrivata un'utenza
+  con entrambe le personae.
 
 `incarichi[]` **non contiene le denominazioni**: solo P.IVA, `sede` e `tipo`. Chi
 deve mostrare un elenco leggibile di società ha due sole strade — visualizzare le
@@ -1352,20 +1352,23 @@ _come_ (nessun endpoint associato).
   va spiegata all'utente. Lato implementazione non cambia nulla: il replay
   headless rifà comunque il login da zero a ogni sessione.
 
-### 18.5-ter Il wizard ha sempre tre passi (osservazione del 18/09/2026)
+### 18.5-ter Il passo di scelta P.IVA vale anche per "Me stesso" (18/09/2026)
 
 Osservazione diretta dell'owner sull'interfaccia del portale, due giorni dopo la
-cattura e su un'utenza diversa. Stesso statuto di 18.5-bis: affidabile sul
-_cosa_, muta sul _come_.
+cattura e su un'utenza diversa. Stesso statuto di 18.5-bis. Dove il codice del
+wizard (18.7) è più preciso, vale quello: qui restano le due cose che
+l'osservazione ha visto per prima e che hanno fatto trovare il resto.
 
-- **I passi restano tre in ogni caso.** Il wizard non si accorcia quando non c'è
-  niente da scegliere: cambia il contenuto del passo 2, non il loro numero.
-- **Il passo 2 mostra una lista di partite IVA anche per "Me stesso".** Non è un
+- **Il passo di scelta della partita IVA vale anche per "Me stesso".** Non è un
   passo riservato al ramo incaricato: chi ha partite IVA intestate alla persona
   le sceglie lì, con la stessa schermata.
-- **Senza partite IVA, il passo 2 mostra un messaggio che dice che non ce ne
-  sono**, e il passo 3 (Conferma) diventa irraggiungibile. L'owner ha visto
-  personalmente questo messaggio.
+- **Senza partite IVA si arriva a una schermata che dice che non ce ne sono**, e
+  la conferma non è raggiungibile. Il testo non è una stringa del bundle: viene
+  dal server, quindi non sappiamo riprodurlo, solo che esiste.
+
+Conteggio dei passi: tre visibili, quattro nel codice — quello di scelta
+dell'incaricante si salta per "Me stesso" (18.7). L'osservazione diceva "tre
+sempre"; è vero da schermo per questa persona, non in generale.
 
 Quello che questo cambia per noi: `wizardTemplate` non è la fonte delle P.IVA
 dirette, è la fonte delle **personae**. Le P.IVA — di qualunque provenienza —
@@ -1381,12 +1384,83 @@ comodo per un umano davanti al browser, ma a noi non serve. Una sonda che scopre
 cosa c'è sotto una persona finisce comunque con l'utente che sceglie, e la
 scelta fa ripartire un login pulito.
 
+### 18.7 Il wizard letto dal suo codice
+
+**Fonte:** `instr/InstradamentofcWeb/dist/js/2.bundle.a27e7902afacbb0e50d4.js`,
+dentro la stessa cattura del 16/09/2026. È il bundle React del wizard —
+minificato ma leggibile, con i nomi delle stringhe intatti. Statuto diverso da
+tutto il resto di questa sezione: non è un comportamento osservato da cui
+inferire una regola, è **la regola scritta**. Dove il codice e un'osservazione
+divergono, vince il codice.
+
+**Le personae sono sei, non due.** Il passo 1 costruisce l'elenco dei radio
+così: `meStesso` c'è **sempre**, senza condizione; le altre cinque compaiono
+ciascuna dietro un flag di `wizardTemplate`.
+
+| `tipoutenza`               | etichetta a video          | compare quando                        |
+| -------------------------- | -------------------------- | ------------------------------------- |
+| `meStesso`                 | Me stesso                  | sempre                                |
+| `incaricato`               | Incaricato                 | `richiestaIncarichi.incarichi.length` |
+| `delegaDiretta`            | Delega diretta             | `hasDelega`                           |
+| `tutore`                   | Tutore                     | `tutore \|\| tutore_AT`               |
+| `intermediarioNonDelegato` | Intermediario non delegato | `intermediario`                       |
+| `serpico`                  | (nessun radio: campo CF)   | `serpico`                             |
+
+Con `serpico: true` i radio spariscono del tutto e il passo 1 diventa un campo
+"Codice fiscale del soggetto per cui operare".
+
+**Il body del passo 1 è `{ tipoutenza, cf }`**, e `cf` vale `undefined` per ogni
+persona tranne `serpico` — è l'unica per cui la validazione lo pretende. Ecco
+perché la cattura mostra `{"tipoutenza":"incaricato"}` e basta (18.2): il campo
+non è omesso per scelta, è vuoto. Per "Me stesso" il body è quindi
+`{"tipoutenza":"meStesso"}`.
+
+**`procediWizard` sostituisce il template.** Lo store fa
+`POST /rs/procediWizard` e sulla risposta esegue `template = result`: da lì in
+poi ogni passo legge il template **nuovo**. È il meccanismo per cui le P.IVA
+compaiono a metà wizard e non prima — non un effetto collaterale, il disegno.
+
+**`soloPerMe` è la condizione di scorciatoia, non un gate.** Il wizard non
+viene mostrato affatto quando `soloPerMe && PIva.length === 1`: in quel caso il
+portale manda direttamente `setUserChoice({cf: cfUidUltimo, pIva: PIva[0].piva,
+tipoutenza: "meStesso"})` e va alla home. Con `soloPerMe: true` e più di una
+P.IVA il wizard si apre regolarmente. Questo chiude la lettura sbagliata di
+18.1 e conferma che la nostra fast path — P.IVA già presenti in
+`wizardTemplate` → nessuna sonda — corrisponde a quella del portale.
+
+**I passi sono quattro, con due condizioni di salto.**
+
+1. _Scegli utenza di lavoro_ — la persona.
+2. _Scegli per chi operare_ — l'incaricante. Saltato se `tipoutenza` non è fra
+   `incaricato`, `delegaDiretta`, `intermediarioNonDelegato`.
+3. _Scegli partita IVA_ — una tendina di sole P.IVA. Saltato quando
+   `PIva.length` **non** è maggiore di 1: con una sola viene preselezionata, con
+   nessuna non c'è niente da mostrare.
+4. _Riepilogo e conferma_ — `showAlways`.
+
+Per "Me stesso" salta il 2: tre passi a video, che è quello che ha visto
+l'osservazione di 18.5-ter. Per un'utenza senza P.IVA saltano il 2 e il 3, e si
+arriva alla conferma senza `pIva` — dove `setUserChoice` non ha cosa mandare.
+
+**`tipoincaricante` è derivato, non costante.** A ogni cambio di incaricante il
+portale lo riporta a `incaricoDiretto`, e offre una scelta "Opera come" solo se
+l'incarico selezionato ha almeno uno fra `deleghe`, `tutore`, `intermediario`:
+allora i valori possibili diventano `incaricoDelega`, `incaricoDelegaMassivo`,
+`incaricoTutore`, `incaricoIntermediario`. Ognuno pretende in più un campo
+diverso — `cfDelegante`, `pIva` del tutelato, `cfIntermediario`. I tre booleani
+sono già dentro l'entry che rimandiamo verbatim, quindi la derivazione è alla
+nostra portata: vedi 18.6.
+
 ### 18.6 Cosa questa cattura NON dice
 
-- **Il ramo `delega` e il ramo `tutore`.** Questa utenza ha `hasDelega: false` e
-  `tutore: false`, e tutti e quattro gli incarichi sono `tipo: "INCARICO"` con
-  `tipoincaricante: "incaricoDiretto"`. Le altre combinazioni non sono state
-  osservate: non assumere che `tipoincaricante` abbia sempre quel valore.
+- **Il ramo `delega` e il ramo `tutore` in HTTP.** I loro **nomi** e il flag che
+  li abilita ora si sanno (18.7); quello che resta non misurato è il traffico
+  che producono. Su `tipoincaricante` c'è di più: il portale non usa una
+  costante, lo **deriva** dai tre booleani dell'incarico scelto, e
+  `incaricoDiretto` è solo il suo default (18.7). Il nostro
+  `ADE_TIPO_INCARICANTE` è quel default cablato: corretto finché l'incarico ha
+  `deleghe`, `tutore` e `intermediario` tutti falsi, che è il caso dell'unica
+  utenza incaricata che abbiamo, e sbagliato per gli altri.
 - **Il comportamento con una società cessata o una delega revocata.** Tutte e
   quattro le entry erano valide al momento della cattura.
 - **L'emissione vera e propria da utenza incaricata.** La cattura si ferma
@@ -1399,9 +1473,5 @@ scelta fa ripartire un login pulito.
 - **L'endpoint che riporta alla scelta utenza.** Sappiamo che il giro esiste
   (18.5-bis), non come si chiama. Non è più un buco da chiudere per poter
   procedere: nessun nostro flusso ne ha bisogno (18.5-ter).
-- **La grafia di `tipoutenza` per il ramo "Me stesso".** `setUserChoice` usa
-  `meStesso` in camelCase (18.4) e `procediWizard` usa `incaricato` in
-  minuscolo (18.2): la combinazione `procediWizard` + persona "Me stesso" non è
-  sul tracciato, e la grafia è estrapolata dalle due. Fallisce in modo
-  leggibile — una grafia sbagliata dà un 4xx o un payload senza `PIva`, cioè il
-  comportamento che avevamo prima.
+- ~~La grafia di `tipoutenza` per il ramo "Me stesso"~~ — **chiusa da 18.7**: è
+  `meStesso`, letta nel codice del wizard, non più estrapolata.

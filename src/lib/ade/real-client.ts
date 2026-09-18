@@ -235,9 +235,15 @@ export function isStaleSocketError(err: unknown): boolean {
  * SAFE_KEYS del logger).
  */
 /**
- * `tipoincaricante` osservato nella cattura (HAR.md #18.3): tutte e quattro le
- * entry erano incarichi diretti. I rami `delega` e `tutore` non sono stati
- * osservati — quando arriveranno, questo valore smette di essere una costante.
+ * `tipoincaricante` per un incarico senza flag (HAR.md #18.3).
+ *
+ * Nel portale **non** è una costante: è il default a cui il wizard riporta il
+ * campo a ogni cambio di incaricante, e resta quello finché l'incarico scelto
+ * non ha almeno uno fra `deleghe`, `tutore` e `intermediario` (HAR.md #18.7).
+ * Qui è cablato perché l'unica utenza incaricata che abbiamo ha tutti e tre
+ * falsi su tutte le entry. I tre booleani arrivano dentro `AdeIncarico.raw`,
+ * quindi la derivazione è a portata di mano quando servirà — voce aperta in
+ * REVIEW.md #106.
  */
 const ADE_TIPO_INCARICANTE = "incaricoDiretto";
 
@@ -866,10 +872,10 @@ export class RealAdeClient implements AdeClient {
    * trasformerebbe "ti offro la partita IVA sbagliata" in "il portale non
    * risponde", che per chi sta collegando l'account è un peggioramento netto.
    *
-   * La grafia `meStesso` è estrapolata da `setUserChoice` (HAR.md #18.4), non
-   * misurata: la combinazione `procediWizard` + persona propria non è sul
-   * tracciato (HAR.md #18.6). Sbagliarla dà un 4xx o un payload senza `PIva` —
-   * in entrambi i casi il comportamento di prima, con un warn che lo dice.
+   * Il body è quello che manda il portale stesso: il passo 1 del suo wizard
+   * invia `{ tipoutenza, cf }` con `cf` vuoto per ogni persona tranne
+   * `serpico`, e la grafia `meStesso` è letta nel suo bundle React
+   * (HAR.md #18.7). Non è più un'estrapolazione da `setUserChoice`.
    */
   private async probeMeStesso(xAppl: string): Promise<AdeUtenzaCandidate[]> {
     try {
