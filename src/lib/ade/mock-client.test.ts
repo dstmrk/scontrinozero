@@ -1,6 +1,10 @@
 import { describe, expect, it, beforeEach } from "vitest";
 
-import { MockAdeClient } from "./mock-client";
+import { ADE_MOCK_MULTI_PERSONA_PIN, MockAdeClient } from "./mock-client";
+import {
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
+} from "./errors";
 import { createAdeClient } from "./index";
 import type {
   AdePayload,
@@ -371,6 +375,57 @@ describe("MockAdeClient — utenza di lavoro", () => {
       password: "p",
       pin: "1234",
     });
+
+    expect(session.partitaIva).toBe("RSSMRA80A01");
+  });
+});
+
+describe("MockAdeClient — utenza multi-persona", () => {
+  // Il flusso che ha bloccato un esercente in produzione non era percorribile
+  // in dev: il mock rispondeva sempre con una sessione, quindi il picker delle
+  // utenze non compariva mai e ogni verifica passava dal solo ambiente reale,
+  // su un portale che va toccato con parsimonia. Un PIN sentinella lo apre.
+  const multiPersona = {
+    ...mockCredentials,
+    pin: ADE_MOCK_MULTI_PERSONA_PIN,
+  };
+
+  it("chiede di scegliere fra una P.IVA diretta e un incarico", async () => {
+    const client = new MockAdeClient();
+
+    const err = await client.login(multiPersona).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+    expect((err as AdeUtenzaSelectionRequiredError).candidates).toEqual([
+      {
+        piva: "11111111111",
+        denominazione: "LA TUA ATTIVITÀ",
+        provenienza: "diretta",
+      },
+      { piva: "22222222222", provenienza: "incarico" },
+    ]);
+  });
+
+  it("dopo la scelta accede sulla P.IVA scelta", async () => {
+    const client = new MockAdeClient();
+
+    const session = await client.login(multiPersona, "11111111111");
+
+    expect(session.partitaIva).toBe("11111111111");
+  });
+
+  it("una scelta che l'utenza non offre non è collegabile", async () => {
+    const client = new MockAdeClient();
+
+    await expect(client.login(multiPersona, "99999999999")).rejects.toThrow(
+      AdeUtenzaNotAvailableError,
+    );
+  });
+
+  it("con un PIN qualunque il login resta quello di sempre", async () => {
+    const client = new MockAdeClient();
+
+    const session = await client.login(mockCredentials);
 
     expect(session.partitaIva).toBe("RSSMRA80A01");
   });

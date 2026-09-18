@@ -767,6 +767,210 @@ describe("RealAdeClient", () => {
       expect(JSON.stringify(ctx)).not.toContain("RSSMRA80A01H501A");
     });
 
+    it("Phase F: un'utenza con due personae rivela le dirette con una sonda", async () => {
+      // Il caso che ha bloccato un esercente in produzione: l'utenza ha una
+      // P.IVA propria (attiva, quella che vuole usare) e un incarico su una
+      // societa' cessata. `wizardTemplate` non porta `PIva` — le dirette
+      // compaiono solo dopo che la persona e' dichiarata (HAR.md #18.5-ter) —
+      // e senza sonda le offrivamo solo la societa' sbagliata.
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: { PIva: [{ piva: "22222222222", denominazione: "ACME SRL" }] },
+        }),
+      ); // sonda meStesso
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+      expect((err as AdeUtenzaSelectionRequiredError).candidates).toEqual([
+        {
+          piva: "22222222222",
+          denominazione: "ACME SRL",
+          provenienza: "diretta",
+        },
+        { piva: "11111111111", provenienza: "incarico" },
+      ]);
+    });
+
+    it("Phase F: la sonda dichiara la persona meStesso su procediWizard", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "22222222222" }] } }),
+      ); // sonda
+
+      await client.login(mockCredentials).catch(() => undefined);
+
+      const probe = fetchMock.mock.calls.find((c) =>
+        String(c[0]).includes("procediWizard"),
+      )!;
+      expect(JSON.parse(probe[1].body)).toEqual({ tipoutenza: "meStesso" });
+      expect((probe[1].headers as Headers).get("x-appl")).toBe("tok");
+    });
+
+    it("Phase F: con PIva gia' nel wizardTemplate la sonda non parte", async () => {
+      // Utenza a persona singola: il portale ci risparmia il giro e le P.IVA
+      // sono gia' li'. Una sonda qui sarebbe un round-trip per niente su ogni
+      // login di ogni esercente.
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "12345678901" }] } }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+
+      await client.login(mockCredentials);
+
+      expect(
+        fetchMock.mock.calls.filter((c) =>
+          String(c[0]).includes("procediWizard"),
+        ),
+      ).toHaveLength(0);
+    });
+
+    it("Phase F: con una scelta gia' fatta su un incarico la sonda non parte", async () => {
+      // La regressione che questo test impedisce: l'unico esercente che opera
+      // da incaricato rifa' il login a ogni emissione. La sua strada e' gia'
+      // decisa, non c'e' niente da scoprire, e una sonda gli aggiungerebbe un
+      // round-trip piu' un cambio di persona lato server a ogni scontrino.
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // procediWizard 1
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // procediWizard 2
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+
+      const session = await client.login(mockCredentials, "11111111111");
+
+      expect(session.partitaIva).toBe("11111111111");
+      const bodies = fetchMock.mock.calls
+        .filter((c) => String(c[0]).includes("procediWizard"))
+        .map((c) => JSON.parse(c[1].body).tipoutenza);
+      expect(bodies).toEqual(["incaricato", "incaricato"]);
+    });
+
+    it("Phase F: la scelta diretta rivelata dalla sonda attiva la sessione", async () => {
+      // Il login di ogni giorno dopo che l'esercente ha scelto la sua P.IVA
+      // diretta. Senza la sonda dentro la scoperta, qui `direct` sarebbe vuoto
+      // e ogni emissione finirebbe su AdeUtenzaNotAvailableError.
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "22222222222" }] } }),
+      ); // sonda
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+
+      const session = await client.login(mockCredentials, "22222222222");
+
+      expect(session.partitaIva).toBe("22222222222");
+      const choice = fetchMock.mock.calls.find((c) =>
+        String(c[0]).includes("setUserChoice"),
+      )!;
+      expect(JSON.parse(choice[1].body)).toEqual({
+        cf: "RSSMRA80A01H501A",
+        pIva: "22222222222",
+        tipoutenza: "meStesso",
+      });
+    });
+
+    it("Phase F: una sonda che fallisce degrada, non rompe il login", async () => {
+      // La sonda e' un di piu': se il portale la rifiuta restiamo con i
+      // candidati che avevamo. Propagare l'errore trasformerebbe "ti offro la
+      // societa' sbagliata" in "il portale non risponde" — un peggioramento.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 500 })); // sonda
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+      expect(
+        (err as AdeUtenzaSelectionRequiredError).candidates.map((c) => c.piva),
+      ).toEqual(["11111111111"]);
+      expect(
+        vi
+          .mocked(logger.warn)
+          .mock.calls.find((c) => c[1] === "ade:mestesso_probe_failed"),
+      ).toBeDefined();
+    });
+
+    it("Phase F: la sonda non precede mai l'attivazione di un incarico", async () => {
+      // Invariante: dopo la sonda la persona dichiarata lato server e'
+      // `meStesso`, e non rigiochiamo mai un incarico sopra. Una scelta che
+      // non corrisponde a niente si ferma qui, senza toccare il wizard.
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "22222222222" }] } }),
+      ); // sonda
+
+      await expect(
+        client.login(mockCredentials, "99999999999"),
+      ).rejects.toThrow(AdeUtenzaNotAvailableError);
+
+      const tipi = fetchMock.mock.calls
+        .filter((c) => String(c[0]).includes("procediWizard"))
+        .map((c) => JSON.parse(c[1].body).tipoutenza);
+      expect(tipi).toEqual(["meStesso"]);
+    });
+
+    it("Phase F: una P.IVA presente in entrambe le personae si offre una volta sola", async () => {
+      // Le due liste sono indipendenti e niente garantisce che siano disgiunte.
+      // Offrire due volte lo stesso numero con due etichette diverse chiede
+      // all'utente di distinguere due cose identiche — e la scelta e'
+      // irreversibile. Vince `diretta`: e' la propria, non quella di un terzo.
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: wizardTemplateIncaricato(["11111111111", "22222222222"]),
+        }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "22222222222" }] } }),
+      ); // sonda: la seconda e' anche sua
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      expect((err as AdeUtenzaSelectionRequiredError).candidates).toEqual([
+        { piva: "22222222222", provenienza: "diretta" },
+        { piva: "11111111111", provenienza: "incarico" },
+      ]);
+    });
+
+    it("Phase F: zero candidati anche dopo la sonda resta AdeNoPartitaIvaError", async () => {
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { cfUidUltimo: "RSSMRA80A01H501A" } }),
+      ); // F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { messaggio: "nessuna partita IVA" } }),
+      ); // sonda
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+
+      expect(
+        vi
+          .mocked(logger.warn)
+          .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing"),
+      ).toBeDefined();
+    });
+
     it("Phase F: senza selezione e con incarichi lancia AdeUtenzaSelectionRequiredError", async () => {
       mockPhasesBeforeWizard(fetchMock);
       fetchMock.mockResolvedValueOnce(
@@ -1073,8 +1277,16 @@ describe("RealAdeClient", () => {
       expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
       const { candidates } = err as AdeUtenzaSelectionRequiredError;
       expect(candidates).toEqual([
-        { piva: "11111111111", denominazione: "ALFA SRL" },
-        { piva: "22222222222", denominazione: "BETA SNC" },
+        {
+          piva: "11111111111",
+          denominazione: "ALFA SRL",
+          provenienza: "diretta",
+        },
+        {
+          piva: "22222222222",
+          denominazione: "BETA SNC",
+          provenienza: "diretta",
+        },
       ]);
     });
 
@@ -1099,7 +1311,7 @@ describe("RealAdeClient", () => {
       // un altro.
       expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
       expect((err as AdeUtenzaSelectionRequiredError).candidates).toEqual([
-        { piva: "33333333333" },
+        { piva: "33333333333", provenienza: "incarico" },
       ]);
     });
 

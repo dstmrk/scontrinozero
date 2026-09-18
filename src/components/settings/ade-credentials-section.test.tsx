@@ -889,7 +889,10 @@ describe("AdeCredentialsSection — scelta utenza di lavoro (HAR.md #18)", () =>
   it("mostra una riga per ogni partita IVA offerta dall'AdE", async () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "Questo accesso opera per conto di altri soggetti.",
-      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+      utenzaChoices: [
+        { piva: "11111111111", provenienza: "diretta" },
+        { piva: "22222222222", provenienza: "incarico" },
+      ],
     });
     renderSection();
 
@@ -905,7 +908,7 @@ describe("AdeCredentialsSection — scelta utenza di lavoro (HAR.md #18)", () =>
   it("avverte che la scelta è definitiva prima di farla fare", async () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "boom",
-      utenzaChoices: [{ piva: "11111111111" }],
+      utenzaChoices: [{ piva: "11111111111", provenienza: "diretta" }],
     });
     renderSection();
 
@@ -920,7 +923,10 @@ describe("AdeCredentialsSection — scelta utenza di lavoro (HAR.md #18)", () =>
   it("ri-verifica passando la partita IVA scelta", async () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "boom",
-      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+      utenzaChoices: [
+        { piva: "11111111111", provenienza: "diretta" },
+        { piva: "22222222222", provenienza: "incarico" },
+      ],
     });
     renderSection();
 
@@ -959,8 +965,12 @@ describe("AdeCredentialsSection — denominazione nel picker", () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "scegli",
       utenzaChoices: [
-        { piva: "11111111111", denominazione: "ALFA SRL" },
-        { piva: "22222222222" },
+        {
+          piva: "11111111111",
+          denominazione: "ALFA SRL",
+          provenienza: "diretta",
+        },
+        { piva: "22222222222", provenienza: "incarico" },
       ],
     });
     render(
@@ -983,7 +993,13 @@ describe("AdeCredentialsSection — un solo candidato", () => {
   function renderWithOneChoice() {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "conferma",
-      utenzaChoices: [{ piva: "11111111111", denominazione: "ALFA SRL" }],
+      utenzaChoices: [
+        {
+          piva: "11111111111",
+          denominazione: "ALFA SRL",
+          provenienza: "diretta",
+        },
+      ],
     });
     render(
       <AdeCredentialsSection

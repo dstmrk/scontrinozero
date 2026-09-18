@@ -76,7 +76,10 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
   it("mostra il picker quando l'AdE offre più partite IVA", async () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "Questo accesso può operare su più partite IVA.",
-      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+      utenzaChoices: [
+        { piva: "11111111111", provenienza: "diretta" },
+        { piva: "22222222222", provenienza: "incarico" },
+      ],
     });
     renderAtVerifyStep();
 
@@ -94,7 +97,7 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
     // incarico. È quello che ha bloccato il primo esercente arrivato qui.
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "Questo accesso opera per conto di un altro soggetto.",
-      utenzaChoices: [{ piva: "11111111111" }],
+      utenzaChoices: [{ piva: "11111111111", provenienza: "diretta" }],
     });
     renderAtVerifyStep();
 
@@ -108,7 +111,10 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
   it("ri-verifica passando la partita IVA scelta", async () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "scegli",
-      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+      utenzaChoices: [
+        { piva: "11111111111", provenienza: "diretta" },
+        { piva: "22222222222", provenienza: "incarico" },
+      ],
     });
     renderAtVerifyStep();
 
@@ -130,7 +136,7 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
   it("porta al pannello quando la scelta sblocca la verifica", async () => {
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "scegli",
-      utenzaChoices: [{ piva: "11111111111" }],
+      utenzaChoices: [{ piva: "11111111111", provenienza: "diretta" }],
     });
     renderAtVerifyStep();
 
@@ -151,7 +157,10 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
     // d'altro.
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "scegli",
-      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+      utenzaChoices: [
+        { piva: "11111111111", provenienza: "diretta" },
+        { piva: "22222222222", provenienza: "incarico" },
+      ],
     });
     renderAtVerifyStep();
 
@@ -177,7 +186,10 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
     // non offrire affatto.
     mockVerifyAdeCredentials.mockResolvedValue({
       error: "scegli",
-      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+      utenzaChoices: [
+        { piva: "11111111111", provenienza: "diretta" },
+        { piva: "22222222222", provenienza: "incarico" },
+      ],
     });
     renderAtVerifyStep();
 

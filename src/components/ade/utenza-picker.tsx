@@ -1,7 +1,16 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { AdeUtenzaCandidate } from "@/lib/ade/types";
+import type { AdeUtenzaCandidate, AdeUtenzaProvenienza } from "@/lib/ade/types";
+
+/**
+ * L'etichetta di provenienza, in italiano da esercente: il portale dice
+ * "Me stesso" e "Incaricato", che fuori dal wizard AdE non significano niente.
+ */
+const PROVENIENZA_LABEL: Readonly<Record<AdeUtenzaProvenienza, string>> = {
+  diretta: "La tua partita IVA",
+  incarico: "Per conto di un altro soggetto",
+};
 
 /**
  * Le partite IVA su cui l'accesso AdE può operare (HAR.md #18).
@@ -15,6 +24,12 @@ import type { AdeUtenzaCandidate } from "@/lib/ade/types";
  * clic invece di tre (apri, seleziona, invia), regge meglio su mobile, e con un
  * candidato solo la riga È già la preselezione. Stesso pattern del banner degli
  * scontrini in sospeso.
+ *
+ * Ogni riga porta la **provenienza**: un'utenza con entrambe le personae del
+ * wizard mette in elenco la partita IVA dell'esercente accanto a quella di un
+ * soggetto per cui lavora, e due numeri di undici cifre senza etichetta non si
+ * distinguono. È il caso in cui un esercente si è visto offrire la sola società
+ * cessata di cui era incaricato e l'ha letta come un errore di credenziali.
  *
  * Vive qui e non dentro una delle due sezioni che lo usano perché le superfici
  * che chiamano `verifyAdeCredentials` sono due — impostazioni e onboarding — e
@@ -55,6 +70,12 @@ export function UtenzaPicker({
               ) : (
                 <span className="font-mono">{choice.piva}</span>
               )}
+              {/* Sempre, anche quando le righe hanno tutte la stessa
+                  provenienza: chi ha un solo incarico ha comunque diritto di
+                  sapere che sta collegando la partita IVA di qualcun altro. */}
+              <span className="text-muted-foreground block text-xs">
+                {PROVENIENZA_LABEL[choice.provenienza]}
+              </span>
             </span>
             <Button
               type="button"

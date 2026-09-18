@@ -411,15 +411,30 @@ export type AdeIncarico = {
 };
 
 /**
+ * Da quale persona del wizard AdE arriva una partita IVA (HAR.md #18).
+ *
+ * `diretta` = intestata a chi fa il login, sotto la persona "Me stesso".
+ * `incarico` = di un altro soggetto che lo ha incaricato.
+ */
+export type AdeUtenzaProvenienza = "diretta" | "incarico";
+
+/**
  * Una partita IVA fra cui l'utente può scegliere al primo collegamento.
  *
  * Le due provenienze non sono simmetriche (HAR.md #18.1): le P.IVA **dirette**
  * (`wizardTemplate.PIva`) portano la denominazione, gli **incarichi**
- * (`richiestaIncarichi.incarichi[]`) solo il numero. Per chi sceglie la
- * differenza è invisibile — è sempre "su quale partita IVA voglio operare" — e
- * quindi il candidato è uno solo, con il nome quando c'è.
+ * (`richiestaIncarichi.incarichi[]`) solo il numero.
+ *
+ * `provenienza` non serve al login — la P.IVA scelta si ricerca a ogni accesso
+ * in entrambe le liste, e quale delle due la contenga lo decide quel giro, non
+ * questo campo. Serve a chi sceglie: un'utenza che ha **entrambe** le personae
+ * vede in elenco la propria partita IVA accanto a quella di un soggetto per cui
+ * lavora, e senza etichetta due numeri di undici cifre non si distinguono. È
+ * successo: un esercente ha avuto davanti la sola società cessata di cui era
+ * incaricato e l'ha scambiata per un errore di credenziali.
  */
 export type AdeUtenzaCandidate = {
   piva: string;
   denominazione?: string;
+  provenienza: AdeUtenzaProvenienza;
 };

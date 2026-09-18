@@ -32,7 +32,9 @@ describe("classifyAdeLoginFailure", () => {
     [new AdeAccountLockedError(), "account_locked"],
     [new AdePasswordExpiredError(), "password_expired"],
     [
-      new AdeUtenzaSelectionRequiredError([{ piva: "07790350966" }]),
+      new AdeUtenzaSelectionRequiredError([
+        { piva: "07790350966", provenienza: "diretta" },
+      ]),
       "utenza_selection_required",
     ],
     [new AdeUtenzaNotAvailableError("07790350966"), "utenza_not_available"],

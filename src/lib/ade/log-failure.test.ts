@@ -259,7 +259,9 @@ describe("logAdeFailure — utenza AdE senza partita IVA (SCONTRINOZERO-13)", ()
 describe("logAdeFailure — utenza di lavoro (HAR.md #18)", () => {
   it("AdeUtenzaSelectionRequiredError va a warn come ade_user_error", () => {
     logAdeFailure(
-      new AdeUtenzaSelectionRequiredError([{ piva: "11111111111" }]),
+      new AdeUtenzaSelectionRequiredError([
+        { piva: "11111111111", provenienza: "diretta" },
+      ]),
       { flow: "onboarding-verify" },
       { transient: "transient", failure: "failed" },
     );

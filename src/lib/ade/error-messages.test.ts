@@ -316,7 +316,7 @@ describe("isTransientAdeError", () => {
 
 describe("utenza di lavoro (HAR.md #18)", () => {
   const selection = new AdeUtenzaSelectionRequiredError([
-    { piva: "11111111111" },
+    { piva: "11111111111", provenienza: "diretta" as const },
   ]);
   const notAvailable = new AdeUtenzaNotAvailableError("11111111111");
 
@@ -330,8 +330,8 @@ describe("utenza di lavoro (HAR.md #18)", () => {
 
   it("con più candidati il messaggio chiede di scegliere", () => {
     const many = new AdeUtenzaSelectionRequiredError([
-      { piva: "11111111111" },
-      { piva: "22222222222" },
+      { piva: "11111111111", provenienza: "diretta" as const },
+      { piva: "22222222222", provenienza: "incarico" as const },
     ]);
     const { message } = getUserFacingAdeErrorMessage(many, FALLBACK);
     expect(message).toContain("più partite IVA");
