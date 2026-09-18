@@ -389,6 +389,7 @@ export async function applyAdeSedeLegale(
       provincia: ctx.row.adeProvincia,
     },
     utenzaPiva: ctx.row.utenzaPiva,
+    adeDenominazione: ctx.row.adeDenominazione,
   });
 
   if (!mismatch) {

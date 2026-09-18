@@ -733,6 +733,8 @@ Quattro decisioni che la slice ha dovuto prendere, tutte contro l'istinto:
   MARIO" — è la norma, non un difetto: segnalarla riempirebbe di rumore la
   stragrande maggioranza degli account per non dire niente. La colonna si
   popola comunque per tutti, perché il dato osservato serve anche a #107.
+  ⚠️ Quel gate era un **proxy**, e la slice 9 lo ha rotto: vedi la coda qui
+  sotto.
 - **Nessun match fuzzy.** Il confronto ignora maiuscole e spazi ripetuti, non
   la punteggiatura: "ACME S.R.L." e "ACME SRL" si stampano diversi, e quale dei
   due stampare è una scelta dell'esercente. Stesso criterio sul civico: "10" e
@@ -943,6 +945,40 @@ Lezione che vale oltre questo caso: un componente condiviso da due superfici
 non può lasciare all'ospite le proprietà **ereditate** (allineamento, colore
 del testo, interlinea) da cui dipende la sua leggibilità. Il gate qui è il
 test, non la prosa.
+
+**Coda della slice 9 — `utenza_piva` non significa più "opera per un altro".**
+Misurato sul primo caso reale (18/09/2026): l'esercente arrivata dalla sonda
+`meStesso` ha collegato la **propria** partita IVA e ha quindi `utenza_piva`
+valorizzata. L'avviso della sede legale, che su quel campo si accendeva, le ha
+segnalato una divergenza fra residenza e punto vendita — che per un'attività
+ricettiva è la normalità. L'ha scritto lei in assistenza, e aveva ragione: «mi
+dice solo che la sede legale non corrisponde al punto di vendita».
+
+Il gate era un **proxy**. Finché le P.IVA dirette arrivavano solo da
+`wizardTemplate`, una scelta salvata implicava un incarico; da quando la sonda
+rivela anche le dirette di un'utenza multi-persona, "ha scelto" e "opera per un
+altro soggetto" hanno smesso di coincidere.
+
+Il gate nuovo è `ade_denominazione IS NOT NULL`, e non è un altro proxy: l'AdE
+manda quel campo **solo per un soggetto giuridico** e lo lascia vuoto per una
+persona fisica, di cui manda nome e cognome (`HAR.md` #18.7). Per una persona
+la sede legale _è_ la residenza, e divergere dal punto vendita è strutturale.
+Il dato lo scriviamo già dalla slice 5: nessuna colonna nuova, nessuna
+migrazione.
+
+Scartata la strada che sembrava ovvia — persistere la `provenienza` calcolata
+dalla slice 9. Coprirebbe in più un solo caso, una **società** con più P.IVA
+dirette che ne sceglie una; non ne esiste nessuna, e una società con una P.IVA
+sola non passa nemmeno dal picker. Una migrazione per un caso ipotetico è
+esattamente ciò che "semplice ora, ma mai provvisorio" vieta. Quando arriverà,
+il segnale per aggiungerla è scritto qui.
+
+`applyAdeSedeLegale` rivaluta lo stesso predicato: il bottone non compare più,
+ma una UI stantia o una chiamata diretta non deve poter scrivere la residenza
+sopra l'indirizzo del punto vendita. C'è un test.
+
+**L'avviso sulla denominazione non è stato toccato** e tace da sé nello stesso
+caso: senza `ade_denominazione` non c'è niente da confrontare.
 
 ### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
 

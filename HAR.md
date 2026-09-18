@@ -1442,6 +1442,21 @@ Per "Me stesso" salta il 2: tre passi a video, che è quello che ha visto
 l'osservazione di 18.5-ter. Per un'utenza senza P.IVA saltano il 2 e il 3, e si
 arriva alla conferma senza `pIva` — dove `setUserChoice` non ha cosa mandare.
 
+**La sonda `meStesso` restituisce anche la denominazione** (misurato in
+produzione il 18/09/2026, primo caso reale). La risposta di
+`procediWizard {"tipoutenza":"meStesso"}` porta entry
+`{"piva":"…","denominazione":"HAUSER ADELHEID"}`: sulle P.IVA **dirette** il
+nome c'è, a differenza degli incarichi (18.1). Non costa una chiamata in più —
+è la stessa sonda che facciamo comunque.
+
+Con un'asimmetria che conta a valle: il nome che arriva qui è quello della
+**persona**, mentre `dati/fiscali` sulla stessa P.IVA lascia
+`altriDatiIdentificativi.denominazione` **vuota** e mette nome e cognome nei
+campi dedicati. Due superfici del portale, due risposte diverse sullo stesso
+soggetto. La seconda è quella che persistiamo, ed è il motivo per cui
+`businesses.ade_denominazione` resta `NULL` per una persona fisica — proprietà
+del dato, non un nostro buco.
+
 **`tipoincaricante` è derivato, non costante.** A ogni cambio di incaricante il
 portale lo riporta a `incaricoDiretto`, e offre una scelta "Opera come" solo se
 l'incarico selezionato ha almeno uno fra `deleghe`, `tutore`, `intermediario`:

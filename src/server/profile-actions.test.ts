@@ -975,6 +975,18 @@ describe("profile-actions", () => {
       );
     });
 
+    it("non allinea l'indirizzo di una P.IVA intestata a una persona", async () => {
+      // Il bottone non compare piu' li' (l'avviso tace), ma l'action va
+      // rivalutata sul dato fresco: una UI stantia o una chiamata diretta non
+      // deve poter scrivere la residenza sopra l'indirizzo del punto vendita.
+      row({ adeDenominazione: null });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
     it("respinge un id malformato prima di toccare il DB", async () => {
       const { applyAdeSedeLegale } = await import("./profile-actions");
       const result = await applyAdeSedeLegale("non-un-uuid");

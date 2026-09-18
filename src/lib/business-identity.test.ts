@@ -135,6 +135,8 @@ describe("getSedeLegaleMismatch", () => {
     province: "MI",
   };
   const UTENZA = "11111111111";
+  /** L'AdE manda una denominazione solo per un soggetto giuridico. */
+  const SOCIETA = "ACME SRL";
 
   it("non segnala nulla quando l'utenza è 'me stesso'", () => {
     expect(
@@ -142,6 +144,28 @@ describe("getSedeLegaleMismatch", () => {
         current: { ...CURRENT, city: "Torino" },
         ade: ADE,
         utenzaPiva: null,
+        adeDenominazione: SOCIETA,
+      }),
+    ).toBeNull();
+  });
+
+  it("non segnala nulla su una P.IVA intestata a una persona", () => {
+    // Misurato in produzione il 18/09/2026: l'AdE manda `denominazione` solo
+    // per un soggetto giuridico — per una persona fisica manda nome e cognome
+    // e il campo resta vuoto. Li' la "sede legale" E' la residenza, e che
+    // differisca dal punto vendita e' la norma, non un difetto.
+    //
+    // Fino a ieri `utenzaPiva` valorizzata implicava "opera per conto di un
+    // altro soggetto", e bastava come gate. Da quando la sonda `meStesso`
+    // rivela le P.IVA dirette di un'utenza multi-persona, quell'equivalenza
+    // non regge: la prima esercente arrivata di qui e' "me stesso" con una
+    // scelta salvata, e si e' vista un avviso su un indirizzo corretto.
+    expect(
+      getSedeLegaleMismatch({
+        current: { ...CURRENT, city: "Torino" },
+        ade: ADE,
+        utenzaPiva: UTENZA,
+        adeDenominazione: null,
       }),
     ).toBeNull();
   });
@@ -152,6 +176,7 @@ describe("getSedeLegaleMismatch", () => {
         current: CURRENT,
         ade: ADE,
         utenzaPiva: UTENZA,
+        adeDenominazione: SOCIETA,
       }),
     ).toBeNull();
   });
@@ -168,6 +193,7 @@ describe("getSedeLegaleMismatch", () => {
           provincia: null,
         },
         utenzaPiva: UTENZA,
+        adeDenominazione: SOCIETA,
       }),
     ).toBeNull();
   });
@@ -177,6 +203,7 @@ describe("getSedeLegaleMismatch", () => {
       current: { ...CURRENT, city: "Torino", zipCode: "10100" },
       ade: ADE,
       utenzaPiva: UTENZA,
+      adeDenominazione: SOCIETA,
     });
 
     expect(result?.kind).toBe("divergente");
@@ -191,6 +218,7 @@ describe("getSedeLegaleMismatch", () => {
       current: { ...CURRENT, streetNumber: "  " },
       ade: ADE,
       utenzaPiva: UTENZA,
+      adeDenominazione: SOCIETA,
     });
 
     expect(result?.fields).toEqual([
@@ -206,6 +234,7 @@ describe("getSedeLegaleMismatch", () => {
         current: CURRENT,
         ade: { ...ADE, numeroCivico: "" },
         utenzaPiva: UTENZA,
+        adeDenominazione: SOCIETA,
       }),
     ).toBeNull();
   });
@@ -216,6 +245,7 @@ describe("getSedeLegaleMismatch", () => {
         current: { ...CURRENT, address: "  via   roma ", city: "MILANO" },
         ade: ADE,
         utenzaPiva: UTENZA,
+        adeDenominazione: SOCIETA,
       }),
     ).toBeNull();
   });
@@ -227,6 +257,7 @@ describe("getSedeLegaleMismatch", () => {
       current: { ...CURRENT, streetNumber: "10/A" },
       ade: ADE,
       utenzaPiva: UTENZA,
+      adeDenominazione: SOCIETA,
     });
 
     expect(result?.fields).toEqual([
@@ -242,6 +273,7 @@ describe("getSedeLegaleMismatch", () => {
         current: CURRENT,
         ade: { ...ADE, provincia: "mi" },
         utenzaPiva: UTENZA,
+        adeDenominazione: SOCIETA,
       }),
     ).toBeNull();
 
@@ -249,6 +281,7 @@ describe("getSedeLegaleMismatch", () => {
       current: { ...CURRENT, province: "RM" },
       ade: { ...ADE, provincia: "mi" },
       utenzaPiva: UTENZA,
+      adeDenominazione: SOCIETA,
     });
     expect(result?.patch).toEqual({ province: "MI" });
   });
@@ -258,6 +291,7 @@ describe("getSedeLegaleMismatch", () => {
       current: { ...CURRENT, city: "Torino" },
       ade: ADE,
       utenzaPiva: UTENZA,
+      adeDenominazione: SOCIETA,
     });
 
     expect(result?.patch).toEqual({ city: "Milano" });
@@ -276,12 +310,44 @@ describe("getSedeLegaleMismatch", () => {
         current: { ...CURRENT, city: "Torino" },
         ade: { ...ADE, ...override },
         utenzaPiva: UTENZA,
+        adeDenominazione: SOCIETA,
       });
 
       expect(result?.kind).toBe("non-applicabile");
       expect(result?.patch).toBeNull();
     },
   );
+});
+
+describe("il caso reale di una P.IVA diretta scelta (18/09/2026)", () => {
+  // La prima esercente arrivata dalla sonda `meStesso`: partita IVA propria,
+  // scelta fra due personae, quindi `utenzaPiva` valorizzata. L'AdE registra
+  // la sua residenza come sede legale e il punto vendita e' altrove — cosa
+  // normale per un'attivita' ricettiva. Prima di questo gate si vedeva un
+  // avviso su un indirizzo corretto, nello shell del dashboard, cassa
+  // compresa.
+  it("non produce nessuno dei due avvisi", () => {
+    const verdetti = getAdeIdentityMismatches(
+      {
+        businessName: "Apartment La Terrazza",
+        // L'AdE tace sulla denominazione per una persona fisica.
+        adeDenominazione: null,
+        address: "Via del Negozio",
+        streetNumber: "5",
+        zipCode: "39100",
+        city: "Bolzano",
+        province: "BZ",
+        adeIndirizzo: "Via della Residenza",
+        adeNumeroCivico: "12",
+        adeCap: "39012",
+        adeComune: "Merano",
+        adeProvincia: "BZ",
+      },
+      "02892140217",
+    );
+
+    expect(verdetti).toEqual({ denominazione: null, sedeLegale: null });
+  });
 });
 
 describe("getAdeIdentityMismatches", () => {
