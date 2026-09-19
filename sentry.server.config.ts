@@ -3,6 +3,7 @@ import {
   isBenignFormDataParseError,
   isBenignServerActionNotFound,
   isForeignHostEvent,
+  isNextClientComponentLoadingTransaction,
 } from "@/lib/sentry-filters";
 import { getAppRelease } from "@/lib/version";
 
@@ -49,6 +50,17 @@ Sentry.init({
     }
     // Scanner che fanno POST alla route not-found (issue SCONTRINOZERO-T)
     if (isBenignServerActionNotFound(event, hint)) {
+      return null;
+    }
+    return event;
+  },
+  beforeSendTransaction(event) {
+    // Artefatto dell'instrumentation Next.js: durata scollegata dalla
+    // richiesta ospite (7 giorni: p95 723 s, max 33 min, 65 ore sommate — il
+    // 99,8% della durata totale del progetto). Senza questo filtro il grafico
+    // p95 della digest settimanale misura solo lui, e una regressione vera su
+    // una route reale resta due ordini di grandezza piu' in basso, invisibile.
+    if (isNextClientComponentLoadingTransaction(event)) {
       return null;
     }
     return event;

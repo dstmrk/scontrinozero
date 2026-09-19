@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ErrorEvent, EventHint } from "@sentry/nextjs";
+import type {
+  ErrorEvent,
+  Event as SentryEvent,
+  EventHint,
+} from "@sentry/nextjs";
 import {
   clientBeforeSend,
   isBenignFormDataParseError,
@@ -8,6 +12,7 @@ import {
   isClientNetworkFailure,
   isForeignHostEvent,
   isInAppBrowserBridgeError,
+  isNextClientComponentLoadingTransaction,
   isReactStreamingDomError,
 } from "./sentry-filters";
 
@@ -602,5 +607,42 @@ describe("clientBeforeSend", () => {
     const event = makeEvent("/dashboard");
 
     expect(clientBeforeSend(event)).toBe(event);
+  });
+});
+
+/** Evento di tipo transaction: `beforeSendTransaction` riceve questa forma. */
+function makeTransactionEvent(transaction: string | undefined) {
+  return {
+    type: "transaction",
+    transaction,
+    contexts: { trace: { op: "function.nextjs" } },
+  } as SentryEvent;
+}
+
+describe("isNextClientComponentLoadingTransaction", () => {
+  it("riconosce la transaction NextNodeServer.clientComponentLoading", () => {
+    const event = makeTransactionEvent("NextNodeServer.clientComponentLoading");
+
+    expect(isNextClientComponentLoadingTransaction(event)).toBe(true);
+  });
+
+  it("lascia passare una transaction di pagina reale", () => {
+    const event = makeTransactionEvent("GET /login");
+
+    expect(isNextClientComponentLoadingTransaction(event)).toBe(false);
+  });
+
+  it("lascia passare una transaction senza nome", () => {
+    const event = makeTransactionEvent(undefined);
+
+    expect(isNextClientComponentLoadingTransaction(event)).toBe(false);
+  });
+
+  it("non matcha per sottostringa: il confronto e' esatto", () => {
+    const event = makeTransactionEvent(
+      "GET /NextNodeServer.clientComponentLoading",
+    );
+
+    expect(isNextClientComponentLoadingTransaction(event)).toBe(false);
   });
 });

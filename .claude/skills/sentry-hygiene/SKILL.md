@@ -360,6 +360,77 @@ il numero è diventato un link `tel:`.
 
 ---
 
+## Il rumore non è solo nelle Issue: anche le transaction mentono
+
+Le sei classificazioni sopra valgono per il dataset `errors`. Il dataset
+`spans` ha un rumore suo, e nessuno lo guarda finché non arriva la digest
+settimanale con un numero assurdo.
+
+**Caso di studio: `NextNodeServer.clientComponentLoading`.** Nella mail
+settimanale del 19 settembre compariva con p95 1.335.822 ms (22 minuti) e 1,7
+giorni di durata totale, in cima al grafico "p95 for Top Spans". Sui 7 giorni
+successivi, via MCP: 730 occorrenze, p95 723 s, massimo 33 minuti, **65 ore**
+di durata sommata — il 99,8% della durata totale del progetto, contro gli 8,4
+minuti del secondo classificato (`middleware GET`).
+
+**Come si smonta in una query.** Non serve fidarsi dell'aggregato: prendi la
+`trace` di un'occorrenza e guarda gli span fratelli.
+
+```
+dataset: spans
+query: trace:<trace_id>
+```
+
+Su `NextNodeServer.clientComponentLoading` da 502 s la trace conteneva un
+`GET /login` da 25 ms, `render route (app) /login` da 17 ms e nient'altro.
+Uno span **root** che dichiara otto minuti in una richiesta da 25 millisecondi
+non misura quella richiesta. Fine dell'indagine: è un artefatto
+dell'instrumentation, non latenza vista da un utente.
+
+Il test generale, riusabile su qualsiasi span sospetto: **confronta la durata
+con quella della transaction ospite nella stessa trace.** Se sono separate da
+ordini di grandezza, il colpevole è lo strumento.
+
+**Dove va il filtro, e perché non in `beforeSend`.** `beforeSend` vede solo gli
+ErrorEvent; una transaction passa da **`beforeSendTransaction`**, che va
+aggiunto accanto nello stesso `Sentry.init`. Il predicato sta in
+`src/lib/sentry-filters.ts` come tutti gli altri (`sonar.sources=src`: in root
+resta configurazione pura), e si tipizza su `TransactionEvent`, non `ErrorEvent`.
+
+```typescript
+beforeSendTransaction(event) {
+  if (isNextClientComponentLoadingTransaction(event)) {
+    return null;
+  }
+  return event;
+}
+```
+
+Due dettagli:
+
+- **Solo `sentry.server.config.ts`, non l'edge.** `NextNodeServer` è la classe
+  del server Node di Next (`next/dist/server/next-server`); il runtime edge usa
+  `NextWebServer` e quella transaction non la emette. Un gemello in
+  `sentry.edge.config.ts` sarebbe codice per un caso impossibile (regola 28).
+- **`ignoreSpans` è l'altra strada, e qui è peggiore.** È l'API nativa del SDK
+  v10 e accetta stringa, regex o oggetto, ma agisce all'**apertura** dello span:
+  su uno span root preferisci `beforeSendTransaction`, che decide a transaction
+  chiusa e non tocca le trace vicine.
+
+**Il commento cita le misure, non un ID.** La convenzione "ogni guard cita
+l'issue Sentry" (sezione sotto) qui non si applica: una transaction non genera
+una Issue, quindi non esiste un `SCONTRINOZERO-<id>` da citare. Al suo posto il
+commento porta i numeri che hanno motivato il filtro (p95, massimo, quota sulla
+durata totale) — è quello che permette a chi rilegge fra sei mesi di rifare la
+query e verificare se il filtro serve ancora.
+
+**Perché non lasciar perdere.** Il costo di un artefatto in cima alla
+classifica non è estetico: schiaccia tutto il resto. Le route vere vivono due
+ordini di grandezza più in basso (p95 da 120 ms a 1 s), quindi una regressione
+reale non muove il grafico di un pixel finché il primo posto è occupato da
+questo. Una dashboard che non può mostrare una regressione è una dashboard
+spenta.
+
 ## `Sentry.setUser({ id })` su ogni richiesta autenticata (regola 22)
 
 Tutte le server action e i route handler che chiamano
