@@ -1,4 +1,8 @@
-import type { ErrorEvent, EventHint } from "@sentry/nextjs";
+import type {
+  ErrorEvent,
+  Event as SentryEvent,
+  EventHint,
+} from "@sentry/nextjs";
 
 /**
  * Messaggio lanciato da Next.js/undici quando un POST con body non-FormData
@@ -297,6 +301,49 @@ export function clientBeforeSend(
     return null;
   }
   return event;
+}
+
+/**
+ * Nome della transaction che Next.js emette per il caricamento dei moduli
+ * client component lato server. `NextNodeServer` è la classe del server Node
+ * di Next (`next/dist/server/next-server`), non del runtime edge: per questo
+ * il filtro vive solo in `sentry.server.config.ts` e non ha un gemello in
+ * `sentry.edge.config.ts`, dove la transaction non può nascere.
+ */
+const CLIENT_COMPONENT_LOADING_TRANSACTION =
+  "NextNodeServer.clientComponentLoading";
+
+/**
+ * True se l'evento è la transaction `NextNodeServer.clientComponentLoading`.
+ *
+ * **Perché la scartiamo: la durata non misura la richiesta a cui è
+ * agganciata.** Su 7 giorni di produzione: 730 occorrenze, p95 723 s, massimo
+ * 33 minuti, 65 ore di durata sommata — il 99,8% della durata totale del
+ * progetto, contro gli 8,4 minuti del secondo classificato (`middleware GET`).
+ * Nell'export Explore del 19 settembre è uno span **root**, e nella stessa
+ * trace la transaction vera è un `GET /login` da 25 ms mentre questa dichiara
+ * 502 s. Il meccanismo esatto non è noto — gli start impliciti sono sparsi,
+ * quindi non è "dal boot del server" — ma lo scarto con la richiesta ospite
+ * basta a qualificarla come artefatto dell'instrumentation, non come latenza
+ * vista da un utente.
+ *
+ * **Cosa costa non filtrarla:** il grafico "p95 for Top Spans" della digest
+ * settimanale e la classifica per durata totale diventano il grafico di questo
+ * artefatto, e una regressione vera su una route reale — che vive due ordini
+ * di grandezza più in basso — resta invisibile.
+ *
+ * Confronto **esatto** e non per sottostringa, stessa disciplina di
+ * `isOwnHostname`: scartiamo solo ciò che riconosciamo positivamente.
+ *
+ * Tipizzato su `Event` e non su `TransactionEvent` perché `@sentry/nextjs`
+ * ri-esporta il primo e non il secondo; `transaction` sta comunque sulla base,
+ * e il callback resta assegnabile a `beforeSendTransaction` (il parametro è
+ * controvariante, e `TransactionEvent extends Event`).
+ */
+export function isNextClientComponentLoadingTransaction(
+  event: SentryEvent,
+): boolean {
+  return event.transaction === CLIENT_COMPONENT_LOADING_TRANSACTION;
 }
 
 /**

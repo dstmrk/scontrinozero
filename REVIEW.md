@@ -1278,6 +1278,46 @@ insostenibile.
 
 ---
 
+### 110. Quattro `POST /dashboard/settings` fermi a ~80 s l'11-12 settembre
+
+- **Categoria:** performance/UX · **Severità:** Medium — causa non identificata, nessuna ricorrenza dopo il 12 settembre
+- **File:** ignoto. Il sospetto va sulle server action di `src/server/ade-actions.ts` raggiunte da `/dashboard/settings` (verifica credenziali AdE), ma nessuno span figlio lo conferma
+
+**Problema.** Nel dataset `spans` del progetto `scontrinozero` ci sono quattro
+transaction `POST /dashboard/settings` con durata 80.345, 80.371, 80.432 e
+80.595 ms — 11 settembre 18:14, 18:15, 18:17 e 12 settembre 04:38. La quinta
+per durata sta a 1.185 ms. Una dispersione di 250 ms su quattro campioni a 80
+secondi non è latenza organica: è un tetto fisso, quindi un timeout o un retry
+esaurito, ma nel repo non esiste una costante da 80 s
+(`fetchTimeoutMs` è 30 s, `spidPollIntervalMs` 7 s × 30 poll = 210 s).
+
+Impatto: l'utente resta 80 secondi su un form che sembra bloccato. Tre dei
+quattro eventi sono a tre minuti l'uno dall'altro, quindi con ogni probabilità
+è una persona sola che ha ritentato.
+
+**Da fare.**
+
+1. Riprodurre la query (aggiungere `span.description` e `trace` ai campi, poi
+   aprire la trace per vedere gli span figli e capire dove stanno gli 80 s):
+
+   ```
+   dataset: spans · period: 30d
+   query: span.name:"POST /dashboard/settings" span.duration:>10s
+   ```
+
+2. Incrociare con i log del container intorno al 2026-09-11T18:14Z (shimau,
+   skill `sentry-hygiene` § "i log del container completano la storia"): gli
+   `info` che Sentry non ha diranno quale chiamata esterna era in volo.
+3. Solo dopo, decidere se serve un timeout esplicito — la voce #24
+   (policy retry/timeout centralizzata sulle chiamate esterne) è il posto
+   dove finirebbe.
+
+**Trigger di riapertura / chiusura.** Se la query su 30 giorni non trova altri
+campioni sopra i 10 s, chiudere come episodio isolato citando qui la data del
+controllo. Se ne trova, diventa P2 e si root-causa.
+
+---
+
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
