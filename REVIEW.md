@@ -552,7 +552,19 @@ allowlist** — e `spidPostCredentials` invia codice fiscale + password SPID a
 le credenziali finirebbero su un host arbitrario (il TLS verso AdE mitiga in
 pratica).
 
-**Fix (non ambiguo).**
+**Aggiornamento 21/09/2026 — il fix probabile è la cancellazione.** Il design
+della v2.0 (`docs/mobile-v2.md`) porta SPID via webview nativa, dove l'utente
+digita le credenziali sulla pagina dell'IdP e noi leggiamo solo il cookie di
+sessione. Sotto quel design gli helper S1-S15 e `spidPostCredentials` si
+**rimuovono** (regola 28) e questa voce si chiude per cancellazione, senza mai
+scrivere `SPID_ALLOWED_IDP_HOSTS`. Motivo di fondo: far transitare codice
+fiscale e password SPID dal nostro server è ciò che la webview esiste per
+evitare, e le regole AgID lo vietano a un soggetto non accreditato (da
+confermare con un legale). Il fix qui sotto resta valido **solo** come
+fallback, se la verifica del punto E di `docs/mobile-v2.md` — un cookie jar
+trasportato che regge un'emissione — fallisse e SPID dovesse tornare su HTTP.
+
+**Fix (non ambiguo, fallback).**
 
 1. **Insieme** al wiring di `loginSpid` (v2.0, app nativa): allowlist `SPID_ALLOWED_IDP_HOSTS`
    con gli hostname degli IdP SPID noti (es. `identity.sieltecloud.it` + gli

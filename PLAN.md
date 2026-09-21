@@ -25,9 +25,11 @@ Il prossimo obiettivo va scelto quando emerge domanda utente documentata
 > abiliterebbe entrambe. _Nota: fino alla v1.5 questo blocco dava la stampa BT per
 > preclusa alla PWA **in generale** — non è vero su Android, dove la v1.6.0 la
 > spedisce via Web Bluetooth. Resta vero su iOS, che è quindi diventato il driver
-> concreto di questa valutazione. Non pianificata: trigger su un volume di utenti
-> iOS con stampantina BT che giustifichi il costo di manutenzione di un secondo
-> runtime._
+> concreto di questa valutazione._ **Il trigger di volume è superato:** la
+> decisione è competitiva — SPID è presente in tutti i prodotti concorrenti — e
+> il volume non era nemmeno misurabile (REVIEW.md #109). Resta senza release a
+> calendario, ma il design non è più aperto: runtime scelto, contratto server,
+> decisioni prese e aperte, costi e prima slice in `docs/mobile-v2.md`.
 
 ---
 
