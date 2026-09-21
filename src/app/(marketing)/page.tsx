@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
-import { appHref } from "@/lib/marketing-to-app-href";
+import { registerHref } from "@/lib/marketing-to-app-href";
 import { RT_COSTS } from "@/lib/marketing/rt-costs";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -114,7 +114,7 @@ export default function Home() {
             </p>
             <div className="mt-8 flex flex-col items-center gap-4 md:items-start">
               <Button asChild size="lg">
-                <a href={appHref("/register")}>
+                <a href={registerHref("home")}>
                   Inizia gratis
                   <ArrowRight className="h-4 w-4" />
                 </a>
@@ -555,7 +555,7 @@ export default function Home() {
       </section>
 
       {/* Piani */}
-      <PricingSection registerHref={appHref("/register")} />
+      <PricingSection registerHref={registerHref("home")} />
 
       {/* FAQ */}
       <section id="faq" className="bg-muted/50 px-4 py-20">

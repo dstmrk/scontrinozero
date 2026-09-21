@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { appHref } from "@/lib/marketing-to-app-href";
+import { registerHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
@@ -94,7 +94,7 @@ export default function PrimaConfigurazioneePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {"Vai su "}
           <a
-            href={appHref("/register")}
+            href={registerHref("help", "prima-configurazione")}
             className="text-primary hover:underline"
           >
             app.scontrinozero.it/register

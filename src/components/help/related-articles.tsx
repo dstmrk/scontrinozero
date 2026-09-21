@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getRelatedArticles } from "@/lib/help/articles";
-import { appHref } from "@/lib/marketing-to-app-href";
+import { registerHref } from "@/lib/marketing-to-app-href";
 import { EditorialNote } from "@/components/marketing/editorial-note";
 
 interface RelatedHelpArticlesProps {
@@ -33,7 +33,7 @@ export function RelatedHelpArticles({ slug }: RelatedHelpArticlesProps) {
           {"30 giorni di prova gratuita, senza carta di credito."}
         </p>
         <Button asChild className="mt-3">
-          <a href={appHref("/register")}>
+          <a href={registerHref("help", slug)}>
             {"Crea l'account "}
             <ArrowRight className="ml-1 h-4 w-4" />
           </a>

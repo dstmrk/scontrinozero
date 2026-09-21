@@ -30,10 +30,14 @@ describe("RelatedHelpArticles", () => {
     });
     // Deve essere un URL assoluto verso il subdomain app, non un path relativo,
     // così il browser fa hard navigation e il widget Turnstile carica solo
-    // sul dominio app (vedi regola #15 in CLAUDE.md).
+    // sul dominio app (vedi regola #15 in CLAUDE.md). Porta anche la pagina di
+    // partenza, che è l'unica attribuzione possibile senza storage lato client
+    // (REVIEW.md #109).
     const href = cta.getAttribute("href") ?? "";
-    expect(href.endsWith("/register")).toBe(true);
     expect(href.startsWith("http")).toBe(true);
+    const url = new URL(href);
+    expect(url.pathname).toBe("/register");
+    expect(url.searchParams.get("ref")).toBe("help_primo-scontrino");
   });
 
   it("throws for an unknown slug", () => {

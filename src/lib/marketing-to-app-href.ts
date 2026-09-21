@@ -1,3 +1,5 @@
+import type { ContentCluster, StaticPageSource } from "./signup-source";
+
 const HARDCODED_DEFAULT = "https://app.scontrinozero.it";
 
 /**
@@ -88,4 +90,34 @@ function resolveBaseUrl(): string {
  */
 export function appHref(path: `/${string}`): string {
   return `${resolveBaseUrl()}${path}`;
+}
+
+/**
+ * URL di registrazione con la pagina di partenza attaccata come `?ref=`.
+ *
+ * È l'unica attribuzione possibile senza rompere la proprietà cookieless del
+ * progetto: nessuno storage lato client, nessun consenso da chiedere, la
+ * sorgente viaggia nel link e il server la valida contro l'allowlist
+ * (`normalizeSignupSource`) prima di scriverla su `profiles.signup_source`.
+ * `REVIEW.md` #109.
+ *
+ * Le due firme tengono fuori il caso che non esiste: una pagina indice non ha
+ * slug (`registerHref("prezzi")`), un cluster di contenuto non sta in piedi
+ * senza (`registerHref("per", slug)` sì, `registerHref("per")` no).
+ *
+ * Costruisce il valore qui invece di importare `contentPageSource`: i due set
+ * chiusi vivono in `signup-source.ts` insieme ai registry dei contenuti, e
+ * questo modulo è tenuto importabile da un client component di proposito —
+ * è la ragione per cui duplica l'allowlist degli hostname invece di importare
+ * il logger (vedi `allowedHostnames`). Un import a runtime dei registry
+ * tirerebbe il testo di novanta pagine nel bundle del browser il giorno che
+ * qualcuno lo importa da lì. Che le due grafie restino la stessa lo tiene un
+ * test, non questo commento.
+ */
+export function registerHref(source: StaticPageSource): string;
+export function registerHref(cluster: ContentCluster, slug: string): string;
+export function registerHref(source: string, slug?: string): string {
+  const ref = slug === undefined ? source : `${source}_${slug}`;
+  const query = new URLSearchParams({ ref }).toString();
+  return `${appHref("/register")}?${query}`;
 }
