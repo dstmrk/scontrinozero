@@ -163,65 +163,6 @@ group:
    widget Turnstile o i dati strutturati silenziosamente — controllare la console
    e i report CSP.
 
-### 105. Quattro documenti `PENDING` fermi in produzione dal 4 agosto
-
-- **Categoria:** correttezza/osservabilità · **Severità:** Medium — una riga fiscale con esito ignoto, e nessun percorso automatico che la chiuda
-- **File:** `src/lib/services/pending-verification.ts` (sweep + avviso `/admin`), `src/lib/services/ade-recovery.ts`
-
-**Problema.** Lo sweep in `instrumentation.ts` ripete la stessa riga a ogni giro
-(ogni ~6h). Il livello è `warn`, quindi fuori da Sentry per costruzione: il
-contatore sale e nessuno lo vede. È la forma di SCONTRINOZERO-7 — un segnale
-classificato come rumore che nessuno ri-guarda.
-
-**Misurato sul DB di produzione il 22/09/2026.** Le quattro domande che questa
-voce teneva aperte hanno una risposta, e cambiano la diagnosi:
-
-- **Un solo business**, non più d'uno. Ed è un esercente vero e attivo: 144
-  documenti accettati, 135 dei quali via Developer API, l'ultimo il giorno
-  stesso della misura.
-- **Tutte via Developer API**, e tutte senza **nessuna** risposta AdE
-  (`ade_response` e `ade_transaction_id` NULL). L'esito è ignoto perché non ne
-  è mai arrivato uno, non perché l'abbiamo perso.
-- **Sono due coppie, non quattro righe indipendenti.** Dentro ogni coppia il
-  `request_hash` è identico e le due righe distano 57 secondi la prima, 20 la
-  seconda. È la firma di un client che ritenta dopo un timeout — e ogni
-  tentativo porta una `idempotencyKey` **nuova**, che è esattamente la mossa
-  che il commento in `receipt-service.ts` chiama «rischio doppione fiscale».
-- **Il conteggio era 5, oggi è 4.** Una riga si è chiusa fra il log del
-  12/09/2026 e la misura; col solo `warn` in mano non è ricostruibile quale.
-
-**Il limite dell'evidenza, dichiarato.** `hashSaleRequest` copre righe, metodo
-di pagamento, importi, codice lotteria e sconto — **nessun timestamp**. Due
-vendite identiche a venti secondi di distanza darebbero lo stesso hash, quindi
-«hash uguale» non **prova** il retry: lo rende la lettura di gran lunga più
-probabile, non certa. Per la prima coppia esiste un `ACCEPTED` con lo stesso
-hash lo stesso giorno, un'ora e mezza dopo: o è quello scontrino finalmente
-passato, o è una vendita diversa dello stesso carrello. Indecidibile dai nostri
-dati.
-
-**Perché niente si è sanato in sette settimane.** Lo sweep **conta** e logga,
-non riconcilia: è il disegno, `pending-verification.ts` è fatto per non
-decidere da solo. La riconciliazione è la verifica manuale da `/admin`, che
-cerca su AdE per **importo + finestra temporale** (`buildAdeSearchWindow`,
-`matchesAmount`) — non per chiave di idempotenza. Nessuno l'ha aperta, che è la
-previsione letterale di questa voce.
-
-**Cosa resta, e non è più aperto a ventaglio.** Una sola azione, di sola
-lettura verso AdE: aprire la verifica manuale su `/admin` per quelle quattro
-righe e leggere l'elenco dei documenti di quel giorno. Risponde all'unica
-domanda rimasta — se allo scontrino della seconda coppia (quello senza nessun
-`ACCEPTED` di pari hash) corrispondano su AdE zero, uno o due documenti. Nel
-nostro DB quel dato non c'è e non ci sarà: l'unica fonte è l'archivio AdE.
-Niente azione automatica, per la ragione di sempre: ri-sottomettere è
-irreversibile.
-
-**Un'assunzione della skill è falsificata.** `ade-integration` dava per fatto
-che un `PENDING` nato dalla Developer API si chiudesse da sé, perché
-`DEVELOPER.md` impone di ritentare con la stessa `idempotencyKey`. Il solo
-consumer API in produzione non lo fa: ruota la chiave come la cassa, quindi
-ogni retry apre una riga nuova invece di rientrare nel recovery di quella
-vecchia. Prescrivere non è garantire, e la skill ora lo dice.
-
 ---
 
 ## P3 — Bassa priorità
@@ -1336,6 +1277,31 @@ Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare
 > passata da `<=5.0.7` a `<1.1.17` e da moderate a **high** (CVSS 7.5) — la
 > soluzione era bumpare l'override, non aggiungere path all'allowlist.
 > `npm audit --json` mostra `range` e `severity` correnti dell'advisory.
+
+### Quattro documenti `PENDING` del 4 agosto 2026 restano aperti
+
+Misurato sul DB di produzione il 22/09/2026 e chiuso contattando gli
+esercenti. Erano cinque: una si è risolta dopo la mail, le altre quattro
+restano aperte e **non c'è azione nostra**. Ri-sottomettere è irreversibile e
+`pending-verification.ts` è progettato per non decidere da solo; la
+riconciliazione richiede l'archivio AdE, la esegue una persona, e la persona
+che può farlo è l'esercente — che è stato avvisato.
+
+**Conseguenza operativa, da conoscere prima di indagare.** Lo sweep in
+`instrumentation.ts` continuerà a loggare `stale_pending_documents` con
+`salePending: 4` a ogni giro (~6h), a tempo indefinito. Quel contatore non è
+un segnale nuovo: è questo residuo. Chi lo trova nei log e ci apre
+un'indagine sta ri-scoprendo una voce già chiusa, ed è la ragione per cui
+questa riga esiste.
+
+**Riaprire:** se il contatore sale **sopra** 4, o se compare un `PENDING` con
+un `business_id` diverso da quello misurato. Entrambi sono un caso nuovo, non
+questo. Un contatore che scende è un esercente che ha sistemato il suo.
+
+Il dato tecnico che valeva conservare — tutte via Developer API, due coppie
+con lo stesso `request_hash` a 57 e 20 secondi di distanza, ogni tentativo con
+una `idempotencyKey` nuova — vive nella skill `ade-integration`, dove ha già
+falsificato un'assunzione sul recovery.
 
 ### Cloudflare Security Insights: Bot Fight Mode e AI Labyrinth restano off
 

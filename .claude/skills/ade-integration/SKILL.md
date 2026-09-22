@@ -528,7 +528,7 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    dovrebbe entrare nel recovery da solo.
 
    ⚠️ **"Impone" non è "garantisce", e il solo consumer API in produzione non
-   obbedisce.** Misurato sul DB il 22/09/2026 (`REVIEW.md` #105): quattro righe
+   obbedisce.** Misurato sul DB il 22/09/2026 (`REVIEW.md`, "Rischi accettati"): quattro righe
    `PENDING` dal 4 agosto, tutte via Developer API, due coppie con lo stesso
    `request_hash` a 57 e 20 secondi di distanza — cioè un client che ritenta
    dopo un timeout con una `idempotencyKey` **nuova** ogni volta. Ogni retry
