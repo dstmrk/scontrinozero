@@ -55,7 +55,7 @@
     "react-joyride": "^3.2.0",
     "react-qr-code": "^2.2.0",
     "recharts": "^3.10.1",
-    "resend": "^6.28.0",
+    "resend": "^6.28.1",
     "serwist": "^9.5.7",
     "sonner": "^2.0.8",
     "stripe": "^22.6.2",
