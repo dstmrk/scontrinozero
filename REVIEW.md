@@ -1097,7 +1097,7 @@ l'intervento e la voce si chiude come rischio accettato.
 ### 109. Il traffico di contenuto non converte, e non possiamo misurarlo bene
 
 - **Categoria:** prodotto/acquisizione · **Severità:** Medium — nessun impatto funzionale, ma orienta male ogni decisione SEO finché resta aperta
-- **File:** `src/lib/umami.ts` (`UMAMI_EVENTS`), `src/server/auth-actions.ts` (`signUp`, redirect anti-enumeration), `deploy/umami/README.md` (query e caveat)
+- **File:** `src/lib/umami.ts` (`UMAMI_EVENTS`), `src/server/auth-actions.ts` (`signUp`, redirect anti-enumeration), `src/lib/signup-source.ts` (le due allowlist), `src/lib/marketing-to-app-href.ts` (`registerHref`), `deploy/umami/README.md` (query e caveat)
 
 **Il dato.** Funnel Umami del 2026-09-17, 120 giorni, sessioni che hanno
 toccato una pagina e poi `/register` (query e limiti nel runbook Umami):
@@ -1141,16 +1141,40 @@ valutare con chi di dovere prima di scrivere codice.
 **Fix (non ambiguo), in ordine di costo.**
 
 1. Niente evento client su `/verify-email`: conterebbe il falso. Chiuso.
-2. Se serve attribuzione vera, la strada praticabile è server-side con la
-   sorgente passata esplicitamente (il campo `ref` di `signUp` esiste già e
-   `normalizeSignupSource` lo normalizza): estenderlo alle CTA delle pagine
-   di contenuto è a costo zero di storage e non tocca la cookie policy.
-3. Fino ad allora la misura resta quella del runbook, con i suoi limiti
-   dichiarati: pageview di `/register`, stessa sessione, niente entry page.
+2. ~~Estendere il campo `ref` di `signUp` alle CTA delle pagine di
+   contenuto~~ — **rilasciato**, vedi sotto.
+3. La misura del runbook resta, con i suoi limiti dichiarati: pageview di
+   `/register`, stessa sessione, niente entry page. Adesso ha accanto una
+   misura di iscrizioni vere, e le due si leggono insieme.
 
-**Trigger di chiusura.** Quando esiste una misura di registrazione
-attribuibile alla pagina di atterraggio senza rompere la proprietà cookieless,
-questa voce si chiude e la baseline qui sopra diventa il termine di paragone.
+**Punto 2 rilasciato — la sorgente viaggia nel link.** `signup_source` regge
+due dimensioni in un campo solo: il **canale** del soft launch (`reddit`,
+`producthunt`) e la **pagina** da cui è stata cliccata la CTA (`home`,
+`guide_codici-natura-iva`). Si distinguono da sé — nessun canale contiene un
+underscore — quindi niente colonna nuova e niente migrazione. L'allowlist
+delle pagine è **derivata dai registry dei contenuti**: un articolo nuovo è
+subito una sorgente valida, uno rimosso smette di esserlo, e nessuno deve
+ricordarsene. La proprietà cookieless non è toccata: nessuno storage lato
+client, la sorgente vive solo nel link cliccato.
+
+Il prezzo di quella scelta è dichiarato: chi apre `/register` in una scheda
+nuova, da un bookmark o dal menu dell'app non porta niente, e finisce fra i
+non attribuiti. Contarlo come "diretto" sarebbe la bugia comoda; la query nel
+runbook lo dice esplicitamente.
+
+**Quello che il gate ha trovato da solo.** La CTA di `/per` linkava
+`/register` con un `<Link>` di Next invece di `appHref` + `<a>`: soft routing,
+quindi `/register` renderizzato sull'origin marketing, cioè il bug
+`captcha_hostname_mismatch` (regola 15). Non era un ref mancante, era
+un'iscrizione rotta, e stava lì da prima di questa voce. Il gate
+(`src/lib/signup-source.contract.test.ts`) copre ora entrambe le grafie
+sbagliate — `appHref("/register")` nudo e `href="/register"` letterale —
+perché si scrivono nello stesso momento e la seconda è la peggiore delle due.
+
+**Cosa resta.** Solo l'attesa dei dati: la tabella qui sopra è la baseline e
+il termine di paragone è la query su `profiles.signup_source`
+(`deploy/umami/README.md`). Questa voce si chiude quando c'è abbastanza
+volume per confrontare le due, non prima: oggi il numeratore è a una cifra.
 
 ### 50. CIE checkpush: rilevamento approvazione "any-change" fragile (falso timeout / falso proceed)
 

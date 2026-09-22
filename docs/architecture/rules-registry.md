@@ -26,7 +26,8 @@
 - **14** HAR: cross-reference one-by-one di **ogni** request, non solo l'ordine
   → skill `ade-integration`, `HAR.md`.
 - **15** Link marketing→app verso `/login` ecc.: `appHref()` + plain `<a>`, mai
-  `<Link>`; `appHref()` è server-only → skill `react-patterns`.
+  `<Link>`; `appHref()` è server-only → skill `react-patterns`. Per
+  `/register` il caso ha un gate: `src/lib/signup-source.contract.test.ts`.
 - **16** Mock tipati: mai spread di `...args` in un `vi.fn()` a zero argomenti
   (TS2556 rompe `type-check` prima dei test) → skill `testing-patterns`.
 - **17** Importi: `round(grossUnitPrice * quantity * 100)` per riga sommato come

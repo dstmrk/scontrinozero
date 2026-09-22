@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Clock } from "lucide-react";
-import { appHref } from "@/lib/marketing-to-app-href";
+import { registerHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import {
   JsonLd,
@@ -257,7 +257,7 @@ export default async function GuidePage({ params }: PageParams) {
               {"30 giorni di prova gratuita, senza carta di credito."}
             </p>
             <Button asChild className="mt-3">
-              <a href={appHref("/register")}>
+              <a href={registerHref("guide", slug)}>
                 {"Crea l'account "}
                 <ArrowRight className="ml-1 h-4 w-4" />
               </a>

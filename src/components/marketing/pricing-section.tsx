@@ -40,10 +40,10 @@ const proFeatures: Feature[] = [
 ];
 
 interface PricingSectionProps {
-  // Precomputed in un server parent via `appHref("/register")`. Non chiamare
-  // `appHref` qui: `APP_HOSTNAME` non è nel bundle client e
-  // `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione, quindi
-  // ricadrebbe sull'host di produzione anche in sandbox.
+  // Precomputed in un server parent via `registerHref`, che ci mette anche la
+  // pagina di partenza come `?ref=`. Non risolverlo qui: `APP_HOSTNAME` non è
+  // nel bundle client e `NEXT_PUBLIC_APP_URL` è bakata col valore di
+  // produzione, quindi ricadrebbe sull'host di produzione anche in sandbox.
   readonly registerHref: string;
 }
 

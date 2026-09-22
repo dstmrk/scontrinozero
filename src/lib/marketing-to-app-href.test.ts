@@ -123,3 +123,80 @@ describe("appHref", () => {
     }
   });
 });
+
+describe("registerHref", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.APP_HOSTNAME;
+    delete process.env.NEXT_PUBLIC_APP_HOSTNAME;
+    delete process.env.NEXT_PUBLIC_APP_URL;
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("attacca la pagina indice come ?ref=", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_HOSTNAME", "app.scontrinozero.it");
+    const { registerHref } = await import("./marketing-to-app-href");
+
+    expect(registerHref("prezzi")).toBe(
+      "https://app.scontrinozero.it/register?ref=prezzi",
+    );
+  });
+
+  it("unisce cluster e slug con un underscore", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_HOSTNAME", "app.scontrinozero.it");
+    const { registerHref } = await import("./marketing-to-app-href");
+
+    expect(registerHref("guide", "codici-natura-iva")).toBe(
+      "https://app.scontrinozero.it/register?ref=guide_codici-natura-iva",
+    );
+  });
+
+  it("segue l'override di hostname come appHref", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it");
+    vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
+    const { registerHref } = await import("./marketing-to-app-href");
+
+    expect(registerHref("home")).toBe(
+      "https://sandbox.scontrinozero.it/register?ref=home",
+    );
+  });
+
+  it("produce un ?ref= che il server accetta, per ogni cluster", async () => {
+    // Il gate contro la deriva fra le due grafie: questo modulo costruisce il
+    // valore da sé per non importare i registry dei contenuti (vedi il commento
+    // su `registerHref`), quindi niente garantisce da solo che la stringa
+    // combaci con quella che `ALLOWED_PAGE_SOURCES` deriva dai registry.
+    const { registerHref } = await import("./marketing-to-app-href");
+    const { normalizeSignupSource } = await import("./signup-source");
+    const { guideSlugs } = await import("@/lib/guide/articles");
+    const { categorySlugs } = await import("@/lib/per/categories");
+    const { toolSlugs } = await import("@/lib/strumenti/tools");
+    const { helpSlugs } = await import("@/lib/help/articles");
+
+    const refOf = (href: string) => new URL(href).searchParams.get("ref") ?? "";
+    const built = [
+      registerHref("home"),
+      registerHref("prezzi"),
+      registerHref("funzionalita"),
+      registerHref("confronto"),
+      registerHref("guide"),
+      registerHref("strumenti"),
+      registerHref("guide", guideSlugs[0]),
+      registerHref("per", categorySlugs[0]),
+      registerHref("strumenti", toolSlugs[0]),
+      registerHref("help", helpSlugs[0]),
+    ];
+
+    const rejected = built
+      .map(refOf)
+      .filter((ref) => normalizeSignupSource(ref) !== ref);
+
+    expect(rejected).toEqual([]);
+  });
+});

@@ -420,6 +420,24 @@ diverso**. Il contenuto normativo resta utile per autorità di dominio e
 citabilità AI, ma non va contato come leva di acquisizione né usato per
 giustificare priorità.
 
+**Ogni CTA di registrazione porta la sua pagina.** Da settembre 2026 i link a
+`/register` dalle superfici marketing si scrivono con `registerHref` —
+`registerHref("prezzi")` per una pagina indice, `registerHref("guide", slug)`
+per un articolo — e la pagina arriva al server come `?ref=`, validata contro
+un'allowlist **derivata dai registry dei contenuti**: una pagina nuova è già
+una sorgente valida, senza toccare nient'altro. È l'unica attribuzione
+possibile a progetto cookieless, e va letta con la query su
+`profiles.signup_source` in `deploy/umami/README.md`, non col funnel Umami:
+quella conta iscrizioni, questo conta pageview di `/register`.
+
+Il gate è `src/lib/signup-source.contract.test.ts`, e vale la pena sapere cosa
+boccia, perché sono due errori diversi. Un `appHref("/register")` nudo perde
+solo la misura. Un `href="/register"` letterale rompe l'iscrizione: il soft
+routing di Next renderizza `/register` sull'origin marketing, dove il widget
+Turnstile risponde `captcha_hostname_mismatch` (regola 15). La CTA dell'indice
+`/per` era esattamente così, e nessuno l'aveva notata perché una pagina che si
+apre non sembra rotta.
+
 **Prima di dichiarare una pagina "l'asset del sito"** perché ha traffico o
 posizione, guarda la sua riga nel funnel. Vale anche al contrario: una pagina
 a posizione 22 che converte all'8% merita più lavoro di una a posizione 5 che

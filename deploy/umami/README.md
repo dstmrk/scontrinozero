@@ -199,3 +199,44 @@ docker exec -i umami-db psql -U umami -d umami \
 
 Esito della prima esecuzione (2026-09-17, 120 giorni) in `REVIEW.md` #109 —
 vale come baseline per il confronto successivo.
+
+## Attribuzione server-side: da quale pagina arrivano gli iscritti
+
+La query qui sopra conta le **pageview** di `/register`, non le iscrizioni, e
+lo fa nella stessa sessione. Da settembre 2026 le CTA di registrazione delle
+pagine marketing portano la pagina di partenza nel link (`?ref=home`,
+`?ref=guide_codici-natura-iva`), `normalizeSignupSource` la valida contro
+l'allowlist e `signUp` la scrive su `profiles.signup_source`. Questa gira sul
+Postgres di Supabase, non su quello di Umami, e conta **iscrizioni vere**.
+
+```sql
+SELECT coalesce(signup_source, '(nessuna)') AS sorgente,
+       count(*) AS iscritti,
+       min(created_at)::date AS primo,
+       max(created_at)::date AS ultimo
+FROM profiles
+GROUP BY 1
+ORDER BY iscritti DESC;
+```
+
+**Come si legge, e cosa non dice.**
+
+- Le sorgenti con un underscore sono pagine (`guide_<slug>`, `per_<slug>`,
+  `strumenti_<slug>`, `help_<slug>`); quelle senza sono pagine indice
+  (`home`, `prezzi`, `funzionalita`, `confronto`, `guide`, `strumenti`, `per`)
+  oppure canali del soft launch (`reddit`, `producthunt`, …). I due insiemi
+  sono disgiunti per costruzione, c'è un test che lo tiene.
+- `(nessuna)` non vuol dire "traffico diretto": ci finisce anche chi è
+  arrivato su `/register` da un bookmark, dal menu dell'app o da un link
+  senza `?ref=`. Il progetto è cookieless, quindi la sorgente vive solo nel
+  link cliccato: chi apre `/register` in una scheda nuova la perde, e va
+  contato come non attribuito, non come diretto.
+- Un `?ref=` inventato o fuori allowlist viene scartato, non scritto: una
+  sorgente che compare qui è una pagina che esiste davvero.
+- Il numeratore è l'iscrizione, non l'onboarding completato: per quello il
+  join è su `businesses` (`REVIEW.md` #107).
+- I numeri sono piccoli: il segnale è la direzione, non la seconda cifra.
+
+Il confronto naturale è fra questa tabella e quella del funnel: la prima dice
+chi si è iscritto, la seconda quanta gente è passata. Il rapporto fra le due
+è il tasso di conversione per pagina, che è la domanda di `REVIEW.md` #109.

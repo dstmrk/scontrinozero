@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { registerHref } from "@/lib/marketing-to-app-href";
 import { categories, categorySlugs } from "@/lib/per/categories";
 
 const SITE_URL = "https://scontrinozero.it";
@@ -74,10 +75,10 @@ export default function PerIndexPage() {
               }
             </p>
             <Button asChild className="mt-3">
-              <Link href="/register">
+              <a href={registerHref("per")}>
                 {"Crea l'account "}
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
           </div>
         </article>

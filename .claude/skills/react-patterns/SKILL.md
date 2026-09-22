@@ -74,6 +74,13 @@ l'href nel **parent Server Component** e passalo come prop al Client Component
 
 ### Link auth da marketing → app: plain `<a>`
 
+> Per `/register` la regola ha un gate:
+> `src/lib/signup-source.contract.test.ts` boccia sia `appHref("/register")`
+> nudo (perde l'attribuzione, `REVIEW.md` #109) sia un `href="/register"`
+> letterale (perde la cross-origin, cioè questo bug). Ha trovato da solo la
+> CTA dell'indice `/per`, che era un `<Link>` dal giorno in cui è nata. Per
+> `/login` e `/reset-password` il gate non c'è: lì resta il grep.
+
 Dal gruppo `(marketing)/*` (e da `src/components/marketing/`, `help/`) i link
 a `/login`, `/register`, `/reset-password` devono usare `appHref()` + **plain
 `<a>`**, mai `<Link>` di Next. Serve a forzare la cross-origin navigation
