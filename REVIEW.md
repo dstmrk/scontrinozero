@@ -163,41 +163,64 @@ group:
    widget Turnstile o i dati strutturati silenziosamente — controllare la console
    e i report CSP.
 
-### 105. Cinque documenti `PENDING` fermi in produzione dal 4 agosto
+### 105. Quattro documenti `PENDING` fermi in produzione dal 4 agosto
 
-- **Categoria:** correttezza/osservabilità · **Severità:** Medium — righe fiscali in limbo, esito AdE ignoto, nessuno le guarda
+- **Categoria:** correttezza/osservabilità · **Severità:** Medium — una riga fiscale con esito ignoto, e nessun percorso automatico che la chiuda
 - **File:** `src/lib/services/pending-verification.ts` (sweep + avviso `/admin`), `src/lib/services/ade-recovery.ts`
 
 **Problema.** Lo sweep in `instrumentation.ts` ripete la stessa riga a ogni giro
-(ogni ~6h), invariata nei log di produzione del 12/09/2026:
-
-```
-errorClass: stale_pending_documents  salePending: 5  voidPending: 0
-oldestCreatedAt: 2026-08-04T11:05:19.917Z
-```
-
-Cinque vendite ferme da oltre cinque settimane con esito AdE **ignoto**. Il
-livello è `warn`, quindi fuori da Sentry per costruzione: il contatore sale e
-nessuno lo vede. È esattamente la forma di SCONTRINOZERO-7 — un segnale
+(ogni ~6h). Il livello è `warn`, quindi fuori da Sentry per costruzione: il
+contatore sale e nessuno lo vede. È la forma di SCONTRINOZERO-7 — un segnale
 classificato come rumore che nessuno ri-guarda.
 
-**Cosa NON si sa ancora** (da stabilire prima di toccare qualsiasi cosa):
+**Misurato sul DB di produzione il 22/09/2026.** Le quattro domande che questa
+voce teneva aperte hanno una risposta, e cambiano la diagnosi:
 
-- se le cinque righe appartengano a un solo business o a più d'uno;
-- se siano nate dalla cassa (la chiave di idempotenza ruota, quindi il recovery
-  pull-based non scatta mai e servirebbe il banner del dashboard) o dalla
-  Developer API (chiave riusata, il recovery entra da solo);
-- se l'esercente abbia poi riemesso lo stesso scontrino — nel qual caso il
-  rischio non è la riga orfana ma un **doppio documento fiscale** già avvenuto;
-- se il banner `/admin` e la verifica manuale siano mai stati aperti.
+- **Un solo business**, non più d'uno. Ed è un esercente vero e attivo: 144
+  documenti accettati, 135 dei quali via Developer API, l'ultimo il giorno
+  stesso della misura.
+- **Tutte via Developer API**, e tutte senza **nessuna** risposta AdE
+  (`ade_response` e `ade_transaction_id` NULL). L'esito è ignoto perché non ne
+  è mai arrivato uno, non perché l'abbiamo perso.
+- **Sono due coppie, non quattro righe indipendenti.** Dentro ogni coppia il
+  `request_hash` è identico e le due righe distano 57 secondi la prima, 20 la
+  seconda. È la firma di un client che ritenta dopo un timeout — e ogni
+  tentativo porta una `idempotencyKey` **nuova**, che è esattamente la mossa
+  che il commento in `receipt-service.ts` chiama «rischio doppione fiscale».
+- **Il conteggio era 5, oggi è 4.** Una riga si è chiusa fra il log del
+  12/09/2026 e la misura; col solo `warn` in mano non è ricostruibile quale.
 
-**Fix (da istruire, non ovvio).** Nessuna azione automatica: ri-sottomettere è
-irreversibile e `pending-verification.ts` è progettato apposta per **non**
-decidere da solo. Il primo passo è una query di sola lettura su
-`commercial_documents` per rispondere alle quattro domande sopra. Solo dopo si
-decide se il buco è la visibilità (il warn non arriva a nessuno) o la
-riconciliazione. Vedi la sezione "I due canali hanno protocolli di idempotenza
-opposti" nella skill `ade-integration`.
+**Il limite dell'evidenza, dichiarato.** `hashSaleRequest` copre righe, metodo
+di pagamento, importi, codice lotteria e sconto — **nessun timestamp**. Due
+vendite identiche a venti secondi di distanza darebbero lo stesso hash, quindi
+«hash uguale» non **prova** il retry: lo rende la lettura di gran lunga più
+probabile, non certa. Per la prima coppia esiste un `ACCEPTED` con lo stesso
+hash lo stesso giorno, un'ora e mezza dopo: o è quello scontrino finalmente
+passato, o è una vendita diversa dello stesso carrello. Indecidibile dai nostri
+dati.
+
+**Perché niente si è sanato in sette settimane.** Lo sweep **conta** e logga,
+non riconcilia: è il disegno, `pending-verification.ts` è fatto per non
+decidere da solo. La riconciliazione è la verifica manuale da `/admin`, che
+cerca su AdE per **importo + finestra temporale** (`buildAdeSearchWindow`,
+`matchesAmount`) — non per chiave di idempotenza. Nessuno l'ha aperta, che è la
+previsione letterale di questa voce.
+
+**Cosa resta, e non è più aperto a ventaglio.** Una sola azione, di sola
+lettura verso AdE: aprire la verifica manuale su `/admin` per quelle quattro
+righe e leggere l'elenco dei documenti di quel giorno. Risponde all'unica
+domanda rimasta — se allo scontrino della seconda coppia (quello senza nessun
+`ACCEPTED` di pari hash) corrispondano su AdE zero, uno o due documenti. Nel
+nostro DB quel dato non c'è e non ci sarà: l'unica fonte è l'archivio AdE.
+Niente azione automatica, per la ragione di sempre: ri-sottomettere è
+irreversibile.
+
+**Un'assunzione della skill è falsificata.** `ade-integration` dava per fatto
+che un `PENDING` nato dalla Developer API si chiudesse da sé, perché
+`DEVELOPER.md` impone di ritentare con la stessa `idempotencyKey`. Il solo
+consumer API in produzione non lo fa: ruota la chiave come la cassa, quindi
+ogni retry apre una riga nuova invece di rientrare nel recovery di quella
+vecchia. Prescrivere non è garantire, e la skill ora lo dice.
 
 ---
 
@@ -744,7 +767,8 @@ Quattro decisioni che la slice ha dovuto prendere, tutte contro l'istinto:
   un'insegna diversa dalla denominazione anagrafica — "Da Mario" contro "ROSSI
   MARIO" — è la norma, non un difetto: segnalarla riempirebbe di rumore la
   stragrande maggioranza degli account per non dire niente. La colonna si
-  popola comunque per tutti, perché il dato osservato serve anche a #107.
+  popola comunque per tutti, perché il dato osservato serve anche al
+  breakdown degli onboarding fermi su `/admin`.
   ⚠️ Quel gate era un **proxy**, e la slice 9 lo ha rotto: vedi la coda qui
   sotto.
 - **Nessun match fuzzy.** Il confronto ignora maiuscole e spazi ripetuti, non
@@ -991,61 +1015,6 @@ sopra l'indirizzo del punto vendita. C'è un test.
 
 **L'avviso sulla denominazione non è stato toccato** e tace da sé nello stesso
 caso: senza `ade_denominazione` non c'è niente da confrontare.
-
-### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
-
-- **Categoria:** prodotto/funnel · **Severità:** Medium — non rompe niente, ma è il collo di bottiglia dell'attivazione
-- **File:** `ade_credentials.last_verify_outcome` (migrazione 0038), `src/lib/ade/verify-outcome.ts`, `getAdminStalledOnboarding` in `src/server/admin-directory.ts`
-
-Misurato il 16/09/2026 in produzione: **10 righe `ade_credentials` su 22** hanno
-`verified_at IS NULL` con `businesses.fiscal_code IS NULL`. Cioè quasi metà di
-chi è arrivato a inserire le credenziali AdE non ha mai completato
-l'onboarding. La più vecchia è del 19/05/2026; quattro di quelle persone hanno
-il trial già scaduto senza aver emesso un solo scontrino.
-
-Era invisibile perché nessuno lo contava: le issue Sentry mostrano gli errori,
-non le persone che si fermano.
-
-**L'attribuzione adesso c'è.** La prima azione che questa voce chiedeva — «rendere
-la causa distinguibile» prima di qualunque fix — è stata fatta in due pezzi:
-`last_verify_outcome` + `last_verify_at` + `verify_attempts` su `ade_credentials`,
-scritti da un solo punto d'uscita di `verifyAdeCredentials`; e il blocco
-«Onboarding fermi» su `/admin`, con conteggio per fascia d'età e l'elenco
-nominativo di chi è fermo.
-
-Il vocabolario distingue diciassette esiti, ma la distinzione che mancava di
-più è una sola e non è un errore: **`last_verify_at IS NULL` = non ha mai
-premuto Verifica.** Il salvataggio credenziali e la verifica sono due azioni
-separate (`onboarding-form.tsx`, con uno `handleSkipVerify` che porta in
-dashboard senza tentare), quindi «ha mollato prima di provarci» e «ha provato e
-ha sbagliato password» erano lo stesso stato DB. Sono due problemi opposti: il
-primo è un messaggio, il secondo un blocco.
-
-**Cosa resta aperto.**
-
-- **Le 10 righe storiche restano non attribuibili.** Sono marcate
-  `unknown_pre_tracking` dal backfill della 0038: il contatore parte da adesso
-  e non ricostruisce niente. L'unico modo di sapere cosa è successo a quelle
-  persone è scrivergli — l'elenco su `/admin` serve anche a questo.
-- **Il funnel non è stato toccato,** ed è deliberato: ottimizzarlo prima di
-  aver letto il breakdown sarebbe indovinare, che è ciò contro cui questa voce
-  è stata aperta. La prossima azione è **leggere il pannello fra qualche
-  settimana**, non aprire una PR adesso.
-- **Un esito transitorio sovrascrive quello precedente.** Il contratto è
-  «ultimo tentativo», quindi un blip di rete su chi aveva `auth_error` lo
-  maschera. `verify_attempts` limita il danno (chi ha riprovato molte volte si
-  vede lo stesso), e una politica di non-sovrascrittura è complessità che si
-  aggiunge solo se i dati mostrano che serve.
-- **La tabella ora mostra solo chi ha ancora un trial attivo.** Scelta di
-  prodotto: la vista serve a intervenire, e chi ha già lasciato scadere il
-  trial senza completare l'onboarding non è più un caso su cui si possa fare
-  qualcosa dal pannello. Le quattro persone di cui sopra col trial scaduto
-  restano in `ade_credentials` (la query di misurazione le trova ancora) ma
-  non compaiono più nell'elenco — solo nel conteggio storico citato qui sopra.
-
-**Trigger di chiusura.** Quando il breakdown su `/admin` ha abbastanza righe da
-indicare una causa dominante, questa voce si chiude e si riapre come finding
-specifico su quella causa.
 
 ### 108. `/help/cassetto-fiscale` è cannibalizzata dalla guida omonima
 
