@@ -1,9 +1,10 @@
 # App nativa iOS/Android (v2.0) — decisioni di design
 
-**Stato al 21 settembre 2026.** Nota di design, non un piano: nessuna release
-pianificata, nessuna riga di codice nativo scritta. Serve a non rifare questa
-analisi fra sei mesi e a consegnare a chi implementa le decisioni già prese
-invece di fargliele reinventare (regola 5, decision budget).
+**Stato al 22 settembre 2026.** Nota di design, non un piano: nessuna release
+pianificata. Il guscio Capacitor esiste in `mobile/` e punta all'app deployata,
+senza ancora capability native. Serve a non rifare questa analisi fra sei mesi
+e a consegnare a chi implementa le decisioni già prese invece di fargliele
+reinventare (regola 5, decision budget).
 
 Compagno della nota di scenario `docs/strategia-corrispettivi-2027.md`: stesso
 scaffale, stesso mestiere.
@@ -115,12 +116,37 @@ accetta, e su 401 solleva `AdeReauthRequiredError` che emit/void traducono in
 `{ reauthRequired }`. È già la semantica di una sessione da webview.
 
 Manca un contratto solo: oggi un `AdeClient` si costruisce **solo facendo un
-login**. Non esiste «ecco un cookie jar e un `p_auth`, dammi un client
-funzionante». Quello è il pezzo nuovo, e si verifica **senza una riga di codice
-nativo**: login manuale al portale da browser desktop, cookie e `p_auth`
-estratti a mano, POST all'endpoint di adozione, scontrino emesso. Se l'AdE lega
-la sessione a qualcosa di non trasportabile, lo si scopre in un pomeriggio
-invece che a guscio finito.
+login**. Non esiste «ecco un cookie jar e una P.IVA, dammi un client
+funzionante». Il `p_auth` Liferay probabilmente non serve: tutti i path in
+produzione (Fisconline, CIE) lo lasciano a `""` in
+`src/lib/ade/real-client.ts` e nessuno lo legge a valle; lo estrae solo lo S11
+del flusso SPID su HTTP, che il punto 7 rimuove. Il token `x-appl` il server lo
+ricava da sé da `initLight` con i cookie adottati.
+
+Il contratto si verifica **senza una riga di codice nativo**, in due gradini:
+
+1. **Una GET di sola lettura da un IP diverso** (nessun documento fiscale).
+   Login SPID al portale da un browser desktop su hotspot del telefono, cookie
+   copiati a mano, GET dalla VPS. Candidata: `fullTemplate`, che risponde 406
+   senza utenza di lavoro scelta e 200 dopo (HAR.md §18.5). Un 200 dice che la
+   sessione non è legata all'IP e che la scelta dell'utenza viaggia coi
+   cookie.
+2. **Solo se il gradino 1 passa: uno scontrino da €0,01 emesso e annullato**,
+   per verificare che la POST di emissione non chieda altro oltre ai cookie.
+
+L'IP diverso è il punto del test: in produzione il login avviene sul telefono e
+l'emissione parte dalla VPS. Browser e server sulla stessa rete di casa
+passerebbero il test per la ragione sbagliata.
+
+Che i concorrenti facciano SPID via webview non chiude la domanda. Dimostra che
+il login in webview funziona e che i cookie si leggono, non che si possano
+usare da un'altra macchina: un concorrente che chiama l'AdE dal telefono non
+trasporta niente. Se il trapianto fallisce restano due strade, entrambe care:
+l'emissione con sessione SPID dal dispositivo (HTTP nativo), che cambia il
+percorso emissione/annullo/recovery lato server, oppure SPID di nuovo su HTTP
+dal server, il fallback di REVIEW.md #28 col problema AgID del punto 7. Il
+guscio serve in entrambi i casi, ed è per questo che si costruisce in
+parallelo al test.
 
 ---
 
@@ -189,8 +215,9 @@ scivola per inerzia.
 ## 8. Branching e release
 
 Nessun branch a lunga vita, nessuno stacco `v1`. Trunk unico: PR verso `main`
-come qualunque altro lavoro (regola 1), il codice nativo in una directory
-nuova dello stesso repo — i tipi condivisi si riusano senza pubblicare un
+come qualunque altro lavoro (regola 1), il codice nativo in `mobile/` nello
+stesso repo, con un `package.json` suo perché le dipendenze Capacitor non
+entrino nell'immagine web — i tipi condivisi si riusano senza pubblicare un
 package, e il filtro per path in CI (`dorny/paths-filter`, già in uso) tiene
 separati i job.
 
@@ -200,9 +227,10 @@ Due namespace di tag distinti, perché il workflow di deploy prod/sandbox matcha
 - `v1.9.0`, `v1.10.0`, … → web (workflow attuale, invariato)
 - `mobile-v1.0.0`, … → app nativa (workflow nuovo)
 
-`next build` non deve vedere la directory mobile: il Dockerfile o
-`.dockerignore` va ristretto **prima** del primo commit di quella directory.
-Dettagli di deploy nella skill `deploy-release`.
+`next build` non vede la directory mobile: `.dockerignore` la esclude, e
+`tsconfig.json` la toglie dal type-check della web app. Dettagli di deploy
+nella skill `deploy-release`; istruzioni per costruire il guscio in
+`mobile/README.md`.
 
 ---
 
@@ -219,10 +247,16 @@ Dettagli di deploy nella skill `deploy-release`.
 | 7   | Trunk unico, tag `mobile-v*` separati                          | alta                |
 | 8   | `server.url` verso l'app deployata, non asset impacchettati    | media (rischio 4.2) |
 | 9   | Sessione persistita cifrata: differenziatore, non prerequisito | media               |
+| 10  | iOS e Android insieme, dallo stesso guscio (ex B, C)           | alta                |
+| 11  | Guscio in parallelo al punto E: serve in entrambi gli esiti    | alta                |
 
 Sulla 9: i concorrenti costringono a riautenticarsi più volte al giorno, quindi
 perdere le sessioni a ogni deploy non è il problema di prodotto che sembrava.
 Persisterle diventa un vantaggio da spedire _insieme_ a SPID, non prima.
+
+Sulla 10: i costi degli store (€99/anno Apple Developer Program, $25 una tantum
+Google Play) sono accettati come eccezione esplicita ai «costi fissi ~€0» dei
+Principi guida. Il build iOS gira su un Mac con Xcode, che c'è.
 
 ---
 
@@ -231,12 +265,8 @@ Persisterle diventa un vantaggio da spedire _insieme_ a SPID, non prima.
 | #   | Domanda                                                                                                                                                               | Chi decide                                                           |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | A   | Un 401 può arrivare **dalla POST di emissione**, dopo che l'AdE ha accettato il documento? Se sì, «sicuro per costruzione» cade e il resume richiede riconciliazione. | risposta secca nei tracciati HAR (`login_spid.har`), non un giudizio |
-| B   | €99/anno di Apple Developer Program contro «costi fissi ~€0» dei Principi guida. Google Play sono $25 una volta.                                                      | utente                                                               |
-| C   | iOS-first o entrambe le piattaforme? Su Android la PWA fa già la stampa BLE: il nativo lì guadagna solo SPID, su iOS guadagna SPID **e** stampa.                      | utente                                                               |
 | D   | Nome e semantica dello stato riprendibile, distinto da ERROR e invisibile allo stale-gate.                                                                            | in fase di slice                                                     |
-| E   | Il cookie jar trasportato regge un'emissione? (punto 5)                                                                                                               | test, prima di tutto il resto                                        |
-
-Le voci B e C vanno chiuse prima di aprire un account sviluppatore, non dopo.
+| E   | Il cookie jar trasportato regge un'emissione? (punto 5)                                                                                                               | test in due gradini, in parallelo al guscio                          |
 
 ---
 
@@ -254,23 +284,25 @@ quando la slice arriva.
 
 ---
 
-## 12. Prima slice
+## 12. Ordine delle slice
 
-Non «setup Capacitor». La prima slice è la **cattura del cookie**: guscio
-minimo, InAppBrowser sul portale AdE, login SPID dell'utente, il plugin
-restituisce i cookie, POST al server, `AdeClient` adottato nello store
-interattivo, uno scontrino emesso. Un artefatto, un criterio di accettazione —
-e se fallisce, ha risparmiato la v2 intera.
-
-Il punto E della tabella precede anche questa: si prova prima col cookie
-estratto a mano da un browser desktop, dove non serve nessun codice nativo.
+1. **Guscio** — fatto: `mobile/`, Capacitor 8, `server.url` scelto per
+   ambiente al `cap sync`, nessun plugin nativo. Si accetta aprendo l'app sul
+   simulatore e vedendo la cassa.
+2. **Punto E, gradino 1 e 2** (punto 5) — in parallelo al guscio, senza
+   codice nativo. Decide se la slice 3 adotta la sessione sul server o se
+   l'emissione SPID passa dal dispositivo.
+3. **Cattura del cookie**: InAppBrowser sul portale AdE, login SPID
+   dell'utente, il plugin restituisce i cookie, POST al server, `AdeClient`
+   adottato nello store interattivo, uno scontrino emesso. Un artefatto, un
+   criterio di accettazione.
+4. **Stampa BLE nativa** dietro il type alias `Transport` (punto 3).
 
 ---
 
 ## 13. Cosa non fare adesso
 
-Aprire l'account Apple prima di aver chiuso B e C. Scrivere codice nativo
-prima del punto E. Rimuovere gli helper S1-S15 prima che la scelta webview sia
+Scrivere la cattura del cookie (slice 3) prima del punto E. Rimuovere gli helper S1-S15 prima che la scelta webview sia
 confermata dal punto E — la rimozione è corretta _sotto questo design_, e
 questo design ha ancora un test da superare.
 

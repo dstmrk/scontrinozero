@@ -17,7 +17,7 @@ commerciali su AdE, Pro, ex #107) è spedita — storico in `git tag -l "v1.*"`.
 Il prossimo obiettivo va scelto quando emerge domanda utente documentata
 (vedi "Nice to have" sotto) o una necessità di lancio.
 
-> **Oltre v1.8 — app nativa iOS/Android (v2.0, in valutazione).** Due capability
+> **Oltre v1.8 — app nativa iOS/Android (v2.0, in sviluppo).** Due capability
 > restano precluse alla PWA: **SPID** (il flusso IdP vive in una webview e richiede
 > persistere il cookie di sessione) e la **stampa Bluetooth su iOS** (WebKit non
 > implementa Web Bluetooth e non c'è flag che lo abiliti; il foglio di stampa OS
@@ -28,8 +28,9 @@ Il prossimo obiettivo va scelto quando emerge domanda utente documentata
 > concreto di questa valutazione._ **Il trigger di volume è superato:** la
 > decisione è competitiva — SPID è presente in tutti i prodotti concorrenti — e
 > il volume non era nemmeno misurabile (REVIEW.md #109). Resta senza release a
-> calendario, ma il design non è più aperto: runtime scelto, contratto server,
-> decisioni prese e aperte, costi e prima slice in `docs/mobile-v2.md`.
+> calendario. iOS e Android escono insieme; il guscio Capacitor è in `mobile/`.
+> Runtime, contratto server, decisioni prese e aperte e ordine delle slice in
+> `docs/mobile-v2.md`.
 
 ---
 
