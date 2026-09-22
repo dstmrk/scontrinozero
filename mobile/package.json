@@ -1,0 +1,29 @@
+{
+  "name": "scontrinozero-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "sync:prod": "MOBILE_TARGET=prod cap sync",
+    "sync:sandbox": "MOBILE_TARGET=sandbox cap sync",
+    "sync:dev": "MOBILE_TARGET=dev cap sync",
+    "open:ios": "MOBILE_TARGET=prod cap open ios",
+    "open:android": "MOBILE_TARGET=prod cap open android",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "@types/node": "^26",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
+  }
+}

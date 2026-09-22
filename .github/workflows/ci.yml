@@ -35,6 +35,7 @@ jobs:
       hooks: ${{ steps.f.outputs.hooks }}
       workflows: ${{ steps.f.outputs.workflows }}
       ci_scripts: ${{ steps.f.outputs.ci_scripts }}
+      mobile: ${{ steps.f.outputs.mobile }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Filtri "semplici" — predicate-quantifier di default (`some`).
@@ -76,6 +77,9 @@ jobs:
               - '.github/workflows/**'
             ci_scripts:
               - 'scripts/ci/**'
+              - '.github/workflows/ci.yml'
+            mobile:
+              - 'mobile/**'
               - '.github/workflows/ci.yml'
       # Filtro "src/** escluso marketing": serve `predicate-quantifier: every`
       # per far valere le negazioni. Con `some` (default), un file marketing
@@ -215,11 +219,41 @@ jobs:
       - name: Security audit
         run: npx --yes audit-ci@7.1.0 --config audit-ci.json
 
+  # Guscio Capacitor (docs/mobile-v2.md): pacchetto npm separato, con lock,
+  # tsconfig e test suoi. Niente build nativa qui — iOS richiede un runner
+  # macOS — ma type-check, test del resolver di server.url e audit delle
+  # dipendenze che finiscono nell'app (le devDependencies restano sul Mac).
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: Type check
+        run: npm run type-check
+      - name: Test
+        run: npm test
+      - name: Security audit (runtime deps)
+        run: npm audit --omit=dev --audit-level=moderate
+
   # Parallel checks — lint, type-check e test girano in contemporanea.
   # lint e type-check girano anche su marketing-only (catturano refusi JSX/TS).
+  # Lint anche su modifiche al solo mobile/: i suoi .ts li copre l'ESLint
+  # root (mobile/ non ha una config sua).
   lint:
     needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true' || needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -56,6 +56,10 @@ const eslintConfig = defineConfig([
     // precache manifest). Prima di REVIEW #84 non veniva mai emesso, quindi
     // non era mai presente nel working tree e nessuno se n'era accorto.
     "public/sw.js",
+    // Progetti nativi generati da `cap add` e asset copiati da `cap sync`
+    // (native-bridge.js): non sono codice nostro.
+    "mobile/ios/**",
+    "mobile/android/**",
     "public/sw.js.map",
   ]),
 ]);

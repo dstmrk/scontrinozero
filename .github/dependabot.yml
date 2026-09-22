@@ -18,6 +18,19 @@ updates:
           - patch
     open-pull-requests-limit: 5
 
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      capacitor:
+        patterns:
+          - "@capacitor/*"
+    open-pull-requests-limit: 5
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
