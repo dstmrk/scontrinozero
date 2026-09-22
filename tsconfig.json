@@ -32,6 +32,9 @@
   ],
   "exclude": [
     "node_modules",
+    // Pacchetto separato con dipendenze e tsconfig suoi (mobile/tsconfig.json),
+    // controllato dal job `mobile` della CI.
+    "mobile",
     // Service worker requires "webworker" lib globals (ServiceWorkerGlobalScope)
     // which conflicts with the "dom" lib used by the main app.
     // Serwist/webpack compiles it separately with the correct worker context.

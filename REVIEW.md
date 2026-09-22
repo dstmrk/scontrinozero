@@ -1264,6 +1264,35 @@ controllo. Se ne trova, diventa P2 e si root-causa.
 
 ---
 
+### 111. La web app non sa di girare dentro il guscio nativo
+
+- **Categoria:** UX/mobile · **Severità:** Low oggi (il guscio non ha utenti), blocca il rilascio della v2.0
+- **File:** `src/components/pwa/install-prompt.tsx`, `src/components/pwa/service-worker-registrar.tsx`
+
+**Problema.** Il guscio Capacitor in `mobile/` carica l'app deployata via
+`server.url` (`docs/mobile-v2.md` punto 4), e la web app lo tratta come un
+browser qualunque. Due conseguenze:
+
+1. **Il banner «Aggiungi alla schermata Home» compare dentro l'app iOS.**
+   `PwaInstallPrompt` lo mostra quando lo user agent è iOS e
+   `navigator.standalone` non è `true`. In WKWebView `standalone` non vale
+   `true`, quindi il banner invita a installare un'app già installata.
+2. **Niente service worker su iOS.** WKWebView registra un service worker solo
+   con gli App-Bound Domains (`WKAppBoundDomains` in `Info.plist` +
+   `limitsNavigationsToAppBoundDomains`). Senza, la registrazione rigetta e
+   `ServiceWorkerRegistrar` la assorbe con un `console.warn`: l'app funziona, ma
+   senza offline.
+
+**Fix.** Il bridge di Capacitor è iniettato anche nelle pagine remote, quindi
+`window.Capacitor?.isNativePlatform()` distingue il guscio dal browser senza
+dipendenze nuove nella web app. Il punto 1 si chiude con un ramo in
+`PwaInstallPrompt`, con test. Il punto 2 è una decisione: gli App-Bound
+Domains limitano la navigazione in-app a dieci domini, e la slice SPID apre
+gli IdP in un InAppBrowser separato, quindi probabilmente non confliggono. Da
+verificare nella slice che introduce la cattura del cookie.
+
+---
+
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
