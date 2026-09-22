@@ -524,8 +524,25 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    di recovery scritta per uno non copre l'altro. La cassa **ruota** la chiave
    a ogni retry (vedi punto 3), quindi il pull non scatta mai e serve il banner
    del dashboard; la Developer API **impone di riusarla** (`DEVELOPER.md`,
-   "Ritenta sempre con la stessa `idempotencyKey`"), quindi lì il retry entra
-   nel recovery da solo. Il buco è simmetrico e non è la riconciliazione: è
+   "Ritenta sempre con la stessa `idempotencyKey`"), quindi lì il retry
+   dovrebbe entrare nel recovery da solo.
+
+   ⚠️ **"Impone" non è "garantisce", e il solo consumer API in produzione non
+   obbedisce.** Misurato sul DB il 22/09/2026 (`REVIEW.md`, "Rischi accettati"): quattro righe
+   `PENDING` dal 4 agosto, tutte via Developer API, due coppie con lo stesso
+   `request_hash` a 57 e 20 secondi di distanza — cioè un client che ritenta
+   dopo un timeout con una `idempotencyKey` **nuova** ogni volta. Ogni retry
+   apre una riga nuova invece di rientrare nel recovery di quella vecchia, ed è
+   la mossa che `receipt-service.ts` chiama in un commento "rischio doppione
+   fiscale". Quindi il canale API si comporta **come la cassa**, non come il suo
+   contratto: quando progetti una capability di recovery, il protocollo che
+   conta è quello che i client **eseguono**, non quello che `DEVELOPER.md`
+   prescrive. Corollario operativo: lo sweep di `pending-verification.ts`
+   **conta e logga**, non riconcilia — la chiusura di una riga orfana passa
+   sempre da un umano su `/admin`, e il `warn` non arriva a nessuno (regola 20:
+   fuori da Sentry per costruzione).
+
+   Il buco è simmetrico e non è la riconciliazione: è
    **trovare la riga**. Un client API che smette di ritentare lascia un
    `PENDING` che l'elenco pubblico non mostra — filtra `ACCEPTED`/
    `VOID_ACCEPTED` — e di cui non ha mai ricevuto l'id. Per questo l'envelope

@@ -234,7 +234,8 @@ ORDER BY iscritti DESC;
 - Un `?ref=` inventato o fuori allowlist viene scartato, non scritto: una
   sorgente che compare qui è una pagina che esiste davvero.
 - Il numeratore è l'iscrizione, non l'onboarding completato: per quello il
-  join è su `businesses` (`REVIEW.md` #107).
+  join è su `businesses` (`fiscal_code IS NOT NULL`), e il breakdown per
+  esito di verifica sta nel blocco «Onboarding fermi» di `/admin`.
 - I numeri sono piccoli: il segnale è la direzione, non la seconda cifra.
 
 Il confronto naturale è fra questa tabella e quella del funnel: la prima dice
