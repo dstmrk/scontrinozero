@@ -143,24 +143,20 @@ export default async function AdminPage({
       </div>
 
       <div className="space-y-4">
-        {/* Documenti in sospeso e onboarding fermi affiancati: metà larghezza
-            ciascuna su tablet e desktop, incolonnate su mobile. Sono le due
-            tabelle che chiedono un'azione, non solo che si guardano. */}
+        {/* Registrati di recente e onboarding fermi affiancati: metà larghezza
+            ciascuna su tablet e desktop, incolonnate su mobile. Chi si è
+            appena iscritto e chi si è bloccato subito dopo. */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Suspense fallback={<AdminStalePendingDocumentsSkeleton />}>
-            <AdminStalePendingDocumentsSection />
+          <Suspense
+            key={`recent-profiles-${range}`}
+            fallback={<AdminRecentProfilesSkeleton />}
+          >
+            <AdminRecentProfilesSection range={range} />
           </Suspense>
           <Suspense fallback={<AdminStalledOnboardingSkeleton />}>
             <AdminStalledOnboardingSection />
           </Suspense>
         </div>
-
-        <Suspense
-          key={`top-merchants-${range}`}
-          fallback={<AdminTopMerchantsSkeleton />}
-        >
-          <AdminTopMerchantsSection range={range} />
-        </Suspense>
 
         <div className="grid gap-4 md:grid-cols-2">
           <Suspense fallback={<AdminTrialExpiringSkeleton />}>
@@ -172,16 +168,20 @@ export default async function AdminPage({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          <Suspense fallback={<AdminStalePendingDocumentsSkeleton />}>
+            <AdminStalePendingDocumentsSection />
+          </Suspense>
           <Suspense fallback={<AdminPaidUsersSkeleton />}>
             <AdminPaidUsersSection />
           </Suspense>
-          <Suspense
-            key={`recent-profiles-${range}`}
-            fallback={<AdminRecentProfilesSkeleton />}
-          >
-            <AdminRecentProfilesSection range={range} />
-          </Suspense>
         </div>
+
+        <Suspense
+          key={`top-merchants-${range}`}
+          fallback={<AdminTopMerchantsSkeleton />}
+        >
+          <AdminTopMerchantsSection range={range} />
+        </Suspense>
       </div>
     </div>
   );

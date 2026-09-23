@@ -138,15 +138,14 @@ describe("AdminPage — streaming", () => {
       "AdminUserKpisSection",
       "AdminTrialFunnelSection",
       "AdminDocumentKpisSection",
-      // Documenti in sospeso e onboarding fermi: le due tabelle che chiedono
-      // un'azione, non solo che si guardano.
-      "AdminStalePendingDocumentsSection",
+      // Chi si è appena iscritto e chi si è bloccato subito dopo.
+      "AdminRecentProfilesSection",
       "AdminStalledOnboardingSection",
-      "AdminTopMerchantsSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
+      "AdminStalePendingDocumentsSection",
       "AdminPaidUsersSection",
-      "AdminRecentProfilesSection",
+      "AdminTopMerchantsSection",
     ]);
   });
 });
@@ -188,10 +187,10 @@ describe("AdminPage — periodo", () => {
     expect(senzaRange).toEqual([
       // Un orfano di tre settimane fa, o un onboarding arenato a maggio,
       // devono restare visibili anche guardando gli ultimi 7 giorni.
-      "AdminStalePendingDocumentsSection",
       "AdminStalledOnboardingSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
+      "AdminStalePendingDocumentsSection",
       "AdminPaidUsersSection",
     ]);
   });
