@@ -321,3 +321,58 @@ describe("CookieJar", () => {
     });
   });
 });
+
+describe("CookieJar.loadHeader", () => {
+  it("carica un header Cookie di più coppie", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("JSESSIONID=abc; LtpaToken2=xyz");
+    expect(jar.size).toBe(2);
+    expect(jar.toHeaderValue()).toBe("JSESSIONID=abc; LtpaToken2=xyz");
+  });
+
+  it("taglia sul primo '=': i valori base64 col padding restano interi", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("B2BCookie=aGVsbG8=.12Z1I2/Di9BTjJAKhOmvbA==");
+    expect(jar.toHeaderValue()).toBe(
+      "B2BCookie=aGVsbG8=.12Z1I2/Di9BTjJAKhOmvbA==",
+    );
+  });
+
+  it("ignora spazi, segmenti vuoti, un ';' finale e il newline di un incolla", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("  a=1 ;;  b=2;\n");
+    expect(jar.toHeaderValue()).toBe("a=1; b=2");
+  });
+
+  it("salta i segmenti senza nome, senza '=' o con valore vuoto", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("=orfano; senzauguale; vuoto=; ok=1");
+    expect(jar.toHeaderValue()).toBe("ok=1");
+  });
+
+  it("su nomi ripetuti vince l'ultimo, come in un Set-Cookie successivo", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("a=1; a=2");
+    expect(jar.size).toBe(1);
+    expect(jar.toHeaderValue()).toBe("a=2");
+  });
+
+  it("si somma ai cookie già presenti invece di sostituirli", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("a=1");
+    jar.loadHeader("b=2");
+    expect(jar.toHeaderValue()).toBe("a=1; b=2");
+  });
+
+  it("un header vuoto non carica niente", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("");
+    expect(jar.size).toBe(0);
+  });
+
+  it("toString non espone i valori caricati", () => {
+    const jar = new CookieJar();
+    jar.loadHeader("JSESSIONID=segretissimo");
+    expect(jar.toString()).not.toContain("segretissimo");
+  });
+});

@@ -2846,6 +2846,115 @@ describe("RealAdeClient", () => {
     });
   });
 
+  describe("adoptSession", () => {
+    const COOKIES = "JSESSIONID=abc; LtpaToken2=xyz";
+    const fiscali = {
+      identificativiFiscali: { partitaIva: "12345678901" },
+    };
+
+    it("carica i cookie, legge la P.IVA da dati/fiscali e restituisce la sessione", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
+
+      const session = await client.adoptSession(COOKIES);
+
+      expect(session.partitaIva).toBe("12345678901");
+      expect(session.pAuth).toBe("");
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toContain("/ser/api/documenti/v1/doc/documenti/dati/fiscali");
+      expect((init.headers as Headers).get("Cookie")).toBe(COOKIES);
+      // Un redirect al login non va seguito: sarebbe un 200 HTML
+      expect(init.redirect).toBe("manual");
+    });
+
+    it("dopo l'adozione emette con gli stessi cookie, senza login", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
+      await client.adoptSession(COOKIES);
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
+
+      const result = await client.submitSale(makeSalePayload());
+
+      expect(result.esito).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [, init] = fetchMock.mock.calls[1];
+      expect((init.headers as Headers).get("Cookie")).toBe(COOKIES);
+    });
+
+    it("su 401 in emissione non tenta il re-login: nessuna credenziale da riusare", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
+      await client.adoptSession(COOKIES);
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("sostituisce la sessione e le credenziali di un login precedente", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
+      await client.adoptSession(COOKIES);
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+
+      // Con le credenziali Fisconline ancora in memoria rifarebbe il login
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+      const adoptCall = fetchMock.mock.calls[8];
+      expect((adoptCall[1].headers as Headers).get("Cookie")).toBe(COOKIES);
+    });
+
+    it.each([401, 302])(
+      "HTTP %i da dati/fiscali: sessione non accettata, nessuna sessione",
+      async (status) => {
+        fetchMock.mockResolvedValueOnce(
+          mockResponse({ status, location: "https://iampe.example/login" }),
+        );
+
+        await expect(client.adoptSession(COOKIES)).rejects.toThrow(
+          AdeSessionExpiredError,
+        );
+        await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+          "Not logged in",
+        );
+      },
+    );
+
+    it("un 5xx da dati/fiscali risale come AdePortalError", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 503 }));
+
+      await expect(client.adoptSession(COOKIES)).rejects.toThrow(
+        AdePortalError,
+      );
+    });
+
+    it("un 200 non-JSON risale come AdePortalError", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: "<html>login</html>" }),
+      );
+
+      await expect(client.adoptSession(COOKIES)).rejects.toThrow(
+        AdePortalError,
+      );
+    });
+
+    it("una risposta senza P.IVA lancia AdeNoPartitaIvaError", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { identificativiFiscali: {} } }),
+      );
+
+      await expect(client.adoptSession(COOKIES)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+    });
+
+    it("un header senza cookie fallisce prima di chiamare l'AdE", async () => {
+      await expect(client.adoptSession("  ; ")).rejects.toThrow(/cookie/i);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe("logout", () => {
     it("chiama i due endpoint iampe (best-effort)", async () => {
       mockLoginSequence(fetchMock);

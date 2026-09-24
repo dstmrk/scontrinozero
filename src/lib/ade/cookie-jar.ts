@@ -76,6 +76,26 @@ export class CookieJar {
     return value === "";
   }
 
+  /**
+   * Carica i cookie da un header `Cookie` ("a=1; b=2"), per adottare una
+   * sessione aperta altrove invece di costruirla con un login. Si somma ai
+   * cookie presenti; su nomi ripetuti vince l'ultimo. Taglia sul primo "=",
+   * perché i valori base64 del portale finiscono col padding.
+   */
+  loadHeader(header: string): void {
+    for (const segment of header.split(";")) {
+      const pair = segment.trim();
+      const eqIndex = pair.indexOf("=");
+      if (eqIndex <= 0) continue;
+
+      const name = pair.slice(0, eqIndex).trim();
+      const value = pair.slice(eqIndex + 1).trim();
+      if (!name || !value) continue;
+
+      this.cookies.set(name, value);
+    }
+  }
+
   /** Return the Cookie header value for the next request. */
   toHeaderValue(): string {
     const parts: string[] = [];
