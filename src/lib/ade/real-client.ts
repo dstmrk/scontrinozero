@@ -2255,6 +2255,59 @@ export class RealAdeClient implements AdeClient {
     return this.session;
   }
 
+  /**
+   * Adotta una sessione del portale aperta altrove — la webview SPID dell'app
+   * nativa (docs/mobile-v2.md punto 5) — invece di crearla con un login.
+   *
+   * `cookieHeader` è l'header `Cookie` di una richiesta autenticata verso
+   * `ivaservizi`, con l'utenza di lavoro già scelta nel portale. Nessuna
+   * credenziale resta in memoria: su 401 le operazioni lanciano
+   * `AdeSessionExpiredError` senza tentare un re-login, come per CIE.
+   *
+   * La P.IVA si legge da `dati/fiscali`, che fa anche da verifica. Il redirect
+   * non si segue: un portale che manda al login risponderebbe 200 con HTML.
+   */
+  async adoptSession(cookieHeader: string): Promise<AdeSession> {
+    this.session = null;
+    this.credentials = null;
+    this.utenzaPiva = undefined;
+    this.cookieJar.clear();
+
+    this.cookieJar.loadHeader(cookieHeader);
+    if (this.cookieJar.size === 0) {
+      throw new Error("adoptSession: no cookie in the given header");
+    }
+
+    const endpoint = "/ser/api/documenti/v1/doc/documenti/dati/fiscali";
+    const response = await this.request(`${ADE_BASE_URL}${endpoint}`, {
+      followRedirects: false,
+    });
+
+    const redirected = response.status >= 300 && response.status < 400;
+    if (response.status === 401 || redirected) {
+      this.cookieJar.clear();
+      throw new AdeSessionExpiredError();
+    }
+    if (!response.ok) {
+      this.cookieJar.clear();
+      throw new AdePortalError(
+        response.status,
+        `Failed to adopt session via dati/fiscali: status ${response.status}`,
+      );
+    }
+
+    const data = await this.parseJsonBody<{
+      identificativiFiscali?: { partitaIva?: string };
+    }>(response, endpoint);
+    const partitaIva = data?.identificativiFiscali?.partitaIva;
+    if (!partitaIva) {
+      throw new AdeNoPartitaIvaError("dati/fiscali");
+    }
+
+    this.session = { pAuth: "", partitaIva, createdAt: Date.now() };
+    return this.session;
+  }
+
   async submitSale(payload: AdePayload): Promise<AdeResponse> {
     return this.submitDocument(payload);
   }

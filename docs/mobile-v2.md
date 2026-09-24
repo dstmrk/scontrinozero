@@ -125,18 +125,29 @@ ricava da sé da `initLight` con i cookie adottati.
 
 Il contratto si verifica **senza una riga di codice nativo**, in due gradini:
 
-1. **Una GET di sola lettura da un IP diverso** (nessun documento fiscale).
-   Login SPID al portale da un browser desktop su hotspot del telefono, cookie
-   copiati a mano, GET dalla VPS. Candidata: `fullTemplate`, che risponde 406
-   senza utenza di lavoro scelta e 200 dopo (HAR.md §18.5). Un 200 dice che la
-   sessione non è legata all'IP e che la scelta dell'utenza viaggia coi
-   cookie.
-2. **Solo se il gradino 1 passa: uno scontrino da €0,01 emesso e annullato**,
+1. **Una GET di sola lettura da un IP diverso** (nessun documento fiscale):
+   `dati/fiscali`, la stessa GET che il client usa per la P.IVA SPID, con i
+   soli cookie. **Superato il 24 settembre 2026**: login SPID da browser
+   desktop sulla rete di casa, header `Cookie` copiato dai DevTools, GET da un
+   container cloud → 200 con la P.IVA. La sessione del portale non è legata
+   all'IP. I cookie in gioco: `JSESSIONID`, `LtpaToken2` (SSO WebSphere),
+   `SIAMPE` e `SIAMPE_TAI` (sessione dell'IdP AdE), più i cookie applicativi
+   `portaleCookie`, `B2BCookie`, `FATSC`.
+2. **Uno scontrino da €0,01 emesso e annullato** con la sessione adottata,
    per verificare che la POST di emissione non chieda altro oltre ai cookie.
+   Lo fa `scripts/adopt-session-probe.ts` con `--emit`, sopra
+   `RealAdeClient.adoptSession`: il contratto nuovo di questo punto, già nel
+   client e coperto da test.
 
 L'IP diverso è il punto del test: in produzione il login avviene sul telefono e
 l'emissione parte dalla VPS. Browser e server sulla stessa rete di casa
-passerebbero il test per la ragione sbagliata.
+passerebbero il test per la ragione sbagliata. `fullTemplate` (HAR.md §18.5),
+la prima candidata, non l'ha chiamata nessuno: nel codice non esiste, quindi
+non si sa quali header richieda.
+
+Quello che il gradino 1 non dimostra: che i cookie letti dal plugin
+InAppBrowser siano gli stessi che copia un browser desktop. Lo verifica la
+slice di cattura.
 
 Che i concorrenti facciano SPID via webview non chiude la domanda. Dimostra che
 il login in webview funziona e che i cookie si leggono, non che si possano
@@ -266,7 +277,7 @@ Principi guida. Il build iOS gira su un Mac con Xcode, che c'è.
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | A   | Un 401 può arrivare **dalla POST di emissione**, dopo che l'AdE ha accettato il documento? Se sì, «sicuro per costruzione» cade e il resume richiede riconciliazione. | risposta secca nei tracciati HAR (`login_spid.har`), non un giudizio |
 | D   | Nome e semantica dello stato riprendibile, distinto da ERROR e invisibile allo stale-gate.                                                                            | in fase di slice                                                     |
-| E   | Il cookie jar trasportato regge un'emissione? (punto 5)                                                                                                               | test in due gradini, in parallelo al guscio                          |
+| E   | Il cookie jar trasportato regge un'emissione? (punto 5) Gradino 1 superato; manca il 2.                                                                               | `scripts/adopt-session-probe.ts --emit`                              |
 
 ---
 
@@ -286,12 +297,12 @@ quando la slice arriva.
 
 ## 12. Ordine delle slice
 
-1. **Guscio** — fatto: `mobile/`, Capacitor 8, `server.url` scelto per
-   ambiente al `cap sync`, nessun plugin nativo. Si accetta aprendo l'app sul
-   simulatore e vedendo la cassa.
-2. **Punto E, gradino 1 e 2** (punto 5) — in parallelo al guscio, senza
-   codice nativo. Decide se la slice 3 adotta la sessione sul server o se
-   l'emissione SPID passa dal dispositivo.
+1. **Guscio** — fatto e accettato: `mobile/`, Capacitor 8, `server.url`
+   scelto per ambiente al `cap sync`, nessun plugin nativo. Login di sandbox
+   visto sul simulatore iOS il 24 settembre 2026.
+2. **Punto E** (punto 5) — gradino 1 superato, gradino 2 con
+   `scripts/adopt-session-probe.ts --emit`. Decide se la slice 3 adotta la
+   sessione sul server o se l'emissione SPID passa dal dispositivo.
 3. **Cattura del cookie**: InAppBrowser sul portale AdE, login SPID
    dell'utente, il plugin restituisce i cookie, POST al server, `AdeClient`
    adottato nello store interattivo, uno scontrino emesso. Un artefatto, un

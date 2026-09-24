@@ -130,6 +130,29 @@ di 7 s tra un poll e l'altro superano il keep-alive dei server IdP.
 
 ---
 
+### Sessione adottata (SPID via webview, v2.0 — non ancora cablata)
+
+Un terzo modo di avere un client autenticato: non fare login, ma **adottare**
+i cookie di una sessione aperta altrove. È il contratto dell'app nativa
+(`docs/mobile-v2.md` punto 5): la webview fa il login SPID, il server emette.
+`RealAdeClient.adoptSession(cookieHeader)` carica l'header `Cookie` nel jar
+(`CookieJar.loadHeader`) e lo verifica leggendo la P.IVA da `dati/fiscali`.
+
+- **La sessione del portale non è legata all'IP.** Misurato il 24/09/2026:
+  cookie da un browser a casa, GET da un container cloud → 200. È ciò che
+  rende possibile il design; se un giorno smette di valere, è lì che si
+  rompe.
+- **Il redirect su `dati/fiscali` non si segue** (`followRedirects: false`):
+  cookie non validi portano al login, che seguito risponderebbe 200 con HTML.
+  401 o 3xx → `AdeSessionExpiredError`.
+- **Nessuna credenziale in memoria**: su 401 in emissione niente re-login,
+  `AdeSessionExpiredError` come per CIE. `adoptSession` azzera anche
+  credenziali e sessione di un login precedente sullo stesso client.
+- Il probe end-to-end è `scripts/adopt-session-probe.ts` (lettura di
+  default, `--emit` per €0,01 emesso e annullato).
+
+---
+
 ## Debugging production HTTP flow errors
 
 Quando un errore produzione suggerisce sequenza HTTP sbagliata:
