@@ -65,6 +65,15 @@ beforeSend(event, hint) {
 Mai un filtro generico tipo "scarta tutto ciò che non ha stack utile":
 ogni filter va con un predicato dedicato + commento che cita l'issue.
 
+**Stack fatto solo di `<anonymous>` = codice non nostro.** È il filename che
+V8 dà al codice valutato da stringa, quindi tipicamente al content script di
+un'estensione. Caso: **SCONTRINOZERO-14**, `EvalError` `'unsafe-eval'` con
+frame `injFunc` → `eval`: la CSP ha bloccato l'estensione, la pagina
+funzionava. Il predicato (`isInjectedEvalCspViolation`) esige **almeno un
+frame e tutti `<anonymous>`**. Un evento senza stack o con un frame su
+`/_next/static/` deve passare, perché lì la CSP potrebbe rompere codice
+nostro.
+
 ### 2. UX nascosto come noise (input utente prevedibile)
 
 Esempio canonico: **SCONTRINOZERO-7** `AdeAuthError` (credenziali

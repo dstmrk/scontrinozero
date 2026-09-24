@@ -12,6 +12,7 @@ import {
   isClientNetworkFailure,
   isForeignHostEvent,
   isInAppBrowserBridgeError,
+  isInjectedEvalCspViolation,
   isNextClientComponentLoadingTransaction,
   isReactStreamingDomError,
 } from "./sentry-filters";
@@ -461,6 +462,115 @@ describe("isInAppBrowserBridgeError", () => {
   });
 });
 
+describe("isInjectedEvalCspViolation", () => {
+  const CSP_EVAL_MESSAGE =
+    "Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'unsafe-inline'";
+
+  function makeEvalEvent(
+    type: string,
+    value: string,
+    filenames: (string | undefined)[],
+  ): ErrorEvent {
+    return {
+      type: undefined,
+      transaction: "/guide/:slug",
+      exception: {
+        values: [
+          {
+            type,
+            value,
+            stacktrace: { frames: filenames.map((filename) => ({ filename })) },
+          },
+        ],
+      },
+    } as ErrorEvent;
+  }
+
+  it("filtra l'eval iniettato da un'estensione (issue SCONTRINOZERO-14)", () => {
+    const event = makeEvalEvent("EvalError", CSP_EVAL_MESSAGE, [
+      "<anonymous>",
+      "<anonymous>",
+      "<anonymous>",
+    ]);
+
+    expect(isInjectedEvalCspViolation(event)).toBe(true);
+  });
+
+  it("legge tipo e messaggio da originalException quando presente", () => {
+    const event = makeEvalEvent("Error", "ignorato", ["<anonymous>"]);
+    const original = new Error(CSP_EVAL_MESSAGE);
+    original.name = "EvalError";
+
+    expect(
+      isInjectedEvalCspViolation(event, { originalException: original }),
+    ).toBe(true);
+  });
+
+  it("non filtra se un frame viene dal nostro bundle", () => {
+    const event = makeEvalEvent("EvalError", CSP_EVAL_MESSAGE, [
+      "<anonymous>",
+      "https://scontrinozero.it/_next/static/chunks/abc123.js",
+    ]);
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+
+  it("non filtra un frame senza filename (origine non dimostrata)", () => {
+    const event = makeEvalEvent("EvalError", CSP_EVAL_MESSAGE, [
+      "<anonymous>",
+      undefined,
+    ]);
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+
+  it("non filtra un EvalError senza stack", () => {
+    const event = makeEvalEvent("EvalError", CSP_EVAL_MESSAGE, []);
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+
+  it("non filtra un EvalError la cui exception non ha stacktrace", () => {
+    const event = {
+      type: undefined,
+      exception: { values: [{ type: "EvalError", value: CSP_EVAL_MESSAGE }] },
+    } as ErrorEvent;
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+
+  it("non filtra un EvalError da originalException senza exception nell'evento", () => {
+    const original = new Error(CSP_EVAL_MESSAGE);
+    original.name = "EvalError";
+
+    expect(
+      isInjectedEvalCspViolation(makeEvent("/guide/:slug"), {
+        originalException: original,
+      }),
+    ).toBe(false);
+  });
+
+  it("non filtra un EvalError che non riguarda la CSP", () => {
+    const event = makeEvalEvent("EvalError", "eval is not supported", [
+      "<anonymous>",
+    ]);
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+
+  it("non filtra un errore di altro tipo con lo stesso messaggio", () => {
+    const event = makeEvalEvent("TypeError", CSP_EVAL_MESSAGE, ["<anonymous>"]);
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+
+  it("gestisce eventi senza exception senza lanciare", () => {
+    const event = makeEvent("/guide/:slug");
+
+    expect(isInjectedEvalCspViolation(event)).toBe(false);
+  });
+});
+
 describe("isForeignHostEvent", () => {
   it("riconosce l'host di un'istanza self-hosted (issue SCONTRINOZERO-11)", () => {
     const event = makeRequestEvent("https://scontrino.ettawalkup.it/register");
@@ -586,6 +696,25 @@ describe("clientBeforeSend", () => {
                 { filename: "app://navigation_performance_logger_android" },
               ],
             },
+          },
+        ],
+      },
+    } as ErrorEvent;
+
+    expect(clientBeforeSend(event)).toBeNull();
+  });
+
+  it("scarta l'eval iniettato bloccato dalla CSP (issue SCONTRINOZERO-14)", () => {
+    const event = {
+      type: undefined,
+      transaction: "/guide/:slug",
+      exception: {
+        values: [
+          {
+            type: "EvalError",
+            value:
+              "Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script",
+            stacktrace: { frames: [{ filename: "<anonymous>" }] },
           },
         ],
       },
