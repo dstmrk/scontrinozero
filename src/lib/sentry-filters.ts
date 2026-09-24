@@ -183,6 +183,51 @@ export function isInAppBrowserBridgeError(
 }
 
 /**
+ * Filename che V8 assegna ai frame di codice valutato da stringa (`eval`,
+ * `new Function`, script iniettati via `executeScript` dalle estensioni).
+ */
+const ANONYMOUS_SCRIPT_FILENAME = "<anonymous>";
+
+/**
+ * True se l'evento è un `eval` di codice **non nostro** che la CSP ha bloccato:
+ * `EvalError` su `'unsafe-eval'` con uno stack fatto solo di frame
+ * `<anonymous>`. In pratica è il content script di un'estensione che inietta
+ * una stringa nel mondo della pagina (`injFunc` → `eval`): la CSP fa il suo
+ * lavoro, la pagina funziona, e l'evento non è azionabile (issue
+ * SCONTRINOZERO-14).
+ *
+ * Il nostro codice non usa `eval` (`'unsafe-eval'` è escluso di proposito,
+ * `src/lib/security-headers.ts`). Se lo facesse una nostra dipendenza, almeno
+ * un frame punterebbe a `/_next/static/` e l'evento passerebbe: quel caso va
+ * visto, perché vorrebbe dire che la CSP sta rompendo l'app. Per lo stesso
+ * motivo non filtriamo un evento senza stack né con frame privi di filename:
+ * l'origine estranea va dimostrata, non presunta.
+ */
+export function isInjectedEvalCspViolation(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const original = hint?.originalException;
+  const type =
+    original instanceof Error
+      ? original.name
+      : event.exception?.values?.[0]?.type;
+  if (type !== "EvalError") return false;
+
+  const message = extractErrorMessage(event, hint);
+  if (!message.includes("'unsafe-eval'")) return false;
+
+  const frames =
+    event.exception?.values?.flatMap(
+      (value) => value.stacktrace?.frames ?? [],
+    ) ?? [];
+  return (
+    frames.length > 0 &&
+    frames.every((frame) => frame.filename === ANONYMOUS_SCRIPT_FILENAME)
+  );
+}
+
+/**
  * Dominio pubblico di ScontrinoZero.
  *
  * **Hardcoded di proposito**: non può derivare da `APP_HOSTNAME` o dalle
@@ -298,6 +343,11 @@ export function clientBeforeSend(
   // Bridge nativo dell'in-app browser Facebook/Instagram morto dopo la
   // chiusura dell'Activity ospite (issue SCONTRINOZERO-10)
   if (isInAppBrowserBridgeError(event, hint)) {
+    return null;
+  }
+  // `eval` iniettato da un'estensione e bloccato dalla CSP: stack solo
+  // `<anonymous>` (issue SCONTRINOZERO-14)
+  if (isInjectedEvalCspViolation(event, hint)) {
     return null;
   }
   return event;
