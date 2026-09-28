@@ -159,6 +159,8 @@ dietro il gate del layout.
 - `src/lib/receipts/receipt-totals.ts` — aritmetica monetaria canonica (regola 17), **puro e client-safe**: `document-lines.ts` importa `getDb()`, quindi i client component devono importare da qui o si portano dietro il driver postgres nel bundle browser
 - `src/lib/ade/log-failure.ts` — classificazione errori AdE (regole 20/23)
 - `src/lib/ade/verify-outcome.ts` — vocabolario degli esiti di verifica AdE
+- `src/lib/ade/cie-idp-page.ts` — testo d'errore dell'IdP CIE per il log di
+  `ade:cie_credentials_rejected`, senza PII
   persistiti su `ade_credentials` (REVIEW.md #107)
 - `src/lib/ade/interactive-session-store.ts` — sessioni CIE interattive
   (TTL/LRU per-business; a differenza di `src/lib/ade/session-cache.ts`

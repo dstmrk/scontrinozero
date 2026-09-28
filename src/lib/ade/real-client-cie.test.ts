@@ -237,9 +237,11 @@ describe("RealAdeClient.loginCie", () => {
     expect(bodyStr).toContain("password=cie-password");
   });
 
-  it("throws AdeAuthError when livello2 re-renders the login page (wrong credentials)", async () => {
-    // 1. sel, 2a POST SSO, 2b probe, 3a POST probe→livello2, 3b GET livello2,
-    // 4. POST credentials → login page ri-renderizzata (KO)
+  /**
+   * 1. sel, 2a POST SSO, 2b probe, 3a POST probe→livello2, 3b GET livello2,
+   * 4. POST credentials → `livello2Body`.
+   */
+  function queueUpToLivello2(livello2Body: string): void {
     fetchMock.mockResolvedValueOnce(
       mockResponse({
         body: samlForm(
@@ -263,10 +265,47 @@ describe("RealAdeClient.loginCie", () => {
       }),
     );
     fetchMock.mockResolvedValueOnce(mockResponse({}));
-    fetchMock.mockResolvedValueOnce(mockResponse({ body: CIE_LOGIN_PAGE }));
+    fetchMock.mockResolvedValueOnce(mockResponse({ body: livello2Body }));
+  }
+
+  it("throws AdeAuthError when livello2 re-renders the login page (wrong credentials)", async () => {
+    queueUpToLivello2(CIE_LOGIN_PAGE);
 
     const client = new RealAdeClient({ ciePollIntervalMs: 0 });
     await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdeAuthError);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "cie_livello2",
+        marker: "ko_text",
+        idpMessage: "Credenziali non valide.",
+        pageTitle: "CIE Login",
+      }),
+      "ade:cie_credentials_rejected",
+    );
+  });
+
+  it("logs the IdP's own text when only the CSS marker matched", async () => {
+    // Il caso da diagnosticare: una pagina d'errore dell'IdP che NON dice
+    // "Credenziali non valide" ma ha i campi marcati `error`.
+    queueUpToLivello2(`<html><head><title>CIE Login</title></head><body>
+      <div class="alert alert-danger">Operazione non consentita, riprova più tardi</div>
+      <input name="username" value="mario.rossi@example.com" class="form-control error" />
+      </body></html>`);
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdeAuthError);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        marker: "error_class",
+        idpMessage: "Operazione non consentita, riprova più tardi",
+      }),
+      "ade:cie_credentials_rejected",
+    );
+    expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain(
+      "mario.rossi",
+    );
   });
 
   it("throws AdeSpidTimeoutError when the push is never approved", async () => {
