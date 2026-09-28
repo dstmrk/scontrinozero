@@ -9,6 +9,7 @@ import {
   isBenignFormDataParseError,
   isBenignServerActionNotFound,
   isBluetoothGattFailure,
+  isBraveIosInjectedScriptError,
   isClientNetworkFailure,
   isForeignHostEvent,
   isInAppBrowserBridgeError,
@@ -571,6 +572,99 @@ describe("isInjectedEvalCspViolation", () => {
   });
 });
 
+describe("isBraveIosInjectedScriptError", () => {
+  function makeBraveEvent(
+    type: string,
+    value: string,
+    filenames?: string[],
+  ): ErrorEvent {
+    return {
+      type: undefined,
+      transaction: "/onboarding",
+      exception: {
+        values: [
+          {
+            type,
+            value,
+            ...(filenames && {
+              stacktrace: {
+                frames: filenames.map((filename) => ({
+                  filename,
+                  lineno: 1,
+                  function: "global code",
+                })),
+              },
+            }),
+          },
+        ],
+      },
+    } as ErrorEvent;
+  }
+
+  it.each([
+    [
+      "TypeError sul reader (issue SCONTRINOZERO-16)",
+      "TypeError",
+      "undefined is not an object (evaluating 'window.__firefox__.reader')",
+    ],
+    [
+      "ReferenceError sull'oggetto assente (issue SCONTRINOZERO-15)",
+      "ReferenceError",
+      "Can't find variable: __firefox__",
+    ],
+  ])("filtra la %s", (_caso, type, value) => {
+    const event = makeBraveEvent(type, value, [
+      "https://app.scontrinozero.it/onboarding",
+    ]);
+
+    expect(isBraveIosInjectedScriptError(event)).toBe(true);
+  });
+
+  it("filtra anche senza stacktrace", () => {
+    const event = makeBraveEvent(
+      "ReferenceError",
+      "Can't find variable: __firefox__",
+    );
+
+    expect(isBraveIosInjectedScriptError(event)).toBe(true);
+  });
+
+  it("legge il messaggio da originalException quando presente", () => {
+    const event = makeBraveEvent("TypeError", "ignorato");
+    const hint: EventHint = {
+      originalException: new ReferenceError("Can't find variable: __firefox__"),
+    };
+
+    expect(isBraveIosInjectedScriptError(event, hint)).toBe(true);
+  });
+
+  it("non filtra se un frame viene dal nostro bundle", () => {
+    const event = makeBraveEvent(
+      "TypeError",
+      "undefined is not an object (evaluating 'window.__firefox__.reader')",
+      [
+        "https://app.scontrinozero.it/onboarding",
+        "https://app.scontrinozero.it/_next/static/chunks/abc123.js",
+      ],
+    );
+
+    expect(isBraveIosInjectedScriptError(event)).toBe(false);
+  });
+
+  it.each([
+    "Can't find variable: firefox",
+    "undefined is not an object (evaluating 'window.reader')",
+  ])("non filtra un messaggio simile ma diverso: %s", (value) => {
+    const event = makeBraveEvent("ReferenceError", value);
+
+    expect(isBraveIosInjectedScriptError(event)).toBe(false);
+  });
+
+  it("gestisce eventi senza exception senza lanciare", () => {
+    expect(isBraveIosInjectedScriptError(makeEvent("/onboarding"))).toBe(false);
+  });
+});
+
 describe("isForeignHostEvent", () => {
   it("riconosce l'host di un'istanza self-hosted (issue SCONTRINOZERO-11)", () => {
     const event = makeRequestEvent("https://scontrino.ettawalkup.it/register");
@@ -721,6 +815,17 @@ describe("clientBeforeSend", () => {
     } as ErrorEvent;
 
     expect(clientBeforeSend(event)).toBeNull();
+  });
+
+  it("scarta lo script iniettato da Brave su iOS (issue SCONTRINOZERO-15/-16)", () => {
+    const event = makeEvent("/onboarding");
+    const hint: EventHint = {
+      originalException: new TypeError(
+        "undefined is not an object (evaluating 'window.__firefox__.reader')",
+      ),
+    };
+
+    expect(clientBeforeSend(event, hint)).toBeNull();
   });
 
   it("lascia passare un errore applicativo reale", () => {

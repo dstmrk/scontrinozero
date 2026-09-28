@@ -228,6 +228,42 @@ export function isInjectedEvalCspViolation(
 }
 
 /**
+ * Namespace globale che Brave per iOS — un fork di Firefox per iOS — si
+ * aspetta di trovare nella pagina: i suoi user script (reader mode e simili)
+ * vengono iniettati nel documento via WKWebView e leggono
+ * `window.__firefox__`. Quando l'oggetto manca, lo script lancia un
+ * `ReferenceError`/`TypeError` che finisce nel nostro `onerror` globale.
+ * Il nostro codice non usa mai questo nome.
+ */
+const BRAVE_IOS_INJECTED_NAMESPACE = "__firefox__";
+
+/**
+ * True se l'evento è il fallimento di uno user script iniettato da Brave su
+ * iOS (issue SCONTRINOZERO-15, SCONTRINOZERO-16). Stack con un solo frame
+ * `global code` alla riga 1 della pagina, cioè codice valutato nel documento,
+ * non caricato da `/_next/static/`: l'utente non si accorge di nulla, e non
+ * possiamo intervenire.
+ *
+ * Il messaggio basta a riconoscerlo, perché `__firefox__` può venire solo dal
+ * browser. Come per `isInjectedEvalCspViolation`, però, l'evento passa se un
+ * frame punta al nostro bundle: vorrebbe dire che il nome l'ha scritto
+ * qualcosa che spediamo noi.
+ */
+export function isBraveIosInjectedScriptError(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const message = extractErrorMessage(event, hint);
+  if (!message.includes(BRAVE_IOS_INJECTED_NAMESPACE)) return false;
+
+  const frames =
+    event.exception?.values?.flatMap(
+      (value) => value.stacktrace?.frames ?? [],
+    ) ?? [];
+  return !frames.some((frame) => frame.filename?.includes("/_next/static/"));
+}
+
+/**
  * Dominio pubblico di ScontrinoZero.
  *
  * **Hardcoded di proposito**: non può derivare da `APP_HOSTNAME` o dalle
@@ -348,6 +384,11 @@ export function clientBeforeSend(
   // `eval` iniettato da un'estensione e bloccato dalla CSP: stack solo
   // `<anonymous>` (issue SCONTRINOZERO-14)
   if (isInjectedEvalCspViolation(event, hint)) {
+    return null;
+  }
+  // User script di Brave su iOS che cerca `window.__firefox__`
+  // (issue SCONTRINOZERO-15, SCONTRINOZERO-16)
+  if (isBraveIosInjectedScriptError(event, hint)) {
     return null;
   }
   return event;
