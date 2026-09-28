@@ -27,7 +27,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@marsidev/react-turnstile": "^1.6.1",
-    "@point-of-sale/receipt-printer-encoder": "^3.0.3",
+    "@point-of-sale/receipt-printer-encoder": "^4.0.1",
     "@point-of-sale/webbluetooth-receipt-printer": "^2.0.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
