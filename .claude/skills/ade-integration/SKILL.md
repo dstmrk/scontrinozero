@@ -124,6 +124,16 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    Cloudflare (errore 524). Se allunghi l'attesa, il gate reale è quello, non AdE.
    Il ramo SPID (`spidMaxPolls`, 30 poll) è implementato e testato ma **non ha
    chiamanti**: SPID resta precluso alla PWA (vedi `PLAN.md`).
+6. **Un rifiuto a livello2 non è per forza "credenziali sbagliate".** Il
+   rilevamento KO scatta sul testo "Credenziali non valide" **oppure** sulla
+   sola classe `form-control … error`. Il 28/09/2026 le stesse credenziali
+   salvate sono passate alle 11:31 e sono state rifiutate alle 11:43, dopo una
+   push scaduta. Per questo `ade:cie_credentials_rejected` porta `marker`
+   (`ko_text` | `error_class`) e `idpMessage`/`pageTitle` estratti da
+   `src/lib/ade/cie-idp-page.ts`. Prima di toccare il rilevatore, leggi quei
+   campi su Sentry Logs (`message:ade:cie_credentials_rejected`): un
+   `error_class` con un `idpMessage` diverso è il caso da gestire. Mai loggare
+   l'HTML grezzo: al re-render l'IdP ricompila l'email nel `value` dell'input.
 
 Il socket keep-alive morto (sezione sotto) colpisce **soprattutto qui**: i gap
 di 7 s tra un poll e l'altro superano il keep-alive dei server IdP.

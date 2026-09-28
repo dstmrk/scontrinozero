@@ -24,6 +24,7 @@ import type {
   SpidCredentials,
 } from "./types";
 import { CookieJar } from "./cookie-jar";
+import { describeCieIdpPage } from "./cie-idp-page";
 import {
   AdeAccountLockedError,
   AdeAuthError,
@@ -1945,12 +1946,17 @@ export class RealAdeClient implements AdeClient {
     );
 
     const html = await response.text();
-    if (
-      html.includes("Credenziali non valide") ||
-      /class="[^"]*form-control[^"]*\berror\b/i.test(html)
-    ) {
+    const hasKoText = html.includes("Credenziali non valide");
+    if (hasKoText || /class="[^"]*form-control[^"]*\berror\b/i.test(html)) {
+      // `marker` + testo IdP: distinguono un KO vero da una pagina d'errore
+      // diversa che fa scattare solo la classe CSS (cie-idp-page.ts).
       logger.warn(
-        { phase: "cie_livello2", bodyLen: html.length },
+        {
+          phase: "cie_livello2",
+          bodyLen: html.length,
+          marker: hasKoText ? "ko_text" : "error_class",
+          ...describeCieIdpPage(html),
+        },
         "ade:cie_credentials_rejected",
       );
       throw new AdeAuthError("CIE: invalid credentials");
