@@ -85,6 +85,27 @@ describe("describeCieIdpPage", () => {
     expect(describeCieIdpPage(html).idpMessage).toMatch(/^Messaggio x/);
   });
 
+  it("redacts any word carrying an @, punctuation included", () => {
+    const html = `<div class="error">Scrivi a (assistenza@cie.gov.it) oppure @utente</div>`;
+    expect(describeCieIdpPage(html).idpMessage).toBe(
+      "Scrivi a [email] oppure [email]",
+    );
+  });
+
+  it("stays linear on hostile markup (unclosed tags, stray brackets)", () => {
+    const hostile = `<div class="error">${"<".repeat(50_000)}</div><title>${"a@".repeat(50_000)}</title>`;
+    const started = performance.now();
+    const { idpMessage, pageTitle } = describeCieIdpPage(hostile);
+    expect(performance.now() - started).toBeLessThan(2000);
+    expect(idpMessage).toBeNull();
+    expect(pageTitle).toBe("[email]");
+  });
+
+  it("drops stray closing brackets outside tags", () => {
+    const html = `<div class="error">a > b</div>`;
+    expect(describeCieIdpPage(html).idpMessage).toBe("a b");
+  });
+
   it("redacts before truncating, so a cut never exposes half an email", () => {
     const html = `<div class="error">${"a ".repeat(95)}mario.rossi@example.com</div>`;
     expect(describeCieIdpPage(html).idpMessage).not.toContain("mario");

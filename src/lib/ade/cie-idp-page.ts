@@ -32,8 +32,6 @@ const ERROR_CLASS_TOKEN =
 const OPEN_TAG = /<([a-z][a-z0-9]*)\b([^>]*)>/gi;
 const CLASS_ATTR = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
 const TITLE = /<title\b[^>]*>([^<]*)<\/title>/i;
-const ANY_TAG = /<[^>]*>/g;
-const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
 const CODICE_FISCALE = /\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b/gi;
 
 function hasErrorClass(attributes: string): boolean {
@@ -45,14 +43,32 @@ function hasErrorClass(attributes: string): boolean {
     .some((token) => ERROR_CLASS_TOKEN.test(token.toLowerCase()));
 }
 
+/** Scansione lineare, non regex: `<[^>]*>` backtracka su "<<<…" (S8786). */
 function toText(fragment: string): string {
-  return fragment.replace(ANY_TAG, " ").replace(/\s+/g, " ").trim();
+  let text = "";
+  let inTag = false;
+  for (const ch of fragment) {
+    if (ch === "<") {
+      inTag = true;
+      text += " ";
+    } else if (ch === ">") {
+      inTag = false;
+    } else if (!inTag) {
+      text += ch;
+    }
+  }
+  return text.replace(/\s+/g, " ").trim();
 }
 
-/** Oscura prima di troncare: un taglio non deve lasciare mezza email. */
+/**
+ * Oscura prima di troncare: un taglio non deve lasciare mezza email. Ogni
+ * parola con una `@` è trattata da email: più largo di una regex, e lineare.
+ */
 function sanitize(text: string): string | null {
   const redacted = text
-    .replace(EMAIL, "[email]")
+    .split(" ")
+    .map((word) => (word.includes("@") ? "[email]" : word))
+    .join(" ")
     .replace(CODICE_FISCALE, "[cf]");
   if (!redacted) return null;
   return redacted.length > MAX_TEXT_LEN
