@@ -74,6 +74,17 @@ frame e tutti `<anonymous>`**. Un evento senza stack o con un frame su
 `/_next/static/` deve passare, perché lì la CSP potrebbe rompere codice
 nostro.
 
+**Su iOS l'equivalente è un frame `global code` alla riga 1 della pagina.**
+WebKit non dà `<anonymous>` agli script che il browser inietta via WKWebView:
+li attribuisce all'URL del documento (`app:///onboarding:1:12`). Caso:
+**SCONTRINOZERO-15/-16**, `Can't find variable: __firefox__` da Brave su iOS
+(fork di Firefox per iOS, i cui user script cercano `window.__firefox__`).
+Predicato `isBraveIosInjectedScriptError`: il nome nel messaggio basta, ma un
+frame su `/_next/static/` fa comunque passare l'evento. Prima di chiuderla,
+**apri il replay allegato**: l'URL della sessione dice cosa stava facendo
+l'utente, e lì c'era un `#error=otp_expired` (doppio click sul link di
+conferma, utente già loggato) che dall'issue non si vedeva.
+
 ### 2. UX nascosto come noise (input utente prevedibile)
 
 Esempio canonico: **SCONTRINOZERO-7** `AdeAuthError` (credenziali
