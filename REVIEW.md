@@ -63,7 +63,7 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ### 112. `next dev` rompe il CSS su ogni pagina: Tailwind legge una classe da due commenti
 
-- **Categoria:** DX/build · **Severità:** Medium (nessuna pagina si apre in locale; prod non verificata)
+- **Categoria:** DX/build · **Severità:** Medium (nessuna pagina si apre in `next dev`; `next build` passa)
 - **File:** `src/components/dashboard/bottom-nav.tsx:48`, `src/components/pwa/install-prompt.test.tsx:115`
 
 **Problema.** Tailwind 4 estrae candidate class da ogni file non ignorato,
@@ -72,7 +72,8 @@ genera in `globals.css` la regola `padding-bottom: env(...)`: Lightning CSS la
 rifiuta (`Unexpected token Delim('.')`) e `next dev` risponde 500 su ogni
 route, perché `globals.css` è importato dal root layout. Riprodotto il
 2026-09-29 su `/help/installare-app`: con i due commenti riformulati la pagina
-torna 200. Non verificato se `next build` fallisce allo stesso modo.
+torna 200. Il build non ne soffre: il job `build` della CI è verde
+sullo stesso albero (PR #974), quindi il danno è solo locale.
 
 Trappola collaterale: una `coverage/` generata da `npm run test:coverage`
 contiene la stessa stringa nell'HTML del report. È gitignorata, quindi Tailwind
