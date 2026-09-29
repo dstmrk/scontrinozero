@@ -367,6 +367,14 @@ l'ultima classe. Utile per override:
 <Button className={cn("bg-primary", isDanger && "bg-destructive")} />
 ```
 
+**Tailwind legge anche commenti e Markdown.** Estrae le classi candidate da
+ogni file non ignorato del repo, `.md` compresi, e genera CSS per ognuna. Una
+classe arbitraria scritta per spiegarne un'altra, con un segnaposto fra le
+quadre, può produrre CSS non valido: `next build` passa, `next dev` risponde
+500 su ogni route. Il gate è `src/app/globals.test.ts`, che compila
+`globals.css` come il dev server e nel messaggio d'errore nomina la classe.
+In prosa, descrivi la classe a parole.
+
 ---
 
 ## Scroll orizzontale da testo utente: `min-w-0` sul **contenitore**

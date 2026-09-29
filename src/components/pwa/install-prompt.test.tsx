@@ -112,7 +112,7 @@ describe("PwaInstallPrompt", () => {
     const { container } = render(<PwaInstallPrompt />);
 
     // Impilato, sommarla di nuovo qui la conterebbe due volte: sotto il
-    // pannello c'è la nav, che il suo pb-[env(...)] ce l'ha già.
+    // pannello c'è la nav, che il padding sulla safe-area ce l'ha già.
     const panel = container.querySelector("header");
     expect(panel?.className).toContain(
       "md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]",
