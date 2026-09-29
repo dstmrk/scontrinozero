@@ -117,7 +117,8 @@ export function PwaInstallPrompt() {
             </button>
           </div>
           <p className="text-muted-foreground text-sm">
-            Aggiungi a schermata Home per usarla come un&apos;app:
+            Mettila sulla schermata Home e aprila con un tocco, come
+            un&apos;app:
           </p>
           <ol className="text-muted-foreground space-y-1 text-sm">
             <li>
@@ -141,14 +142,28 @@ export function PwaInstallPrompt() {
                   <polyline points="16 6 12 2 8 6" />
                   <line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
-              </span>{" "}
-              nella barra di Safari
+              </span>
+              {". Se non lo vedi, è nel menu ⋯"}
             </li>
             <li>
-              2. Scorri e tocca{" "}
-              <span className="font-medium">Aggiungi a schermata Home</span>
+              2. Tocca{" "}
+              <span className="font-medium">Aggiungi alla schermata Home</span>
+              {". Se non c'è, cercala in "}
+              <span className="font-medium">Altro</span>
             </li>
           </ol>
+          {/* Nuova scheda: quella dell'app resta aperta sul dominio da cui va
+              fatta l'installazione. Path relativo: dal dominio app il
+              middleware fa l'hop verso il dominio marketing (stesso pattern
+              di `SupportSection`). */}
+          <a
+            href="/help/installare-app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary self-start text-sm hover:underline"
+          >
+            Guida passo passo
+          </a>
         </div>
       </header>
     );

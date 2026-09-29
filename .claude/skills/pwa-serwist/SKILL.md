@@ -193,6 +193,24 @@ anche un evento già bufferizzato. `getSnapshot` deve restituire un riferimento
 stabile (il module var), altrimenti loop di render. Reset del singleton tra
 test con `resetInstallPromptStoreForTests()`.
 
+## Istruzioni iOS: dire dove cercare, non quale versione hai
+
+Su iOS non c'è evento da catturare: il banner e `/help/installare-app`
+spiegano a parole dove toccare, e Apple sposta quei pulsanti a ogni major.
+Fino a iOS 18 Condividi sta nella barra di Safari; iOS 26 lo mette nel menu
+`⋯` e aggiunge l'interruttore «Apri come app web» (acceso di default); iOS 27
+sposta «Aggiungi alla schermata Home» sotto «Altro» nel foglio Condividi.
+Il copy li regge tutti con un fallback per passaggio ("se non lo vedi, è nel
+menu ⋯"; "se non c'è, cercala in Altro"), invece di sniffare la versione dalla
+UA: il sniffing costa un ramo e un test per ogni major, e si rompe
+all'uscita della successiva.
+
+Due vincoli testati in `install-prompt.test.tsx`: il banner **non nomina
+Safari**, perché da iOS 16.4 anche Chrome su iPhone aggiunge alla Home e la
+sua UA (`CriOS`) passa da `isIos()`; e linka la guida in una nuova scheda,
+così la scheda dell'app resta aperta sul dominio da cui va fatta
+l'installazione. Quando esce un iOS nuovo, rileggi i passaggi di entrambi.
+
 ## Asset PWA esclusi dal `proxy.ts` matcher
 
 `/sw.js` e `/manifest.webmanifest` **devono** stare nel negative-lookahead del

@@ -160,11 +160,11 @@ export const helpArticles: Record<string, HelpArticle> = {
   "installare-app": {
     slug: "installare-app",
     datePublished: "2026-04-16",
-    dateModified: "2026-06-21",
-    title: "Installare ScontrinoZero come app sul dispositivo",
-    metaTitle: "Come installare ScontrinoZero come app sul tuo dispositivo",
+    dateModified: "2026-09-29",
+    title: "Installare ScontrinoZero su telefono e computer",
+    metaTitle: "Installare ScontrinoZero su iPhone e Android, passo passo",
     description:
-      "Installa ScontrinoZero come app PWA su iPhone, Android e desktop: istruzioni passo-passo per iOS (Safari), Android (Chrome) e computer. Accesso diretto dalla schermata home.",
+      "Come mettere ScontrinoZero sulla schermata Home di iPhone o Android e aprirlo con un tocco, come un'app: i passaggi per Safari, Chrome e computer, senza App Store.",
     related: ["prima-configurazione", "primo-scontrino", "piani-e-prezzi"],
   },
   "intestazione-scontrino": {

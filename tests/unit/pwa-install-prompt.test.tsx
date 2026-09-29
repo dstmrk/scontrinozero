@@ -171,7 +171,7 @@ describe("PwaInstallPrompt", () => {
     it("shows iOS instructions banner on iPhone not in standalone", () => {
       render(<PwaInstallPrompt />);
       expect(
-        screen.getByText(/aggiungi a schermata home per usarla/i),
+        screen.getByText(/mettila sulla schermata home/i),
       ).toBeInTheDocument();
     });
 
