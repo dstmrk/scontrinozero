@@ -1,3 +1,4 @@
+import { Ellipsis, EllipsisVertical, MonitorDown, Share } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
@@ -11,6 +12,10 @@ import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("installare-app");
+
+// Icona inline accanto al nome del pulsante: chi legge cerca un disegno sullo
+// schermo, non una parola. Il nome resta sempre scritto, l'icona è decorativa.
+const ICON_CLASS = "mx-1 inline h-4 w-4 align-text-bottom";
 
 export default function InstallareAppPage() {
   return (
@@ -30,256 +35,217 @@ export default function InstallareAppPage() {
         {/* ─── Intestazione ─── */}
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-extrabold tracking-tight">
-            Come installare ScontrinoZero come app sul tuo dispositivo
+            Come mettere ScontrinoZero sulla schermata Home del telefono
           </h1>
           <Badge variant="secondary">Partenza rapida</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero è una <strong>Progressive Web App (PWA)</strong>: può
-          essere installata direttamente dal browser sulla schermata home dello
-          smartphone o sul desktop del computer, senza passare dall&apos;App
-          Store o dal Google Play. L&apos;esperienza è identica a quella di
-          un&apos;app nativa.
+          Puoi mettere ScontrinoZero sulla schermata Home di iPhone o Android in
+          meno di un minuto, gratis e senza passare dall&apos;App Store o da
+          Google Play. Da quel momento lo apri con un tocco, a tutto schermo,
+          come qualsiasi altra app. Su iPhone: entra nel tuo account da Safari,
+          tocca <strong>Condividi</strong> e scegli{" "}
+          <strong>&laquo;Aggiungi alla schermata Home&raquo;</strong>. Su
+          Android: entra da Chrome, tocca i tre puntini in alto a destra e
+          scegli <strong>&laquo;Installa app&raquo;</strong>. Scontrini,
+          prodotti e impostazioni restano nel tuo account: l&apos;icona è solo
+          una scorciatoia, e puoi toglierla quando vuoi senza perdere nulla.
         </p>
         <HelpArticleUpdatedAt slug="installare-app" />
 
         <div className="bg-muted text-muted-foreground mt-6 rounded-lg p-4 text-sm leading-relaxed">
-          <strong>Nota sul dominio.</strong>
-          {" Dopo il login il browser ti porta su "}
-          <strong>app.scontrinozero.it</strong>
+          <strong>Prima di iniziare.</strong>
           {
-            ": è da quel dominio che conviene installare l'app, perché lì vivono la dashboard e l'area protetta. Se installi dal sito vetrina senza essere loggato, all'apertura dovrai comunque fare l'accesso e verrai reindirizzato all'app."
+            " Apri scontrinozero.it dal telefono ed entra nel tuo account. Fai i passaggi qui sotto quando vedi la cassa: così l'icona sulla Home apre direttamente ScontrinoZero."
           }
         </div>
 
-        {/* ─── Vantaggi ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Perché installare l&apos;app
-        </h2>
-        <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
-          <li>
-            <strong>Accesso immediato</strong> — apri la cassa con un tap dalla
-            schermata home, senza dover aprire il browser e digitare l&apos;URL.
-          </li>
-          <li>
-            <strong>Schermo intero</strong> — l&apos;app si apre senza barra
-            degli indirizzi del browser, con più spazio per i tuoi scontrini.
-          </li>
-          <li>
-            <strong>Shell offline</strong> — la struttura dell&apos;app viene
-            messa in cache: si apre istantaneamente anche con connessione lenta,
-            e puoi navigare tra le schermate già caricate anche offline.
-          </li>
-          <li>
-            <strong>Aggiornamenti automatici</strong> — come un sito web,
-            ScontrinoZero si aggiorna in background senza che tu debba fare
-            nulla.
-          </li>
-          <li>
-            <strong>Nessuna app store</strong> — installazione in 3 tap, nessun
-            account Apple ID o Google necessario.
-          </li>
-        </ul>
-
-        {/* ─── iOS ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Installazione su iPhone e iPad (iOS / iPadOS)
-        </h2>
+        {/* ─── iPhone con Safari ─── */}
+        {/* Tre versioni di iOS, tre posizioni dei pulsanti: fino a iOS 18
+            Condividi sta nella barra; iOS 26 lo sposta nel menu ⋯ e aggiunge
+            l'interruttore «Apri come app web»; iOS 27 sposta la voce sotto
+            «Altro». I passaggi dicono dove cercare se il pulsante non è a
+            vista, invece di chiedere all'utente quale iOS ha. */}
+        <h2 className="mt-10 text-xl font-semibold">Su iPhone con Safari</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Su iPhone e iPad devi usare <strong>Safari</strong>. Altri browser
-          (Chrome, Firefox, Edge) su iOS non supportano l&apos;installazione PWA
-          per limitazioni di Apple.
+          Vale anche per iPad. Negli ultimi aggiornamenti dell&apos;iPhone Apple
+          ha spostato un paio di pulsanti: a ogni passaggio trovi dove cercarli.
         </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>Safari</strong>
-            {" e vai su "}
-            <strong>scontrinozero.it</strong>
-            {
-              ": effettua il login se non lo hai già fatto. Dopo l'accesso il browser sarà su "
-            }
-            <strong>app.scontrinozero.it</strong>
-            {" — installa l'app da quel dominio."}
+            Apri <strong>Safari</strong>, vai su{" "}
+            <strong>scontrinozero.it</strong> ed entra nel tuo account.
           </li>
           <li>
-            Tocca il pulsante <strong>Condividi</strong> (il quadrato con la
-            freccia verso l&apos;alto) nella barra in basso di Safari.
+            Tocca <strong>Condividi</strong>
+            <Share className={ICON_CLASS} aria-hidden="true" />
+            (il quadrato con la freccia verso l&apos;alto). Non lo vedi? Tocca
+            prima i tre puntini
+            <Ellipsis className={ICON_CLASS} aria-hidden="true" />
+            accanto all&apos;indirizzo del sito: Condividi è nel menu che si
+            apre.
           </li>
           <li>
-            {"Scorri il menu verso il basso e tocca "}
-            <strong>&quot;Aggiungi a schermata Home&quot;</strong>.
+            Scorri l&apos;elenco e tocca{" "}
+            <strong>&laquo;Aggiungi alla schermata Home&raquo;</strong>. Se non
+            c&apos;è, tocca <strong>&laquo;Altro&raquo;</strong> e cercala lì.
           </li>
           <li>
-            Modifica il nome se vuoi (di default è &quot;ScontrinoZero&quot;),
-            poi tocca <strong>Aggiungi</strong> in alto a destra.
+            Se vedi l&apos;interruttore{" "}
+            <strong>&laquo;Apri come app web&raquo;</strong>, lascialo acceso.
+            Poi tocca <strong>&laquo;Aggiungi&raquo;</strong> in alto a destra.
           </li>
           <li>
-            L&apos;icona di ScontrinoZero appare sulla schermata home. Toccarla
-            apre l&apos;app a schermo intero.
+            Sulla schermata Home compare l&apos;icona di ScontrinoZero: toccala
+            e sei in cassa.
+          </li>
+        </ol>
+
+        {/* ─── iPhone con Chrome ─── */}
+        <h2 className="mt-10 text-xl font-semibold">Su iPhone con Chrome</h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Se usi Chrome non serve passare a Safari: anche Chrome sa mettere
+          ScontrinoZero sulla schermata Home.
+        </p>
+        <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
+          <li>
+            Apri <strong>Chrome</strong>, vai su{" "}
+            <strong>scontrinozero.it</strong> ed entra nel tuo account.
+          </li>
+          <li>
+            Tocca <strong>Condividi</strong>
+            <Share className={ICON_CLASS} aria-hidden="true" />a destra della
+            barra dell&apos;indirizzo.
+          </li>
+          <li>
+            Scorri l&apos;elenco e tocca{" "}
+            <strong>&laquo;Aggiungi a schermata Home&raquo;</strong>.
+          </li>
+          <li>
+            Tocca <strong>&laquo;Aggiungi&raquo;</strong>.
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Nota iOS 16.4+:</strong> Apple ha aggiunto il supporto
-          completo alle PWA a partire da iOS 16.4. Se hai una versione
-          precedente, l&apos;app funziona ma alcune funzionalità avanzate (come
-          le notifiche push future) potrebbero non essere disponibili.
+          Se la voce non compare, l&apos;iPhone ha una versione troppo vecchia:
+          serve iOS 16.4 o successivo, uscito a marzo 2023. Aggiornalo da{" "}
+          <strong>Impostazioni › Generali › Aggiornamento software</strong>,
+          oppure usa Safari.
         </p>
 
         {/* ─── Android ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Installazione su Android
-        </h2>
+        <h2 className="mt-10 text-xl font-semibold">Su Android</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Su Android puoi usare <strong>Chrome</strong> (consigliato) o altri
-          browser compatibili come Edge o Samsung Internet.
+          Usa <strong>Chrome</strong>, il browser già presente su quasi tutti i
+          telefoni Android.
         </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>Chrome</strong>
-            {" e vai su "}
-            <strong>scontrinozero.it</strong>
-            {": effettua il login. Dopo l'accesso il browser sarà su "}
-            <strong>app.scontrinozero.it</strong>.
+            Apri <strong>Chrome</strong>, vai su{" "}
+            <strong>scontrinozero.it</strong> ed entra nel tuo account.
           </li>
           <li>
-            {"Tocca il menu "}
-            <strong>⋮</strong>
-            {" (tre puntini) in alto a destra e seleziona "}
-            <strong>&quot;Installa app&quot;</strong>
-            {" (in alcune versioni: "}
-            <strong>&quot;Aggiungi a schermata Home&quot;</strong>
-            {")."}
+            Se in fondo allo schermo compare il riquadro{" "}
+            <strong>&laquo;Installa ScontrinoZero&raquo;</strong>, tocca{" "}
+            <strong>&laquo;Installa&raquo;</strong>: hai finito.
           </li>
           <li>
-            {
-              "In alternativa, se Chrome riconosce il sito come installabile, mostra in fondo allo schermo una piccola barra ("
-            }
-            <em>mini-infobar</em>
-            {
-              ") con il prompt di installazione: toccala. Il prompt non sempre compare — dipende dall'utilizzo che hai fatto del sito."
-            }
+            Se il riquadro non c&apos;è, tocca i tre puntini
+            <EllipsisVertical className={ICON_CLASS} aria-hidden="true" />
+            in alto a destra e scegli{" "}
+            <strong>&laquo;Installa app&raquo;</strong> oppure{" "}
+            <strong>&laquo;Aggiungi a schermata Home&raquo;</strong>: il nome
+            cambia da una versione di Chrome all&apos;altra.
           </li>
           <li>
-            Conferma toccando <strong>Installa</strong> nella finestra di
-            dialogo.
+            Conferma con <strong>&laquo;Installa&raquo;</strong>.
           </li>
           <li>
-            L&apos;icona appare sulla schermata home e nel cassetto delle app.
+            L&apos;icona compare sulla schermata Home e nell&apos;elenco delle
+            app.
           </li>
         </ol>
 
-        {/* ─── Desktop ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Installazione su computer (Windows, Mac, Linux)
-        </h2>
+        {/* ─── Computer ─── */}
+        <h2 className="mt-10 text-xl font-semibold">Sul computer</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          {"Puoi installare ScontrinoZero come app desktop su "}
-          <strong>Chrome</strong> o <strong>Edge</strong>.
+          Con <strong>Chrome</strong> o <strong>Edge</strong> puoi aprire
+          ScontrinoZero in una finestra tutta sua, senza schede né barra
+          dell&apos;indirizzo. Prima entra nel tuo account, poi:
         </p>
-
-        <h3 className="mt-6 text-base font-semibold">Chrome</h3>
-        <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
+        <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>scontrinozero.it</strong>
-            {" in Chrome ed effettua il login (sarai poi su "}
-            <strong>app.scontrinozero.it</strong>
-            {")."}
+            <strong>Chrome</strong>: clicca l&apos;icona dello schermo con la
+            freccia
+            <MonitorDown className={ICON_CLASS} aria-hidden="true" />a destra
+            della barra dell&apos;indirizzo e conferma con{" "}
+            <strong>&laquo;Installa&raquo;</strong>.
           </li>
           <li>
-            {
-              "Clicca sull'icona di installazione (computer con freccia) nella barra degli indirizzi, oppure vai nel menu "
-            }
-            <strong>⋮ → Salva e condividi → Installa pagina come app</strong>.
+            <strong>Edge</strong>: apri il menu{" "}
+            <strong>⋯ › App › Installa questo sito come app</strong> e conferma
+            con <strong>&laquo;Installa&raquo;</strong>.
           </li>
-          <li>
-            Clicca <strong>Installa</strong> nella finestra di dialogo.
-          </li>
-          <li>
-            ScontrinoZero si apre in una finestra dedicata senza barra del
-            browser. Un collegamento viene aggiunto al desktop e al menu Start
-            (Windows) o al Launchpad (Mac).
-          </li>
-        </ol>
-
-        <h3 className="mt-6 text-base font-semibold">Microsoft Edge</h3>
-        <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
-          <li>
-            Apri <strong>scontrinozero.it</strong>
-            {" in Edge ed effettua il login (sarai poi su "}
-            <strong>app.scontrinozero.it</strong>
-            {")."}
-          </li>
-          <li>
-            Clicca su <strong>⋯ → App → Installa questo sito come app</strong>.
-          </li>
-          <li>
-            Conferma il nome e clicca <strong>Installa</strong>.
-          </li>
-        </ol>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Trovi ScontrinoZero sul desktop e nel menu Start (Windows) o nel
+          Launchpad (Mac).
+        </p>
 
         {/* ─── FAQ ─── */}
         <h2 className="mt-10 text-xl font-semibold">Domande frequenti</h2>
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              L&apos;app non si aggiorna dopo una nuova versione — cosa faccio?
+              Devo scaricare ScontrinoZero dall&apos;App Store o da Google Play?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Gli aggiornamenti vengono applicati automaticamente in background.
-              Se noti che l&apos;app è datata, chiudila completamente (scorri
-              via dal task switcher su iOS/Android, o chiudi la finestra su
-              desktop) e riaprila. La nuova versione viene caricata al riavvio.
+              No, non serve. ScontrinoZero si usa dal browser, e l&apos;icona
+              sulla schermata Home lo apre come un&apos;app: non c&apos;è niente
+              da scaricare e niente da pagare in più.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              Se disinstallo l&apos;app perdo i dati?
-            </p>
-            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. Tutti i dati (scontrini, impostazioni, credenziali) sono
-              salvati sul cloud e collegati al tuo account. Disinstallare
-              l&apos;app rimuove solo il collegamento sulla schermata home; i
-              dati restano intatti. Puoi reinstallarla in qualsiasi momento.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">
-              Posso usare ScontrinoZero su più dispositivi contemporaneamente?
-            </p>
-            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì. Puoi installare l&apos;app su quanti dispositivi vuoi con lo
-              stesso account. Gli scontrini emessi da qualsiasi dispositivo
-              compaiono nello Storico degli altri ricaricando la pagina o
-              tornando alla schermata Storico.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">
-              L&apos;icona &quot;Aggiungi a schermata Home&quot; non compare su
-              Safari — perché?
-            </p>
-            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Verifica di essere su <strong>Safari</strong> (non Chrome o
-              Firefox) e che il sito sia caricato completamente (attendi la fine
-              del caricamento). Se l&apos;opzione non è visibile nello sheet di
-              condivisione, scorri l&apos;elenco delle azioni verso sinistra o
-              verso il basso: su alcuni dispositivi l&apos;opzione è nascosta in
-              fondo all&apos;elenco.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">
-              Funziona anche senza connessione internet?
+              Su iPhone non trovo &laquo;Aggiungi alla schermata Home&raquo;:
+              dove la cerco?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               {
-                "La shell dell'app e le schermate già visitate vengono messe in cache e sono disponibili offline. Tuttavia, "
+                "In fondo all'elenco che si apre toccando Condividi; sulle versioni più recenti dell'iPhone è dentro «Altro». Se hai aperto ScontrinoZero da un link dentro un'altra app, come WhatsApp o Instagram, di solito la voce manca: apri il sito direttamente in Safari o Chrome e riprova."
               }
-              <strong>
-                l&apos;emissione di scontrini richiede connessione internet
-              </strong>
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Si aggiorna da sola?</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Sì, ogni volta che la apri usi l&apos;ultima versione. Se dopo un
+              aggiornamento vedi qualcosa di strano, chiudila del tutto
+              (trascinala via dall&apos;elenco delle app aperte) e riaprila.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              Se tolgo l&apos;icona perdo gli scontrini?
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              No. Scontrini, prodotti e impostazioni sono salvati nel tuo
+              account, non nel telefono. Togliere l&apos;icona elimina solo la
+              scorciatoia: puoi rimetterla quando vuoi e ritrovi tutto.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Posso usarla su più telefoni?</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Sì, con lo stesso account su tutti i telefoni, tablet e computer
+              che vuoi. Gli scontrini emessi da uno compaiono nello Storico
+              degli altri appena apri o ricarichi quella schermata.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Funziona senza internet?</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               {
-                ": la trasmissione all'AdE avviene in tempo reale. Se perdi la connessione durante l'emissione, l'operazione viene interrotta con un errore — riprova quando torni online. Nessuno scontrino viene inviato all'AdE senza la tua conferma esplicita."
+                "Per emettere uno scontrino serve internet: lo scontrino parte verso l'Agenzia delle Entrate nel momento in cui lo emetti. Senza connessione l'emissione non va a buon fine e vedi un messaggio di errore: riprova quando torni online."
               }
             </p>
           </div>

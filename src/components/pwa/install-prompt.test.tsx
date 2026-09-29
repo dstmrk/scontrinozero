@@ -47,6 +47,38 @@ describe("PwaInstallPrompt", () => {
     expect(localStorage.getItem(DISMISSED_KEY)).toBe("1");
   });
 
+  it("non nomina Safari: su iPhone anche Chrome può aggiungere alla Home", () => {
+    // La UA CriOS matcha isIos(): chi usa Chrome su iPhone vede lo stesso
+    // banner, e "nella barra di Safari" lo mandava a cercare un'app sbagliata.
+    setUserAgent(IOS_UA);
+    const { container } = render(<PwaInstallPrompt />);
+
+    expect(container.textContent).not.toMatch(/safari/i);
+  });
+
+  it("indica dove trovare Condividi e la voce quando non sono a vista (iOS 26+)", () => {
+    setUserAgent(IOS_UA);
+    const { container } = render(<PwaInstallPrompt />);
+
+    // iOS 26 sposta Condividi nel menu ⋯; iOS 27 sposta "Aggiungi alla
+    // schermata Home" sotto "Altro". Il testo regge tutte e tre le versioni.
+    expect(container.textContent).toContain("⋯");
+    expect(container.textContent).toContain("Aggiungi alla schermata Home");
+    expect(container.textContent).toContain("Altro");
+  });
+
+  it("linka la guida passo passo in una nuova scheda", () => {
+    setUserAgent(IOS_UA);
+    render(<PwaInstallPrompt />);
+
+    const link = screen.getByRole("link", { name: /guida passo passo/i });
+    expect(link).toHaveAttribute("href", "/help/installare-app");
+    // Nuova scheda: la scheda dell'app resta aperta sul dominio da cui va
+    // fatta l'installazione.
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
   it("non mostra il banner iOS se l'utente ha già fatto dismiss", () => {
     localStorage.setItem(DISMISSED_KEY, "1");
     setUserAgent(IOS_UA);
