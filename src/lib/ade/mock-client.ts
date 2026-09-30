@@ -225,7 +225,6 @@ export class MockAdeClient implements AdeClient {
     if (!session) {
       return Promise.reject(new Error("Not logged in. Call login() first."));
     }
-    // L'executor trasforma anche un throw di `fn` in rejection.
-    return new Promise((resolve) => resolve(fn(session)));
+    return Promise.resolve(fn(session));
   }
 }
