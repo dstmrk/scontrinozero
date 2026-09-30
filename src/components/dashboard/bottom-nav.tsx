@@ -45,7 +45,7 @@ export function BottomNav() {
   return (
     // `fixed` ignora il padding dello shell: le inset orizzontali vanno
     // ripetute qui, o in landscape le icone finiscono sotto il notch. Il
-    // pb-[env(...)] diventa reale solo col viewport-fit=cover del dashboard
+    // padding bottom sulla safe-area diventa reale solo col viewport-fit=cover del dashboard
     // layout (src/lib/pwa/viewport.ts): prima risolveva sempre a 0px.
     <nav
       data-tour-nav="mobile"
