@@ -226,7 +226,7 @@ export async function pruneInactiveUsers(
 
   for (const row of rows) {
     try {
-      counts[await processCandidate(row, ctx)]++;
+      counts[await processCandidate(row, ctx)]++; // NOSONAR — sequenziale: fino a 500 utenti tra email e admin API, niente fan-out
     } catch (err) {
       logger.warn(
         { err },

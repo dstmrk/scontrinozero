@@ -88,7 +88,7 @@ export async function authenticateApiKey(
       }
     | undefined;
   try {
-    const rows = await withStatementTimeout(AUTH_QUERY_TIMEOUT_MS, async (tx) =>
+    const rows = await withStatementTimeout(AUTH_QUERY_TIMEOUT_MS, (tx) =>
       tx
         .select({
           apiKey: apiKeys,

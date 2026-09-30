@@ -7,7 +7,7 @@ export const alt =
   "Prezzi ScontrinoZero — Starter da €4.99/mese, Pro €8.99/mese";
 export const contentType = "image/png";
 
-export default async function Image() {
+export default function Image() {
   return new ImageResponse(
     <OgImageTemplate
       title="Prezzi"

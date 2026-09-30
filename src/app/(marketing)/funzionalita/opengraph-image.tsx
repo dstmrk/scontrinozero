@@ -7,7 +7,7 @@ export const alt =
   "Funzionalità ScontrinoZero — emissione, gestione, compliance AdE";
 export const contentType = "image/png";
 
-export default async function Image() {
+export default function Image() {
   return new ImageResponse(
     <OgImageTemplate
       title="Funzionalità"

@@ -28,18 +28,24 @@ export type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
  * `SET LOCAL statement_timeout` è l'unico meccanismo affidabile per imporre
  * un budget di latenza dal lato applicativo.
  */
-export async function withStatementTimeout<T>(
+export function withStatementTimeout<T>(
   timeoutMs: number,
   fn: (tx: DrizzleTx) => Promise<T>,
 ): Promise<T> {
+  // Promise.reject e non throw: un argomento invalido resta una rejection come
+  // ogni altro fallimento, anche per chi usa `.catch()` invece di `await`.
   if (!Number.isInteger(timeoutMs)) {
-    throw new TypeError(
-      `withStatementTimeout: timeoutMs must be an integer, got ${timeoutMs}`,
+    return Promise.reject(
+      new TypeError(
+        `withStatementTimeout: timeoutMs must be an integer, got ${timeoutMs}`,
+      ),
     );
   }
   if (timeoutMs <= 0) {
-    throw new RangeError(
-      `withStatementTimeout: timeoutMs must be positive, got ${timeoutMs}`,
+    return Promise.reject(
+      new RangeError(
+        `withStatementTimeout: timeoutMs must be positive, got ${timeoutMs}`,
+      ),
     );
   }
 
@@ -84,7 +90,7 @@ export async function retryOnStatementTimeout<T>(
         { context, attempt: attempt + 1, delay },
         "DB statement timeout — retrying",
       );
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay)); // NOSONAR — backoff tra retry, sequenziale per design
     }
   }
   throw lastErr;
