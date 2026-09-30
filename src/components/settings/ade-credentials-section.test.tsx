@@ -662,6 +662,135 @@ describe("AdeCredentialsSection", () => {
     });
   });
 
+  describe("credenziali rifiutate dall'AdE", () => {
+    const REJECTED = {
+      error:
+        "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
+      credentialsRejected: true,
+    };
+    const SAVED_AT = new Date("2026-09-29T20:51:33Z");
+
+    async function renderRejected() {
+      mockVerifyAdeCredentials.mockResolvedValueOnce(REJECTED);
+      const view = render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          credentialsUpdatedAt={SAVED_AT}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+      await waitFor(() => {
+        expect(screen.getByText(REJECTED.error)).toBeInTheDocument();
+      });
+      return view;
+    }
+
+    it("non offre 'Riprova': gli stessi dati darebbero lo stesso esito", async () => {
+      await renderRejected();
+
+      expect(
+        screen.queryByRole("button", { name: "Riprova" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("rimanda alla matita e spiega il rischio di blocco", async () => {
+      await renderRejected();
+
+      expect(screen.getByText(/tocca la matita/i)).toBeInTheDocument();
+      expect(screen.getByText(/bloccare l'utenza/i)).toBeInTheDocument();
+    });
+
+    it("dopo il salvataggio di credenziali nuove torna il pulsante di verifica", async () => {
+      const view = await renderRejected();
+
+      view.rerender(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          credentialsUpdatedAt={new Date("2026-09-30T07:00:00Z")}
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(REJECTED.error)).not.toBeInTheDocument();
+    });
+
+    it("un refresh che non cambia le credenziali lascia l'errore com'è", async () => {
+      const view = await renderRejected();
+
+      view.rerender(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          credentialsUpdatedAt={new Date(SAVED_AT.getTime())}
+        />,
+      );
+
+      expect(screen.getByText(REJECTED.error)).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Riprova" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("un errore senza `credentialsRejected` continua a offrire 'Riprova'", async () => {
+      mockVerifyAdeCredentials.mockResolvedValueOnce({
+        error: "La tua utenza dell'Agenzia delle Entrate risulta bloccata.",
+      });
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          credentialsUpdatedAt={SAVED_AT}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Riprova" }),
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/tocca la matita/i)).not.toBeInTheDocument();
+    });
+
+    it("vale anche per CIE: nessun 'Riprova' su credenziali CIE ID rifiutate", async () => {
+      mockVerifyAdeCredentials.mockResolvedValueOnce({
+        error: "Credenziali CIE ID non valide. Verifica email e password.",
+        credentialsRejected: true,
+      });
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          loginMethod="cie"
+          credentialsUpdatedAt={SAVED_AT}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Collega" }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/tocca la matita/i)).toBeInTheDocument();
+      });
+      expect(
+        screen.queryByRole("button", { name: "Riprova" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   describe("credenziali già verificate", () => {
     it("mostra badge 'Verificate'", () => {
       render(

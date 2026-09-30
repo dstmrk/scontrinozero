@@ -19,6 +19,13 @@ type VerifyState =
       message: string;
       pivaConflict?: boolean;
       pivaMismatch?: boolean;
+      /** L'AdE ha rifiutato i dati salvati: niente "Riprova", si modificano. */
+      credentialsRejected?: boolean;
+      /**
+       * `credentialsUpdatedAt` al momento del fallimento. Quando la prop cambia
+       * le credenziali sono state risalvate e l'errore non le descrive più.
+       */
+      credentialsVersion: number | null;
       /**
        * Le partite IVA fra cui scegliere (HAR.md #18). La `denominazione` c'è
        * solo per quelle intestate a chi accede: per gli incarichi il portale
@@ -32,21 +39,51 @@ interface AdeCredentialsSectionProps {
   hasCredentials: boolean;
   verifiedAt: Date | null;
   loginMethod?: AdeLoginMethod;
+  /**
+   * `updated_at` della riga credenziali. Il salvataggio dalla matita la
+   * aggiorna, la sola verifica no (`recordVerifyOutcome` scrive in SQL raw):
+   * è il segnale con cui un errore di verifica diventa vecchio.
+   */
+  credentialsUpdatedAt?: Date | null;
 }
 
 const SUCCESS_DISMISS_MS = 3000;
+
+/**
+ * Un errore di verifica descrive le credenziali che c'erano quando è
+ * arrivato. Se nel frattempo sono state risalvate (`updated_at` diverso) è
+ * vecchio: si torna a idle. Derivato in render, non resettato in un effect:
+ * dopo il salvataggio il `router.refresh()` non rimonta la sezione, e un
+ * errore riferito ai dati di prima lascerebbe l'utente senza pulsante
+ * davanti a credenziali nuove.
+ */
+function currentVerifyState(
+  stored: VerifyState,
+  credentialsVersion: number | null,
+): VerifyState {
+  if (
+    stored.status === "error" &&
+    stored.credentialsVersion !== credentialsVersion
+  ) {
+    return { status: "idle" };
+  }
+  return stored;
+}
 
 export function AdeCredentialsSection({
   businessId,
   hasCredentials,
   verifiedAt,
   loginMethod = "fisconline",
+  credentialsUpdatedAt = null,
 }: Readonly<AdeCredentialsSectionProps>) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [verifyState, setVerifyState] = useState<VerifyState>({
+  const [storedVerifyState, setStoredVerifyState] = useState<VerifyState>({
     status: "idle",
   });
+  const credentialsVersion = credentialsUpdatedAt?.getTime() ?? null;
+  const verifyState = currentVerifyState(storedVerifyState, credentialsVersion);
   const [hasEverVerified, setHasEverVerified] = useState(!!verifiedAt);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,7 +110,7 @@ export function AdeCredentialsSection({
       dismissTimerRef.current = null;
     }
 
-    setVerifyState({ status: "pending" });
+    setStoredVerifyState({ status: "pending" });
     const id = businessId;
 
     startTransition(async () => {
@@ -81,32 +118,36 @@ export function AdeCredentialsSection({
 
       if (result.error) {
         if (result.passwordExpired) {
-          setVerifyState({ status: "idle" });
+          setStoredVerifyState({ status: "idle" });
           setChangePasswordOpen(true);
           return;
         }
-        setVerifyState({
+        setStoredVerifyState({
           status: "error",
           message: result.error,
           pivaConflict: result.pivaConflict,
           pivaMismatch: result.pivaMismatch,
           utenzaChoices: result.utenzaChoices,
+          credentialsRejected: result.credentialsRejected,
+          credentialsVersion,
         });
         return;
       }
 
       setHasEverVerified(true);
-      setVerifyState({ status: "success" });
+      setStoredVerifyState({ status: "success" });
       router.refresh();
 
       dismissTimerRef.current = setTimeout(() => {
-        setVerifyState({ status: "idle" });
+        setStoredVerifyState({ status: "idle" });
         dismissTimerRef.current = null;
       }, SUCCESS_DISMISS_MS);
     });
   }
 
   const isCie = loginMethod === "cie";
+  const credentialsRejected =
+    verifyState.status === "error" && !!verifyState.credentialsRejected;
 
   let buttonLabel: string;
   if (isCie) {
@@ -149,19 +190,21 @@ export function AdeCredentialsSection({
               <Badge variant="secondary">Non verificate</Badge>
             )}
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleVerify()}
-            disabled={verifyState.status === "pending"}
-          >
-            {verifyState.status === "pending" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            {buttonLabel}
-          </Button>
+          {!credentialsRejected && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleVerify()}
+              disabled={verifyState.status === "pending"}
+            >
+              {verifyState.status === "pending" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              {buttonLabel}
+            </Button>
+          )}
         </div>
 
         {isCie && (
@@ -202,6 +245,13 @@ export function AdeCredentialsSection({
               <AlertCircle className="h-4 w-4" />
               {verifyState.message}
             </p>
+            {verifyState.credentialsRejected && (
+              <p className="text-muted-foreground text-xs">
+                Tocca la matita qui sopra e reinserisci i dati aggiornati.
+                Riprovare con gli stessi dati non cambia l&apos;esito e può far
+                bloccare l&apos;utenza dall&apos;Agenzia delle Entrate.
+              </p>
+            )}
             {verifyState.utenzaChoices &&
               verifyState.utenzaChoices.length > 0 && (
                 <UtenzaPicker
