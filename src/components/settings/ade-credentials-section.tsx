@@ -49,6 +49,27 @@ interface AdeCredentialsSectionProps {
 
 const SUCCESS_DISMISS_MS = 3000;
 
+/**
+ * Un errore di verifica descrive le credenziali che c'erano quando è
+ * arrivato. Se nel frattempo sono state risalvate (`updated_at` diverso) è
+ * vecchio: si torna a idle. Derivato in render, non resettato in un effect:
+ * dopo il salvataggio il `router.refresh()` non rimonta la sezione, e un
+ * errore riferito ai dati di prima lascerebbe l'utente senza pulsante
+ * davanti a credenziali nuove.
+ */
+function currentVerifyState(
+  stored: VerifyState,
+  credentialsVersion: number | null,
+): VerifyState {
+  if (
+    stored.status === "error" &&
+    stored.credentialsVersion !== credentialsVersion
+  ) {
+    return { status: "idle" };
+  }
+  return stored;
+}
+
 export function AdeCredentialsSection({
   businessId,
   hasCredentials,
@@ -58,18 +79,11 @@ export function AdeCredentialsSection({
 }: Readonly<AdeCredentialsSectionProps>) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [rawVerifyState, setVerifyState] = useState<VerifyState>({
+  const [storedVerifyState, setStoredVerifyState] = useState<VerifyState>({
     status: "idle",
   });
   const credentialsVersion = credentialsUpdatedAt?.getTime() ?? null;
-  // Derivato in render, non resettato in un effect: dopo il salvataggio il
-  // `router.refresh()` non rimonta la sezione, e un errore riferito ai dati
-  // di prima lascerebbe l'utente senza pulsante davanti a credenziali nuove.
-  const verifyState: VerifyState =
-    rawVerifyState.status === "error" &&
-    rawVerifyState.credentialsVersion !== credentialsVersion
-      ? { status: "idle" }
-      : rawVerifyState;
+  const verifyState = currentVerifyState(storedVerifyState, credentialsVersion);
   const [hasEverVerified, setHasEverVerified] = useState(!!verifiedAt);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,7 +110,7 @@ export function AdeCredentialsSection({
       dismissTimerRef.current = null;
     }
 
-    setVerifyState({ status: "pending" });
+    setStoredVerifyState({ status: "pending" });
     const id = businessId;
 
     startTransition(async () => {
@@ -104,11 +118,11 @@ export function AdeCredentialsSection({
 
       if (result.error) {
         if (result.passwordExpired) {
-          setVerifyState({ status: "idle" });
+          setStoredVerifyState({ status: "idle" });
           setChangePasswordOpen(true);
           return;
         }
-        setVerifyState({
+        setStoredVerifyState({
           status: "error",
           message: result.error,
           pivaConflict: result.pivaConflict,
@@ -121,11 +135,11 @@ export function AdeCredentialsSection({
       }
 
       setHasEverVerified(true);
-      setVerifyState({ status: "success" });
+      setStoredVerifyState({ status: "success" });
       router.refresh();
 
       dismissTimerRef.current = setTimeout(() => {
-        setVerifyState({ status: "idle" });
+        setStoredVerifyState({ status: "idle" });
         dismissTimerRef.current = null;
       }, SUCCESS_DISMISS_MS);
     });
