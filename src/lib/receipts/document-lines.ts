@@ -20,7 +20,7 @@ type LineQueryRunner = {
  * pooled db instance when no runner is provided — preserves the legacy call
  * sites that don't need a shared transaction.
  */
-export async function fetchLinesByDocIds(
+export function fetchLinesByDocIds(
   docIds: string[],
   runner: LineQueryRunner = getDb(),
 ): Promise<SelectCommercialDocumentLine[]> {

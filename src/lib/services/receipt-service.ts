@@ -566,7 +566,7 @@ export async function finalizeSaleOnly(
     // recovery che ha colliso su una key riusata. kind è immutabile → il guard
     // non rompe i retry legittimi.
     const updated = await retryOnStatementTimeout("emit-finalize-only", () =>
-      withStatementTimeout(3000, async (tx) =>
+      withStatementTimeout(3000, (tx) =>
         tx
           .update(commercialDocuments)
           .set({

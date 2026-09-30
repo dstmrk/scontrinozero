@@ -83,7 +83,7 @@ export async function purgeUserById(
     }
     deleteAuthError = error;
     if (attempt < MAX_AUTH_DELETE_ATTEMPTS) {
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // NOSONAR — backoff tra retry, sequenziale per design
     }
   }
   if (deleteAuthError) {

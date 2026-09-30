@@ -123,9 +123,9 @@ async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
   return auth;
 }
 
-async function validateRange(
+function validateRange(
   range: AnalyticsRange,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): { ok: true } | { ok: false; error: string } {
   if (!VALID_RANGES.has(range)) {
     return { ok: false, error: "Range non valido." };
   }
@@ -193,25 +193,23 @@ async function fetchSaleDocsInRange(
   const selection = options.includePublicRequest
     ? { ...baseSelection, publicRequest: commercialDocuments.publicRequest }
     : baseSelection;
-  const rows = await withStatementTimeout(
-    ANALYTICS_QUERY_TIMEOUT_MS,
-    async (tx) =>
-      tx
-        .select(selection)
-        .from(commercialDocuments)
-        .where(
-          and(
-            eq(commercialDocuments.businessId, businessId),
-            eq(commercialDocuments.kind, "SALE"),
-            inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
-            gte(commercialDocuments.createdAt, from),
-            lt(commercialDocuments.createdAt, to),
-          ),
-        )
-        // Una riga oltre il cap: senza, `rows.length === cap` e' ambiguo fra
-        // "esattamente cap documenti nel range" e "primi cap di N". La riga in
-        // piu' rende il troncamento un fatto osservabile, non un'inferenza.
-        .limit(ANALYTICS_MAX_DOCS + 1),
+  const rows = await withStatementTimeout(ANALYTICS_QUERY_TIMEOUT_MS, (tx) =>
+    tx
+      .select(selection)
+      .from(commercialDocuments)
+      .where(
+        and(
+          eq(commercialDocuments.businessId, businessId),
+          eq(commercialDocuments.kind, "SALE"),
+          inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
+          gte(commercialDocuments.createdAt, from),
+          lt(commercialDocuments.createdAt, to),
+        ),
+      )
+      // Una riga oltre il cap: senza, `rows.length === cap` e' ambiguo fra
+      // "esattamente cap documenti nel range" e "primi cap di N". La riga in
+      // piu' rende il troncamento un fatto osservabile, non un'inferenza.
+      .limit(ANALYTICS_MAX_DOCS + 1),
   );
   const truncated = rows.length > ANALYTICS_MAX_DOCS;
   const validRows: DocRow[] = [];
@@ -304,7 +302,7 @@ async function buildAnalyticsDataset(
   range: AnalyticsRange,
   reference?: Date,
 ): Promise<Dataset | DatasetError> {
-  const rangeCheck = await validateRange(range);
+  const rangeCheck = validateRange(range);
   if (!rangeCheck.ok) return { ok: false, error: rangeCheck.error };
   const auth = await authorizePro(businessId);
   if (!auth.ok) return { ok: false, error: auth.error };

@@ -55,7 +55,7 @@ export class MockAdeClient implements AdeClient {
   private transactionCounter = 151000000;
   private progressiveCounter = 1;
 
-  async login(
+  login(
     credentials: {
       codiceFiscale: string;
       password: string;
@@ -67,15 +67,14 @@ export class MockAdeClient implements AdeClient {
       return this.loginMultiPersona(utenzaPiva);
     }
 
-    this.session = {
+    return this.startSession({
       pAuth: `mock_p_auth_${Date.now()}`,
       // Con una P.IVA scelta si opera su quella, non su quella derivata dal
       // codice fiscale di chi accede (HAR.md #18.4).
       partitaIva:
         utenzaPiva ?? credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
       createdAt: Date.now(),
-    };
-    return this.session;
+    });
   }
 
   /**
@@ -83,59 +82,54 @@ export class MockAdeClient implements AdeClient {
    * scelta che non offre la rifiuta. Sono i due errori che il flusso reale
    * produce, con gli stessi tipi — il chiamante non distingue mock da reale.
    */
-  private loginMultiPersona(utenzaPiva?: string): AdeSession {
+  private loginMultiPersona(utenzaPiva?: string): Promise<AdeSession> {
     if (!utenzaPiva) {
-      throw new AdeUtenzaSelectionRequiredError([
-        ...MOCK_MULTI_PERSONA_CANDIDATES,
-      ]);
+      return Promise.reject(
+        new AdeUtenzaSelectionRequiredError([...MOCK_MULTI_PERSONA_CANDIDATES]),
+      );
     }
     if (!MOCK_MULTI_PERSONA_CANDIDATES.some((c) => c.piva === utenzaPiva)) {
-      throw new AdeUtenzaNotAvailableError(utenzaPiva);
+      return Promise.reject(new AdeUtenzaNotAvailableError(utenzaPiva));
     }
 
-    this.session = {
+    return this.startSession({
       pAuth: `mock_p_auth_${Date.now()}`,
       partitaIva: utenzaPiva,
       createdAt: Date.now(),
-    };
-    return this.session;
+    });
   }
 
-  async loginSpid(credentials: SpidCredentials): Promise<AdeSession> {
-    this.session = {
+  loginSpid(credentials: SpidCredentials): Promise<AdeSession> {
+    return this.startSession({
       pAuth: `mock_p_auth_spid_${Date.now()}`,
       partitaIva: credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
       createdAt: Date.now(),
-    };
-    return this.session;
+    });
   }
 
-  async loginCie(
+  loginCie(
     _credentials: CieCredentials,
     utenzaPiva?: string,
   ): Promise<AdeSession> {
     // CIE: lo username è un'email, non il CF. In mock la P.IVA è fittizia
     // (in real viene estratta dal portale post-login via wizardTemplate), a
     // meno di una scelta esplicita.
-    this.session = {
+    return this.startSession({
       pAuth: `mock_p_auth_cie_${Date.now()}`,
       partitaIva: utenzaPiva ?? "00000000000",
       createdAt: Date.now(),
-    };
-    return this.session;
+    });
   }
 
-  async submitSale(_payload: AdePayload): Promise<AdeResponse> {
-    return this.mockSubmit();
+  submitSale(_payload: AdePayload): Promise<AdeResponse> {
+    return this.whenLoggedIn(() => this.mockSubmit());
   }
 
-  async submitVoid(_payload: AdePayload): Promise<AdeResponse> {
-    return this.mockSubmit();
+  submitVoid(_payload: AdePayload): Promise<AdeResponse> {
+    return this.whenLoggedIn(() => this.mockSubmit());
   }
 
   private mockSubmit(): AdeResponse {
-    this.assertLoggedIn();
-
     const idtrx = String(this.transactionCounter++);
     const progressivo = `DCW2026/MOCK-${this.progressiveCounter++}`;
 
@@ -154,34 +148,31 @@ export class MockAdeClient implements AdeClient {
     };
   }
 
-  async getFiscalData() {
-    this.assertLoggedIn();
-
-    return buildCedenteFromBusiness({
-      vatNumber: this.session!.partitaIva,
-      fiscalCode: "RSSMRA80A01H501A",
-      businessName: "",
-      address: "VIA ROMA",
-      streetNumber: "1",
-      city: "ROMA",
-      province: "RM",
-      zipCode: "00100",
-      preferredVatCode: "22",
-    });
+  getFiscalData() {
+    return this.whenLoggedIn((session) =>
+      buildCedenteFromBusiness({
+        vatNumber: session.partitaIva,
+        fiscalCode: "RSSMRA80A01H501A",
+        businessName: "",
+        address: "VIA ROMA",
+        streetNumber: "1",
+        city: "ROMA",
+        province: "RM",
+        zipCode: "00100",
+        preferredVatCode: "22",
+      }),
+    );
   }
 
-  async getProducts(): Promise<AdeProduct[]> {
-    this.assertLoggedIn();
-    return [];
+  getProducts(): Promise<AdeProduct[]> {
+    return this.whenLoggedIn(() => []);
   }
 
-  async getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
-    this.assertLoggedIn();
-
+  getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
     // Return a minimal valid document matching the real API response structure.
     // HAR finding (annullo.har [04]): campi monetari sotto documentoCommerciale,
     // precisione variabile (non 8 decimali). resiPregressi assente negli elementi.
-    return {
+    return this.whenLoggedIn(() => ({
       idtrx: _idtrx,
       documentoCommerciale: {
         cfCessionarioCommittente: "",
@@ -199,12 +190,11 @@ export class MockAdeClient implements AdeClient {
         importoDetraibileDeducibile: "0",
         elementiContabili: [],
       },
-    };
+    }));
   }
 
-  async searchDocuments(_params: AdeSearchParams): Promise<AdeDocumentList> {
-    this.assertLoggedIn();
-    return { totalCount: 0, elencoRisultati: [] };
+  searchDocuments(_params: AdeSearchParams): Promise<AdeDocumentList> {
+    return this.whenLoggedIn(() => ({ totalCount: 0, elencoRisultati: [] }));
   }
 
   async changePasswordFisconline(_params: {
@@ -216,13 +206,26 @@ export class MockAdeClient implements AdeClient {
     // Mock: always succeeds (no HTTP call)
   }
 
-  async logout(): Promise<void> {
+  logout(): Promise<void> {
     this.session = null;
+    return Promise.resolve();
   }
 
-  private assertLoggedIn(): void {
-    if (!this.session) {
-      throw new Error("Not logged in. Call login() first.");
+  private startSession(session: AdeSession): Promise<AdeSession> {
+    this.session = session;
+    return Promise.resolve(session);
+  }
+
+  /**
+   * Senza sessione rifiuta la Promise invece di lanciare: il client reale
+   * fallisce sempre in modo asincrono, e il chiamante non deve distinguere.
+   */
+  private whenLoggedIn<T>(fn: (session: AdeSession) => T): Promise<T> {
+    const session = this.session;
+    if (!session) {
+      return Promise.reject(new Error("Not logged in. Call login() first."));
     }
+    // L'executor trasforma anche un throw di `fn` in rejection.
+    return new Promise((resolve) => resolve(fn(session)));
   }
 }

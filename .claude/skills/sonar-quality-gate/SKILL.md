@@ -1,6 +1,6 @@
 ---
 name: sonar-quality-gate
-description: Use when fixing SonarCloud or Gitleaks findings — Cognitive Complexity > 15, S6861 readonly React props, S6772 ambiguous JSX spacing, S7780 escape sequences in template literals (use String.raw), S5852 ReDoS or S5122 CORS wildcard Security Hotspots (NOSONAR does not suppress hotspots), or curl-auth-header / generic-api-key false positives on API-key placeholders in docs (closed by a secret-shape allowlist in .gitleaks.toml, NOT by .gitleaksignore fingerprints, which die at every squash merge). Also covers coverage exclusions in sonar-project.properties + vitest.config.ts, service worker exclusions, and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
+description: Use when fixing SonarCloud or Gitleaks findings — Cognitive Complexity > 15, S6861 readonly React props, S6772 ambiguous JSX spacing, S7780 escape sequences in template literals (use String.raw), S7503 async without await (dropping async turns a throw into a sync throw — return Promise.reject), S9382 await in loop (retry/polling sleeps are sequential by design → NOSONAR), S5852 ReDoS or S5122 CORS wildcard Security Hotspots (NOSONAR does not suppress hotspots), or curl-auth-header / generic-api-key false positives on API-key placeholders in docs (closed by a secret-shape allowlist in .gitleaks.toml, NOT by .gitleaksignore fingerprints, which die at every squash merge). Also covers coverage exclusions in sonar-project.properties + vitest.config.ts, service worker exclusions, and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
 ---
 
 # sonar-quality-gate — Regole SonarCloud specifiche
@@ -130,6 +130,28 @@ enfatizzata sta da sola.
 Usa `` String.raw`...` `` invece di template literal con `\\` quando il contenuto
 mostra backslash letterali (es. curl examples). Con `String.raw`, scrivi `\`
 singolo invece di `\\` e i newline del sorgente sono preservati.
+
+### S7503 — `async` senza `await`
+
+È `@typescript-eslint/require-await`, ma Sonar è più severo: segnala anche
+`async` che restituisce già una Promise (una query Drizzle, `db.transaction`).
+Togli `async`, **però** guarda cosa lancia la funzione: dentro `async` un
+`throw` diventa una rejection, fuori diventa un throw sincrono, e un chiamante
+con `expect(f()).rejects` o `.catch()` si rompe. Dove può fallire restituisci
+`Promise.reject(err)` (vedi `withStatementTimeout` in `src/lib/db-timeout.ts`,
+`whenLoggedIn` in `src/lib/ade/mock-client.ts`). Le callback
+`async (tx) => tx.select()...` diventano `(tx) => tx.select()...`.
+
+### S9382 — `await` dentro un loop
+
+È `no-await-in-loop` filtrato da Sonar: segnala un `await` per loop, di solito
+lo sleep di un backoff o di un polling. Un retry o un polling sono sequenziali
+per definizione: parallelizzarli è il bug. Lì si chiude con
+`// NOSONAR — <motivo>` sulla riga segnalata. Si rifattorizza in `Promise.all`
+solo quando le iterazioni sono davvero indipendenti **e** il fan-out non
+colpisce un rate limit (Resend, admin API Supabase, AdE). ESLint locale non
+riproduce il filtro di Sonar: il set esatto lo dà solo l'API
+`/api/issues/search?componentKeys=dstmrk_scontrinozero&rules=typescript:S9382`.
 
 ### S5852 (ReDoS) — Security Hotspot
 

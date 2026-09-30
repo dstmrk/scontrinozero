@@ -29,7 +29,7 @@ export const dynamic = "force-dynamic";
  * Storico: aggiunto durante il rollout di v1.3.6 (pino → Sentry Logs
  * drain via `Sentry.pinoIntegration` in `sentry.server.config.ts`).
  */
-export async function GET(req: Request): Promise<Response> {
+export function GET(req: Request): Response {
   if (!isAuthorised(req)) {
     return new NextResponse(null, { status: 404 });
   }

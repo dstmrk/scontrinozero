@@ -679,6 +679,6 @@ async function revokeOtherSessionsWithRetry(
       );
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // NOSONAR — backoff tra retry, sequenziale per design
   }
 }
