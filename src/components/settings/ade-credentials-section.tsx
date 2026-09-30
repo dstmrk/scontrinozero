@@ -19,6 +19,13 @@ type VerifyState =
       message: string;
       pivaConflict?: boolean;
       pivaMismatch?: boolean;
+      /** L'AdE ha rifiutato i dati salvati: niente "Riprova", si modificano. */
+      credentialsRejected?: boolean;
+      /**
+       * `credentialsUpdatedAt` al momento del fallimento. Quando la prop cambia
+       * le credenziali sono state risalvate e l'errore non le descrive più.
+       */
+      credentialsVersion: number | null;
       /**
        * Le partite IVA fra cui scegliere (HAR.md #18). La `denominazione` c'è
        * solo per quelle intestate a chi accede: per gli incarichi il portale
@@ -32,6 +39,12 @@ interface AdeCredentialsSectionProps {
   hasCredentials: boolean;
   verifiedAt: Date | null;
   loginMethod?: AdeLoginMethod;
+  /**
+   * `updated_at` della riga credenziali. Il salvataggio dalla matita la
+   * aggiorna, la sola verifica no (`recordVerifyOutcome` scrive in SQL raw):
+   * è il segnale con cui un errore di verifica diventa vecchio.
+   */
+  credentialsUpdatedAt?: Date | null;
 }
 
 const SUCCESS_DISMISS_MS = 3000;
@@ -41,12 +54,22 @@ export function AdeCredentialsSection({
   hasCredentials,
   verifiedAt,
   loginMethod = "fisconline",
+  credentialsUpdatedAt = null,
 }: Readonly<AdeCredentialsSectionProps>) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [verifyState, setVerifyState] = useState<VerifyState>({
+  const [rawVerifyState, setVerifyState] = useState<VerifyState>({
     status: "idle",
   });
+  const credentialsVersion = credentialsUpdatedAt?.getTime() ?? null;
+  // Derivato in render, non resettato in un effect: dopo il salvataggio il
+  // `router.refresh()` non rimonta la sezione, e un errore riferito ai dati
+  // di prima lascerebbe l'utente senza pulsante davanti a credenziali nuove.
+  const verifyState: VerifyState =
+    rawVerifyState.status === "error" &&
+    rawVerifyState.credentialsVersion !== credentialsVersion
+      ? { status: "idle" }
+      : rawVerifyState;
   const [hasEverVerified, setHasEverVerified] = useState(!!verifiedAt);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +114,8 @@ export function AdeCredentialsSection({
           pivaConflict: result.pivaConflict,
           pivaMismatch: result.pivaMismatch,
           utenzaChoices: result.utenzaChoices,
+          credentialsRejected: result.credentialsRejected,
+          credentialsVersion,
         });
         return;
       }
@@ -107,6 +132,8 @@ export function AdeCredentialsSection({
   }
 
   const isCie = loginMethod === "cie";
+  const credentialsRejected =
+    verifyState.status === "error" && !!verifyState.credentialsRejected;
 
   let buttonLabel: string;
   if (isCie) {
@@ -149,19 +176,21 @@ export function AdeCredentialsSection({
               <Badge variant="secondary">Non verificate</Badge>
             )}
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleVerify()}
-            disabled={verifyState.status === "pending"}
-          >
-            {verifyState.status === "pending" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            {buttonLabel}
-          </Button>
+          {!credentialsRejected && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleVerify()}
+              disabled={verifyState.status === "pending"}
+            >
+              {verifyState.status === "pending" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              {buttonLabel}
+            </Button>
+          )}
         </div>
 
         {isCie && (
@@ -202,6 +231,13 @@ export function AdeCredentialsSection({
               <AlertCircle className="h-4 w-4" />
               {verifyState.message}
             </p>
+            {verifyState.credentialsRejected && (
+              <p className="text-muted-foreground text-xs">
+                Tocca la matita qui sopra e reinserisci i dati aggiornati.
+                Riprovare con gli stessi dati non cambia l&apos;esito e può far
+                bloccare l&apos;utenza dall&apos;Agenzia delle Entrate.
+              </p>
+            )}
             {verifyState.utenzaChoices &&
               verifyState.utenzaChoices.length > 0 && (
                 <UtenzaPicker

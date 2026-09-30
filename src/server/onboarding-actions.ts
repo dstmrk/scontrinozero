@@ -89,6 +89,14 @@ export type OnboardingActionResult = {
    */
   pivaMismatch?: boolean;
   /**
+   * L'AdE ha rifiutato le credenziali salvate (`auth_error`). La UI toglie
+   * "Riprova" e rimanda alla modifica: rigiocare gli stessi dati dà lo stesso
+   * esito e ogni tentativo è un login fallito sull'utenza, che l'AdE può
+   * bloccare. Non vale per `account_locked`: lì i dati sono giusti e, una
+   * volta sbloccata l'utenza sul portale, riprovare è proprio il rimedio.
+   */
+  credentialsRejected?: boolean;
+  /**
    * La P.IVA ha già consumato un trial in passato (registrata in
    * `trial_vat_ledger`, sopravvissuta alla cancellazione del vecchio account):
    * l'onboarding viene completato ma il trial è negato (`trialStartedAt` =
@@ -1010,12 +1018,14 @@ async function attemptAdeLoginForVerification(
       opts.defaultMessage,
       opts.method,
     );
+    const outcome = classifyAdeLoginFailure(err);
     return {
       result: {
         error: userFacing.message,
         ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+        ...(outcome === "auth_error" ? { credentialsRejected: true } : {}),
       },
-      outcome: classifyAdeLoginFailure(err),
+      outcome,
     };
   }
 }

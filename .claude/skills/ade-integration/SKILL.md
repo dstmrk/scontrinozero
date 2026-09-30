@@ -220,6 +220,16 @@ lasciarlo cadere nel ramo generico. Il costo è una migrazione additiva sul
 vocabolario di `last_verify_outcome` (la 0038 lo mette in conto, la 0041 è
 l'esempio) e sono poche righe.
 
+Il rimedio decide anche **se "Riprova" ha senso**. Su `INVALID_CREDENTIALS` no:
+gli stessi dati danno lo stesso esito, e ogni tentativo è un login fallito
+sull'utenza che l'AdE può trasformare in `ACCOUNT_LOCKED`. Il caso reale
+(30/09/2026): utenza bloccata, l'esercente cambia password sul portale, torna
+in app e preme "Riprova" tre volte in due minuti, con la password vecchia ancora
+salvata. Per questo `verifyAdeCredentials` alza `credentialsRejected` solo su
+`auth_error` e `AdeCredentialsSection` toglie il bottone finché la riga
+credenziali non viene risalvata (`updated_at` cambia). Su `ACCOUNT_LOCKED` il
+bottone resta: una volta sbloccata l'utenza, gli stessi dati sono giusti.
+
 ### Failure mode noto: `200` senza P.IVA = utenza sbagliata, non guasto
 
 `wizardTemplate` (Fisconline/CIE, Phase F) o `dati/fiscali` / `gestori/me`

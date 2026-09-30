@@ -122,6 +122,8 @@ export default async function SettingsPage({
             // solo chi ha scelto su quale P.IVA operare puo' avere stampato
             // sullo scontrino il nome di qualcun altro (REVIEW.md #106).
             utenzaPiva: adeCredentials.utenzaPiva,
+            // Segnale "credenziali risalvate" per AdeCredentialsSection.
+            updatedAt: adeCredentials.updatedAt,
           })
           .from(adeCredentials)
           .where(eq(adeCredentials.businessId, business.id))
@@ -278,6 +280,7 @@ export default async function SettingsPage({
                 businessId={business?.id ?? null}
                 hasCredentials={!!cred}
                 verifiedAt={cred?.verifiedAt ?? null}
+                credentialsUpdatedAt={cred?.updatedAt ?? null}
                 loginMethod={
                   (cred?.loginMethod as AdeLoginMethod | undefined) ??
                   "fisconline"

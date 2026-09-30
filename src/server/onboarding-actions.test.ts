@@ -2680,6 +2680,38 @@ describe("onboarding-actions", () => {
         expect(compiled.params).toContain("auth_error");
       });
 
+      it("credenziali sbagliate alzano `credentialsRejected`: riprovare con gli stessi dati non serve", async () => {
+        const { AdeAuthError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeAuthError());
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(result.credentialsRejected).toBe(true);
+      });
+
+      it("utenza bloccata NON alza `credentialsRejected`: sbloccata sul portale, lo stesso dato torna buono", async () => {
+        const { AdeAccountLockedError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeAccountLockedError());
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(result.error).toBeDefined();
+        expect(result.credentialsRejected).toBeUndefined();
+      });
+
+      it("un errore transitorio del portale NON alza `credentialsRejected`", async () => {
+        const { AdeNetworkError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeNetworkError("ECONNRESET"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(result.error).toBeDefined();
+        expect(result.credentialsRejected).toBeUndefined();
+      });
+
       it("password scaduta registra 'password_expired'", async () => {
         const { AdePasswordExpiredError } = await import("@/lib/ade/errors");
         queueFailedLogin(new AdePasswordExpiredError());
