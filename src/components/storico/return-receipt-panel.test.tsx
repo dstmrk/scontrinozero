@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ReturnReceiptPanel } from "./return-receipt-panel";
@@ -320,11 +326,14 @@ describe("ReturnReceiptPanel — conferma", () => {
       ),
     );
 
-    // Il bottone si aggiorna quando la rilettura arriva.
-    await waitFor(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
-      expect(mockPrinter.current.print).toHaveBeenCalled();
+    // La rilettura risolve in un microtask dopo la chiamata: lo si svuota
+    // prima di cliccare, così il bottone porta già il reso stampabile.
+    await act(async () => {
+      await Promise.resolve();
     });
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() => expect(mockPrinter.current.print).toHaveBeenCalled());
     const printed = vi.mocked(mockPrinter.current.print).mock.calls[0][0];
     expect(printed.kind).toBe("RETURN");
   });

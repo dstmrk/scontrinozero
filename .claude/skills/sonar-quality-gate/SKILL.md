@@ -76,6 +76,15 @@ riapertura: `docs/architecture/accepted-risks.md`.
 
 ## Regole specifiche da anticipare
 
+### S8985 — side effect dentro `waitFor` (Reliability, fa fallire il gate)
+
+Un `fireEvent.click` dentro la callback di `waitFor` viene ripetuto a ogni
+retry: Sonar lo classifica MAJOR di affidabilità e il rating su codice nuovo
+scende a C, gate rosso (PR #1015). Dentro `waitFor` solo asserzioni. Se il
+clic deve aspettare uno stato asincrono, aspetta lo stato (un testo, un
+`toHaveBeenCalled`) o svuota il microtask con
+`await act(async () => { await Promise.resolve(); })`, poi clicca fuori.
+
 ### S6861 — React props not readonly
 
 Ogni `interface` di props di componente React deve avere tutti i campi marcati
