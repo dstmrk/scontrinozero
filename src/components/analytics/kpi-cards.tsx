@@ -24,10 +24,18 @@ export function KpiCards({ kpis }: KpiCardsProps) {
   const aovLabel =
     kpis.count === 0 ? "—" : formatCurrency(fromCents(kpis.aovCents));
   const voidLabel = formatCount(kpis.voidCount);
+  // I ricavi sono già al netto dei resi: la nota dice di quanto, così il
+  // numero non sembra sbagliato a chi ricorda le vendite del periodo.
+  const returnsNote =
+    kpis.returnCount === 0
+      ? undefined
+      : `Al netto di ${formatCount(kpis.returnCount)} ${
+          kpis.returnCount === 1 ? "reso" : "resi"
+        } (${formatCurrency(fromCents(kpis.returnCents))})`;
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <KpiCard title="Ricavi" value={revenueLabel} />
+      <KpiCard title="Ricavi" value={revenueLabel} footnote={returnsNote} />
       <KpiCard title="Scontrini emessi" value={countLabel} />
       <KpiCard title="Scontrino medio" value={aovLabel} />
       <KpiCard title="Scontrini annullati" value={voidLabel} />

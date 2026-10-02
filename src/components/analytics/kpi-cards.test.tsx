@@ -11,6 +11,8 @@ describe("KpiCards", () => {
           count: 42,
           aovCents: 2938,
           voidCount: 3,
+          returnCount: 0,
+          returnCents: 0,
         }}
       />,
     );
@@ -25,7 +27,14 @@ describe("KpiCards", () => {
   it("renders em-dash for empty datasets instead of NaN €", () => {
     render(
       <KpiCards
-        kpis={{ revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 }}
+        kpis={{
+          revenueCents: 0,
+          count: 0,
+          aovCents: 0,
+          voidCount: 0,
+          returnCount: 0,
+          returnCents: 0,
+        }}
       />,
     );
     // Three monetary cards (revenue, AOV) + two counts; the dash placeholder
@@ -38,12 +47,65 @@ describe("KpiCards", () => {
   it("renders all four KPI titles", () => {
     render(
       <KpiCards
-        kpis={{ revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 }}
+        kpis={{
+          revenueCents: 0,
+          count: 0,
+          aovCents: 0,
+          voidCount: 0,
+          returnCount: 0,
+          returnCents: 0,
+        }}
       />,
     );
     expect(screen.getByText(/ricavi/i)).toBeInTheDocument();
     expect(screen.getByText(/scontrini emessi/i)).toBeInTheDocument();
     expect(screen.getByText(/scontrino medio/i)).toBeInTheDocument();
     expect(screen.getByText(/scontrini annullati/i)).toBeInTheDocument();
+  });
+
+  it("dice di quanto i ricavi sono al netto dei resi", () => {
+    render(
+      <KpiCards
+        kpis={{
+          revenueCents: 3750,
+          count: 2,
+          aovCents: 2500,
+          voidCount: 0,
+          returnCount: 1,
+          returnCents: 1250,
+        }}
+      />,
+    );
+    expect(screen.getByText(/Al netto di 1 reso \(12,50/)).toBeInTheDocument();
+  });
+
+  it("al plurale con più resi, e nessuna nota senza resi", () => {
+    const { rerender } = render(
+      <KpiCards
+        kpis={{
+          revenueCents: 100,
+          count: 1,
+          aovCents: 100,
+          voidCount: 0,
+          returnCount: 2,
+          returnCents: 500,
+        }}
+      />,
+    );
+    expect(screen.getByText(/Al netto di 2 resi/)).toBeInTheDocument();
+
+    rerender(
+      <KpiCards
+        kpis={{
+          revenueCents: 100,
+          count: 1,
+          aovCents: 100,
+          voidCount: 0,
+          returnCount: 0,
+          returnCents: 0,
+        }}
+      />,
+    );
+    expect(screen.queryByText(/Al netto di/)).not.toBeInTheDocument();
   });
 });

@@ -91,6 +91,8 @@ const INITIAL_KPIS: AnalyticsKpis = {
   count: 1,
   aovCents: 100,
   voidCount: 0,
+  returnCount: 0,
+  returnCents: 0,
 };
 
 function makeBundle(kpis: AnalyticsKpis, truncated = false): AnalyticsBundle {
@@ -123,6 +125,8 @@ describe("AnalyticsClient handleRangeChange", () => {
       count: 5,
       aovCents: 606,
       voidCount: 0,
+      returnCount: 0,
+      returnCents: 0,
     });
     mockGetAnalyticsBundle.mockImplementationOnce(() =>
       Promise.resolve(fastBundle),
@@ -161,6 +165,8 @@ describe("AnalyticsClient handleRangeChange", () => {
         count: 10,
         aovCents: 778,
         voidCount: 0,
+        returnCount: 0,
+        returnCents: 0,
       }),
     );
 
@@ -180,6 +186,8 @@ describe("AnalyticsClient handleRangeChange", () => {
       count: 7,
       aovCents: 1763,
       voidCount: 0,
+      returnCount: 0,
+      returnCents: 0,
     });
     mockGetAnalyticsBundle.mockResolvedValueOnce(ytdBundle);
 

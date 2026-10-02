@@ -135,9 +135,12 @@ né route lo chiama ancora.
 5. Superfici: il RETURN accettato si stampa (PDF, termica, ricevuta
    pubblica) col layout AdE del reso — `emesso per RESO`, documento di
    riferimento, righe proprie, nessun pagamento. La Developer API v1 resta su
-   `SALE`/`VOID` (`V1_DOCUMENT_KINDS`); analytics, CSV e storico filtrano già
-   `kind = 'SALE'`, quindi un reso non conta come vendita ma non viene
-   nemmeno sottratto. Logging con `flow: "return-receipt"`.
+   `SALE`/`VOID` (`V1_DOCUMENT_KINDS`). L'analytics sottrae i resi nel giorno
+   del reso: ricavi, serie temporale e prodotti sono netti, scontrini emessi e
+   scontrino medio restano sulle vendite, i metodi di pagamento pure (il
+   rimborso non ha un metodo noto). Storico ed export CSV filtrano ancora
+   `kind = 'SALE'` e devono mostrare le stesse righe: i resi entrano in
+   entrambi insieme. Logging con `flow: "return-receipt"`.
 
 ## Onboarding AdE (collegamento credenziali)
 

@@ -48,20 +48,37 @@ export function parseAnalyticsRange(
 }
 
 export type AnalyticsKpis = {
-  /** Totale ricavi (solo SALE ACCEPTED) espresso in centesimi. */
+  /**
+   * Ricavi in centesimi: vendite ACCEPTED meno resi ACCEPTED del periodo. È il
+   * corrispettivo netto, la stessa grandezza che l'AdE vede.
+   */
   revenueCents: number;
   /** Numero scontrini SALE ACCEPTED. */
   count: number;
-  /** Average Order Value in centesimi. Ritorna 0 se count == 0. */
+  /**
+   * Average Order Value in centesimi, sulle **vendite lorde**: il valore di uno
+   * scontrino quando è emesso, che un reso successivo non cambia. 0 se
+   * count == 0.
+   */
   aovCents: number;
   /** Numero scontrini annullati (SALE con status VOID_ACCEPTED). */
   voidCount: number;
+  /** Numero di resi accettati nel periodo (RETURN, HAR.md #19). */
+  returnCount: number;
+  /**
+   * Importo dei resi in centesimi, già sottratto da `revenueCents`: il reso
+   * storna il corrispettivo nel giorno in cui è emesso, come sull'AdE.
+   */
+  returnCents: number;
 };
 
 export type RevenuePoint = {
   /** Data nel formato yyyy-MM-dd (giorno fiscale italiano, Europe/Rome). */
   date: string;
-  /** Ricavi della giornata in centesimi (solo ACCEPTED). */
+  /**
+   * Ricavi della giornata in centesimi: vendite ACCEPTED meno resi emessi quel
+   * giorno. Può essere negativo in un giorno di soli resi.
+   */
   revenueCents: number;
 };
 
@@ -247,6 +264,8 @@ export function toCents(amount: number): number {
 
 type AnalyticsDocRow = {
   id: string;
+  /** `SALE` o `RETURN`: i resi stornano ricavi e prodotti (HAR.md #19). */
+  kind: string;
   status: string;
   createdAt: Date;
   publicRequest?: unknown;
@@ -270,19 +289,46 @@ export function computeKpis(
   docs: readonly AnalyticsDocRow[],
   totalsByDoc: ReadonlyMap<string, number>,
 ): AnalyticsKpis {
-  let revenueCents = 0;
+  let salesCents = 0;
   let count = 0;
   let voidCount = 0;
+  let returnCount = 0;
+  let returnCents = 0;
   for (const doc of docs) {
-    if (doc.status === "ACCEPTED") {
+    const cents = toCents(totalsByDoc.get(doc.id) ?? 0);
+    if (isReturn(doc)) {
+      returnCount++;
+      returnCents += cents;
+    } else if (doc.status === "ACCEPTED") {
       count++;
-      revenueCents += toCents(totalsByDoc.get(doc.id) ?? 0);
+      salesCents += cents;
     } else if (doc.status === "VOID_ACCEPTED") {
       voidCount++;
     }
   }
-  const aovCents = count === 0 ? 0 : Math.round(revenueCents / count);
-  return { revenueCents, count, aovCents, voidCount };
+  const aovCents = count === 0 ? 0 : Math.round(salesCents / count);
+  return {
+    revenueCents: salesCents - returnCents,
+    count,
+    aovCents,
+    voidCount,
+    returnCount,
+    returnCents,
+  };
+}
+
+/**
+ * Il dataset porta solo resi ACCEPTED (`fetchSaleDocsInRange`), ma il
+ * predicato guarda anche lo stato: un reso non accettato non storna nulla.
+ */
+function isReturn(doc: AnalyticsDocRow): boolean {
+  return doc.kind === "RETURN" && doc.status === "ACCEPTED";
+}
+
+/** Segno con cui un documento entra nei ricavi: +1 vendita, −1 reso, 0 altro. */
+function revenueSign(doc: AnalyticsDocRow): number {
+  if (isReturn(doc)) return -1;
+  return doc.kind === "SALE" && doc.status === "ACCEPTED" ? 1 : 0;
 }
 
 export function computeTimeseries(
@@ -293,14 +339,15 @@ export function computeTimeseries(
 ): RevenuePoint[] {
   const byDay = new Map<string, number>();
   for (const doc of docs) {
-    if (doc.status !== "ACCEPTED") continue;
+    const sign = revenueSign(doc);
+    if (sign === 0) continue;
     // Bucket per giorno fiscale italiano (Europe/Rome), non UTC: uno
     // scontrino emesso alle 00:30 ora locale del 19 maggio deve apparire
     // nel giorno "2026-05-19", anche se internamente e' 22:30Z del 18.
     const key = formatRomeDay(doc.createdAt);
     byDay.set(
       key,
-      (byDay.get(key) ?? 0) + toCents(totalsByDoc.get(doc.id) ?? 0),
+      (byDay.get(key) ?? 0) + sign * toCents(totalsByDoc.get(doc.id) ?? 0),
     );
   }
   return fillMissingDays(byDay, from, to);
@@ -368,7 +415,10 @@ export function computeBreakdown(
   };
 
   for (const doc of docs) {
-    if (doc.status !== "ACCEPTED") continue;
+    // Solo vendite: di un reso non sappiamo come è stato rimborsato, e
+    // attribuirlo al metodo della vendita inventerebbe un dato. Il grafico
+    // resta "incassato per metodo", al lordo dei resi.
+    if (revenueSign(doc) !== 1) continue;
     const revenueCents = toCents(totalsByDoc.get(doc.id) ?? 0);
     const { payments } = parsePublicRequest(doc.publicRequest);
 
@@ -436,19 +486,26 @@ function aggregateProductLines(
 ): Map<string, ProductAgg> {
   const byKey = new Map<string, ProductAgg>();
   for (const doc of docs) {
-    if (doc.status !== "ACCEPTED") continue;
+    const sign = revenueSign(doc);
+    if (sign === 0) continue;
     const lines = linesByDoc.get(doc.id);
     if (!lines) continue;
     for (const line of lines) {
-      addLineToAggregate(byKey, line);
+      addLineToAggregate(byKey, line, sign);
     }
   }
   return byKey;
 }
 
+/**
+ * `sign` −1 per le righe di un reso: stornano il ricavo del prodotto ma non
+ * contano come occorrenze né come variante del nome — il prodotto è stato
+ * venduto, poi reso, non venduto due volte.
+ */
 function addLineToAggregate(
   byKey: Map<string, ProductAgg>,
   line: AnalyticsLineRow,
+  sign: number,
 ): void {
   const trimmed = line.description.trim();
   const key = trimmed === "" ? "" : trimmed.toLowerCase();
@@ -464,14 +521,22 @@ function addLineToAggregate(
   // `Math.max(0, …)`: difesa in profondità come in `receipt-totals.ts`. Una
   // riga con sconto oltre il proprio lordo (import/fix manuale in DB) darebbe
   // un ricavo negativo, che falserebbe il ranking dei prodotti.
-  agg.revenueCents += Math.max(
-    0,
-    Math.round(qty * price * 100) -
-      Math.round(Number.parseFloat(line.lineDiscount ?? "0") * 100 || 0),
-  );
-  agg.count++;
-  if (trimmed !== "") {
-    agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
+  agg.revenueCents +=
+    sign *
+    Math.max(
+      0,
+      Math.round(qty * price * 100) -
+        Math.round(Number.parseFloat(line.lineDiscount ?? "0") * 100 || 0),
+    );
+  if (sign > 0) {
+    agg.count++;
+    if (trimmed !== "") {
+      agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
+    }
+  } else if (trimmed !== "" && !agg.variants.has(trimmed)) {
+    // Peso zero: un nome visto solo su un reso (vendita fuori dal periodo)
+    // si mostra com'è scritto, ma perde sempre contro uno visto in vendita.
+    agg.variants.set(trimmed, 0);
   }
   byKey.set(key, agg);
 }
