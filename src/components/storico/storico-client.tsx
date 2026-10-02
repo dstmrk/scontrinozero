@@ -528,6 +528,7 @@ export function StoricoClient({
                 // Vendite (emesse o annullate) e resi accettati aprono il
                 // dettaglio: righe, ricevuta da reinviare, ristampa.
                 const isReturn = receipt.kind === "RETURN";
+                const documentNoun = isReturn ? "reso" : "scontrino";
                 const hasDetail =
                   (receipt.kind === "SALE" &&
                     (receipt.status === "ACCEPTED" ||
@@ -551,7 +552,7 @@ export function StoricoClient({
                     tabIndex={hasDetail ? 0 : undefined}
                     aria-label={
                       hasDetail
-                        ? `Apri dettaglio ${isReturn ? "reso" : "scontrino"} ${formatProgressive(receipt.adeProgressive)}`
+                        ? `Apri dettaglio ${documentNoun} ${formatProgressive(receipt.adeProgressive)}`
                         : undefined
                     }
                   >
