@@ -156,7 +156,7 @@ function TourTooltip({
 
 /**
  * Walkthrough guidato del dashboard, mostrato una sola volta al primo accesso
- * (PLAN.md v1.4.1). Montato dal dashboard layout SOLO se il flag per-utente
+ * (v1.4.1). Montato dal dashboard layout SOLO se il flag per-utente
  * `onboarding_tour_seen_at` è NULL, quindi qui parte sempre in automatico.
  */
 export function OnboardingTour() {

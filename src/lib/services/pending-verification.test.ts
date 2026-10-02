@@ -199,7 +199,7 @@ describe("verifyPendingSale", () => {
 
     await verifyPendingSale({ businessId: BIZ, documentId: DOC });
 
-    // REVIEW.md #91: sulla riga stale il `DEFAULT now()` può precedere di
+    // issue #995: sulla riga stale il `DEFAULT now()` può precedere di
     // minuti l'istante in cui AdE ha registrato, e quella data finisce su PDF,
     // storico ed export.
     const [, , , registeredAt] = mockFinalizeSaleOnly.mock.calls[0];

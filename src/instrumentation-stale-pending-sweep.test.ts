@@ -200,7 +200,7 @@ describe("startStalePendingSweep()", () => {
     await capturedInterval?.();
 
     // Senza budget una scansione degenere terrebbe occupata una connessione
-    // del pool da 10 che serve la cassa: è la lezione di REVIEW.md #81.
+    // del pool da 10 che serve la cassa: è la lezione di issue #981.
     expect(STALE_PENDING_COUNT_TIMEOUT_MS).toBe(30_000);
     expect(mockWithStatementTimeout).toHaveBeenCalledWith(30_000);
   });

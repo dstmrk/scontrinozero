@@ -276,7 +276,7 @@ fallimento **persistente** diventa invisibile all'alerting. La regola vale solo
 se il retry è reale e ravvicinato rispetto al danno. Nei due casi sopra il
 danno di un giro saltato è nullo (soglie in mesi). Quando accetti il `warn`,
 paga il prezzo: messaggio **stabile e greppabile** (è la query che userai nei
-Sentry Logs) e trigger di riapertura scritto in `REVIEW.md`, altrimenti hai
+Sentry Logs) e trigger di riapertura scritto in un'issue, altrimenti hai
 solo spento un allarme.
 
 **`tracesSampleRate` non copre i job.** `setInterval` gira fuori da qualunque

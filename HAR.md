@@ -25,8 +25,8 @@ sono grandezze fiscali diverse, e dove finisce l'evidenza misurata (#15).
 - `docs/api-spec.md` — specifica _normativa_ del payload AdE e del contratto
   adapter. Se una voce qui contraddice la spec, **la voce vince** (è misurata
   sul campo) e la spec va corretta nello stesso PR.
-- `REVIEW.md` — bug noti e tech debt. Le divergenze fra questo registro e il
-  codice attuale che vanno _fixate_ hanno una voce lì.
+- Issue GitHub — bug noti e tech debt. Le divergenze fra questo registro e il
+  codice attuale che vanno _fixate_ hanno un'issue.
 - Skill `ade-integration` — come si lavora sull'integrazione (procedure).
   Questo file è _cosa_ ha risposto l'AdE (dati).
 
@@ -626,7 +626,7 @@ le inchiodano campo per campo, quindi non possono tornare.
 Resta aperta una sola cosa, deliberatamente: **`flagIdentificativiModificati`**
 — entrambi gli HAR mandano `false`, il mapper manda `true`. L'AdE accetta
 entrambi e la produzione funziona; è un rischio accettato, registrato in
-`REVIEW.md` sotto "Rischi accettati". Non toccarlo senza un motivo.
+`docs/architecture/accepted-risks.md`. Non toccarlo senza un motivo.
 
 ---
 
@@ -1129,7 +1129,7 @@ l'incassato oltre il corrispettivo, e **nessuno dei sei slot della voce #6 si
 chiama così**. Non sappiamo se il tracciato del _documento commerciale online_
 lo preveda: serve una cattura fatta apposta.
 
-Tracciato in `REVIEW.md` #96. Nulla di questo blocca gli sconti o il pagamento
+Tracciato in issue #991. Nulla di questo blocca gli sconti o il pagamento
 misto: è il perimetro di ciò che non risolvono.
 
 ---
@@ -1140,7 +1140,7 @@ misto: è il perimetro di ciò che non risolvono.
 quattro società (`ivaservizi.agenziaentrate.gov.it.har`, 120 entry). È la prima
 cattura di un account **non** a entità singola: fino a qui ogni HAR veniva da
 utenze in cui la P.IVA è intestata alla persona, dove il portale salta del tutto
-questo passo. Chiude l'ipotesi lasciata aperta da `REVIEW.md` #106 e la issue
+questo passo. Chiude l'ipotesi lasciata aperta da issue #984 e la issue
 Sentry SCONTRINOZERO-13.
 
 **Mascheramento.** Le quattro P.IVA reali sono rese `<PIVA-A>` … `<PIVA-D>`, il

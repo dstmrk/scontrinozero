@@ -283,7 +283,7 @@ export const saleBodySchema = z
     // Opzionale perché mutuamente esclusivo con `payments` — esattamente uno
     // dei due, imposto da `refinePaymentDeclaration`. Un corpo con
     // `paymentMethod` resta valido com'è sempre stato: nessun breaking change
-    // su `/api/v1` (REVIEW.md #87).
+    // su `/api/v1` (issue #983).
     paymentMethod: paymentMethodSchema.optional(),
     payments: paymentsSchema.optional(),
     idempotencyKey: idempotencyKeySchema,

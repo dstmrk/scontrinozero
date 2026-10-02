@@ -393,7 +393,7 @@ async function reconcileUnderUserSession(
 /**
  * Verifica su AdE una vendita rimasta `PENDING` e chiude la riga.
  *
- * - match singolo → `ACCEPTED` con l'istante autorevole di AdE (REVIEW.md #91);
+ * - match singolo → `ACCEPTED` con l'istante autorevole di AdE (issue #995);
  * - nessun match → `ERROR`, la vendita va riemessa;
  * - più candidati → li ritorna e non tocca niente: sceglie l'esercente.
  */

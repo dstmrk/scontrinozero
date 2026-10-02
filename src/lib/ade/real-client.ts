@@ -244,7 +244,7 @@ export function isStaleSocketError(err: unknown): boolean {
  * Qui è cablato perché l'unica utenza incaricata che abbiamo ha tutti e tre
  * falsi su tutte le entry. I tre booleani arrivano dentro `AdeIncarico.raw`,
  * quindi la derivazione è a portata di mano quando servirà — voce aperta in
- * REVIEW.md #106.
+ * issue #984.
  */
 const ADE_TIPO_INCARICANTE = "incaricoDiretto";
 
@@ -1306,10 +1306,10 @@ export class RealAdeClient implements AdeClient {
   // SpidCredentials / AdeSpidTimeoutError e le opzioni spidPollIntervalMs /
   // spidMaxPolls) è implementato e testato ma NON ha chiamanti in produzione:
   // oggi è cablato solo il login Fisconline. È codice voluto per il futuro
-  // (PLAN.md → v1.8.0 "AdE auth multi-metodo: SPID e CIE"), NON dead code da
-  // rimuovere. Prima del lancio servono anche l'allowlist host IdP e il
-  // wiring di loginSpid (vedi backlog sicurezza in PLAN.md). Mantenere coperto
-  // dai test finché non viene cablato.
+  // (v2.0, app nativa: `docs/mobile-v2.md`), NON dead code da rimuovere.
+  // Prima del lancio servono anche l'allowlist host IdP e il wiring di
+  // loginSpid (vedi issue #997). Mantenere coperto dai test finché non viene
+  // cablato.
   // -----------------------------------------------------------------------
 
   /**

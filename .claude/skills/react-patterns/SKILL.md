@@ -76,7 +76,7 @@ l'href nel **parent Server Component** e passalo come prop al Client Component
 
 > Per `/register` la regola ha un gate:
 > `src/lib/signup-source.contract.test.ts` boccia sia `appHref("/register")`
-> nudo (perde l'attribuzione, `REVIEW.md` #109) sia un `href="/register"`
+> nudo (perde l'attribuzione, issue #999) sia un `href="/register"`
 > letterale (perde la cross-origin, cioè questo bug). Ha trovato da solo la
 > CTA dell'indice `/per`, che era un `<Link>` dal giorno in cui è nata. Per
 > `/login` e `/reset-password` il gate non c'è: lì resta il grep.

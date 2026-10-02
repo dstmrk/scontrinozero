@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// `tourStep`: ancora per l'onboarding tour (PLAN.md v1.4.1). Questa è la nav
+// `tourStep`: ancora per l'onboarding tour (v1.4.1). Questa è la nav
 // desktop (montata dentro `[data-tour-nav="desktop"]` nel layout); il tour la
 // usa quando il viewport è ≥ md.
 const NAV_ITEMS = [

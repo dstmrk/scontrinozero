@@ -274,7 +274,7 @@ describe("pruneInactiveUsers", () => {
     expect(mockPurgeUserById).not.toHaveBeenCalled();
   });
 
-  describe("contenimento della query candidati (REVIEW #81)", () => {
+  describe("contenimento della query candidati (issue #981)", () => {
     it("esegue la SELECT candidati dentro withStatementTimeout col budget di background", async () => {
       mockExecute.mockResolvedValue([]);
 

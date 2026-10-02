@@ -124,7 +124,8 @@ ci manda dati, e tu non li vedi.
 
 🚀 **In produzione su [scontrinozero.it](https://scontrinozero.it)**
 
-Roadmap dettagliata in [`PLAN.md`](./PLAN.md).
+Roadmap, bug noti e idee in valutazione sono nelle
+[issue GitHub](https://github.com/dstmrk/scontrinozero/issues).
 
 ## Licenza
 

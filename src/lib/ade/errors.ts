@@ -134,7 +134,7 @@ export class AdeUnknownOutcomeError extends AdeError {
  * `richiestaIncarichi`, `soloPerMe`, `tutore`. Accade quando la P.IVA è
  * intestata a un soggetto diverso dalla persona che accede — società, studio,
  * delega a intermediario. `setUserChoice` invia sempre
- * `tipoutenza: "meStesso"`, quindi quei casi non sono supportati: REVIEW.md #106.
+ * `tipoutenza: "meStesso"`, quindi quei casi non sono supportati: issue #984.
  *
  * `source` è l'endpoint che ha risposto senza P.IVA, per distinguere i tre
  * percorsi nei log. Mai includere CF, P.IVA o denominazione nel messaggio.

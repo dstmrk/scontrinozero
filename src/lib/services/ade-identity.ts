@@ -1,6 +1,6 @@
 /**
  * La riga di `businesses` che i predicati sull'identita' AdE leggono, e i due
- * verdetti che ne derivano (REVIEW.md #106).
+ * verdetti che ne derivano (issue #984).
  *
  * **Perche' la query sta qui e non nei due chiamanti.** La leggono in due:
  * `readAdeIdentityContext` in `profile-actions.ts`, per le action che

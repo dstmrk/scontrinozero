@@ -50,7 +50,7 @@ export default async function DashboardLayout({
     redirect("/onboarding");
   }
 
-  // Onboarding tour: mostrato una sola volta al primo accesso (PLAN.md v1.4.1).
+  // Onboarding tour: mostrato una sola volta al primo accesso (v1.4.1).
   // Letto server-side → niente flash dell'overlay. Degrada a "visto" su errore
   // DB (la funzione gestisce il fallback), quindi non blocca mai il dashboard.
   const tourSeen = await getOnboardingTourSeen();
@@ -156,7 +156,7 @@ export default async function DashboardLayout({
           </Suspense>
           {/*
             Identità stampata diversa da quella registrata all'AdE
-            (REVIEW.md #106). Stessa ragione di stare nel layout: finita la
+            (issue #984). Stessa ragione di stare nel layout: finita la
             verifica si atterra su /dashboard e si va in cassa, quindi chi
             opera per conto di una società incontrerebbe l'avviso solo
             aprendo le impostazioni di sua iniziativa — cioè quasi mai.

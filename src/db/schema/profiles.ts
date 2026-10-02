@@ -57,7 +57,7 @@ export const profiles = pgTable(
     // src/lib/plans.ts fetchPlan(). Per `unlimited` è ininfluente: i gate non
     // leggono planExpiresAt/trialStartedAt per quel piano.
     referralBonusDays: integer("referral_bonus_days").notNull().default(0),
-    // Onboarding tour dashboard (PLAN.md v1.4.1): timestamp del primo
+    // Onboarding tour dashboard (v1.4.1): timestamp del primo
     // completamento/skip del walkthrough guidato. NULL = mai visto → il tour
     // viene mostrato al primo accesso al dashboard. Per-utente (non per-device):
     // sopravvive a cambio dispositivo e reinstallazione PWA. Migration 0025 ha
@@ -65,7 +65,7 @@ export const profiles = pgTable(
     onboardingTourSeenAt: timestamp("onboarding_tour_seen_at", {
       withTimezone: true,
     }),
-    // GDPR — cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2, migration
+    // GDPR — cancellazione utenti inattivi >12 mesi (v1.4.2, migration
     // 0026): timestamp dell'invio dell'email di PREAVVISO cancellazione. Lo
     // sweep periodico (src/lib/services/inactive-user-prune.ts) cancella solo se
     // questo valore è ≥30 giorni fa (grace period), e lo azzera se l'utente

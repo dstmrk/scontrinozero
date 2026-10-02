@@ -36,7 +36,7 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   l'incassato). Sono grandezze fiscali diverse: non chiamarli entrambi
   "sconto" in un elenco di feature senza distinguerli. NON è ancora spedito
   l'arrotondamento DL 50/2017 con la sua voce di pagamento dedicata
-  (`REVIEW.md` #96): non prometterlo.
+  (issue #991): non prometterlo.
 - Il **pagamento misto** (ripartizione dell'incasso fra contanti ed
   elettronico sullo stesso scontrino) è **spedito e Pro-gated** (trial
   incluso): in cassa è l'affordance `+ Pagamento misto` sotto "Altre opzioni"
@@ -48,8 +48,8 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
 - Il **messaggio di cortesia in fondo allo scontrino** è **spedito e
   Pro-gated** (trial incluso): max 64 caratteri su 2 righe, stampato su
   termica, PDF e ricevuta digitale, mai su una ricevuta di annullo. NON è
-  personalizzazione di intestazione/logo, che resta nice-to-have in `PLAN.md`:
-  non prometterla.
+  personalizzazione di intestazione/logo, che resta fuori dal prodotto: non
+  prometterla.
 
 Se lo stato di una feature cambia (spedita, rimossa dalla roadmap), questo
 elenco e la tabella Pricing in `CLAUDE.md` vanno aggiornati nello stesso PR.
@@ -60,10 +60,9 @@ v1.5.0, e il sito contraddiceva il prodotto.
 
 ### Feature che il marketing ha già promesso per sbaglio (non reintrodurle)
 
-Sono capability **assenti dal prodotto** e classificate in `PLAN.md` sotto
-"Nice to have (**no release**)". Un copy che le dà per fatte è un bug, non
-un'esagerazione di marketing. Audit agosto 2026: erano finite in 8 punti fra
-`/funzionalita`, `/per` e `/guide`.
+Sono capability **assenti dal prodotto** e fuori dalla roadmap. Un copy che
+le dà per fatte è un bug, non un'esagerazione di marketing. Audit agosto 2026:
+erano finite in 8 punti fra `/funzionalita`, `/per` e `/guide`.
 
 - **Buoni pasto / ticket restaurant** — restano nice-to-have: mai citarli fra
   i metodi. Lo slot `TR` esiste nel tracciato AdE e il mapper lo regge, ma non
@@ -223,7 +222,7 @@ farlo (2026)`, cioè la query esatta. Il fix proposto era già in produzione
    `cassetto-fiscale-dove-trovare-scontrini` sta a 0,80% da posizione 8,64 con
    un metaTitle che riprende la query alla lettera: la coda delle query è
    consumer che cerca gli scontrini per il 730, non esercenti. Vedi
-   `REVIEW.md` #108. Stesso esito per `codici-natura-iva` (0,23% da posizione
+   issue #998. Stesso esito per `codici-natura-iva` (0,23% da posizione
    8,85) con in più la risposta già resa in SERP: il grappolo di query a
    posizione 2-3 con zero clic è la firma di quel caso.
 
@@ -307,7 +306,7 @@ risposta è **no, sempre**: serve a servire contenuto-esca ai crawler AI, cioè
 a rompere di proposito il canale che `/llms.txt`, `/llms-full.txt` e tutta la
 checklist GEO qui sotto esistono per alimentare. Un "suggerimento di
 configurazione" della dashboard non è una decisione di prodotto. Razionale
-completo e trigger di riapertura: `REVIEW.md`, "Rischi accettati".
+completo e trigger di riapertura: `docs/architecture/accepted-risks.md`.
 
 Al 2026-08-26 il canale è sano — il blocco managed robots.txt non c'è più
 (`/robots.txt` servito = quello dell'app) e `ClaudeBot` riceve `200` su
@@ -403,7 +402,7 @@ conversione **zero**.
 
 La pagina più visitata del sito converte zero, e non è rumore: con un tasso
 reale del 2% la probabilità di osservare zero su 267 sessioni è dello 0,45%.
-Dati e limiti in `REVIEW.md` #109, query ripetibile in
+Dati e limiti in issue #999, query ripetibile in
 `deploy/umami/README.md`.
 
 **La regola che ne esce.** Le pagine si dividono per **intento d'acquisto**,

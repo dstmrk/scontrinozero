@@ -1036,7 +1036,7 @@ describe("onboarding-actions", () => {
       expect(mockLogin).toHaveBeenCalledWith(expect.anything(), "07790350966");
     });
 
-    // REVIEW.md #106: `dati/fiscali` risponde con l'intero cedente/prestatore,
+    // issue #984: `dati/fiscali` risponde con l'intero cedente/prestatore,
     // di cui persistevamo i soli identificativi. La denominazione è il termine
     // di confronto contro `business_name`, che l'utente digita prima ancora di
     // scegliere su quale P.IVA opererà.
@@ -2916,7 +2916,7 @@ describe("onboarding-actions", () => {
         hasUtenzaPiva: false,
       });
       // Esattamente 1 query DB: profile JOIN business JOIN creds. `hasUtenzaPiva`
-      // è un'espressione in più sullo stesso JOIN (REVIEW.md #106), non una
+      // è un'espressione in più sullo stesso JOIN (issue #984), non una
       // lettura in più: il conteggio non deve muoversi.
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });

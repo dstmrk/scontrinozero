@@ -667,7 +667,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockGetDocument).not.toHaveBeenCalled();
   });
 
-  it("recovery annullo: finalize-only scrive ade_registered_at sull'ANNULLO, non sulla vendita (REVIEW.md #91)", async () => {
+  it("recovery annullo: finalize-only scrive ade_registered_at sull'ANNULLO, non sulla vendita (issue #995)", async () => {
     mockReturning.mockResolvedValue([]); // INSERT conflict
     mockSelectLimit
       .mockResolvedValueOnce([FAKE_SALE_DOC])

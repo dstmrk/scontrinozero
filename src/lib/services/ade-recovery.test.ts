@@ -305,7 +305,7 @@ describe("reconcileSaleDocument", () => {
     expect(result).toEqual({ kind: "none" });
   });
 
-  // Invariante su cui si appoggia REVIEW.md #91: un match VENDITA ha sempre un
+  // Invariante su cui si appoggia issue #995: un match VENDITA ha sempre un
   // `data` parsabile, perché la prossimità temporale è una condizione del match.
   it("ritorna none quando il `data` non è parsabile (mai un match senza istante)", () => {
     const result = reconcileSaleDocument({
@@ -521,7 +521,7 @@ describe("markDocumentErrorBestEffort", () => {
   });
 });
 
-describe("registeredAt sul match riconciliato (REVIEW.md #91)", () => {
+describe("registeredAt sul match riconciliato (issue #995)", () => {
   it("vendita: il match porta l'istante dichiarato da AdE, non il nostro createdAt", () => {
     // `data` AdE è wall-clock italiano: 10:06:14 CET → 09:06:14 UTC.
     const result = reconcileSaleDocument({

@@ -109,7 +109,7 @@ project, costi fissi ~€0".
 
 ### B — Runtime nativo sul dispositivo dell'esercente
 
-L'app nativa iOS/Android già in valutazione in `PLAN.md` (v2.0). Sposta
+L'app nativa iOS/Android già in valutazione (v2.0, `docs/mobile-v2.md`). Sposta
 l'esecuzione del flusso AdE dal server al dispositivo dell'esercente, e
 sblocca le due capability oggi precluse alla PWA:
 

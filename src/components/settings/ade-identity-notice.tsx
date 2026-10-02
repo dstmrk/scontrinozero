@@ -17,7 +17,7 @@ import type {
 
 /**
  * Avviso sul disallineamento fra l'identità stampata sullo scontrino e quella
- * registrata all'AdE sulla partita IVA su cui si opera (REVIEW.md #106).
+ * registrata all'AdE sulla partita IVA su cui si opera (issue #984).
  *
  * **Non è una card: non renderizza nulla quando non c'è divergenza.** Lo
  * stesso criterio dell'avviso stale-pending — un blocco che compare sempre

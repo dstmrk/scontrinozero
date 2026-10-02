@@ -546,7 +546,7 @@ async function recoverStaleReceipt(args: {
  * Esportata perché la verifica manuale di un PENDING orfano
  * (`pending-verification.ts`) chiude con la stessa UPDATE: duplicarla
  * significherebbe due posti dove ricordarsi i guard su `kind`, sugli stati
- * finalizzabili e sull'istante autorevole di REVIEW.md #91.
+ * finalizzabili e sull'istante autorevole di issue #995.
  */
 export async function finalizeSaleOnly(
   documentId: string,
@@ -573,7 +573,7 @@ export async function finalizeSaleOnly(
             status: "ACCEPTED",
             adeTransactionId,
             adeProgressive,
-            // REVIEW.md #91: su una riga stale il DEFAULT now() dell'INSERT puo'
+            // issue #995: su una riga stale il DEFAULT now() dell'INSERT puo'
             // precedere di minuti l'istante in cui AdE ha registrato, e quella
             // data finisce su PDF, storico ed export. Quando il recovery ha
             // riconciliato il documento scriviamo l'istante autorevole; sul

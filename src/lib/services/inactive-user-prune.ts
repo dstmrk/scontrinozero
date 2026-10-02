@@ -19,7 +19,7 @@ import {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Budget di latenza della SELECT dei candidati (REVIEW.md #81).
+ * Budget di latenza della SELECT dei candidati (issue #981).
  *
  * Lo sweep gira da `setInterval` in `src/instrumentation.ts`, fuori da qualunque
  * richiesta: nessun utente aspetta il risultato, ma la connessione che occupa
@@ -36,7 +36,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export const PRUNE_CANDIDATES_QUERY_TIMEOUT_MS = 30_000;
 
 /**
- * Tetto di candidati per passata (REVIEW.md #81).
+ * Tetto di candidati per passata (issue #981).
  *
  * NON è un'ottimizzazione: l'aggregato full-table del LEFT JOIN viene calcolato
  * comunque, prima che il LIMIT si applichi — quello resta il punto 2 del
@@ -108,7 +108,7 @@ async function setWarningSentAt(
 }
 
 /**
- * Sweep GDPR di cancellazione utenti inattivi (PLAN.md v1.4.2, base legale:
+ * Sweep GDPR di cancellazione utenti inattivi (v1.4.2, base legale:
  * minimizzazione dati, art. 5(1)(e) GDPR). Processo in due fasi, entrambe
  * eseguite in questa passata:
  *

@@ -32,7 +32,7 @@ describe("RelatedHelpArticles", () => {
     // così il browser fa hard navigation e il widget Turnstile carica solo
     // sul dominio app (vedi regola #15 in CLAUDE.md). Porta anche la pagina di
     // partenza, che è l'unica attribuzione possibile senza storage lato client
-    // (REVIEW.md #109).
+    // (issue #999).
     const href = cta.getAttribute("href") ?? "";
     expect(href.startsWith("http")).toBe(true);
     const url = new URL(href);

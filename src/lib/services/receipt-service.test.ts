@@ -763,7 +763,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
-  it("recovery vendita: finalize-only scrive ade_registered_at con l'istante AdE, non col nostro (REVIEW.md #91)", async () => {
+  it("recovery vendita: finalize-only scrive ade_registered_at con l'istante AdE, non col nostro (issue #995)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     // La riga è stale per definizione: il DEFAULT now() dell'INSERT è di
     // minuti precedente all'istante in cui l'AdE ha davvero registrato.

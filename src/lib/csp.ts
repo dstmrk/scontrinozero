@@ -8,7 +8,7 @@
  *    in `src/components/json-ld.tsx` (escape `<>&`) e dal fatto che TUTTI i
  *    payload JSON-LD sono statici a build time (nessun input utente raggiunge
  *    `dangerouslySetInnerHTML`). Rimozione tramite hash/nonce pianificata
- *    — vedi PLAN.md.
+ *    — vedi issue #988.
  *  - `style-src 'unsafe-inline'` resta: Tailwind 4 inline + Radix UI portali
  *    iniettano style runtime non isolabili senza nonce dinamico.
  */

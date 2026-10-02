@@ -146,7 +146,7 @@ export function isTrialExpired(trialStartedAt: Date | null): boolean {
  *
  * - `trial` → mai (la scadenza trial passa per `trialStartedAt`/`isTrialExpired`)
  * - `unlimited` → mai (esente per design: `planExpiresAt` è solo anchor
- *   informativo, vedi `PLAN.md`)
+ *   informativo)
  * - `planExpiresAt` null → mai (nessuna scadenza registrata)
  * - `starter` / `pro` / `developer_*` → true se `now` è oltre
  *   `planExpiresAt` + grazia

@@ -191,7 +191,7 @@ export function isExpectedUserAdeError(err: unknown): boolean {
   // fine, quindi non è un guasto nostro né del portale; è deterministico
   // (nessun retry produce una P.IVA che non esiste) e si corregge solo
   // cambiando utenza. Resta tracciabile via il log `ade:wizard_piva_missing`
-  // nel dataset Sentry `logs` — trigger di riapertura in REVIEW.md #106.
+  // nel dataset Sentry `logs` — trigger di riapertura in issue #984.
   if (err instanceof AdeNoPartitaIvaError) return true;
   // Utenza di lavoro: richiede una scelta che non abbiamo, o punta a un
   // incarico che il portale non offre più. Entrambe deterministiche — nessun

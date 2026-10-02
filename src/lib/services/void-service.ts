@@ -286,7 +286,7 @@ async function finalizeVoidOnly(
             status: "VOID_ACCEPTED",
             adeTransactionId,
             adeProgressive,
-            // REVIEW.md #91: l'istante autorevole dell'ANNULLO, quando il
+            // issue #995: l'istante autorevole dell'ANNULLO, quando il
             // recovery l'ha riconciliato. Solo su questa riga — la vendita
             // annullata conserva il proprio (sono due documenti fiscali
             // distinti, con due date di registrazione diverse).

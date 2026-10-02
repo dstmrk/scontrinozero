@@ -233,7 +233,7 @@ export type AdeReconcileResult =
       numeroProgressivo: string;
       /**
        * Istante in cui l'AdE dichiara di aver registrato il documento, parsato
-       * dal `data` del summary (REVIEW.md #91). E' il valore autorevole per
+       * dal `data` del summary (issue #995). E' il valore autorevole per
        * `ade_registered_at`: sulla riga stale il nostro `DEFAULT now()` all'INSERT
        * puo' precederlo di minuti, ed e' l'orario che finisce su PDF, storico ed
        * export.

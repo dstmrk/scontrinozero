@@ -120,7 +120,7 @@ export default async function SettingsPage({
             loginMethod: adeCredentials.loginMethod,
             // NULL = utenza "me stesso". Gate dell'avviso sulla denominazione:
             // solo chi ha scelto su quale P.IVA operare puo' avere stampato
-            // sullo scontrino il nome di qualcun altro (REVIEW.md #106).
+            // sullo scontrino il nome di qualcun altro (issue #984).
             utenzaPiva: adeCredentials.utenzaPiva,
             // Segnale "credenziali risalvate" per AdeCredentialsSection.
             updatedAt: adeCredentials.updatedAt,

@@ -280,7 +280,7 @@ export async function updateBusiness(
  */
 /**
  * Preambolo condiviso dalle due action che allineano l'identita' dell'attivita'
- * a quella registrata all'AdE (REVIEW.md #106).
+ * a quella registrata all'AdE (issue #984).
  *
  * Nessuna delle due accetta valori dal chiamante: prendono l'id e rileggono da
  * qui le colonne `ade_*`, osservate all'ultima verifica riuscita. Farsi passare

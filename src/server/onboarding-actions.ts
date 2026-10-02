@@ -153,7 +153,7 @@ export type OnboardingStatus = {
    * opera per conto di una societa', o ne ha piu' d'una propria.
    *
    * Sta qui e non dietro una query a parte perche' e' il gate a monte
-   * dell'avviso sull'identita' AdE (REVIEW.md #106), che puo' accendersi solo
+   * dell'avviso sull'identita' AdE (issue #984), che puo' accendersi solo
    * in questo caso. Costa un'espressione su un JOIN che gia' c'e' — zero
    * righe, zero join in piu' — e in cambio risparmia la lettura mirata delle
    * tredici colonne a tutti gli altri, che sono la stragrande maggioranza.
@@ -736,7 +736,7 @@ async function finalizeAdeVerification(params: {
     const vatNumber = fiscalData.identificativiFiscali.partitaIva;
     const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
 
-    // Denominazione registrata sulla P.IVA (REVIEW.md #106). Scritta qui e non
+    // Denominazione registrata sulla P.IVA (issue #984). Scritta qui e non
     // in una UPDATE propria per due motivi: eredita lo stesso lock ottimistico
     // — una sessione stantia non ne lascia traccia piu' di quanta ne lasci
     // sugli identificativi — e viaggia con la P.IVA a cui si riferisce, che e'
@@ -974,7 +974,7 @@ async function attemptAdeLoginForVerification(
       },
     );
     // Più partite IVA disponibili: la lista risale alla UI, che la trasforma nel
-    // picker (HAR.md #18, REVIEW.md #106).
+    // picker (HAR.md #18, issue #984).
     //
     // Su un business già collegato il picker NON si offre: `applyUtenzaSelection`
     // rifiuta ogni scelta, quindi mostrarlo sarebbe un vicolo cieco — l'utente
@@ -1521,7 +1521,7 @@ export const getOnboardingStatus = cache(
 );
 
 /**
- * Legge il flag "tour onboarding visto" per l'utente corrente (PLAN.md v1.4.1).
+ * Legge il flag "tour onboarding visto" per l'utente corrente (v1.4.1).
  * Usato dal dashboard layout per decidere se montare il walkthrough guidato:
  * letto server-side → niente flash di overlay (performance percepita, priorità #1).
  *
@@ -1550,8 +1550,8 @@ export const getOnboardingTourSeen = cache(async (): Promise<boolean> => {
 });
 
 /**
- * Marca il tour onboarding come visto/skippato per l'utente corrente (PLAN.md
- * v1.4.1). Chiamata dal componente client quando il walkthrough termina
+ * Marca il tour onboarding come visto/skippato per l'utente corrente
+ * (v1.4.1). Chiamata dal componente client quando il walkthrough termina
  * (FINISHED) o viene skippato (SKIPPED).
  *
  * `WHERE onboarding_tour_seen_at IS NULL`: idempotente e race-safe — il primo

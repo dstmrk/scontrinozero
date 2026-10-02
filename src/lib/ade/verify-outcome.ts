@@ -22,7 +22,7 @@ import { isTransientAdeError } from "./error-messages";
  * prodotto diversi, con tre rimedi diversi, e finora erano indistinguibili.
  * L'informazione c'era già tutta a runtime: moriva in un messaggio a schermo.
  *
- * Perché non i Sentry Logs: campionano e scartano (misurato, REVIEW.md #106),
+ * Perché non i Sentry Logs: campionano e scartano (misurato, issue #984),
  * quindi non reggono un conteggio. Questa colonna si interroga con un
  * `GROUP BY` ed è esatta.
  *

@@ -192,7 +192,7 @@ describe("GET /api/v1/receipts/[id]", () => {
   });
 
   it("ritorna payments[] e paymentMethod null su un pagamento misto", async () => {
-    // Additivo, non breaking (REVIEW.md #87): il formato persistito scrive
+    // Additivo, non breaking (issue #983): il formato persistito scrive
     // `paymentMethod` SOLO sui metodi singoli, quindi sui misti il campo è
     // assente e la response porta il `null` che il contratto v1 produce già
     // oggi sulle righe storiche.

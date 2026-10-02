@@ -137,7 +137,7 @@ export async function GET(
       // campo e' assente e `readRawPaymentMethod` restituisce `null` da se',
       // senza un ramo dedicato.
       // Nessun consumer v1 si rompe: `null` e' una forma che il contratto
-      // produce da sempre (REVIEW.md #87, che v2 chiudera' togliendo lo scalare).
+      // produce da sempre (issue #983, che v2 chiudera' togliendo lo scalare).
       paymentMethod: readRawPaymentMethod(doc.publicRequest),
       payments: v1Payments(payments),
       lotteryCode: doc.lotteryCode,

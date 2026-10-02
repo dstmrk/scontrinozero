@@ -570,7 +570,7 @@ export async function getAdminPaidUsers(): Promise<AdminPaidUsersResult> {
  * scadere il trial senza mai completare non è più un caso su cui intervenire.
  * La query senza l'ultimo filtro è quella con cui il finding è stato misurato
  * (10 righe su 22 il 16/09/2026), e sta qui perché i Sentry Logs campionano e
- * scartano — un conteggio preso da lì non regge (REVIEW.md #106).
+ * scartano — un conteggio preso da lì non regge (issue #984).
  *
  * **Non prende un range**, come `getAdminTrialExpiring`: la domanda è "chi è
  * fermo adesso", e chi si è arenato a maggio deve comparire anche guardando

@@ -123,7 +123,7 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    `ciePollIntervalMs`), scelta per stare **sotto** il taglio ~100 s del proxy
    Cloudflare (errore 524). Se allunghi l'attesa, il gate reale è quello, non AdE.
    Il ramo SPID (`spidMaxPolls`, 30 poll) è implementato e testato ma **non ha
-   chiamanti**: SPID resta precluso alla PWA (vedi `PLAN.md`).
+   chiamanti**: SPID resta precluso alla PWA (vedi `docs/mobile-v2.md`).
 6. **Un rifiuto a livello2 non è per forza "credenziali sbagliate".** Il
    rilevamento KO scatta sul testo "Credenziali non valide" **oppure** sulla
    sola classe `form-control … error`. Il 28/09/2026 le stesse credenziali
@@ -363,7 +363,7 @@ dai campi di `businesses` e lo manda con `modificati: true`, che all'AdE
 significa «ignora quello che hai, usa questo».
 
 Sono quindi due identità che possono divergere in silenzio, e l'unica visibile
-sullo scontrino è la nostra. Il caso che l'ha reso evidente (REVIEW.md #106):
+sullo scontrino è la nostra. Il caso che l'ha reso evidente (issue #984):
 chi opera per conto di una società digita la ragione sociale al **primo** passo
 dell'onboarding, prima di scegliere su quale P.IVA opererà — e lo scontrino
 esce con la P.IVA della società e il nome della persona.
@@ -571,7 +571,8 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    dovrebbe entrare nel recovery da solo.
 
    ⚠️ **"Impone" non è "garantisce", e il solo consumer API in produzione non
-   obbedisce.** Misurato sul DB il 22/09/2026 (`REVIEW.md`, "Rischi accettati"): quattro righe
+   obbedisce.** Misurato sul DB il 22/09/2026
+   (`docs/architecture/accepted-risks.md`): quattro righe
    `PENDING` dal 4 agosto, tutte via Developer API, due coppie con lo stesso
    `request_hash` a 57 e 20 secondi di distanza — cioè un client che ritenta
    dopo un timeout con una `idempotencyKey` **nuova** ogni volta. Ogni retry

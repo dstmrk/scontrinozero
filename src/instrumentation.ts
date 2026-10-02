@@ -174,7 +174,7 @@ export const INACTIVE_USER_PRUNE_INITIAL_DELAY_MS = 15 * 60 * 1000; // 15 min
 let inactiveUserPruneStarted = false;
 
 /**
- * Sweep GDPR di cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
+ * Sweep GDPR di cancellazione utenti inattivi >12 mesi (v1.4.2).
  * Stesso pattern di `startSupabaseKeepAlive`/`startStripeWebhookClaimSweep`:
  * timer unref'd con guardia d'idempotenza, cadenza fissa giornaliera, più un
  * run iniziale ritardato (REVIEW.md #41). `register()` avvia lo sweep SOLO se
@@ -240,8 +240,8 @@ export const STALE_PENDING_SWEEP_INITIAL_DELAY_MS = 5 * 60 * 1000;
  * job di background che scandisce una tabella senza filtro per tenant sullo
  * stesso pool da 10 che serve la cassa. Non rende la query più veloce — rende
  * limitato il suo fallimento, così una scansione degenere non tiene occupata
- * una connessione che serve a emettere scontrini (la lezione di REVIEW.md
- * #81).
+ * una connessione che serve a emettere scontrini (la lezione di issue
+ * #981).
  */
 export const STALE_PENDING_COUNT_TIMEOUT_MS = 30_000;
 
@@ -350,7 +350,7 @@ export async function register() {
     // `count(*)` ogni sei ore non è una feature da spegnere.
     startStalePendingSweep();
 
-    // Sweep GDPR cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
+    // Sweep GDPR cancellazione utenti inattivi >12 mesi (v1.4.2).
     // Feature OPT-IN e distruttiva: parte SOLO se INACTIVE_USER_PRUNE_ENABLED=true.
     // La config (pure, no deps DB) è letta a parte per non tirare dentro la
     // pipeline di cancellazione quando la feature è spenta (default).

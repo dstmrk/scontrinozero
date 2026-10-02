@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Package, ShoppingCart, History, BarChart2 } from "lucide-react";
 
-// `tourStep`: ancora per l'onboarding tour (PLAN.md v1.4.1). Questa è la nav
+// `tourStep`: ancora per l'onboarding tour (v1.4.1). Questa è la nav
 // mobile (dentro `[data-tour-nav="mobile"]`); il tour la usa quando il viewport
 // è < md. Impostazioni su mobile è l'icona ingranaggio nell'header del layout
 // (`[data-tour-step="settings-mobile"]`), non in bottom-nav.

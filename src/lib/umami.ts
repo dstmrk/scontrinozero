@@ -21,8 +21,8 @@ declare global {
 
 /**
  * Nomi evento stabili. Come i fingerprint Sentry: cambiarli **perde la
- * continuità storica** del report. Set curato (vedi PLAN.md) — mantenerlo
- * piccolo.
+ * continuità storica** del report. Set curato, documentato in
+ * `deploy/umami/README.md` — mantenerlo piccolo.
  */
 export const UMAMI_EVENTS = {
   receiptEmitted: "receipt_emitted",
