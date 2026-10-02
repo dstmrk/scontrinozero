@@ -141,7 +141,7 @@ leggono i resi, ma nessuna server action né route ne crea ancora uno.
    rimborso non ha un metodo noto). Storico ed export CSV leggono
    `kind IN ('SALE','RETURN')`, con le stesse righe nello stesso ordine: il
    reso è una riga a sé, nel giorno del reso, in negativo, con stato `reso`
-   (il CSV lascia vuote le celle di cassa, il dettaglio porta quantità e
+   (il CSV lascia vuote le celle di cassa e cita la vendita in `rif_vendita`, il dettaglio porta quantità e
    totale di riga negativi). Sulla riga della vendita `returnedQuantity`
    somma i resi accettati per `lineIndex` (`fetchReturnedByLine` in
    `src/server/storico-actions.ts`); da lì `saleReturnProgress`

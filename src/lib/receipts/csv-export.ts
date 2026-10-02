@@ -13,6 +13,9 @@ import { commercialDocuments } from "@/db/schema";
 // sempre vuota — il campo `voided_document_id` e' popolato solo sui VOID, e
 // i VOID non sono righe del CSV.
 const voidDocAlias = alias(commercialDocuments, "void_doc");
+// Alias self-join inverso: per ogni RETURN, la vendita a cui punta
+// `returned_document_id`, per la colonna `rif_vendita`.
+const returnedSaleAlias = alias(commercialDocuments, "returned_sale");
 import {
   calcDocTotal,
   fetchLinesByDocIds,
@@ -44,7 +47,8 @@ const BATCH_SIZE = 500;
  * i VOID non sono righe): al suo posto `data_annullo`, che e' l'informazione
  * che quella colonna provava a dare. Sparita anche `tipo`, che valeva `SALE`
  * su ogni riga: il reso, quando e' arrivato, si e' preso uno `stato` suo
- * (`reso`) invece di riportarla, per non cambiare la forma del file.
+ * (`reso`) invece di riportarla, e una sola colonna nuova, `rif_vendita`,
+ * per risalire alla vendita che rettifica.
  */
 export const RECEIPT_CSV_HEADERS = [
   "data",
@@ -63,6 +67,10 @@ export const RECEIPT_CSV_HEADERS = [
   "descrizione",
   "codice_lotteria",
   "data_annullo",
+  // Su un reso, il numero AdE della vendita resa: lo stesso del blocco
+  // "Documento di riferimento" della ricevuta. Leggibile da una persona,
+  // quindi sta prima degli id tecnici.
+  "rif_vendita",
   "id_scontrino",
   "id_transazione_ade",
 ] as const;
@@ -87,6 +95,11 @@ export type ReceiptDocRow = {
    * annullato). Popolato da LEFT JOIN su commercial_documents AS void_doc.
    */
   voidRegisteredAt: Date | null;
+  /**
+   * Numero AdE della vendita resa, solo su un RETURN (NULL altrimenti, e su
+   * un reso la cui vendita non c'è più). LEFT JOIN su returned_sale.
+   */
+  returnOfAdeProgressive: string | null;
   publicRequest: unknown;
 };
 
@@ -204,6 +217,7 @@ function formatReturnRow(
     description,
     doc.lotteryCode ?? "",
     "",
+    doc.returnOfAdeProgressive ?? "",
     doc.id,
     doc.adeTransactionId ?? "",
   ];
@@ -259,6 +273,7 @@ export function formatReceiptRow(
     description,
     doc.lotteryCode ?? "",
     doc.voidRegisteredAt ? formatRomeDate(doc.voidRegisteredAt) : "",
+    "",
     doc.id,
     doc.adeTransactionId ?? "",
   ];
@@ -288,6 +303,7 @@ export function formatAdeReceiptRow(row: AdeReceiptListItem): string[] {
     "agenzia entrate",
     STATUS_LABELS.get(row.status) ?? row.status,
     row.total.replace(".", ","),
+    "",
     "",
     "",
     "",
@@ -446,6 +462,7 @@ async function fetchDocsBatch(
       adeTransactionId: commercialDocuments.adeTransactionId,
       lotteryCode: commercialDocuments.lotteryCode,
       voidRegisteredAt: voidDocAlias.adeRegisteredAt,
+      returnOfAdeProgressive: returnedSaleAlias.adeProgressive,
       publicRequest: commercialDocuments.publicRequest,
     })
     .from(commercialDocuments)
@@ -456,6 +473,10 @@ async function fetchDocsBatch(
         eq(voidDocAlias.kind, "VOID"),
         eq(voidDocAlias.status, "VOID_ACCEPTED"),
       ),
+    )
+    .leftJoin(
+      returnedSaleAlias,
+      eq(returnedSaleAlias.id, commercialDocuments.returnedDocumentId),
     )
     .where(and(...conditions))
     // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:

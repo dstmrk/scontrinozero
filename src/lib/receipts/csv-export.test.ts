@@ -26,6 +26,7 @@ vi.mock("@/db/schema", () => ({
     adeTransactionId: "ade_transaction_id",
     lotteryCode: "lottery_code",
     voidedDocumentId: "voided_document_id",
+    returnedDocumentId: "returned_document_id",
     publicRequest: "public_request",
   },
 }));
@@ -37,6 +38,7 @@ vi.mock("drizzle-orm/pg-core", () => ({
     kind: `${name}.kind`,
     status: `${name}.status`,
     voidedDocumentId: `${name}.voided_document_id`,
+    adeProgressive: `${name}.ade_progressive`,
     adeRegisteredAt: `${name}.ade_registered_at`,
   }),
 }));
@@ -91,6 +93,7 @@ function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
     adeTransactionId: "tx-12345",
     lotteryCode: null,
     voidRegisteredAt: null,
+    returnOfAdeProgressive: null,
     publicRequest: { paymentMethod: "PC" },
     ...overrides,
   };
@@ -111,6 +114,7 @@ describe("RECEIPT_CSV_HEADERS", () => {
       "descrizione",
       "codice_lotteria",
       "data_annullo",
+      "rif_vendita",
       "id_scontrino",
       "id_transazione_ade",
     ]);
@@ -171,6 +175,7 @@ describe("formatReceiptRow", () => {
       "Caffè | Cornetto",
       "",
       "",
+      "",
       "doc-1",
       "tx-12345",
     ]);
@@ -197,6 +202,22 @@ describe("formatReceiptRow", () => {
     expect(row[sumCol("metodo_pagamento")]).toBe("");
     expect(row[sumCol("data_annullo")]).toBe("");
     expect(row[sumCol("descrizione")]).toBe("Caffè");
+  });
+
+  // Il commercialista che trova un reso nel file deve poter risalire alla
+  // vendita senza aprire lo storico: il numero AdE e' quello stampato nel
+  // blocco "Documento di riferimento" della ricevuta di reso.
+  it("cita su un reso il numero AdE della vendita resa", () => {
+    const row = formatReceiptRow(
+      doc({ kind: "RETURN", returnOfAdeProgressive: "DCW2026/5111-2188" }),
+      6,
+      "Caffè",
+    );
+    expect(row[sumCol("rif_vendita")]).toBe("DCW2026/5111-2188");
+  });
+
+  it("lascia vuoto rif_vendita su una vendita", () => {
+    expect(formatReceiptRow(doc(), 1, "")[sumCol("rif_vendita")]).toBe("");
   });
 
   it("unisce le modalità su un pagamento misto", () => {
@@ -405,7 +426,7 @@ function setupDbMock(docs: ReceiptDocRow[]) {
 
   select.mockReturnValue({ from });
   from.mockReturnValue({ leftJoin });
-  leftJoin.mockReturnValue({ where });
+  leftJoin.mockReturnValue({ leftJoin, where });
   where.mockReturnValue({ orderBy: order });
   order.mockReturnValue({ limit: () => ({ offset: offset }) });
   offset.mockImplementation((n: number) => {
@@ -788,7 +809,7 @@ describe("buildReceiptsCsvStream", () => {
 
     select.mockReturnValue({ from });
     from.mockReturnValue({ leftJoin });
-    leftJoin.mockReturnValue({ where });
+    leftJoin.mockReturnValue({ leftJoin, where });
     where.mockReturnValue({ orderBy: order });
     order.mockReturnValue({
       limit: () => ({
@@ -818,7 +839,7 @@ describe("buildReceiptsCsvStream", () => {
 
     select.mockReturnValue({ from });
     from.mockReturnValue({ leftJoin });
-    leftJoin.mockReturnValue({ where });
+    leftJoin.mockReturnValue({ leftJoin, where });
     where.mockReturnValue({ orderBy: order });
     order.mockReturnValue({ limit: () => ({ offset: () => [] }) });
     mockGetDb.mockReturnValue({ select });
@@ -849,7 +870,7 @@ describe("buildReceiptsCsvStream", () => {
 
     select.mockReturnValue({ from });
     from.mockReturnValue({ leftJoin });
-    leftJoin.mockReturnValue({ where });
+    leftJoin.mockReturnValue({ leftJoin, where });
     where.mockReturnValue({ orderBy: order });
     order.mockReturnValue({ limit: () => ({ offset: () => [] }) });
     mockGetDb.mockReturnValue({ select });
@@ -932,21 +953,23 @@ describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati
     const select = vi.fn().mockReturnValue({
       from: () => ({
         leftJoin: () => ({
-          where: () => ({
-            orderBy: (...keys: { _desc: string }[]) => {
-              orderKeys = keys;
-              return {
-                limit: (batchSize: number) => ({
-                  offset: (offset: number) => {
-                    const ordered = applyOrder(all, orderKeys, queryIndex);
-                    queryIndex += 1;
-                    return Promise.resolve(
-                      ordered.slice(offset, offset + batchSize),
-                    );
-                  },
-                }),
-              };
-            },
+          leftJoin: () => ({
+            where: () => ({
+              orderBy: (...keys: { _desc: string }[]) => {
+                orderKeys = keys;
+                return {
+                  limit: (batchSize: number) => ({
+                    offset: (offset: number) => {
+                      const ordered = applyOrder(all, orderKeys, queryIndex);
+                      queryIndex += 1;
+                      return Promise.resolve(
+                        ordered.slice(offset, offset + batchSize),
+                      );
+                    },
+                  }),
+                };
+              },
+            }),
           }),
         }),
       }),
