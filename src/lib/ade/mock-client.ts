@@ -50,10 +50,84 @@ const MOCK_MULTI_PERSONA_CANDIDATES: readonly AdeUtenzaCandidate[] = [
   { piva: "22222222222", provenienza: "incarico" },
 ];
 
+/**
+ * Archivio dei documenti emessi in mock, a livello di modulo.
+ *
+ * In mock ogni operazione apre il suo client (`withAdeSession` non tiene cache,
+ * `src/lib/ade/index.ts`), quindi uno stato per istanza non sopravvive fra
+ * l'emissione e il reso. Senza archivio `getDocument` risponderebbe senza
+ * righe e un reso non sarebbe percorribile in dev e sandbox.
+ *
+ * Vive quanto il processo: dopo un riavvio le vendite precedenti non ci sono
+ * più, e il reso di quelle fallisce come se l'AdE non le conoscesse. È un
+ * limite del mock, non del flusso. Il tetto tiene limitata la memoria.
+ */
+const MOCK_ARCHIVE_MAX = 500;
+const mockArchive = new Map<string, AdeDocumentDetail>();
+
+/**
+ * Contatori di processo, non di istanza: con un client per operazione, un
+ * contatore per istanza coniava lo stesso idtrx a ogni emissione. Il seme da
+ * `Date.now()` evita di riusare gli idtrx di un processo precedente, che sono
+ * ancora nel DB.
+ */
+let nextTransactionId = Date.now();
+let nextProgressive = 1;
+
+function archiveSale(
+  idtrx: string,
+  progressivo: string,
+  payload: AdePayload,
+): void {
+  const docComm = payload.documentoCommerciale;
+  mockArchive.set(idtrx, {
+    idtrx,
+    documentoCommerciale: {
+      ...docComm,
+      numeroProgressivo: progressivo,
+      elementiContabili: docComm.elementiContabili.map((el, i) => ({
+        idElementoContabile: `${idtrx}${String(i).padStart(2, "0")}`,
+        // Il GET porta il cumulativo dei resi, senza `resiPregressi`
+        // (HAR.md #19a): una vendita appena emessa parte da zero.
+        reso: "0",
+        quantita: el.quantita,
+        descrizioneProdotto: el.descrizioneProdotto,
+        prezzoLordo: el.prezzoLordo,
+        prezzoUnitario: el.prezzoUnitario,
+        scontoUnitario: el.scontoUnitario,
+        scontoLordo: el.scontoLordo,
+        aliquotaIVA: el.aliquotaIVA,
+        importoIVA: el.importoIVA,
+        imponibile: el.imponibile,
+        imponibileNetto: el.imponibileNetto,
+        totale: el.totale,
+        omaggio: el.omaggio,
+      })),
+    },
+  });
+  if (mockArchive.size > MOCK_ARCHIVE_MAX) {
+    const oldest = mockArchive.keys().next().value;
+    if (oldest !== undefined) mockArchive.delete(oldest);
+  }
+}
+
+/** Somma le quantità del reso al cumulativo di riga della vendita. */
+function applyReturn(payload: AdePayload): boolean {
+  const sale = payload.idtrx ? mockArchive.get(payload.idtrx) : undefined;
+  if (!sale) return false;
+  const lines = payload.documentoCommerciale.elementiContabili;
+  sale.documentoCommerciale.elementiContabili =
+    sale.documentoCommerciale.elementiContabili.map((el, i) => {
+      const cents =
+        Math.round(Number(el.reso) * 100) +
+        Math.round(Number(lines[i]?.reso ?? 0) * 100);
+      return { ...el, reso: String(cents / 100) };
+    });
+  return true;
+}
+
 export class MockAdeClient implements AdeClient {
   private session: AdeSession | null = null;
-  private transactionCounter = 151000000;
-  private progressiveCounter = 1;
 
   login(
     credentials: {
@@ -121,17 +195,44 @@ export class MockAdeClient implements AdeClient {
     });
   }
 
-  submitSale(_payload: AdePayload): Promise<AdeResponse> {
-    return this.whenLoggedIn(() => this.mockSubmit());
+  submitSale(payload: AdePayload): Promise<AdeResponse> {
+    return this.whenLoggedIn(() => {
+      const response = this.mockSubmit();
+      archiveSale(response.idtrx!, response.progressivo!, payload);
+      return response;
+    });
   }
 
   submitVoid(_payload: AdePayload): Promise<AdeResponse> {
     return this.whenLoggedIn(() => this.mockSubmit());
   }
 
+  /**
+   * Il reso di una vendita che il mock non conosce viene rifiutato come
+   * farebbe l'AdE con `esito: false`, invece di riuscire su righe inventate.
+   */
+  submitReturn(payload: AdePayload): Promise<AdeResponse> {
+    return this.whenLoggedIn(() => {
+      if (!applyReturn(payload)) {
+        return {
+          esito: false,
+          idtrx: null,
+          progressivo: null,
+          errori: [
+            {
+              codice: "MOCK_NOT_FOUND",
+              descrizione: "Documento di vendita sconosciuto al mock",
+            },
+          ],
+        };
+      }
+      return this.mockSubmit();
+    });
+  }
+
   private mockSubmit(): AdeResponse {
-    const idtrx = String(this.transactionCounter++);
-    const progressivo = `DCW2026/MOCK-${this.progressiveCounter++}`;
+    const idtrx = String(nextTransactionId++);
+    const progressivo = `DCW2026/MOCK-${nextProgressive++}`;
 
     return {
       esito: true,
@@ -169,6 +270,8 @@ export class MockAdeClient implements AdeClient {
   }
 
   getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
+    const archived = mockArchive.get(_idtrx);
+    if (archived) return this.whenLoggedIn(() => structuredClone(archived));
     // Return a minimal valid document matching the real API response structure.
     // HAR finding (annullo.har [04]): campi monetari sotto documentoCommerciale,
     // precisione variabile (non 8 decimali). resiPregressi assente negli elementi.

@@ -76,6 +76,12 @@ export interface AdeClient {
   /** Invia un annullo di documento commerciale */
   submitVoid(payload: AdePayload): Promise<AdeResponse>;
 
+  /**
+   * Invia un documento commerciale di reso merce. Stessa POST di vendita e
+   * annullo (HAR.md #19a): cambia solo il payload (`tipologia: "R"`).
+   */
+  submitReturn(payload: AdePayload): Promise<AdeResponse>;
+
   /** Recupera i dati fiscali dell'esercente */
   getFiscalData(): Promise<AdeCedentePrestatore>;
 

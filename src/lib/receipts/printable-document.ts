@@ -3,11 +3,19 @@ import { and, eq, or, type SQL } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
 
 /**
+ * I `kind` che oggi hanno una resa (PDF, ricevuta pubblica, termica). Il reso
+ * (`RETURN`, migrazione 0042) è un documento fiscale a tutti gli effetti, ma
+ * il suo layout normativo (HAR.md #19g) non è ancora implementato: finché non
+ * lo è, nessuna superficie deve stamparlo con il layout di una vendita.
+ */
+export type PrintableKind = "SALE" | "VOID";
+
+/**
  * Il minimo per decidere se un documento e' stampabile. Lo soddisfa
  * `SelectCommercialDocument` senza adattatori.
  */
 export interface PrintableDocumentRef {
-  readonly kind: "SALE" | "VOID";
+  readonly kind: "SALE" | "VOID" | "RETURN";
   readonly status:
     "PENDING" | "ACCEPTED" | "VOID_ACCEPTED" | "REJECTED" | "ERROR";
 }
@@ -20,6 +28,7 @@ export interface PrintableDocumentRef {
  * | SALE | ACCEPTED       | si'        |
  * | SALE | VOID_ACCEPTED  | **no**     |
  * | VOID | VOID_ACCEPTED  | si'        |
+ * | RETURN | qualunque    | **no**, finché non ha la sua resa (`PrintableKind`) |
  *
  * Le prime due righe dicono la regola fiscale: annullato uno scontrino, la
  * ricevuta di vendita non e' piu' un documento valido e non va piu' consegnata
@@ -42,9 +51,12 @@ export interface PrintableDocumentRef {
  * parziale della migrazione 0012 ha il valore cablato nel predicato. Il momento
  * per farlo e' un'eventuale `/api/v2`.
  */
-export function isPrintableDocument(doc: PrintableDocumentRef): boolean {
+export function isPrintableDocument<T extends PrintableDocumentRef>(
+  doc: T,
+): doc is T & { readonly kind: PrintableKind } {
   if (doc.kind === "SALE") return doc.status === "ACCEPTED";
-  return doc.status === "VOID_ACCEPTED";
+  if (doc.kind === "VOID") return doc.status === "VOID_ACCEPTED";
+  return false;
 }
 
 /**

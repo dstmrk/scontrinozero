@@ -39,7 +39,7 @@ describe("commercial_documents schema", () => {
   });
 
   it("document kind enum has correct values", () => {
-    expect(documentKindEnum.enumValues).toEqual(["SALE", "VOID"]);
+    expect(documentKindEnum.enumValues).toEqual(["SALE", "VOID", "RETURN"]);
   });
 
   it("document status enum has correct values", () => {

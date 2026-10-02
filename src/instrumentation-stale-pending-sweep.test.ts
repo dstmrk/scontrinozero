@@ -76,6 +76,7 @@ describe("startStalePendingSweep()", () => {
     mockCountStalePendingDocuments.mockResolvedValue({
       sale: 0,
       void: 0,
+      return: 0,
       oldestCreatedAt: null,
     });
   });
@@ -136,6 +137,7 @@ describe("startStalePendingSweep()", () => {
     mockCountStalePendingDocuments.mockResolvedValue({
       sale: 2,
       void: 1,
+      return: 0,
       oldestCreatedAt: new Date("2026-09-01T08:00:00.000Z"),
     });
     startStalePendingSweep();
@@ -147,9 +149,27 @@ describe("startStalePendingSweep()", () => {
         errorClass: "stale_pending_documents",
         salePending: 2,
         voidPending: 1,
+        returnPending: 0,
         oldestCreatedAt: "2026-09-01T08:00:00.000Z",
       },
       "Documenti PENDING oltre la soglia stale: esito AdE ignoto",
+    );
+  });
+
+  it("un reso orfano da solo basta a far suonare lo sweep", async () => {
+    mockCountStalePendingDocuments.mockResolvedValue({
+      sale: 0,
+      void: 0,
+      return: 1,
+      oldestCreatedAt: null,
+    });
+    startStalePendingSweep();
+
+    await capturedInterval?.();
+
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ returnPending: 1 }),
+      expect.any(String),
     );
   });
 
@@ -157,6 +177,7 @@ describe("startStalePendingSweep()", () => {
     mockCountStalePendingDocuments.mockResolvedValue({
       sale: 1,
       void: 0,
+      return: 0,
       oldestCreatedAt: null,
     });
     startStalePendingSweep();
@@ -173,6 +194,7 @@ describe("startStalePendingSweep()", () => {
     mockCountStalePendingDocuments.mockResolvedValue({
       sale: 1,
       void: 0,
+      return: 0,
       oldestCreatedAt: null,
     });
     startStalePendingSweep();

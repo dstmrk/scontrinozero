@@ -13,7 +13,10 @@ import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { resolveReceiptFooterNote } from "@/lib/receipts/footer-note";
 import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
-import { printableDocumentCondition } from "@/lib/receipts/printable-document";
+import {
+  isPrintableDocument,
+  printableDocumentCondition,
+} from "@/lib/receipts/printable-document";
 import { isValidUuid } from "@/lib/uuid";
 
 // PDF lookup: 1 JOIN auth + 1 SELECT lines + render in-process. 4s coprono
@@ -104,6 +107,8 @@ export async function GET(
         if (rows.length === 0) return null;
 
         const { doc, biz, owner } = rows[0];
+        // Già garantito dalla WHERE: il guard restringe il tipo (`PrintableKind`).
+        if (!isPrintableDocument(doc)) return null;
 
         // Un annullo non ha righe proprie: ristampa quelle della vendita
         // annullata, e ne porta il progressivo per il blocco "Documento di

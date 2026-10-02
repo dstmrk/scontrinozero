@@ -59,6 +59,7 @@ vi.mock("@/db/schema", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((col, val) => ({ col, val })),
+  inArray: vi.fn((col, values) => ({ col, values })),
   and: vi.fn((...args) => args),
   sql: { raw: vi.fn((s) => ({ raw: s })) },
   asc: vi.fn((col) => ({ col, direction: "asc" })),
@@ -153,6 +154,13 @@ describe("GET /api/v1/receipts/[id]", () => {
     const body = await res.json();
     expect(body.id).toBe(DOC_ID);
     expect(body.status).toBe("ACCEPTED");
+  });
+
+  it("filtra sui kind del contratto v1: un reso risponde 404 come un id altrui", async () => {
+    const { inArray } = await import("drizzle-orm");
+    await GET(makeRequest(), makeParams());
+    // Il primo argomento è la colonna `kind`, che lo schema mockato non porta.
+    expect(vi.mocked(inArray).mock.calls[0]?.[1]).toEqual(["SALE", "VOID"]);
   });
 
   it("ritorna lines con i campi corretti", async () => {

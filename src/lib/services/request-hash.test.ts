@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 
-import { hashSaleRequest } from "./request-hash";
+import { hashReturnRequest, hashSaleRequest } from "./request-hash";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
 const LINE: SubmitReceiptInput["lines"][number] = {
@@ -260,5 +260,27 @@ describe("hashSaleRequest — pagamento misto", () => {
       lotteryCode: null,
     });
     expect(mixed).not.toBe(single);
+  });
+});
+
+describe("hashReturnRequest", () => {
+  const base = { documentId: "doc-1", quantities: [1, 0, 2] };
+
+  it("è stabile sulle quantità equivalenti (1 e 1.0, 0.1 + 0.2 e 0.3)", () => {
+    expect(hashReturnRequest(base)).toBe(
+      hashReturnRequest({ documentId: "doc-1", quantities: [1.0, 0, 2.0] }),
+    );
+    expect(
+      hashReturnRequest({ documentId: "doc-1", quantities: [0.1 + 0.2] }),
+    ).toBe(hashReturnRequest({ documentId: "doc-1", quantities: [0.3] }));
+  });
+
+  it("differisce se cambia una quantità o la vendita", () => {
+    expect(hashReturnRequest(base)).not.toBe(
+      hashReturnRequest({ ...base, quantities: [1, 1, 2] }),
+    );
+    expect(hashReturnRequest(base)).not.toBe(
+      hashReturnRequest({ ...base, documentId: "doc-2" }),
+    );
   });
 });

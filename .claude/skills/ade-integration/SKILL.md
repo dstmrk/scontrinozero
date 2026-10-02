@@ -496,20 +496,50 @@ dati di sessione reali): vivono in `har/` solo sulla macchina dell'owner e
 **non esistono in un clone fresco** (CI, sessioni cloud). Se un task richiede
 una HAR assente, chiederla all'utente — non cercarla nel repo.
 
-| File                                       | Feature                                                         | Target                                                                                                       |
-| ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `dati_doc_commerciale.har`                 | Aggiornamento dati business su AdE post-onboarding              | rinviato (possibile feature premium)                                                                         |
-| `aggiungi_prodotto_catalogo.har`           | Aggiunta prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
-| `modifica_prodotto_catalogo.har`           | Modifica prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
-| `elimina_prodotto_catalogo.har`            | Eliminazione prodotto su rubrica AdE                            | nice-to-have (sync catalogo AdE)                                                                             |
-| `ricerca_prodotto_catalogo.har`            | Ricerca prodotto su rubrica AdE                                 | nice-to-have (sync catalogo AdE)                                                                             |
-| `ricerca.har`                              | Ricerca documento su AdE                                        | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
-| `login_cie.har`                            | CIE login flow                                                  | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
-| `sconto_e_pagamento_misto.har`             | Vendita con sconto di riga, sconto a pagare e pagamento misto   | ✅ **tradotto in `HAR.md`** (voci #1-#8, #10-#13) — non serve più la cattura                                 |
-| `annullo_doc_sconto_e_pagamento_misto.har` | Annullo dello stesso documento                                  | ✅ **tradotto in `HAR.md`** (voce #9): nessuna differenza rispetto ad `annullo.har`                          |
-| `nuovo_test_sconto.har`                    | Vendita qta 2 @22% con sconto di riga (test di disambiguazione) | ✅ **tradotto in `HAR.md`** (voce #12): `prezzoLordo` è unitario, `scontoLordo` è di riga                    |
+| File                                                                      | Feature                                                         | Target                                                                                                       |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `dati_doc_commerciale.har`                                                | Aggiornamento dati business su AdE post-onboarding              | rinviato (possibile feature premium)                                                                         |
+| `aggiungi_prodotto_catalogo.har`                                          | Aggiunta prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
+| `modifica_prodotto_catalogo.har`                                          | Modifica prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
+| `elimina_prodotto_catalogo.har`                                           | Eliminazione prodotto su rubrica AdE                            | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca_prodotto_catalogo.har`                                           | Ricerca prodotto su rubrica AdE                                 | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca.har`                                                             | Ricerca documento su AdE                                        | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
+| `login_cie.har`                                                           | CIE login flow                                                  | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
+| `sconto_e_pagamento_misto.har`                                            | Vendita con sconto di riga, sconto a pagare e pagamento misto   | ✅ **tradotto in `HAR.md`** (voci #1-#8, #10-#13) — non serve più la cattura                                 |
+| `annullo_doc_sconto_e_pagamento_misto.har`                                | Annullo dello stesso documento                                  | ✅ **tradotto in `HAR.md`** (voce #9): nessuna differenza rispetto ad `annullo.har`                          |
+| `nuovo_test_sconto.har`                                                   | Vendita qta 2 @22% con sconto di riga (test di disambiguazione) | ✅ **tradotto in `HAR.md`** (voce #12): `prezzoLordo` è unitario, `scontoLordo` è di riga                    |
+| `reso_parziale_1/2.har`, `vendita_tripla.har`, `annullo.har` (02/10/2026) | Reso merce parziale e totale, terzi, annullo dopo i resi        | ✅ **tradotto in `HAR.md`** (voce #19): oracoli verbatim in `tests/_helpers/reso-har-fixtures.ts`            |
 
 ---
+
+## Correzioni di una vendita: le guardie le mettiamo noi
+
+Annullo e reso (`HAR.md` #19) correggono la stessa vendita, e **l'AdE non li
+coordina**: ha accettato l'annullo di una vendita già resa per intero,
+stornando il corrispettivo due volte (#19f). Non c'è un rifiuto su cui
+contare, quindi ogni regola fra le due correzioni sta nel nostro codice:
+
+- **niente annullo dopo un reso**: `hasAnyReturn` sul dettaglio GET che
+  l'annullo legge comunque prima della POST — vede anche i resi fatti dal
+  portale, che il DB non conosce;
+- **niente reso dopo un annullo**: stato della vendita nel DB, più il flag
+  `annulli` della riga V per l'annullo fatto dal portale;
+- **una sola correzione in volo per vendita**: indice unique
+  `idx_commercial_documents_correction_in_flight` (migrazione 0042) su
+  `COALESCE(voided_document_id, returned_document_id)` dove `PENDING`. Un
+  indice invece di un lock: il conflitto arriva all'`ON CONFLICT DO NOTHING`
+  che entrambi i service già gestiscono.
+
+Regola generale: prima di contare su un rifiuto dell'AdE per una
+combinazione di documenti, misurala. Il portale valida il singolo documento,
+non la sua storia.
+
+Il reso aggiunge anche un'asimmetria sulla riconciliazione: una vendita può
+avere **più** resi, quindi `resi === progressivo` non basta come chiave (al
+contrario di `annulli`). Serve l'importo, a **8 decimali** — due resi di
+terzi diversi differiscono meno di un centesimo (#19c) — e per averlo
+l'importo trasmesso si persiste **prima** della POST. Una riga senza importo
+persistito non ha mai trasmesso: niente da cercare.
 
 ## Recovery stale-pending: riconciliazione pre-retry (implementata)
 

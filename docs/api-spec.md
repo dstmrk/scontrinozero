@@ -519,6 +519,15 @@ A livello root:
 }
 ```
 
+### 4.2 Reso merce
+
+Stessa forma dell'annullo con `resoAnnullo.tipologia: "R"` e una quantità per
+riga: `quantita` resta quella venduta, `reso` sono i pezzi resi adesso,
+`resiPregressi` quelli già resi (il cumulativo `reso` del dettaglio GET). Gli
+importi di riga sono riproporzionati sui pezzi resi e trasmessi a 8 decimali,
+anche quando non cadono sul centesimo. Formule, oracoli e limiti in
+`HAR.md` voce #19; implementazione in `src/lib/ade/return-mapper.ts`.
+
 ---
 
 ## 5. Tipi e codifiche

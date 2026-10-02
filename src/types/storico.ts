@@ -29,7 +29,7 @@ export interface ReceiptListItem {
    */
   origin: "local";
   id: string;
-  kind: "SALE" | "VOID";
+  kind: "SALE" | "VOID" | "RETURN";
   status: DocumentStatus;
   adeProgressive: string | null;
   adeTransactionId: string | null;
@@ -239,8 +239,8 @@ export interface VoidReceiptInput {
  * - VOID_PENDING_IN_PROGRESS: un annullo precedente con la stessa idempotencyKey
  *   è ancora in corso (fresh PENDING). Il client dovrebbe ritentare dopo
  *   qualche secondo.
- * - VOID_ALREADY_TARGETED: un altro annullo concorrente sta agendo sulla stessa
- *   SALE (race condition fra utenti).
+ * - VOID_ALREADY_TARGETED: un'altra correzione concorrente — annullo o reso —
+ *   sta agendo sulla stessa SALE (indice di correzione in volo, migr. 0042).
  * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico.
  * - VOID_SYNC_FAILED: l'annullo è stato registrato su AdE ma la sincronizzazione
  *   DB finale è fallita. Richiede cleanup manuale.
@@ -252,6 +252,9 @@ export interface VoidReceiptInput {
  *   **ignoto**: il retry va fatto con la STESSA idempotencyKey.
  * - ADE_PASSWORD_EXPIRED: password Fisconline scaduta, va aggiornata dall'app
  *   web. Nessun retry automatico utile.
+ * - ALREADY_RETURNED: la vendita ha almeno un reso registrato sull'AdE (anche
+ *   fatto dal portale): annullarla stornerebbe il corrispettivo due volte
+ *   (HAR.md #19f). Nessuna POST è partita.
  *
  * L'assenza di codice (rifiuto funzionale AdE non classificato) mappa sul
  * canale API a `ADE_REJECTED` / 422.
@@ -264,7 +267,8 @@ export type VoidReceiptErrorCode =
   | "IDEMPOTENCY_PAYLOAD_MISMATCH"
   | "NOT_FOUND"
   | "ADE_UNAVAILABLE"
-  | "ADE_PASSWORD_EXPIRED";
+  | "ADE_PASSWORD_EXPIRED"
+  | "ALREADY_RETURNED";
 
 export interface VoidReceiptResult {
   error?: string;
@@ -275,6 +279,65 @@ export interface VoidReceiptResult {
   /**
    * Sessione AdE interattiva (CIE) assente/scaduta: l'utente deve ri-collegarsi
    * prima di riprovare. Nessun annullo è stato trasmesso.
+   */
+  reauthRequired?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Return action (reso merce, HAR.md #19)
+// ---------------------------------------------------------------------------
+
+export interface ReturnReceiptInput {
+  /** UUID del documento SALE da rendere. */
+  documentId: string;
+  /** UUID per idempotenza (generato dal client). */
+  idempotencyKey: string;
+  /** businessId dell'utente autenticato. */
+  businessId: string;
+  /**
+   * Pezzi resi adesso per ogni riga della vendita, allineati per indice alle
+   * righe del documento; `0` = riga non resa. Due decimali al massimo.
+   */
+  quantities: number[];
+}
+
+/**
+ * Codici errore machine-readable per il reso. Quelli in comune con l'annullo
+ * hanno lo stesso significato (vedi `VoidReceiptErrorCode`).
+ *
+ * - RETURN_PENDING_IN_PROGRESS: un reso su questa vendita è ancora in volo
+ *   (con questa o con un'altra key). Ritentare fra qualche secondo.
+ * - RETURN_NOT_ALLOWED: la vendita non si può rendere (annullata, anche dal
+ *   portale; annullo in corso; non è una vendita accettata).
+ * - RETURN_INVALID_QUANTITIES: quantità non valide o oltre il residuo letto
+ *   dall'AdE in questo momento.
+ * - RETURN_STATE_CHANGED: riconciliando un reso precedente rimasto in sospeso
+ *   è risultato registrato sull'AdE. Il residuo è cambiato: la richiesta va
+ *   rifatta sulle quantità aggiornate, non ritentata così com'è.
+ * - RETURN_SYNC_FAILED: il reso è registrato sull'AdE ma la sincronizzazione
+ *   DB finale è fallita. Richiede cleanup manuale.
+ */
+export type ReturnReceiptErrorCode =
+  | "RETURN_PENDING_IN_PROGRESS"
+  | "RETURN_NOT_ALLOWED"
+  | "RETURN_INVALID_QUANTITIES"
+  | "RETURN_STATE_CHANGED"
+  | "RETURN_SYNC_FAILED"
+  | "DB_TIMEOUT"
+  | "IDEMPOTENCY_PAYLOAD_MISMATCH"
+  | "NOT_FOUND"
+  | "ADE_UNAVAILABLE"
+  | "ADE_PASSWORD_EXPIRED";
+
+export interface ReturnReceiptResult {
+  error?: string;
+  code?: ReturnReceiptErrorCode;
+  returnDocumentId?: string;
+  adeTransactionId?: string;
+  adeProgressive?: string;
+  /**
+   * Sessione AdE interattiva (CIE) assente/scaduta: l'utente deve ri-collegarsi
+   * prima di riprovare. Nessun reso è stato trasmesso.
    */
   reauthRequired?: boolean;
 }

@@ -57,6 +57,7 @@ sono grandezze fiscali diverse, e dove finisce l'evidenza misurata (#15).
 | 16  | Ricevuta di annullamento: dati, stampa e timestamp                |
 | 17  | Layout ufficiale AdE: dove vanno i due sconti sul documento       |
 | 18  | Utenza di lavoro `incaricato`: il wizard in tre POST              |
+| 19  | Reso merce: payload, resi parziali, ricerca e stampa              |
 
 ---
 
@@ -1490,3 +1491,195 @@ nostra portata: vedi 18.6.
   procedere: nessun nostro flusso ne ha bisogno (18.5-ter).
 - ~~La grafia di `tipoutenza` per il ramo "Me stesso"~~ — **chiusa da 18.7**: è
   `meStesso`, letta nel codice del wizard, non più estrapolata.
+
+---
+
+## 19. Reso merce: payload, resi parziali, ricerca e stampa
+
+**Fonti** (02/10/2026, stessa P.IVA, tutte nella stessa giornata):
+
+| Cattura                                                       | Cosa contiene                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `vendita.har`                                                 | vendita a due righe (2 × "doppio" al 22% con sconto di riga, 1 × "singolo" N2) |
+| `reso_parziale_1.har`                                         | reso di 1 "doppio" + 1 "singolo"                                               |
+| `reso_parziale_2.har`                                         | reso dell'ultimo "doppio" (la vendita è ora resa per intero)                   |
+| `annullo.har`                                                 | **annullo della stessa vendita, già resa per intero — accettato** (19f)        |
+| `annullo_reso_non_possibile.har`                              | solo la lista: il portale non offre l'annullo di un documento di reso          |
+| `vendita_tripla.har`, `reso_parziale_1/2.har` (seconda serie) | 3 pezzi con sconto di riga, reso di 1 poi di 2: il test sui terzi (19c)        |
+
+Più i PDF scaricati dal portale per ogni documento e il layout normativo
+(`Layout documento commerciale_v4.pdf`, pagina 3 "Documento commerciale di
+reso: layout standard").
+
+### 19a. Il reso è l'annullo con `tipologia: "R"` e una quantità per riga
+
+Stessa POST di vendita e annullo (`POST /ser/api/documenti/v1/doc/documenti/`).
+Il portale prima legge la vendita (`GET .../documenti/?numeroProgressivo=…&tipoOperazione=V`,
+poi `GET .../documenti/{idtrx}/`), poi rimanda il documento originale come
+l'annullo della voce #9, con queste differenze rispetto alla vendita:
+
+| Campo                                     | Reso                                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------------------- |
+| `vendita[]`                               | **assente** (come l'annullo)                                                      |
+| `resoAnnullo`                             | `{ tipologia: "R", dataOra: <data vendita>, progressivo: <progressivo vendita> }` |
+| `numeroProgressivo`, `idtrx` (root)       | quelli della **vendita**                                                          |
+| `elementiContabili[].idElementoContabile` | quelli reali, letti dal dettaglio GET                                             |
+| `elementiContabili[].quantita`            | la quantità **venduta**, invariata                                                |
+| `elementiContabili[].reso`                | i pezzi resi **adesso** (0 sulle righe non rese)                                  |
+| `elementiContabili[].resiPregressi`       | i pezzi già resi da resi precedenti                                               |
+| importi di riga                           | **ricalcolati** sui pezzi resi (19b)                                              |
+| totali di documento                       | somme delle righe ricalcolate                                                     |
+| `scontoAbbuono`                           | quello della vendita, rimandato ma **non sottratto** (19d)                        |
+| `altriDatiIdentificativi.nuovoUtente`     | `true` (come l'annullo)                                                           |
+
+Risposta: `{"esito":true,"idtrx":"247990317","progressivo":"DCW2026/4801-8782","errori":[]}`.
+Come per l'annullo, l'istante di registrazione sta nell'header `Date` della
+risposta (voce #16b).
+
+**Il dettaglio GET porta il cumulativo.** Nel `GET .../documenti/{idtrx}/`
+della vendita il campo di riga `reso` è la quantità **già resa in totale**: `"0"`
+prima di ogni reso, `"1"`/`"1"` dopo il primo, `"2"`/`"1"` dopo il secondo. Il
+POST successivo lo rimanda come `resiPregressi`. È la fonte della quantità
+residua, e copre anche i resi fatti fuori da ScontrinoZero.
+
+Nel form del portale (`wizard2-r.html`) il campo reso di riga ha
+`data-smart-float="-11.2"`: due decimali, come `quantita`. Il reso di una
+frazione (kg) è ammesso.
+
+### 19b. Le formule di riga del reso
+
+Con `r = reso / quantita` e i campi della vendita letti dal dettaglio GET:
+
+```
+imponibile      = prezzoUnitario × reso
+scontoUnitario  = scontoUnitario_vendita × r        (sconto di riga NETTO, già di riga)
+imponibileNetto = imponibile − scontoUnitario
+importoIVA      = imponibileNetto × aliquota        (0 sulle nature)
+totale          = imponibileNetto + importoIVA
+prezzoLordo, prezzoUnitario, scontoLordo, aliquotaIVA, omaggio  → invariati
+```
+
+Ogni risultato a 8 decimali. `scontoLordo` resta lo sconto di riga **della
+vendita**, non riproporzionato: è il dato che non cambia mai, come
+`prezzoLordo`. Una riga con `reso = 0` ha tutti gli importi a `0.00000000`.
+
+Verifica sulla prima serie (riga "doppio": vendita `quantita 2`,
+`prezzoUnitario 0.02459016`, `scontoUnitario 0.00819672`, 22%):
+
+| Campo             | Reso 1 di 2 | Calcolo                          |
+| ----------------- | ----------- | -------------------------------- |
+| `imponibile`      | 0.02459016  | 0.02459016 × 1                   |
+| `scontoUnitario`  | 0.00409836  | 0.00819672 × ½                   |
+| `imponibileNetto` | 0.02049180  | 0.02459016 − 0.00409836          |
+| `importoIVA`      | 0.00450820  | 0.02049180 × 0.22 = 0.0045081960 |
+| `totale`          | 0.02500000  | 0.02049180 + 0.00450820          |
+
+Totali di documento del reso 1 (righe "doppio" 1 di 2 e "singolo" 1 di 1):
+`totaleImponibile 0.04459016`, `scontoTotale 0.00409836`,
+`scontoTotaleLordo 0.01000000`, `importoTotaleIva 0.00450820`,
+`ammontareComplessivo 0.04500000`. Valgono le identità della voce #4.
+
+### 19c. Il portale riproporziona, non chiude sul residuo
+
+Seconda serie: riga "triplo", `quantita 3`, `prezzoLordo 0.01`, sconto di riga
+`0.01`, 22% → vendita `totale 0.02`.
+
+| Documento   | `reso` | `resiPregressi` | `scontoUnitario` | `imponibileNetto` | `importoIVA` | `totale`   |
+| ----------- | ------ | --------------- | ---------------- | ----------------- | ------------ | ---------- |
+| Vendita     | —      | —               | 0.00819672       | 0.01639344        | 0.00360656   | 0.02000000 |
+| Reso 1 di 3 | 1.00   | 0.00            | 0.00273224       | 0.00546448        | 0.00120219   | 0.00666667 |
+| Reso 2 di 3 | 2.00   | 1.00            | 0.00546448       | 0.01092896        | 0.00240437   | 0.01333333 |
+
+Anche l'ultimo reso è calcolato in proporzione (`× 2/3`), **non** come residuo
+"vendita meno resi precedenti". Qui la somma torna lo stesso
+(`0.00666667 + 0.01333333 = 0.02000000`); in generale può scostarsi di
+`1e-8`, irrilevante. Il nostro mapper fa lo stesso.
+
+### 19d. Lo sconto a pagare non si riproporziona
+
+`scontoAbbuono` viaggia identico in ogni reso (`"0.01"` in entrambi i resi della
+prima serie) e **non** viene sottratto da `ammontareComplessivo`. È coerente con
+la voce #3b: lo sconto a pagare non riduce il corrispettivo, quindi il reso
+storna il corrispettivo pieno. Prima serie: vendita `0.07`, resi
+`0.045 + 0.025 = 0.07`, saldo zero — anche se il cliente aveva pagato `0.06`.
+Quanto rimborsare è una scelta commerciale dell'esercente, non un dato fiscale.
+
+### 19e. Ricerca: `resi` ha due significati, come `annulli`
+
+```json
+{ "idtrx": "247990854", "numeroProgressivo": "DCW2026/4801-9319",
+  "tipoOperazione": "R", "resi": "DCW2026/4801-7890", "ammontareComplessivo": 0.025 },
+{ "idtrx": "247990317", "numeroProgressivo": "DCW2026/4801-8782",
+  "tipoOperazione": "R", "resi": "DCW2026/4801-7890", "ammontareComplessivo": 0.045 },
+{ "idtrx": "247989425", "numeroProgressivo": "DCW2026/4801-7890",
+  "tipoOperazione": "V", "annulli": "A", "resi": "R", "ammontareComplessivo": 0.07 }
+```
+
+Su una riga `V`, `resi: "R"` è il **flag** "ha almeno un reso"; su una riga
+`R` è il **progressivo della vendita**. Una vendita può avere più righe `R`
+con lo stesso `resi`: per riconciliare un reso in sospeso non basta il
+progressivo, serve anche l'importo.
+
+### 19f. Il portale NON impedisce l'annullo di una vendita resa
+
+`annullo.har` annulla la vendita della prima serie **dopo** che i due resi
+l'avevano già resa per intero: `esito: true`. Il payload è quello della voce
+#9 con `resiPregressi` valorizzati (`"2.00"`, `"1.00"`), `reso` a zero e gli
+importi **pieni** della vendita. Effetto sui corrispettivi della giornata:
+`+0.07 − 0.045 − 0.025 − 0.07 = −0.07`, uno storno doppio.
+
+Conseguenza: le guardie le mette il nostro codice. Niente annullo di una
+vendita con almeno un reso (letto dal dettaglio GET, non solo dal DB), niente
+reso di una vendita annullata (letto dal flag `annulli` della riga `V`).
+
+L'inverso il portale lo gestisce: per un documento di reso **non** offre
+l'annullo (`annullo_reso_non_possibile.har` contiene solo la lista). I codici
+`AX`/`RX` del modello (voce #16c) restano non osservati.
+
+### 19g. Stampa
+
+PDF del portale per il reso 1:
+
+```
+DOCUMENTO COMMERCIALE
+emesso per RESO
+Documento di riferimento: N. DCW2026/4801-7890
+
+Qta Rese  Descrizione Prodotto  Aliquota      Prezzo complessivo €  Sconto
+   1      doppio                22%                   0.03          0.01
+   1      singolo               Non soggette          0.02          0.00
+
+Totale imponibile:      0.04
+Totale IVA:             0.00
+Totale complessivo: €   0.04
+Documento N. DCW2026/4801-8782 del 02/10/2026 16:15:16
+```
+
+`/Title` del PDF: `DOCUMENTO COMMERCIALE DI RESO DEL DOCUMENTO DCW2026/4801-7890`.
+Nessun blocco pagamenti. Il portale arrotonda male i mezzi centesimi:
+`0.045` stampato `0.04`, `0.025` stampato `0.03` (errore del float binario).
+Il layout normativo (pagina 3) è quello dell'annullo con "emesso per RESO" e
+"Documento di riferimento: N. … del …": come per la voce #17, per la stampa
+vince il layout ufficiale, non il PDF del portale.
+
+### 19h. Una chiamata che il portale fa e noi no
+
+Prima di **ogni** POST — vendita, reso e annullo — il portale chiama
+`GET /ser/api/documenti/v1/doc/posrt/presenza/collegamento` e riceve
+`{"presenza_collegamento": false}`. Le nostre emissioni passano senza: è un
+controllo dell'interfaccia, presumibilmente legato all'abbinamento POS-cassa
+2026 (`/help/normativa-pos-2026`). Non misurato cosa cambi con `true`.
+
+### 19i. Cosa queste catture NON dicono
+
+- **Un reso in un giorno diverso dalla vendita.** Tutte le catture sono del
+  02/10. `documentoCommerciale.dataOra` e `resoAnnullo.dataOra` portano la data
+  della vendita; il nostro mapper fa come l'annullo, che in produzione funziona
+  anche a giorni di distanza, ma per il reso è inferenza.
+- **Il reso di una riga omaggio** e di una vendita con codice lotteria o
+  `totaleNonRiscosso` diverso da zero.
+- **`flagIdentificativiModificati`**: il portale lo manda `false` su vendita,
+  reso e annullo; il nostro mapper dell'annullo lo manda `true` e l'AdE lo
+  accetta. Per il reso seguiamo l'annullo.
+- **Un reso oltre la quantità residua.** Non provato: non sappiamo se l'AdE
+  lo rifiuta. Lo impediamo noi.

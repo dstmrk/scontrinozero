@@ -300,6 +300,61 @@ describe("voidReceiptForBusiness", () => {
     expect(voidSet).not.toHaveProperty("adeRegisteredAt");
   });
 
+  // HAR.md #19f: l'AdE accetta l'annullo di una vendita già resa e storna il
+  // corrispettivo due volte. La guardia è nostra, sul dettaglio appena letto.
+  it("rifiuta l'annullo di una vendita con un reso registrato sull'AdE, senza POST", async () => {
+    mockGetDocument.mockResolvedValue({
+      ...FAKE_ADE_DETAIL,
+      documentoCommerciale: {
+        ...FAKE_ADE_DETAIL.documentoCommerciale,
+        elementiContabili: [
+          {
+            ...FAKE_ADE_DETAIL.documentoCommerciale.elementiContabili[0],
+            reso: "1",
+          },
+        ],
+      },
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ALREADY_RETURNED");
+    expect(result.error).toMatch(/reso/i);
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+    // La riga VOID non ha prodotto nulla sull'AdE: esce da PENDING.
+    expect(mockUpdateSet).toHaveBeenCalledWith({ status: "ERROR" });
+  });
+
+  it("conflitto con un reso in volo sulla stessa vendita → messaggio sul reso", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT VOID saltato dall'indice
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC]) // fetch della vendita
+      .mockResolvedValueOnce([]) // nessuna riga con questa key
+      .mockResolvedValueOnce([{ id: "return-pending" }]); // reso PENDING
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("VOID_ALREADY_TARGETED");
+    expect(result.error).toMatch(/reso/i);
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
+  it("conflitto con un altro annullo in volo → messaggio sull'annullo", async () => {
+    mockReturning.mockResolvedValue([]);
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("VOID_ALREADY_TARGETED");
+    expect(result.error).toMatch(/annullo/i);
+  });
+
   it("CIE senza sessione interattiva → reauthRequired, nessuna riga VOID inserita", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",

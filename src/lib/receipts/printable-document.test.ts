@@ -40,4 +40,18 @@ describe("isPrintableDocument", () => {
       false,
     );
   });
+
+  // Il reso è un documento fiscale ma non ha ancora la sua resa: stamparlo con
+  // il layout di una vendita sarebbe un documento falso (HAR.md #19g).
+  it("nega il PDF di un reso, in ogni stato, finché non ha la sua resa", () => {
+    for (const status of [
+      "PENDING",
+      "ACCEPTED",
+      "VOID_ACCEPTED",
+      "REJECTED",
+      "ERROR",
+    ] as const) {
+      expect(isPrintableDocument({ kind: "RETURN", status })).toBe(false);
+    }
+  });
 });

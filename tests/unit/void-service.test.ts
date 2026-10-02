@@ -184,7 +184,14 @@ function setupAdeClient() {
     logout: mockAdeLogout,
   });
   mockAdeLogin.mockResolvedValue(undefined);
-  mockAdeGetDocument.mockResolvedValue({ idElementoContabile: "elem-1" });
+  // Forma minima del dettaglio GET: la guardia sui resi (HAR.md #19f) legge
+  // il cumulativo `reso` di riga prima di trasmettere l'annullo.
+  mockAdeGetDocument.mockResolvedValue({
+    idtrx: "sale-tx",
+    documentoCommerciale: {
+      elementiContabili: [{ idElementoContabile: "elem-1", reso: "0" }],
+    },
+  });
   mockAdeSubmitVoid.mockResolvedValue({
     esito: true,
     idtrx: "void-tx-1",
@@ -340,7 +347,8 @@ describe("voidReceiptForBusiness", () => {
       // idempotencyKey lookup returns nothing (different key was used by first request)
       mockLimit
         .mockResolvedValueOnce([FAKE_SALE]) // first SELECT (fetch SALE)
-        .mockResolvedValueOnce([]); // second SELECT (idempotency lookup — no match)
+        .mockResolvedValueOnce([]) // second SELECT (idempotency lookup — no match)
+        .mockResolvedValueOnce([]); // third SELECT (nessun reso in volo, migr. 0042)
 
       const { voidReceiptForBusiness } =
         await import("@/lib/services/void-service");
@@ -415,7 +423,10 @@ describe("voidReceiptForBusiness", () => {
       // INSERT skipped: PENDING is still covered by the updated index
       mockReturning.mockResolvedValue([]);
       // idempotencyKey lookup returns nothing (different key used by concurrent request)
-      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([]);
+      mockLimit
+        .mockResolvedValueOnce([FAKE_SALE])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]); // nessun reso in volo
 
       const { voidReceiptForBusiness } =
         await import("@/lib/services/void-service");
@@ -429,7 +440,10 @@ describe("voidReceiptForBusiness", () => {
       // INSERT skipped: VOID_ACCEPTED is still covered by the updated index
       mockReturning.mockResolvedValue([]);
       // idempotencyKey lookup returns nothing (different key was used)
-      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([]);
+      mockLimit
+        .mockResolvedValueOnce([FAKE_SALE])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]); // nessun reso in volo
 
       const { voidReceiptForBusiness } =
         await import("@/lib/services/void-service");

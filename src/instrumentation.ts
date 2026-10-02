@@ -276,7 +276,7 @@ export function startStalePendingSweep() {
         STALE_PENDING_COUNT_TIMEOUT_MS,
         (tx) => countStalePendingDocuments(tx),
       );
-      const total = counted.sale + counted.void;
+      const total = counted.sale + counted.void + counted.return;
       if (total === 0) return;
 
       logger.warn(
@@ -284,6 +284,7 @@ export function startStalePendingSweep() {
           errorClass: "stale_pending_documents",
           salePending: counted.sale,
           voidPending: counted.void,
+          returnPending: counted.return,
           oldestCreatedAt: counted.oldestCreatedAt?.toISOString() ?? null,
         },
         "Documenti PENDING oltre la soglia stale: esito AdE ignoto",

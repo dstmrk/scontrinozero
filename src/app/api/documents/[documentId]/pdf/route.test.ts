@@ -291,6 +291,29 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     );
   });
 
+  // Un reso non ha ancora la sua resa (HAR.md #19g): anche se il DB lo
+  // restituisse, non deve uscire col layout di una vendita.
+  it("ritorna 404 per un reso, che non ha ancora un layout", async () => {
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(
+      makeSelectBuilder([
+        {
+          doc: { ...MOCK_DOC, kind: "RETURN", status: "ACCEPTED" },
+          biz: MOCK_BIZ,
+          owner: MOCK_OWNER,
+        },
+      ]),
+    );
+
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
   // La FK e' ON DELETE SET NULL: un annullo orfano non ha righe da ristampare.
   it("ritorna 404 per un VOID senza la vendita annullata", async () => {
     mockSelect.mockReset();

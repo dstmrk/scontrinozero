@@ -167,6 +167,23 @@ describe("fetchPublicReceipt", () => {
     expect(result).toBeNull();
   });
 
+  // Difesa in profondità: se la WHERE e la regola in memoria divergessero, un
+  // reso non finirebbe comunque stampato col layout di una vendita.
+  it("ritorna null se il DB restituisce un documento che non ha una resa", async () => {
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(
+      makeSelectBuilder([
+        {
+          doc: { ...MOCK_DOC, kind: "RETURN" },
+          biz: MOCK_BIZ,
+          owner: MOCK_OWNER,
+        },
+      ]),
+    );
+
+    expect(await fetchPublicReceipt(VALID_UUID)).toBeNull();
+  });
+
   it("applica la condizione di stampabilita' e adeTransactionId IS NOT NULL nel WHERE", async () => {
     mockSelect.mockReset();
     const docBuilder = makeSelectBuilder([

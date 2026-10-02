@@ -92,3 +92,21 @@ export function hashSaleRequest(input: {
   });
   return createHash("sha256").update(canonical).digest("hex");
 }
+
+/**
+ * Fingerprint di una richiesta di reso: quale vendita e quanti pezzi per riga.
+ * Le quantità entrano in centesimi interi (la precisione che il portale
+ * accetta, HAR.md #19a), così `1` e `1.0` sono lo stesso reso e `0.1 + 0.2`
+ * non diverge da `0.3`. Stessa key con quantità diverse non è un replay:
+ * è un altro reso, e va rifiutato come `IDEMPOTENCY_PAYLOAD_MISMATCH`.
+ */
+export function hashReturnRequest(input: {
+  documentId: string;
+  quantities: readonly number[];
+}): string {
+  const canonical = JSON.stringify({
+    documentId: input.documentId,
+    quantities: input.quantities.map((q) => Math.round(q * 100)),
+  });
+  return createHash("sha256").update(canonical).digest("hex");
+}

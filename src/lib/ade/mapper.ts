@@ -133,7 +133,7 @@ function isNature(vatCode: string): boolean {
   return NATURE_CODES.has(vatCode);
 }
 
-function getVatPercentage(vatCode: string): number {
+export function getVatPercentage(vatCode: string): number {
   if (isNature(vatCode)) return 0;
   return Number.parseFloat(vatCode);
 }
@@ -329,6 +329,24 @@ export function mapSaleToAdePayload(
   };
 }
 
+/**
+ * Il cedente come il portale lo manda sui documenti che correggono una vendita
+ * — annullo (annullo.har [06]) e reso (HAR.md #19a): `nuovoUtente: true` e
+ * `defAliquotaIVA: ""`. Uno solo, perché i due flussi non divergano.
+ */
+export function toCorrectionCedente(
+  cedentePrestatore: AdeCedentePrestatore,
+): AdeCedentePrestatore {
+  return {
+    ...cedentePrestatore,
+    altriDatiIdentificativi: {
+      ...cedentePrestatore.altriDatiIdentificativi,
+      nuovoUtente: true,
+      defAliquotaIVA: "",
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // mapVoidToAdePayload (sez. 9.6)
 // ---------------------------------------------------------------------------
@@ -356,20 +374,12 @@ export function mapVoidToAdePayload(
   // il POST richiede 8 decimali — toAdeAmount8(Number(...)) normalizza.
   const docComm = originalDoc.documentoCommerciale;
 
-  // HAR fix (annullo.har [06]): per gli annulli il portale invia
-  // nuovoUtente=true e defAliquotaIVA="" nel cedentePrestatore.
-  const cedente: AdeCedentePrestatore = {
-    ...cedentePrestatore,
-    altriDatiIdentificativi: {
-      ...cedentePrestatore.altriDatiIdentificativi,
-      nuovoUtente: true,
-      defAliquotaIVA: "",
-    },
-  };
+  const cedente = toCorrectionCedente(cedentePrestatore);
 
   const documentoCommerciale: AdeDocumentoCommerciale = {
     // Dati identificativi e flag dal documento originale
-    cfCessionarioCommittente: docComm.cfCessionarioCommittente,
+    // Assente dal GET quando vuoto (HAR.md #19): il portale nel POST manda "".
+    cfCessionarioCommittente: docComm.cfCessionarioCommittente ?? "",
     flagDocCommPerRegalo: docComm.flagDocCommPerRegalo,
     progressivoCollegato: docComm.progressivoCollegato ?? "",
     dataOra: docComm.dataOra, // già in DD/MM/YYYY
