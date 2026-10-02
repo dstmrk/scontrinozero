@@ -34,7 +34,7 @@ const MOCK_RECEIPT_DATA = {
   doc: { id: "doc-456", adeProgressive: "DCW2026/5111-0001" },
   biz: { businessName: "Negozio Test" },
   lines: [],
-  voidedSale: null,
+  referenceSale: null,
 };
 
 function makeRequest(documentId: string): Request {
@@ -77,7 +77,7 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     const voidData = {
       ...MOCK_RECEIPT_DATA,
       doc: { id: "void-456", adeProgressive: "DCW2026/5111-0002" },
-      voidedSale: { id: "doc-456", adeProgressive: "DCW2026/5111-0001" },
+      referenceSale: { id: "doc-456", adeProgressive: "DCW2026/5111-0001" },
     };
     mockFetchPublicReceipt.mockResolvedValueOnce(voidData);
 

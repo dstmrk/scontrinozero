@@ -285,20 +285,61 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         doc: expect.objectContaining({ kind: "VOID" }),
-        voidedSale: expect.objectContaining({ id: MOCK_DOC.id }),
+        referenceSale: expect.objectContaining({ id: MOCK_DOC.id }),
       }),
       expect.anything(),
     );
   });
 
-  // Un reso non ha ancora la sua resa (HAR.md #19g): anche se il DB lo
-  // restituisse, non deve uscire col layout di una vendita.
-  it("ritorna 404 per un reso, che non ha ancora un layout", async () => {
+  // Il reso cita la vendita ma stampa le righe proprie (HAR.md #19g).
+  it("passa un reso al renderer, con la vendita resa e le righe del reso", async () => {
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(
+        makeSelectBuilder([
+          {
+            doc: {
+              ...MOCK_DOC,
+              id: "return-1",
+              kind: "RETURN",
+              status: "ACCEPTED",
+              returnedDocumentId: MOCK_DOC.id,
+            },
+            biz: MOCK_BIZ,
+            owner: MOCK_OWNER,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(makeSelectBuilder([MOCK_DOC]))
+      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+    await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        doc: expect.objectContaining({ kind: "RETURN" }),
+        referenceSale: MOCK_DOC,
+        footerNote: null,
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("ritorna 404 per un reso orfano", async () => {
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(
       makeSelectBuilder([
         {
-          doc: { ...MOCK_DOC, kind: "RETURN", status: "ACCEPTED" },
+          doc: {
+            ...MOCK_DOC,
+            kind: "RETURN",
+            status: "ACCEPTED",
+            returnedDocumentId: null,
+          },
           biz: MOCK_BIZ,
           owner: MOCK_OWNER,
         },

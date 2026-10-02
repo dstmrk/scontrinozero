@@ -257,3 +257,14 @@ export function formatBusinessAddressLines(
 
   return [street, localityLine].filter(Boolean);
 }
+
+/**
+ * Il sottotitolo sotto "DOCUMENTO COMMERCIALE", che distingue le tre forme
+ * del documento (layout AdE pagg. 1, 3 e 4; reso in `HAR.md` #19g). Uno solo
+ * per PDF, termica e ricevuta pubblica: le tre rese non devono divergere.
+ */
+export const DOCUMENT_SUBTITLE = {
+  SALE: "di vendita o prestazione",
+  VOID: "emesso per ANNULLAMENTO",
+  RETURN: "emesso per RESO",
+} as const satisfies Record<"SALE" | "VOID" | "RETURN", string>;

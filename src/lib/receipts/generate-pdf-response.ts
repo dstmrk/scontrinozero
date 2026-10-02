@@ -38,20 +38,20 @@ export function sanitizePdfFilename(raw: string): string {
 interface PdfReceiptInput {
   doc: {
     id: string;
-    kind: "SALE" | "VOID";
+    kind: "SALE" | "VOID" | "RETURN";
     publicRequest: unknown;
     adeProgressive: string | null;
     adeTransactionId: string | null;
     adeRegisteredAt: Date;
   };
   /**
-   * La vendita annullata, obbligatoria quando `doc.kind === "VOID"` — è ciò
+   * La vendita annullata o resa, obbligatoria su annullo e reso — è ciò
    * che il blocco "Documento di riferimento" cita. I lettori la restituiscono
    * già (`fetchPublicReceipt`, route PDF autenticata) e rifiutano un VOID che
    * non la trova, quindi qui un'assenza è un bug del chiamante, non un caso
    * d'uso: si degrada a 404 invece di stampare un annullo senza referenza.
    */
-  voidedSale?: {
+  referenceSale?: {
     adeProgressive: string | null;
     adeRegisteredAt: Date;
   } | null;
@@ -148,11 +148,11 @@ export async function generatePdfResponse(
   };
 
   let pdfData: CommercialDocumentPdfData;
-  if (doc.kind === "VOID") {
-    if (!data.voidedSale) {
+  if (doc.kind !== "SALE") {
+    if (!data.referenceSale) {
       logger.warn(
-        { documentId: doc.id },
-        "PDF requested for a VOID without its voided sale — refusing to render",
+        { documentId: doc.id, kind: doc.kind },
+        "PDF requested for a correction without its sale — refusing to render",
       );
       return Response.json(
         { error: "Documento non trovato." },
@@ -161,14 +161,14 @@ export async function generatePdfResponse(
     }
     pdfData = {
       ...common,
-      kind: "VOID",
-      voidedDocument: {
-        adeProgressive: data.voidedSale.adeProgressive ?? "",
-        adeRegisteredAt: data.voidedSale.adeRegisteredAt,
+      kind: doc.kind,
+      referenceDocument: {
+        adeProgressive: data.referenceSale.adeProgressive ?? "",
+        adeRegisteredAt: data.referenceSale.adeRegisteredAt,
       },
     };
   } else {
-    // Solo sulla vendita: il tipo non lo prevede su un VOID.
+    // Solo sulla vendita: il tipo non lo prevede su annullo e reso.
     pdfData = {
       ...common,
       kind: "SALE",

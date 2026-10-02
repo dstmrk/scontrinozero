@@ -167,23 +167,6 @@ describe("fetchPublicReceipt", () => {
     expect(result).toBeNull();
   });
 
-  // Difesa in profondità: se la WHERE e la regola in memoria divergessero, un
-  // reso non finirebbe comunque stampato col layout di una vendita.
-  it("ritorna null se il DB restituisce un documento che non ha una resa", async () => {
-    mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(
-      makeSelectBuilder([
-        {
-          doc: { ...MOCK_DOC, kind: "RETURN" },
-          biz: MOCK_BIZ,
-          owner: MOCK_OWNER,
-        },
-      ]),
-    );
-
-    expect(await fetchPublicReceipt(VALID_UUID)).toBeNull();
-  });
-
   it("applica la condizione di stampabilita' e adeTransactionId IS NOT NULL nel WHERE", async () => {
     mockSelect.mockReset();
     const docBuilder = makeSelectBuilder([
@@ -200,7 +183,7 @@ describe("fetchPublicReceipt", () => {
     // senza identificativo fiscale deve essere servito pubblicamente).
     // Il WHERE e' un AND di id + condizione di stampabilita' +
     // adeTransactionId IS NOT NULL. La stampabilita' e' un OR di due coppie
-    // (kind, status): e' bidimensionale, e vive tutta in printable-document.ts.
+    // (kind, status) per forma: e' bidimensionale, e vive tutta in printable-document.ts.
     expect(docBuilder.where).toHaveBeenCalledWith({
       __op: "and",
       conds: [
@@ -220,6 +203,13 @@ describe("fetchPublicReceipt", () => {
               conds: [
                 { __op: "eq", col: "cd.kind", val: "VOID" },
                 { __op: "eq", col: "cd.status", val: "VOID_ACCEPTED" },
+              ],
+            },
+            {
+              __op: "and",
+              conds: [
+                { __op: "eq", col: "cd.kind", val: "RETURN" },
+                { __op: "eq", col: "cd.status", val: "ACCEPTED" },
               ],
             },
           ],
@@ -279,9 +269,55 @@ describe("fetchPublicReceipt", () => {
     const result = await fetchPublicReceipt(VOID_UUID);
 
     expect(result?.doc.kind).toBe("VOID");
-    expect(result?.voidedSale?.adeProgressive).toBe("DCW2026/5111-0001");
+    expect(result?.referenceSale?.adeProgressive).toBe("DCW2026/5111-0001");
     expect(result?.lines).toHaveLength(1);
     expect(eq).toHaveBeenCalledWith("cdl.documentId", VALID_UUID);
+  });
+
+  // Il reso cita la vendita come l'annullo, ma stampa le righe SUE: i pezzi
+  // resi con la loro quota di sconto, non la vendita intera.
+  it("un reso cita la vendita resa e stampa le proprie righe", async () => {
+    const RETURN_UUID = "c3d4e5f6-a7b8-9012-cdef-123456789012";
+    const returnDoc = {
+      ...MOCK_DOC,
+      id: RETURN_UUID,
+      kind: "RETURN",
+      status: "ACCEPTED",
+      adeProgressive: "DCW2026/5111-0003",
+      returnedDocumentId: VALID_UUID,
+    };
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(
+        makeSelectBuilder([
+          { doc: returnDoc, biz: MOCK_BIZ, owner: MOCK_OWNER },
+        ]),
+      )
+      .mockReturnValueOnce(makeSelectBuilder([MOCK_DOC]))
+      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+    const result = await fetchPublicReceipt(RETURN_UUID);
+
+    expect(result?.doc.kind).toBe("RETURN");
+    expect(result?.referenceSale?.adeProgressive).toBe("DCW2026/5111-0001");
+    expect(eq).toHaveBeenCalledWith("cdl.documentId", RETURN_UUID);
+    // Il messaggio di cortesia è solo della vendita.
+    expect(result?.footerNote).toBeNull();
+  });
+
+  it("un reso orfano (vendita sparita, FK SET NULL) risponde null", async () => {
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(
+      makeSelectBuilder([
+        {
+          doc: { ...MOCK_DOC, kind: "RETURN", returnedDocumentId: null },
+          biz: MOCK_BIZ,
+          owner: MOCK_OWNER,
+        },
+      ]),
+    );
+
+    expect(await fetchPublicReceipt(VALID_UUID)).toBeNull();
   });
 
   // La FK voided_document_id e' ON DELETE SET NULL: un annullo puo' restare
@@ -329,11 +365,11 @@ describe("fetchPublicReceipt", () => {
     expect(await fetchPublicReceipt(VOID_UUID)).toBeNull();
   });
 
-  // Su una vendita `voidedSale` resta null: e' il discriminante che dice al
+  // Su una vendita `referenceSale` resta null: e' il discriminante che dice al
   // renderer quale dei due layout AdE usare.
-  it("su un SALE lascia voidedSale a null", async () => {
+  it("su un SALE lascia referenceSale a null", async () => {
     const result = await fetchPublicReceipt(VALID_UUID);
-    expect(result?.voidedSale).toBeNull();
+    expect(result?.referenceSale).toBeNull();
   });
 
   describe("messaggio di cortesia (Pro)", () => {

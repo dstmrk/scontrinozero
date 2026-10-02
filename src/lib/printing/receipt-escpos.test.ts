@@ -60,7 +60,7 @@ function makeVoidReceipt(
     kind: "VOID",
     adeRegisteredAt: new Date("2026-07-29T08:15:00Z"),
     adeProgressive: "0001-0043",
-    voidedDocument: {
+    referenceDocument: {
       adeProgressive: "0001-0042",
       adeRegisteredAt: new Date("2026-07-28T12:32:00Z"),
     },
@@ -820,5 +820,39 @@ describe("buildReceiptCommands — ricevuta di annullamento", () => {
       buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
     );
     expect(rows.filter((l) => l.length > 32)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di reso su termica — rispecchia il PDF (HAR.md #19g).
+// ---------------------------------------------------------------------------
+
+describe("buildReceiptCommands — ricevuta di reso", () => {
+  const RETURN_LINES: PrintableReceiptLine[] = [
+    {
+      description: "Maglia",
+      quantity: "1",
+      grossUnitPrice: "30.00",
+      lineDiscount: "0.50",
+      vatCode: "22",
+    },
+  ];
+  const makeReturn = () =>
+    makeVoidReceipt(RETURN_LINES, {
+      kind: "RETURN",
+    } as Partial<PrintableReceipt>);
+
+  it("usa `emesso per RESO` e cita la vendita resa", () => {
+    const rows = printedLines(buildReceiptCommands(makeReturn(), OPTS));
+    expect(rows.some((l) => l.includes("emesso per RESO"))).toBe(true);
+    const iRef = rows.findIndex((l) => l.includes("Documento di riferimento:"));
+    expect(rows[iRef + 1]).toContain("N. 0001-0042 del 28-07-2026");
+  });
+
+  it("stampa i pezzi resi, senza pagamenti", () => {
+    const text = decode(buildReceiptCommands(makeReturn(), OPTS));
+    expect(text).toContain("Maglia");
+    expect(text).toContain("29,50");
+    expect(text).not.toContain("Importo pagato");
   });
 });
