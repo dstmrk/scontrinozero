@@ -99,7 +99,7 @@ function resolveExistingVoidByKey(
   voidedDocumentId: string,
   businessId: string,
 ): ConflictOutcome {
-  // REVIEW.md #56: NON filtriamo la SELECT per kind (romperebbe il Case B in
+  // PR #704: NON filtriamo la SELECT per kind (romperebbe il Case B in
   // resolveVoidConflict: un conflitto su `voided_document_id` non ha riga con
   // QUESTA key). La SELECT per key trova al più una riga (UNIQUE incondizionato
   // su business_id+idempotency_key). Se è un SALE, il client ha riusato per un
@@ -276,7 +276,7 @@ async function finalizeVoidOnly(
     // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s).
     await retryOnStatementTimeout("void-finalize-only", () =>
       withStatementTimeout(3000, async (tx) => {
-        // REVIEW.md #56 (defense in depth): guard `kind` su entrambe le UPDATE.
+        // PR #704 (defense in depth): guard `kind` su entrambe le UPDATE.
         // Se una key riusata avesse fatto puntare gli ID a una riga del kind
         // sbagliato, il guard impedisce di flippare un SALE a VOID_ACCEPTED (o
         // viceversa). `kind` è immutabile → non rompe i retry legittimi.
@@ -539,7 +539,7 @@ async function prepareVoidDocument(
 
   if (!saleDoc) {
     // Solo per il path API v1 (apiKeyId presente): loggare un warn unico sul
-    // not-found cross-tenant (REVIEW #15) per dare visibilità sull'enumerazione
+    // not-found cross-tenant (PR #638) per dare visibilità sull'enumerazione
     // di UUID altrui — il rate per apiKeyId è il segnale. Gate su apiKeyId: la
     // stessa funzione serve le UI session (apiKeyId null), dove l'errorClass v1
     // sarebbe fuorviante e l'enumerazione non è applicabile. warn, non error
@@ -692,7 +692,7 @@ async function insertOrResolveVoid(
 
     // Recovery path SENZA adeTransactionId noto: il caller (voidReceiptForBusiness)
     // esegue il lookup AdE pre-retry via searchDocuments nella stessa sessione,
-    // prima di ri-sottomettere submitVoid (REVIEW.md #4): se AdE aveva già
+    // prima di ri-sottomettere submitVoid (PR #653): se AdE aveva già
     // registrato l'annullo → finalize-only, altrimenti re-submit.
     return {
       kind: "inserted",
@@ -713,7 +713,7 @@ async function insertOrResolveVoid(
 }
 
 /**
- * Lookup AdE pre-retry per il recovery di un ANNULLO stale (REVIEW.md #4).
+ * Lookup AdE pre-retry per il recovery di un ANNULLO stale (PR #653).
  *
  * Gira dentro `withAdeSession`, prima di getDocument/submitVoid, nella stessa
  * sessione. Interroga `searchDocuments` (tipoOperazione "A") nella finestra del
@@ -819,7 +819,7 @@ export async function voidReceiptForBusiness(
     return await withAdeSession(
       toAdeSessionParams(input.businessId, prerequisites),
       async (adeClient) => {
-        // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
+        // Lookup AdE pre-retry (PR #653): solo in recovery, prima di
         // ri-sottomettere, riconcilia l'annullo con AdE nella stessa sessione.
         if (recovery && voidCreatedAt) {
           const reconciled = await reconcileVoidBeforeResubmit(adeClient, {
@@ -864,7 +864,7 @@ export async function voidReceiptForBusiness(
     // Sessione CIE scaduta in-flight: 401 AdE = annullo NON registrato → nessun
     // duplicato. A differenza dei transient (esito ignoto → PENDING obbligatorio,
     // sotto), qui il 401 garantisce che submitVoid non è passato: marchiamo ERROR
-    // best-effort (REVIEW.md #48). L'index unique parziale su voided_document_id
+    // best-effort (PR #707). L'index unique parziale su voided_document_id
     // esclude ERROR (migration 0012) e il SALE resta ACCEPTED, quindi un retry
     // re-inserisce una nuova riga VOID e ri-sottomette da zero — senza il ghost
     // PENDING perpetuo. Non è un failure nostro: niente logAdeFailure/Sentry (r.20).
@@ -891,7 +891,7 @@ export async function voidReceiptForBusiness(
     );
 
     // Don't mark ERROR on a statement timeout OR an AdE transient failure
-    // (network / 5xx / SPID timeout — REVIEW.md #35). Leave the row PENDING so:
+    // (network / 5xx / SPID timeout — PR #668). Leave the row PENDING so:
     // - Stale recovery can re-attempt (submitVoid not yet called → safe)
     // - OR if submitVoid already succeeded, the partial unique index still
     //   blocks duplicate VOIDs (which would NOT be the case if status=ERROR).
@@ -919,7 +919,7 @@ export async function voidReceiptForBusiness(
  * `voidReceiptForBusiness` per non sommare le sue branch alla Cognitive
  * Complexity di quella funzione, già al limite.
  *
- * La classificazione (REVIEW #18) è il punto: solo il transient è ritentabile
+ * La classificazione (PR #780) è il punto: solo il transient è ritentabile
  * con la stessa richiesta, e sul canale API diventa un 503 anziché un 422
  * indistinto da un rifiuto di merito dell'AdE.
  */

@@ -47,7 +47,7 @@ describe("buildCsp", () => {
   it("consente il service worker solo dalla propria origin", () => {
     // Esplicito e non ereditato da script-src: senza questa direttiva la
     // registrazione del SW dipenderebbe dal fallback, e restringere
-    // script-src romperebbe la PWA in silenzio (REVIEW #84).
+    // script-src romperebbe la PWA in silenzio (PR #790).
     expect(policy).toMatch(/worker-src 'self'/);
     expect(policy).not.toMatch(/worker-src[^;]*'unsafe-inline'/);
   });

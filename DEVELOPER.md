@@ -550,7 +550,7 @@ WHERE b.profile_id = $developer_profile_id
 `GET /v1/receipts/{id}` (lettura singola indicizzata) non ha rate limiter
 dedicato. L'emissione è **allineata alla cassa** (`emit:{userId}`, 120/ora): lo
 stesso account non può avere in UI un tetto più basso di quello che ottiene via
-API (REVIEW.md #72). L'elenco completo dei bucket è nella skill
+API (PR #781). L'elenco completo dei bucket è nella skill
 `testing-patterns`.
 
 ---

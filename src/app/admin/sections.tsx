@@ -92,7 +92,7 @@ export async function AdminDocumentKpisSection({ range }: RangeSectionProps) {
 }
 
 /**
- * Documenti `SALE` fermi oltre la soglia stale (REVIEW.md #103). Ancorata ad
+ * Documenti `SALE` fermi oltre la soglia stale (PR #904). Ancorata ad
  * adesso, nessun range da passare — un orfano di tre settimane fa è
  * esattamente quello che interessa vedere.
  */
@@ -140,7 +140,7 @@ export async function AdminTrialActiveMerchantsSection() {
 
 /**
  * Onboarding fermi: chi ha salvato le credenziali AdE, non le ha mai
- * verificate e ha ancora un trial attivo (REVIEW.md #107). Ancorata ad
+ * verificate e ha ancora un trial attivo (PR #957). Ancorata ad
  * adesso, nessun range da passare.
  */
 export async function AdminStalledOnboardingSection() {

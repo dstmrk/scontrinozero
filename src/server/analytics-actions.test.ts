@@ -39,7 +39,7 @@ vi.mock("@/lib/plans", async () => {
 });
 
 /**
- * REVIEW.md #78: le action leggono il piano via `getPlanSafe`, che ritorna un
+ * PR #804: le action leggono il piano via `getPlanSafe`, che ritorna un
  * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
  * wrapping — il fallimento si simula con `{ ok: false, error }`.
  */
@@ -382,7 +382,7 @@ describe("getAnalyticsKpis", () => {
   // La classificazione (orfano → messaggio profilo, 57014 → sovraccarico,
   // resto → rethrow) è testata sull'implementazione reale in plans.test.ts:
   // qui si verifica che l'envelope di fallimento arrivi al chiamante come
-  // { error }, senza propagare (REVIEW.md #78).
+  // { error }, senza propagare (PR #804).
   it("returns 'Profilo non disponibile' quando la lettura del piano fallisce (orphan auth user)", async () => {
     mockGetPlanSafe.mockResolvedValue({
       ok: false,

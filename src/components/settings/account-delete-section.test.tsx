@@ -67,7 +67,7 @@ describe("AccountDeleteSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("avvisa che un abbonamento attivo viene annullato immediatamente (REVIEW.md #63)", async () => {
+  it("avvisa che un abbonamento attivo viene annullato immediatamente (PR #731)", async () => {
     renderWithQuery();
     await openDialog();
 

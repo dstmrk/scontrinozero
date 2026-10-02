@@ -3,7 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 /**
  * Fallback inline reso al posto del contenuto di una pagina del dashboard
  * quando la lettura del piano degrada (`getPlanSafe` → `{ ok: false, error }`,
- * REVIEW.md #85).
+ * PR #806).
  *
  * Sta dentro la shell del dashboard, quindi header e navigazione restano
  * usabili: l'esercente può cambiare pagina invece di trovarsi davanti a uno

@@ -197,7 +197,7 @@ docker exec -i umami-db psql -U umami -d umami \
   apre il form e rinuncia conta lo stesso. Di nuovo issue #999.
 - I numeri sono piccoli: il segnale è la direzione, non la seconda cifra.
 
-Esito della prima esecuzione (2026-09-17, 120 giorni) in issue #999 —
+Esito della prima esecuzione (2026-09-17, 120 giorni) nell'issue #999 —
 vale come baseline per il confronto successivo.
 
 ## Attribuzione server-side: da quale pagina arrivano gli iscritti
@@ -240,4 +240,4 @@ ORDER BY iscritti DESC;
 
 Il confronto naturale è fra questa tabella e quella del funnel: la prima dice
 chi si è iscritto, la seconda quanta gente è passata. Il rapporto fra le due
-è il tasso di conversione per pagina, che è la domanda di issue #999.
+è il tasso di conversione per pagina, che è la domanda dell'issue #999.

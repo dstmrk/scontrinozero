@@ -99,7 +99,7 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
     return { ok: false, error: ownershipError.error };
   }
   // La classificazione degli errori di lettura del piano vive in @/lib/plans:
-  // qui era duplicata (REVIEW.md #78).
+  // qui era duplicata (PR #804).
   const planResult = await getPlanSafe(user.id, "analytics");
   if (!planResult.ok) return planResult;
   return {

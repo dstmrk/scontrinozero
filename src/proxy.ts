@@ -25,7 +25,7 @@ const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
  * True per le sole route il cui esito dipende dalla sessione auth: i
  * PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS (redirect-se-loggato).
  * Per ogni altra route (marketing/SSG) il middleware non deve nemmeno creare
- * il client Supabase né chiamare getUser() — vedi `proxy()` (REVIEW.md #6).
+ * il client Supabase né chiamare getUser() — vedi `proxy()` (PR #615).
  */
 function pathNeedsAuthSession(pathname: string): boolean {
   return (
@@ -211,7 +211,7 @@ function resolveAppOrigin(): string {
  *    marcherebbe per errore la landing pubblica come `noindex`.
  * 2. `Reporting-Endpoints`, che la Reporting API pretende assoluto: bakato,
  *    mandava i violation report della sandbox all'endpoint di produzione e
- *    sporcava i report di prod a ogni test di policy (REVIEW.md #93). Sulle
+ *    sporcava i report di prod a ogni test di policy (PR #904). Sulle
  *    poche route fuori dal matcher l'header non c'è e il browser degrada al
  *    `report-uri` della CSP, che è relativo e quindi già same-origin.
  * 3. CORS delle route API interne, ristrette all'origin dell'app. La
@@ -285,7 +285,7 @@ export async function proxy(request: NextRequest) {
     return applyPassthroughHeaders(NextResponse.next(), request);
   }
 
-  // Performance (REVIEW.md #6): le route marketing/pubbliche (/, /guide/*,
+  // Performance (PR #615): le route marketing/pubbliche (/, /guide/*,
   // /prezzi, /per/*, /strumenti/*, /help/*, …) non consumano mai la sessione
   // Supabase — solo i PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS
   // (redirect-se-loggato) leggono `user`. Per ogni altra route il risultato di

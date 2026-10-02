@@ -168,7 +168,7 @@ export function computeLineAmounts(
   const vatPct = getVatPercentage(line.vatCode);
   const divisor = 1 + vatPct / 100;
 
-  // Canonical per-line cents (regola 17 / REVIEW.md #57): round the line gross
+  // Canonical per-line cents (regola 17 / PR #702): round the line gross
   // (and discount) to integer cents BEFORE any further math, so `totale` — e a
   // cascata l'ammontareComplessivo del documento — riconcilia al centesimo con
   // `payments[0].amount` (calcInputLinesTotalCents) e con il PDF/pagina
@@ -265,7 +265,7 @@ export function mapSaleToAdePayload(
   //
   // - i LORDI (`scontoTotaleLordo`, `ammontareComplessivo`) si sommano come
   //   interi in cents, poi /100 (strategia canonica per-riga, regola 17 /
-  //   REVIEW.md #57): è ciò che garantisce
+  //   PR #702): è ciò che garantisce
   //   `ammontareComplessivo === sum(vendita[].importo)`, dove il payment è la
   //   somma degli stessi cents in receipt-service;
   // - i NETTI (`totaleImponibile`, `scontoTotale`, `importoTotaleIva`) si

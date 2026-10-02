@@ -65,7 +65,7 @@ async function authorizeApiKeyBusiness(
   // (oltre alla riga subscription), quindi entrambe le promise possono
   // rigettare su profilo orfano o statement timeout. Il try/catch copre la
   // Promise.all con la stessa classificazione condivisa — degradare, non
-  // lanciare (REVIEW.md #78, regola 19).
+  // lanciare (PR #804, regola 19).
   let effectivePlan: Awaited<ReturnType<typeof getEffectivePlan>>;
   let planInfo: Awaited<ReturnType<typeof getPlan>>;
   try {

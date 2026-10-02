@@ -112,7 +112,7 @@ describe("ApiKeyCard — documentazione", () => {
     ).toHaveAttribute("href", "/help/api");
   });
 
-  // --- Ancora del deep-link (REVIEW.md #95) ---
+  // --- Ancora del deep-link (PR #904) ---
 
   it("porta l'id dell'ancora verso cui i piani developer_* sono rediretti", () => {
     const { container } = renderCard({ plan: "developer_indie" });

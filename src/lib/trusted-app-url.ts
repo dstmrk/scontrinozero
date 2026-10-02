@@ -127,7 +127,7 @@ export function getTrustedAppUrl(): string {
   // che distingue i due ambienti — stessa precedenza già applicata da
   // `resolveBaseUrl()` in `marketing-to-app-href.ts`, qui mancava e mandava il
   // QR dei PDF e le `success_url`/`return_url` Stripe di sandbox su produzione
-  // (REVIEW.md #93).
+  // (PR #904).
   //
   // Nessuna superficie di fiducia nuova: `getAllowedHostnames()` include già
   // `APP_HOSTNAME`, quindi rivalidare l'host così costruito sarebbe

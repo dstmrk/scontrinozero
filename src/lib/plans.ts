@@ -138,7 +138,7 @@ export const getPlan: (authUserId: string) => Promise<PlanInfo> =
  *
  * Helper server-only (query DB): NON è una server action. Va chiamato dopo
  * aver autenticato l'utente e passando `userId` dalla sessione, mai un valore
- * arbitrario dal client (vedi REVIEW #66).
+ * arbitrario dal client (vedi PR #749).
  */
 export async function getEffectivePlan(userId: string): Promise<Plan> {
   const planInfo = await getPlan(userId);

@@ -24,7 +24,7 @@ import {
  * migrazione 0038. Questi test coprono il lato TypeScript — che la
  * classificazione non collassi casi distinti — mentre l'allineamento col DB
  * è garantito dal fatto che un valore fuori CHECK fa fallire la UPDATE, che
- * è best-effort per costruzione (REVIEW.md #107).
+ * è best-effort per costruzione (PR #957).
  */
 describe("classifyAdeLoginFailure", () => {
   it.each([

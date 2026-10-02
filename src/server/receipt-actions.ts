@@ -48,7 +48,7 @@ const submitReceiptSchema = z
 
 // Rate limit: 120 receipts per hour per user (per-user key, not per-IP).
 // Allineato a POST /api/v1/receipts: lo stesso account non può avere un tetto
-// più basso dalla cassa che dalla Developer API (REVIEW.md #72). La soglia serve
+// più basso dalla cassa che dalla Developer API (PR #781). La soglia serve
 // come guardia anti-loop — ogni submit costa un round-trip AdE — non come
 // throttling di business: un bar nel picco pranzo supera 30/ora senza sforzo e
 // veniva bloccato sul core flow (blocco operativo/fiscale su utente legittimo).

@@ -50,7 +50,7 @@ export const adeCredentials = pgTable("ade_credentials", {
    * della migrazione 0038, esteso dalla 0041; elenco in
    * `RECORDED_VERIFY_OUTCOMES` in
    * `src/lib/ade/verify-outcome.ts`). Mai il messaggio d'errore: serve a
-   * raggruppare, non a leggere (REVIEW.md #107).
+   * raggruppare, non a leggere (PR #957).
    *
    * NULL = mai tentato, per le righe create dalla 0038 in poi;
    * `'unknown_pre_tracking'` = riga preesistente, esito non ricostruibile.

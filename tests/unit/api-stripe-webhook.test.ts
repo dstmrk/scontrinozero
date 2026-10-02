@@ -228,7 +228,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpdate).toHaveBeenCalled();
   });
 
-  it("handles invoice.paid: acks senza scrivere currentPeriodEnd (REVIEW #70)", async () => {
+  it("handles invoice.paid: acks senza scrivere currentPeriodEnd (PR #779)", async () => {
     // `invoice.period_end` è la fine del periodo appena *chiuso*, non del
     // nuovo periodo pagato: scriverlo qui sovrascriveva il valore corretto di
     // `syncSubscriptionData` circa metà delle volte (i due eventi arrivano
@@ -556,7 +556,7 @@ describe("POST /api/stripe/webhook", () => {
     // `invoice.payment_failed` chiama .where().returning(), quindi rifiutiamo
     // su mockUpdateReturning (non su mockUpdateWhere, che ritorna solo
     // l'oggetto sincrono { returning: fn }). Non più `invoice.paid`: da
-    // REVIEW #70 quel case non scrive più nulla, quindi non può fallire.
+    // PR #779 quel case non scrive più nulla, quindi non può fallire.
     mockUpdateReturning.mockRejectedValueOnce(new Error("DB timeout"));
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.payment_failed", {
@@ -592,7 +592,7 @@ describe("POST /api/stripe/webhook", () => {
     );
     // DELETE must NOT have been called (success path keeps the claim as permanent dedup)
     expect(mockDelete).not.toHaveBeenCalled();
-    // completedAt must be set on success (REVIEW.md #20: distinguishes a
+    // completedAt must be set on success (PR #652: distinguishes a
     // completed claim from one stuck mid-processing, used by the sweep job)
     expect(mockUpdate).toHaveBeenCalled();
     expect(mockUpdateSet).toHaveBeenCalledWith(
@@ -606,8 +606,8 @@ describe("POST /api/stripe/webhook", () => {
   // acknowledged (200) — throwing would cause infinite Stripe retries since
   // the missing row cannot self-heal via retry.
 
-  // I due handler invoice che passano da `applySubscriptionUpdate`. Da REVIEW
-  // #70 `invoice.paid` non è più in lista: quel case non scrive più, quindi non
+  // I due handler invoice che passano da `applySubscriptionUpdate`. Da PR
+  // #779 `invoice.paid` non è più in lista: quel case non scrive più, quindi non
   // ha righe da contare.
   it.each(["invoice.payment_action_required", "invoice.payment_failed"])(
     "%s — logs warn and returns 200 when no subscription row found (0 rows updated)",

@@ -82,7 +82,7 @@ export function OPTIONS(): Response {
 export async function POST(request: Request): Promise<Response> {
   // `requestId` nasce qui e accompagna ogni risposta (header X-Request-Id) e
   // ogni riga di log della richiesta: è il filo di correlazione fra una
-  // segnalazione dell'utente API e i nostri log/Sentry (REVIEW #18).
+  // segnalazione dell'utente API e i nostri log/Sentry (PR #780).
   const requestId = newRequestId();
 
   // ── Auth ──────────────────────────────────────────────────────────────────

@@ -118,7 +118,7 @@ function normaliseOrThrow(fallback: string, ctx: string): string {
  * `resolveBaseUrl()` (`marketing-to-app-href.ts`) e `getTrustedAppUrl()`
  * (`trusted-app-url.ts`); qui vive per i consumer edge-safe — `proxy.ts`, che
  * la usa sia per il routing per-dominio sia per gli header che deve calcolare
- * a runtime (REVIEW.md #93).
+ * a runtime (PR #904).
  *
  * `=== undefined` e non un truthy check: un compose che scrive
  * `APP_HOSTNAME=` sta dichiarando di voler decidere a runtime, e ricadere sul

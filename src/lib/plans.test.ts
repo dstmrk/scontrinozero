@@ -927,7 +927,7 @@ describe("assertProPlan", () => {
   });
 });
 
-// getEffectivePlan spostata qui da billing-actions.ts (REVIEW #66): è un
+// getEffectivePlan spostata qui da billing-actions.ts (PR #749): è un
 // helper server-only, non una server action pubblica. getEffectivePlan chiama
 // il vero getPlan (query profiles), poi una query subscriptions: entrambe
 // passano dalla stessa catena select mockata, quindi si usano

@@ -410,7 +410,7 @@ type ProductAgg = {
   /**
    * Somma in centesimi interi, arrotondati PER RIGA e **al netto dello sconto
    * di riga** (`round(qty * price * 100) - round(lineDiscount * 100)`),
-   * strategia canonica del progetto (REVIEW.md #1) coerente con `calcDocTotal`
+   * strategia canonica del progetto (PR #605) coerente con `calcDocTotal`
    * e `computeReceiptTotals` (`src/lib/receipts/document-lines.ts`). Poiché sia
    * il ricavo KPI (somma di `calcDocTotal` sui documenti) sia questo breakdown
    * (somma per prodotto) partono dalle stesse righe con la stessa formula,

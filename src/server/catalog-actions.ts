@@ -213,7 +213,7 @@ export async function addCatalogItem(
   // per-richiesta e non deve allungare la finestra del lock. Anche il suo
   // fallimento (profilo orfano / DB sovraccarico) va gestito qui, PRIMA sia del
   // ramo "piano senza limite" sia della transazione — aprire un lock per poi
-  // scartarlo sarebbe puro costo (REVIEW.md #78, regola 19).
+  // scartarlo sarebbe puro costo (PR #804, regola 19).
   const planResult = await getPlanSafe(user.id, "addCatalogItem");
   if (!planResult.ok) return { error: planResult.error };
   const planInfo = planResult.info;

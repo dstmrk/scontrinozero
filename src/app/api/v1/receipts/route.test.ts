@@ -243,7 +243,7 @@ describe("POST /api/v1/receipts", () => {
     expect(body.code).toBe("ADE_REAUTH_REQUIRED");
     expect(typeof body.message).toBe("string");
     expect(body.message.length).toBeGreaterThan(0);
-    // Il campo legacy `error` non esiste più (breaking change, REVIEW #18)
+    // Il campo legacy `error` non esiste più (breaking change, PR #780)
     expect(body).not.toHaveProperty("error");
   });
 

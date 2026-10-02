@@ -69,7 +69,7 @@ describe("readPruneConfig", () => {
     expect(config.warnBeforeDays).toBe(1);
   });
 
-  describe("floor di sicurezza su deleteAfterDays (REVIEW #39)", () => {
+  describe("floor di sicurezza su deleteAfterDays (PR #783)", () => {
     it("disabilita lo sweep quando deleteAfterDays è sotto il floor", () => {
       const config = readPruneConfig({
         INACTIVE_USER_PRUNE_ENABLED: "true",
@@ -110,7 +110,7 @@ describe("readPruneConfig", () => {
     });
   });
 
-  describe("warnings (chiude il gap del docstring, REVIEW #39)", () => {
+  describe("warnings (chiude il gap del docstring, PR #783)", () => {
     it("nessun warning su una config valida", () => {
       const config = readPruneConfig({
         INACTIVE_USER_PRUNE_ENABLED: "true",

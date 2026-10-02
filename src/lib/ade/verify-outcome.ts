@@ -15,7 +15,7 @@ import { isTransientAdeError } from "./error-messages";
  * della 0038**: è il DB ad avere l'ultima parola, e un valore fuori elenco fa
  * fallire la UPDATE.
  *
- * Perché esiste (REVIEW.md #107): dieci righe su ventidue si fermano a metà
+ * Perché esiste (PR #957): dieci righe su ventidue si fermano a metà
  * onboarding e condividono lo stesso stato DB — `verified_at IS NULL` +
  * `businesses.fiscal_code IS NULL` — qualunque sia la causa. Credenziali
  * sbagliate, abbandono puro e utenza non supportata sono tre problemi di

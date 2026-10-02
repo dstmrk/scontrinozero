@@ -110,7 +110,7 @@ describe("service worker (src/sw.ts)", () => {
     expect(options.navigationPreload).toBe(true);
   });
 
-  it("puts a NetworkOnly rule FIRST, before defaultCache (REVIEW #73)", () => {
+  it("puts a NetworkOnly rule FIRST, before defaultCache (PR #790)", () => {
     // L'ordine è la sostanza del fix: vince il primo matcher, quindi una
     // regola dopo lo spread di defaultCache non intercetterebbe nulla.
     expect(options.runtimeCaching[0].handler).toBeInstanceOf(MockNetworkOnly);

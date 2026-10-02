@@ -20,7 +20,7 @@ vi.mock("@/lib/server-auth", () => ({
     mockCheckBusinessOwnership(...args),
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
-  // REVIEW.md #55: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
+  // PR #752: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
   toAdeSessionParams: (
     businessId: string,
     prerequisites: { method: string; [k: string]: unknown },
@@ -104,7 +104,7 @@ const mockAdeClient = {
   logout: mockLogout,
   submitSale: mockSubmitSale,
 };
-// withAdeSession (REVIEW #5) replica il ciclo mock-mode: login → fn → logout.
+// withAdeSession (PR #624) replica il ciclo mock-mode: login → fn → logout.
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   withAdeSession: async (
@@ -267,7 +267,7 @@ describe("receipt-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    // REVIEW.md #78: getPlan lanciava (profilo orfano / statement timeout) e
+    // PR #804: getPlan lanciava (profilo orfano / statement timeout) e
     // nessuno lo catturava — sul core flow fiscale l'eccezione arrivava
     // all'error boundary di Next a schermo intero. Ora la lettura del piano
     // degrada a { error } inline (regola 19).
@@ -314,7 +314,7 @@ describe("receipt-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    // REVIEW.md #72: la soglia UI deve restare allineata a POST /api/v1/receipts
+    // PR #781: la soglia UI deve restare allineata a POST /api/v1/receipts
     // (120/ora): con 30/ora un esercente nel picco pranzo veniva bloccato sul
     // core flow mentre lo stesso account via Developer API poteva continuare.
     // `resetModules` è necessario perché il limiter è costruito al top-level del

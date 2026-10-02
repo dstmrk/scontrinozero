@@ -142,7 +142,7 @@ export default async function DashboardLayout({
         */}
         <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
           {/*
-            Scontrini rimasti in sospeso (REVIEW.md #103). Sta nel layout e non
+            Scontrini rimasti in sospeso (PR #904). Sta nel layout e non
             in una pagina perché l'esercente deve incontrarlo ovunque stia
             lavorando — cassa compresa, che è da dove la slice 3 lo manda
             quando la riemissione è bloccata.

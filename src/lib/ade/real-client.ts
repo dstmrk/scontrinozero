@@ -56,8 +56,8 @@ export interface RealAdeClientOptions {
    * con margine per le fasi SAML che seguono. Se la finestra push superasse il
    * timeout del tunnel, la verifica riuscirebbe server-side (sessione
    * depositata, verifiedAt settato) mentre il client vede un errore di rete e
-   * riprova — bruciando rate limit e generando una seconda push (REVIEW.md
-   * #45). SPID (non cablato) resta a 30 poll via spidMaxPolls.
+   * riprova — bruciando rate limit e generando una seconda push (PR
+   * #701). SPID (non cablato) resta a 30 poll via spidMaxPolls.
    */
   cieMaxPolls?: number;
   /** Timeout per ogni singola chiamata HTTP all'AdE in ms (default: 30000). */
@@ -819,7 +819,7 @@ export class RealAdeClient implements AdeClient {
     // collegamento, o `AdeUtenzaNotAvailableError` quando una scelta era già
     // stata salvata: due errori, la stessa risposta vuota da diagnosticare.
     //
-    // NON basta `direct.length === 0`: quando il warn è nato (REVIEW.md #32)
+    // NON basta `direct.length === 0`: quando il warn è nato (PR #917)
     // quella condizione significava fallimento certo, ma da quando l'accesso
     // incaricato è supportato è uno **stato normale**. Lasciandola larga, ogni
     // login di ogni utenza incaricata produceva un warn su un flusso sano —
@@ -827,7 +827,7 @@ export class RealAdeClient implements AdeClient {
     // dei quali da un esercente che stava emettendo scontrini.
     if (direct.length === 0 && incarichi.length === 0) {
       // Diagnostica struttura-only (no PII): distingue "lista PIva vuota" da
-      // "entry presente senza piva" da "shape cambiata". REVIEW.md #32: questo
+      // "entry presente senza piva" da "shape cambiata". PR #917: questo
       // throw è arrivato su un 200 senza alcun contesto sulla response.
       logger.warn(
         {
@@ -1851,7 +1851,7 @@ export class RealAdeClient implements AdeClient {
     }
     // La form action è estratta dall'HTML del SP AdE: va validata contro la
     // allowlist federata prima di usarla come target del POST SAMLRequest,
-    // esattamente come i redirect Location (REVIEW #43). Risolve anche i path
+    // esattamente come i redirect Location (PR #705). Risolve anche i path
     // relativi contro l'origin della pagina corrente.
     return {
       ssoUrl: resolveAdeRedirect(url, ssoUrl, FEDERATED_ALLOWED_HOSTS),
@@ -2076,7 +2076,7 @@ export class RealAdeClient implements AdeClient {
 
     // La SAMLResponse porta l'asserzione d'identità (CF, nome, cognome, data di
     // nascita): la form action estratta dall'HTML dell'IdP va validata contro la
-    // allowlist federata prima di POSTarla (REVIEW #43), mai degradare al
+    // allowlist federata prima di POSTarla (PR #705), mai degradare al
     // fallback su action fuori allowlist. Il fallback ACS è un URL AdE hardcoded
     // e fidato, usato solo quando la form non è parsabile.
     const parsedAction = this.parseFormAction(html);
@@ -2219,7 +2219,7 @@ export class RealAdeClient implements AdeClient {
 
   /**
    * Re-inietta le credenziali su un client la cui sessione è già stabilita
-   * (riuso dalla cache, REVIEW #5). Necessario perché il re-auth su 401 in
+   * (riuso dalla cache, PR #624). Necessario perché il re-auth su 401 in
    * `submitDocument` ha bisogno delle credenziali, ma la cache long-lived non
    * deve trattenerle tra un'operazione e l'altra (vedi `clearCredentials`).
    * Non tocca sessione né cookie: nessun login viene rieseguito.
@@ -2232,7 +2232,7 @@ export class RealAdeClient implements AdeClient {
    * Azzera le credenziali decifrate dalla memoria del client mantenendo
    * sessione e cookie. Chiamato dopo ogni operazione su un client cached così
    * che la entry in cache conservi solo i cookie di sessione, mai le
-   * credenziali (REVIEW #5.4).
+   * credenziali (PR #624).
    */
   clearCredentials(): void {
     this.credentials = null;
@@ -2566,7 +2566,7 @@ export class RealAdeClient implements AdeClient {
    *
    * Lancia `AdeSessionExpiredError` nei due casi in cui non e' possibile: non
    * ci sono credenziali riusabili (CIE e SPID non ne tengono per design, e la
-   * cache Fisconline le azzera a fine operazione — REVIEW #5), oppure il login
+   * cache Fisconline le azzera a fine operazione — PR #624), oppure il login
    * stesso fallisce. Lo store interattivo traduce quell'errore in
    * `AdeReauthRequiredError`, cioe' "ri-collegati", che e' l'unica uscita
    * possibile quando il secondo fattore e' umano.
@@ -2665,7 +2665,7 @@ export class RealAdeClient implements AdeClient {
     // risposta troncata, proxy interposto): la POST è stata consegnata, quindi
     // l'esito è IGNOTO, non una failure. Un SyntaxError nudo qui verrebbe
     // classificato come "submit sicuramente non arrivato" → mark ERROR →
-    // rischio doppio documento fiscale (REVIEW.md #64). Lanciamo invece
+    // rischio doppio documento fiscale (PR #733). Lanciamo invece
     // AdeUnknownOutcomeError, che isTransientAdeError riconosce per lasciare la
     // riga PENDING e far riconciliare la stale recovery contro AdE prima di un
     // eventuale re-submit. Mai loggare il body: dati fiscali.

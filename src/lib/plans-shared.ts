@@ -92,7 +92,7 @@ export const BILLING_SETTINGS_HREF = "/dashboard/settings#billing";
  * Sono una costante sola perché il difetto che hanno chiuso era esattamente
  * la loro divergenza: i piani `developer_*` venivano rediretti su
  * `#api-keys` mentre nessun elemento della pagina portava quell'`id`, e
- * l'utente atterrava in cima alle Impostazioni (REVIEW.md #95). Con l'ancora
+ * l'utente atterrava in cima alle Impostazioni (PR #904). Con l'ancora
  * derivata dalla stessa stringa del redirect, un rename ne rompe entrambi i
  * capi insieme invece di lasciarne uno indietro in silenzio.
  */

@@ -22,7 +22,7 @@ vi.mock("@/lib/server-auth", () => ({
     mockCheckBusinessOwnership(...args),
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
-  // REVIEW.md #55: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
+  // PR #752: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
   toAdeSessionParams: (
     businessId: string,
     prerequisites: { method: string; [k: string]: unknown },
@@ -75,7 +75,7 @@ const mockAdeClient = {
   getDocument: mockGetDocument,
   submitVoid: mockSubmitVoid,
 };
-// withAdeSession (REVIEW #5) replica il ciclo mock-mode: login → fn → logout.
+// withAdeSession (PR #624) replica il ciclo mock-mode: login → fn → logout.
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   withAdeSession: async (
@@ -356,7 +356,7 @@ describe("void-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
-    // REVIEW.md #78: la lettura del piano degrada a { error } inline invece di
+    // PR #804: la lettura del piano degrada a { error } inline invece di
     // propagare all'error boundary di Next (regola 19).
     it("degrada a { error } quando la lettura del piano fallisce (profilo orfano)", async () => {
       mockGetPlanSafe.mockResolvedValue({

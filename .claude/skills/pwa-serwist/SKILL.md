@@ -12,7 +12,7 @@ era (`withSerwistInit`), ma quello è un plugin **webpack** e Next 16 builda con
 **Turbopack**: non girava, degradava a un **warning**, e il build restava verde
 senza emettere nulla. Risultato: `/sw.js` 404 in produzione per mesi — niente
 offline, niente `beforeinstallprompt`, quindi niente installazione su Android
-(iOS non è colpito, il che rendeva l'asimmetria fuorviante). Era REVIEW #84.
+(iOS non è colpito, il che rendeva l'asimmetria fuorviante). Corretto nella PR #790.
 
 Oggi la catena è esplicita e bundler-agnostica:
 
@@ -148,7 +148,7 @@ le richieste `/api/*`. Conseguenze:
   per route autenticate fare affidamento su `cookies()`/redirect server-side,
   non su "il SW non interferisce".
 
-> ✅ **Stato oggi: l'override è implementato** (fix REVIEW.md #73). `src/sw.ts`
+> ✅ **Stato oggi: l'override è implementato** (fix nella PR #790). `src/sw.ts`
 > costruisce `runtimeCaching` con una regola `NetworkOnly` su
 > `sameOrigin && (pathname.startsWith("/api/") || pathname.startsWith("/v1/"))`
 > **prima** dello spread di `defaultCache`. `/v1/` c'è perché è il path

@@ -126,7 +126,7 @@ export function getUserFacingAdeErrorMessage(
   ) {
     // Esito ignoto (200 non-JSON) → stesso messaggio dei 5xx: il portale non
     // risponde in modo utilizzabile, riprova. La riga resta PENDING e la stale
-    // recovery riconcilia (REVIEW.md #64), quindi il retry è sicuro.
+    // recovery riconcilia (PR #733), quindi il retry è sicuro.
     return {
       message:
         "Il portale Agenzia delle Entrate Fatture e Corrispettivi non risponde al momento. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
@@ -156,7 +156,7 @@ export function getUserFacingAdeErrorMessage(
  * ERROR. Per l'esito ignoto è cruciale: la POST può aver registrato il
  * documento su AdE, quindi marcarla ERROR la farebbe uscire dall'indice unique
  * e dalla riconciliazione pre-resubmit → rischio doppio documento fiscale
- * (REVIEW.md #64). Restando PENDING la stale recovery riconcilia contro AdE via
+ * (PR #733). Restando PENDING la stale recovery riconcilia contro AdE via
  * `searchDocuments` prima di ogni re-submit. Coerente con il downgrade di
  * `esito:false` (rifiuto business AdE) a `warn` fatto in 8c654b5.
  */
@@ -191,7 +191,7 @@ export function isExpectedUserAdeError(err: unknown): boolean {
   // fine, quindi non è un guasto nostro né del portale; è deterministico
   // (nessun retry produce una P.IVA che non esiste) e si corregge solo
   // cambiando utenza. Resta tracciabile via il log `ade:wizard_piva_missing`
-  // nel dataset Sentry `logs` — trigger di riapertura in issue #984.
+  // nel dataset Sentry `logs` — trigger di riapertura nell'issue #984.
   if (err instanceof AdeNoPartitaIvaError) return true;
   // Utenza di lavoro: richiede una scelta che non abbiamo, o punta a un
   // incarico che il portale non offre più. Entrambe deterministiche — nessun

@@ -29,7 +29,7 @@ export default async function DashboardPage() {
     getCatalogItems(status.businessId),
   ]);
 
-  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): senza il degrado, un profilo
+  // `getPlanSafe` e non `getPlan` (PR #806): senza il degrado, un profilo
   // orfano o un `57014` sotto contention farebbero risalire il throw fino al
   // boundary, vanificando la degradazione che `getCatalogItems` fa apposta
   // nella stessa `Promise.all` — stesso DB, stessa richiesta, stesso errore.

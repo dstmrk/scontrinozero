@@ -23,7 +23,7 @@ export const subscriptions = pgTable("subscriptions", {
    * Stripe `cancel_at_period_end`: true quando l'utente ha annullato dal
    * portale ma lo `status` resta 'active' fino a `currentPeriodEnd`. Catturato
    * dal webhook `customer.subscription.updated` per mostrare in-app lo stato
-   * "in cancellazione, attivo fino al …" (REVIEW.md #34).
+   * "in cancellazione, attivo fino al …" (PR #677).
    */
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   /** 'month' | 'year' */
@@ -33,7 +33,7 @@ export const subscriptions = pgTable("subscriptions", {
    * (`syncSubscriptionData`, `handleSubscriptionDeleted`). Stripe non garantisce
    * l'ordine di consegna: senza questa guardia due `customer.subscription.updated`
    * ravvicinati consegnati fuori ordine lasciano in DB lo stato vecchio
-   * (REVIEW.md #61). Gli handler `invoice.*` non lo toccano: scrivono campi
+   * (PR #784). Gli handler `invoice.*` non lo toccano: scrivono campi
    * mirati, non un full-sync. NULL = nessun evento registrato → il primo applica.
    */
   lastStripeEventCreated: timestamp("last_stripe_event_created", {

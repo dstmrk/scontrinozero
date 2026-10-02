@@ -94,7 +94,7 @@ export async function GET(
               // (kind, status) è bidimensionale — una vendita annullata non è
               // più stampabile, il suo annullo sì — e vive tutta in
               // printable-document.ts, condivisa con fetchPublicReceipt
-              // (REVIEW.md #7).
+              // (PR #614).
               printableDocumentCondition(),
               isNotNull(commercialDocuments.adeTransactionId),
             ),

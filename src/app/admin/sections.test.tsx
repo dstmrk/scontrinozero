@@ -277,7 +277,7 @@ describe("degrado indipendente", () => {
   });
 });
 
-describe("documenti in sospeso (REVIEW.md #103)", () => {
+describe("documenti in sospeso (PR #904)", () => {
   it("rende la tabella anche quando non c'è nulla in sospeso", async () => {
     mockGetAdminStalePendingDocuments.mockResolvedValue({ rows: [] });
 
@@ -316,7 +316,7 @@ describe("documenti in sospeso (REVIEW.md #103)", () => {
   });
 });
 
-describe("onboarding fermi (REVIEW.md #107)", () => {
+describe("onboarding fermi (PR #957)", () => {
   it("rende la tabella con i conteggi per età", async () => {
     mockGetAdminStalledOnboarding.mockResolvedValue({
       stalled: {

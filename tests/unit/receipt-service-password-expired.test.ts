@@ -51,7 +51,7 @@ vi.mock("@/db/schema", () => ({
 }));
 vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: mockFetchAdePrerequisites,
-  // REVIEW.md #55: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
+  // PR #752: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
   toAdeSessionParams: (
     businessId: string,
     prerequisites: { method: string; [k: string]: unknown },
@@ -71,7 +71,7 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   createAdeClient: mockCreateAdeClient,
-  // withAdeSession (REVIEW #5): replica il ciclo mock-mode usando il client di
+  // withAdeSession (PR #624): replica il ciclo mock-mode usando il client di
   // mockCreateAdeClient → login/fn/logout (login fuori dal try, come nel codice:
   // un login fallito non chiama logout).
   withAdeSession: async (
@@ -199,7 +199,7 @@ describe("emitReceiptForBusiness — AdePasswordExpiredError", () => {
     const result = await emitReceiptForBusiness(makeValidInput());
 
     expect(result.passwordExpired).toBe(true);
-    // REVIEW #18: sul canale API il code diventa un 409 "azione umana", non un
+    // PR #780: sul canale API il code diventa un 409 "azione umana", non un
     // 422 indistinto da un rifiuto di merito dell'AdE.
     expect(result.code).toBe("ADE_PASSWORD_EXPIRED");
     expect(result.error).toMatch(/scaduta/i);

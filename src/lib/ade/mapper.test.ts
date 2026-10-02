@@ -217,7 +217,7 @@ describe("computeLineAmounts", () => {
     expect(result.reso).toBe("0.00");
   });
 
-  it("arrotonda il lordo di riga al centesimo su quantità frazionaria (REVIEW.md #57)", () => {
+  it("arrotonda il lordo di riga al centesimo su quantità frazionaria (PR #702)", () => {
     // 0,5 × €0,99 = 0,495 → arrotondato a 0,50 (per-riga in cents), NON
     // trasmesso come "0.49500000". Il vecchio mapper teneva il mezzo cent,
     // divergendo dal payment (round(price*qty*100) = 50 cents).
@@ -549,7 +549,7 @@ describe("mapSaleToAdePayload", () => {
     expect(dc.totaleNonRiscosso).toBe("0.00000000");
   });
 
-  it("riconcilia ammontareComplessivo col payment su quantità frazionarie (REVIEW.md #57)", () => {
+  it("riconcilia ammontareComplessivo col payment su quantità frazionarie (PR #702)", () => {
     // Caso canonico del finding: 2 righe da 0,5 × €0,99. Il vecchio mapper
     // sommava i lordi float (0,495 × 2 = 0,99) divergendo di 1 cent dal payment
     // (1,00). La somma per-riga in cents dà 0,50 × 2 = 1,00.
@@ -597,7 +597,7 @@ describe("mapSaleToAdePayload", () => {
     expect(venditaCents).toBe(100);
   });
 
-  it("ammontareComplessivo cent-esatto su una tabella di quantità frazionarie (REVIEW.md #57)", () => {
+  it("ammontareComplessivo cent-esatto su una tabella di quantità frazionarie (PR #702)", () => {
     const cases = [
       { quantity: 0.5, unitPriceGross: 0.99 }, // 0.495 → 50
       { quantity: 0.333, unitPriceGross: 3.0 }, // 0.999 → 100
@@ -756,7 +756,7 @@ describe("mapVoidToAdePayload", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Oracoli HAR — payload verbatim accettati dall'AdE (REVIEW.md #88)
+// Oracoli HAR — payload verbatim accettati dall'AdE (PR #849)
 //
 // I due documenti sono catture reali del portale AdE, entrambe con risposta
 // `esito: true`: sono l'unica prova disponibile della semantica dei campi.

@@ -57,7 +57,7 @@ export default async function StoricoPage({
     }),
     getAuthenticatedUser(),
   ]);
-  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): `searchReceipts` qui sopra
+  // `getPlanSafe` e non `getPlan` (PR #806): `searchReceipts` qui sopra
   // degrada già a `{ error, items: [], total: 0 }`, e un throw accanto
   // annullerebbe quella scelta mandando l'intera pagina al boundary.
   const [planResult, printProfile] = await Promise.all([

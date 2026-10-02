@@ -212,7 +212,7 @@ describe("reconcile con esclusione claimedIdtrx", () => {
     });
     expect(result).toMatchObject({ kind: "ambiguous" });
     // I candidati viaggiano con l'esito: il recovery automatico li ignora, la
-    // verifica dentro la sessione dell'esercente li mostra (REVIEW.md #103).
+    // verifica dentro la sessione dell'esercente li mostra (PR #904).
     expect(
       result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
     ).toEqual(["1", "2"]);
@@ -379,7 +379,7 @@ describe("reconcileSaleDocument", () => {
   });
 });
 
-describe("reconcileSaleDocument — totale legacy float (REVIEW.md #57)", () => {
+describe("reconcileSaleDocument — totale legacy float (PR #702)", () => {
   it("matcha un documento AdE registrato col totale legacy quando differisce dal canonico", () => {
     // 2 righe da 0,5 × €0,99: canonico per-riga = 100 cents (1,00), ma il
     // documento fu emesso col vecchio mapper → AdE registrò 0,99. Senza il
@@ -488,7 +488,7 @@ describe("markDocumentErrorBestEffort", () => {
     vi.restoreAllMocks();
   });
 
-  it("marca il documento ERROR (REVIEW.md #48)", async () => {
+  it("marca il documento ERROR (PR #707)", async () => {
     await markDocumentErrorBestEffort(
       "doc-123",
       { documentId: "doc-123" },

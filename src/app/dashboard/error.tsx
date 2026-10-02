@@ -3,7 +3,7 @@
 import { AppErrorFallback } from "@/components/errors/app-error-fallback";
 
 /**
- * Boundary di errore del segmento `/dashboard` (REVIEW.md #85).
+ * Boundary di errore del segmento `/dashboard` (PR #806).
  *
  * Esiste separato da `src/app/error.tsx` per il contenitore: qui il fallback
  * resta dentro `src/app/dashboard/layout.tsx` (header, bottom nav, tema),

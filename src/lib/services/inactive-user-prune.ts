@@ -351,8 +351,8 @@ async function reReadCandidate(
 /**
  * Cancella l'account (cascata) e invia l'email di conferma (fire-and-forget).
  *
- * ⚠️ Prima del purge ri-legge la riga e ri-valida l'eleggibilità (REVIEW.md
- * #40): lo snapshot dei candidati è preso a inizio sweep, ma il loop processa
+ * ⚠️ Prima del purge ri-legge la riga e ri-valida l'eleggibilità (PR
+ * #783): lo snapshot dei candidati è preso a inizio sweep, ma il loop processa
  * gli utenti in sequenza con side-effect lenti (email fino a 8s l'una, retry del
  * purge), quindi il batch può durare minuti. Un utente che si abbona o torna
  * attivo TRA la SELECT e l'elaborazione della sua riga verrebbe altrimenti

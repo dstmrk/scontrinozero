@@ -66,7 +66,7 @@ l'href nel **parent Server Component** e passalo come prop al Client Component
 
 > ⚠️ **La regola è stata violata dal codice che la documenta.**
 > `src/components/marketing/header.tsx` è `"use client"` e chiamava
-> `appHref("/login")` al render (REVIEW.md #93): il link "Accedi" — il primo
+> `appHref("/login")` al render (PR #904): il link "Accedi" — il primo
 > che un visitatore clicca — portava su produzione da ogni ambiente non-prod.
 > Non c'era errore né warning: la prop mancante non si vede, e un hydration
 > mismatch su un solo attributo `href` passa inosservato. Il grep che lo

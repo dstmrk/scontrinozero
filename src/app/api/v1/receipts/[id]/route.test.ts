@@ -293,7 +293,7 @@ describe("GET /api/v1/receipts/[id]", () => {
     const res = await GET(makeRequest(), makeParams(missingId));
     expect(res.status).toBe(404);
 
-    // REVIEW #15: un warn unico sul not-found dà visibilità sull'enumerazione
+    // PR #638: un warn unico sul not-found dà visibilità sull'enumerazione
     // cross-tenant. Risposta HTTP invariata (404 generico, niente oracle).
     expect(mockLoggerWarn).toHaveBeenCalledOnce();
     const [ctx] = mockLoggerWarn.mock.calls[0];

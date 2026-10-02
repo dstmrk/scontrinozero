@@ -36,7 +36,7 @@ export type AdePrerequisites =
     };
 
 /**
- * Mappa `AdePrerequisites` → `WithAdeSessionParams` (REVIEW.md #55).
+ * Mappa `AdePrerequisites` → `WithAdeSessionParams` (PR #752).
  *
  * Fisconline porta le credenziali ri-loggabili **e** l'utenza di lavoro scelta,
  * perché ogni sua sessione nasce da un login che il server rifà da solo. CIE no:
@@ -233,7 +233,7 @@ export async function fetchAdePrerequisites(
     };
   }
 
-  // Key map per VERSIONE reale (REVIEW #17): la riga può essere ancora alla
+  // Key map per VERSIONE reale (PR #785): la riga può essere ancora alla
   // chiave precedente durante una rotazione.
   const keys = getEncryptionKeys();
   const codiceFiscale = decrypt(row.cred.encryptedCodiceFiscale, keys);

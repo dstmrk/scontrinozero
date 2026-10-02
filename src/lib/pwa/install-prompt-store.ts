@@ -15,7 +15,7 @@
  * questo store. La UI lo legge poi via `useSyncExternalStore` quando è pronta,
  * anche se l'evento è già stato catturato.
  *
- * `appinstalled` manda anche un evento Umami (`pwaInstalled`, REVIEW.md #84):
+ * `appinstalled` manda anche un evento Umami (`pwaInstalled`, PR #864):
  * prima di questo non esisteva alcun segnale — nemmeno indiretto — per capire
  * se un'installazione Android fosse mai andata a buon fine.
  */

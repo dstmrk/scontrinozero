@@ -420,7 +420,7 @@ describe("getAdminStalledOnboarding", () => {
     await getAdminStalledOnboarding();
 
     // La definizione deterministica di "fermo a metà onboarding": credenziali
-    // mai verificate E identità fiscale mai scritta (issue #984, REVIEW.md #107).
+    // mai verificate E identità fiscale mai scritta (issue #984, PR #957).
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
     expect(queried).toContain("c.verified_at IS NULL");
     expect(queried).toContain("b.fiscal_code IS NULL");

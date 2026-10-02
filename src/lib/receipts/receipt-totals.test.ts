@@ -129,7 +129,7 @@ describe("calcDocTotal / calcInputLinesTotalCents — sconto di riga", () => {
   });
 
   it("senza sconti riproduce esattamente i valori di prima", () => {
-    // Regressione REVIEW.md #57: quantità frazionarie, canone per-riga.
+    // Regressione PR #702: quantità frazionarie, canone per-riga.
     const dbLines = [line("0.33", "1.5", "22"), line("0.33", "1.5", "22")];
     expect(calcDocTotal(dbLines)).toBe(1);
     expect(

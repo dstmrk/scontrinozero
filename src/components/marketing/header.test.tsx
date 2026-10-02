@@ -20,7 +20,7 @@ describe("marketing Header", () => {
     expect(href.endsWith("/login")).toBe(true);
   });
 
-  // REVIEW.md #93 — l'href va calcolato in un server parent e passato come
+  // PR #904 — l'href va calcolato in un server parent e passato come
   // prop: `appHref()` è server-only in pratica (regola 15). Chiamata da un
   // client component ricadeva sul default hardcoded di produzione, quindi in
   // sandbox/self-hosted l'hydration sostituiva l'href corretto emesso in SSR.

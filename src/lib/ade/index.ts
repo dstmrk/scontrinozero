@@ -77,7 +77,7 @@ export type WithAdeSessionParams =
   | { businessId: string; method: "cie" };
 
 /**
- * Esegue `fn` con un client AdE autenticato per `businessId` (REVIEW #5).
+ * Esegue `fn` con un client AdE autenticato per `businessId` (PR #624).
  *
  * - `ADE_MODE=real`, Fisconline: riusa la sessione via `adeSessionCache` (un solo
  *   login per più operazioni ravvicinate, serializzate per-business). Invariato.

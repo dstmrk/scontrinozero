@@ -184,7 +184,7 @@ function readPreviousKey(): { version: number; key: Buffer } | null {
  * Key map da passare a `decrypt()`: la chiave corrente più, durante una
  * rotazione, quella precedente.
  *
- * Perché esiste (REVIEW #17): i caller costruivano
+ * Perché esiste (PR #785): i caller costruivano
  * `new Map([[row.keyVersion, getEncryptionKey()]])`, cioè mappavano la versione
  * MEMORIZZATA sulla chiave CORRENTE. A cavallo di una rotazione quella mappa
  * mente — decifra un payload v1 con la chiave v2 → authTag mismatch — e la
@@ -237,7 +237,7 @@ export function getEncryptionKeys(): Map<number, Buffer> {
  * I caller di `decrypt()` devono costruire la key map con
  * `getEncryptionKeys()`, MAI con `new Map([[row.keyVersion, getEncryptionKey()]])`:
  * quest'ultima etichetta la chiave corrente con la versione memorizzata e
- * mente a cavallo di una rotazione (REVIEW #17).
+ * mente a cavallo di una rotazione (PR #785).
  *
  * `encrypt()` invece usa sempre e solo la chiave corrente,
  * `encrypt(plaintext, getEncryptionKey(), getKeyVersion())`: si decifra da N

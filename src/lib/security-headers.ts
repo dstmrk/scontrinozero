@@ -20,7 +20,7 @@ export type BuildSecurityHeadersOptions = {
  * `Reporting-Endpoints` NON è qui: la Reporting API lo pretende assoluto, e
  * un URL assoluto costruito al build sarebbe quello di produzione anche
  * nell'immagine che serve la sandbox. Lo calcola `src/proxy.ts` a runtime,
- * dove `APP_HOSTNAME` distingue gli ambienti (REVIEW.md #93).
+ * dove `APP_HOSTNAME` distingue gli ambienti (PR #904).
  *
  * La policy CSP è generata in `src/lib/csp.ts`. Vedi CLAUDE.md per il
  * razionale CSP (Report-Only → Enforce).

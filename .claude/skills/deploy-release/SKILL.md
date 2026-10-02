@@ -117,7 +117,7 @@ curl -fsSI https://<host>/sw.js | head -1
   sentinella non appare in dashboard entro ~5 minuti**; se non appare →
   integrazione rotta = bug bloccante, rollback o riapri la PR. Query lato
   Sentry (`errorClass:sentinel sentinelId:v$VERSION`) → skill `sentry-hygiene`.
-- `/sw.js` → **200**, non 404. È la quarta probe, aggiunta dopo REVIEW #84: il
+- `/sw.js` → **200**, non 404. È la quarta probe, aggiunta dopo la PR #790: il
   service worker aveva smesso di essere emesso dal build (plugin webpack sotto
   Turbopack) e nessuno se n'era accorto per mesi, perché un 404 su `/sw.js`
   non degrada nulla di visibile lato server — degrada offline e installazione

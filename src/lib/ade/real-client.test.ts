@@ -659,7 +659,7 @@ describe("RealAdeClient", () => {
     });
 
     it("Phase F: logga ade:wizard_piva_missing con la struttura (no PII) su PIva vuota", async () => {
-      // REVIEW.md #32: il throw arrivava su un 200 senza alcun contesto sulla
+      // PR #917: il throw arrivava su un 200 senza alcun contesto sulla
       // response. Logghiamo la struttura (chiavi), mai i valori PII.
       vi.mocked(logger.warn).mockClear();
       mockPhasesBeforeWizard(fetchMock);
@@ -1937,7 +1937,7 @@ describe("RealAdeClient", () => {
       );
     });
 
-    it("clearCredentials disables 401 re-auth → AdeSessionExpiredError (REVIEW #5)", async () => {
+    it("clearCredentials disables 401 re-auth → AdeSessionExpiredError (PR #624)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
@@ -1952,7 +1952,7 @@ describe("RealAdeClient", () => {
       );
     });
 
-    it("setCredentials restores 401 re-auth without re-login (REVIEW #5)", async () => {
+    it("setCredentials restores 401 re-auth without re-login (PR #624)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
@@ -2325,7 +2325,7 @@ describe("RealAdeClient", () => {
       );
     });
 
-    it("throws AdeUnknownOutcomeError on 200 with a non-JSON body (unknown outcome, REVIEW #64)", async () => {
+    it("throws AdeUnknownOutcomeError on 200 with a non-JSON body (unknown outcome, PR #733)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
@@ -2483,7 +2483,7 @@ describe("RealAdeClient", () => {
       await client.login(mockCredentials);
 
       // 200 con pagina HTML: nessuna semantica unknown-outcome su una lettura,
-      // solo un errore tipizzato invece del SyntaxError opaco (REVIEW #64.4).
+      // solo un errore tipizzato invece del SyntaxError opaco (PR #733).
       fetchMock.mockResolvedValueOnce(
         mockResponse({
           status: 200,

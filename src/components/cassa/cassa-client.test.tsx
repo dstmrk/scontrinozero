@@ -111,7 +111,7 @@ describe("CassaClient — sconto di riga", () => {
   });
 });
 
-// --- Chiave di idempotenza (REVIEW.md #103, slice 3) ---
+// --- Chiave di idempotenza (PR #904, slice 3) ---
 
 /** Batte un importo sul tastierino e conferma la riga. */
 function addLine(digits: string): void {

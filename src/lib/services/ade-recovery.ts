@@ -9,7 +9,7 @@ import type { AdeDocumentSummary } from "@/lib/ade/types";
  * Marca un documento `ERROR` best-effort dopo un fallimento in cui sappiamo che
  * AdE **non** ha registrato il documento (es. 401 reauth CIE in-flight): la riga
  * esce dallo stato PENDING così non resta un ghost perpetuo nello storico
- * (REVIEW.md #48). Da NON usare sui transient (esito ignoto → la riga deve
+ * (PR #707). Da NON usare sui transient (esito ignoto → la riga deve
  * restare PENDING per la stale-recovery).
  *
  * L'errore dell'UPDATE è swallowed (solo `logger.warn`): è già un percorso di
@@ -98,8 +98,8 @@ export function isStaleUpdatedAt(
 
 /**
  * Conta i documenti `PENDING` fermi oltre la soglia stale: le righe il cui
- * esito su AdE resta ignoto e che nessuna superficie mostrava (REVIEW.md
- * #103).
+ * esito su AdE resta ignoto e che nessuna superficie mostrava (PR
+ * #904).
  *
  * **Solo `PENDING`, mai `ERROR`.** Un `ERROR` è un esito *noto*: ci arriva o
  * da `markDocumentErrorBestEffort`, chiamata quando sappiamo che AdE non ha
@@ -212,7 +212,7 @@ export async function claimStaleDocument(
 // Lookup AdE pre-retry: riconciliazione del documento PENDING con la fonte di
 // verità (AdE) prima di ri-sottometterlo, per evitare un duplicato fiscale
 // irreversibile quando AdE aveva già accettato ma la response si era persa
-// (REVIEW.md #4, HAR: ricerca.har).
+// (PR #653, HAR: ricerca.har).
 // ---------------------------------------------------------------------------
 
 /** Fuso orario del portale AdE: i `data` di risposta sono wall-clock italiani. */
@@ -253,7 +253,7 @@ export type AdeReconcileResult =
        * automatico li ignora — resta conservativo e non finalizza — ma la
        * verifica dentro la sessione dell'esercente li mostra e gli lascia
        * scegliere: è l'unico anello della catena che sa se quella vendita è
-       * avvenuta (REVIEW.md #103).
+       * avvenuta (PR #904).
        */
       candidates: readonly AdeDocumentSummary[];
     };
@@ -343,7 +343,7 @@ export function buildAdeSearchWindow(createdAt: Date): {
  *
  * Match primario: `expectedCents` = totale canonico per-riga
  * (round(price*qty*100) sommato). `legacyFloatCents` è un secondo comparatore
- * per i documenti emessi PRIMA di REVIEW.md #57: il vecchio mapper trasmetteva
+ * per i documenti emessi PRIMA della PR #702: il vecchio mapper trasmetteva
  * `ammontareComplessivo` come somma float dei lordi (8 decimali), che su
  * quantità frazionarie diverge di 1 cent dal canonico. Accettarlo evita che la
  * recovery ri-sottometta un documento che AdE aveva già registrato col totale
@@ -449,7 +449,7 @@ export function reconcileSaleDocument(params: {
   claimedIdtrx?: ReadonlySet<string>;
   /**
    * Totale legacy (somma float dei lordi) di un documento emesso prima di
-   * REVIEW.md #57. Comparatore di fallback in `matchesAmount`: passarlo solo
+   * PR #702. Comparatore di fallback in `matchesAmount`: passarlo solo
    * quando differisce da `expectedTotalCents`.
    */
   expectedLegacyTotalCents?: number;

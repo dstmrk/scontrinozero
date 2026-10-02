@@ -8,7 +8,7 @@ const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
-  // Helper puro (REVIEW.md #55): mappa AdePrerequisites → WithAdeSessionParams.
+  // Helper puro (PR #752): mappa AdePrerequisites → WithAdeSessionParams.
   // Mockato con la mappatura reale così `withAdeSession` riceve params validi.
   toAdeSessionParams: (
     businessId: string,
@@ -29,7 +29,7 @@ vi.mock("@/lib/server-auth", () => ({
 
 const mockLimit = vi.fn();
 // `.where()` serve due chiamanti: i lookup doc usano `.limit()`, mentre
-// findClaimedTransactionIds (REVIEW.md #4) awaita direttamente `.where()`.
+// findClaimedTransactionIds (PR #653) awaita direttamente `.where()`.
 // Il thenable risolve [] (nessun idtrx già rivendicato → il match regge).
 const mockWhere = vi.fn().mockReturnValue({
   limit: mockLimit,
@@ -94,7 +94,7 @@ vi.mock("@/db/schema", () => ({
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockSubmitSale = vi.fn();
-// Lookup AdE pre-retry (REVIEW.md #4): default "nessun match" → il recovery
+// Lookup AdE pre-retry (PR #653): default "nessun match" → il recovery
 // procede col re-submit come prima. Override per-test per match/ambiguous/throw.
 const mockSearchDocuments = vi
   .fn()
@@ -105,7 +105,7 @@ const mockAdeClient = {
   submitSale: mockSubmitSale,
   searchDocuments: mockSearchDocuments,
 };
-// withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
+// withAdeSession (PR #624) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitSale restano valide.
 const mockIsCieSessionMissing = vi.fn().mockReturnValue(false);
@@ -300,7 +300,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
-  it("REVIEW #48 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga marcata ERROR", async () => {
+  it("PR #707 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga marcata ERROR", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",
       cedentePrestatore: { built: true },
@@ -313,15 +313,15 @@ describe("emitReceiptForBusiness", () => {
 
     expect(result.reauthRequired).toBe(true);
     // submitSale tentato ma AdE ha rifiutato la sessione (401). A differenza dei
-    // transient (esito ignoto → PENDING obbligatorio, REVIEW #35), qui il 401
+    // transient (esito ignoto → PENDING obbligatorio, PR #668), qui il 401
     // garantisce che il documento NON è registrato: marchiamo ERROR così la riga
-    // esce dallo stato PENDING ghost perpetuo nello storico (REVIEW.md #48).
+    // esce dallo stato PENDING ghost perpetuo nello storico (PR #707).
     expect(mockSubmitSale).toHaveBeenCalled();
     const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(updateSets).toContain("ERROR");
   });
 
-  it("REVIEW #48 — reauth in-flight: UPDATE a ERROR fallito è swallowed, reauthRequired invariato", async () => {
+  it("PR #707 — reauth in-flight: UPDATE a ERROR fallito è swallowed, reauthRequired invariato", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",
       cedentePrestatore: { built: true },
@@ -724,7 +724,7 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
-  it("recovery vendita: searchDocuments trova un match → finalize-only, niente submitSale (REVIEW.md #4)", async () => {
+  it("recovery vendita: searchDocuments trova un match → finalize-only, niente submitSale (PR #653)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     // createdAt fisso: il suo wall-clock italiano (CET) è 23/02/2026 10:06:14.
     const createdAt = new Date("2026-02-23T09:06:14Z");
@@ -914,7 +914,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("REVIEW.md #56: emit con la key di un VOID → IDEMPOTENCY_PAYLOAD_MISMATCH, niente submit", async () => {
+  it("PR #704: emit con la key di un VOID → IDEMPOTENCY_PAYLOAD_MISMATCH, niente submit", async () => {
     mockDocumentReturning.mockResolvedValue([]); // conflict
     // La riga trovata per questa key è un annullo (VOID), non un'emissione:
     // la key NON appartiene a questo SALE.
@@ -943,7 +943,7 @@ describe("emitReceiptForBusiness", () => {
     expect(updateSets).not.toContain("ACCEPTED");
   });
 
-  it("REVIEW.md #56: emit replay su SALE già VOID_ACCEPTED → ALREADY_VOIDED, status invariato", async () => {
+  it("PR #704: emit replay su SALE già VOID_ACCEPTED → ALREADY_VOIDED, status invariato", async () => {
     mockDocumentReturning.mockResolvedValue([]); // conflict
     // Retry at-least-once dell'emit su uno scontrino annullato nel frattempo:
     // adeTransactionId è valorizzato ma NON deve entrare in recovery/finalize.
@@ -970,7 +970,7 @@ describe("emitReceiptForBusiness", () => {
     expect(updateSets).not.toContain("ACCEPTED");
   });
 
-  it("REVIEW.md #56: finalizeSaleOnly su riga non finalizzabile (0 righe) → errore, mai falso successo", async () => {
+  it("PR #704: finalizeSaleOnly su riga non finalizzabile (0 righe) → errore, mai falso successo", async () => {
     mockDocumentReturning.mockResolvedValue([]); // conflict
     // Stale PENDING con adeTransactionId → recoverStaleReceipt chiama
     // finalizeSaleOnly. Il guard kind/status non matcha nessuna riga (es. la
@@ -1238,7 +1238,7 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
-  it("REVIEW #35: AdE transient (AdePortalError 5xx) dopo submitSale NON marca ERROR (resta PENDING)", async () => {
+  it("PR #668: AdE transient (AdePortalError 5xx) dopo submitSale NON marca ERROR (resta PENDING)", async () => {
     // AdE potrebbe aver già registrato il documento ma la risposta è andata in
     // timeout/5xx: marcare ERROR escluderebbe la riga dal partial unique index
     // e dalla riconciliazione pre-resubmit, rischiando una doppia emissione
@@ -1255,7 +1255,7 @@ describe("emitReceiptForBusiness", () => {
     expect(updateSets).not.toContain("ERROR");
   });
 
-  it("REVIEW #35: AdeNetworkError dopo submitSale NON marca ERROR (resta PENDING)", async () => {
+  it("PR #668: AdeNetworkError dopo submitSale NON marca ERROR (resta PENDING)", async () => {
     const { AdeNetworkError } = await import("@/lib/ade/errors");
     mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
@@ -1266,7 +1266,7 @@ describe("emitReceiptForBusiness", () => {
     expect(updateSets).not.toContain("ERROR");
   });
 
-  it("REVIEW #18: un fallimento transient è classificato ADE_UNAVAILABLE", async () => {
+  it("PR #780: un fallimento transient è classificato ADE_UNAVAILABLE", async () => {
     // È il codice che sul canale API diventa un 503 ritentabile invece del 422
     // indistinto: senza classificazione il client non può sapere che ritentare
     // con la STESSA idempotencyKey è la mossa giusta.
@@ -1305,7 +1305,7 @@ describe("emitReceiptForBusiness", () => {
     expect(result.documentId).toBeUndefined();
   });
 
-  it("REVIEW #18: un rifiuto funzionale AdE resta senza code (→ 422 ADE_REJECTED)", async () => {
+  it("PR #780: un rifiuto funzionale AdE resta senza code (→ 422 ADE_REJECTED)", async () => {
     // Un errore permanente NON deve prendere il codice transient, altrimenti il
     // client entrerebbe in un loop di retry su un documento che l'AdE rifiuterà
     // sempre.
@@ -1318,7 +1318,7 @@ describe("emitReceiptForBusiness", () => {
     expect(result.error).toBeTruthy();
   });
 
-  it("REVIEW #64: submitSale 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
+  it("PR #733: submitSale 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
     // Esito ignoto: la POST è stata consegnata con un 200, il documento può
     // essere già su AdE. Marcare ERROR aprirebbe alla doppia emissione fiscale;
     // la riga resta PENDING e la stale-recovery riconcilia via searchDocuments.
@@ -1412,7 +1412,7 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
-  it("trasmette ad AdE il totale per-riga (REVIEW.md #1: AdE === PDF/pagina pubblica)", async () => {
+  it("trasmette ad AdE il totale per-riga (PR #605: AdE === PDF/pagina pubblica)", async () => {
     // 3 × (1.5 × 0.33): per-riga round(49.5)*3 = 150 cents → €1,50.
     // Il vecchio per-documento dava round(148.5) = 149 → €1,49, divergente dal
     // totale stampato su PDF/pagina pubblica (computeReceiptTotals, per-riga).

@@ -29,7 +29,7 @@ COPY . .
 # e' un segreto REGALATO a chiunque faccia `docker pull`.
 # Per questo la telemetria server/edge legge `SENTRY_DSN` (senza prefisso) a
 # runtime dal .env, e qui resta solo il DSN del browser, che inlineato deve
-# esserlo per forza. Vedi sentry.server.config.ts e REVIEW #97.
+# esserlo per forza. Vedi sentry.server.config.ts e PR #876.
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN

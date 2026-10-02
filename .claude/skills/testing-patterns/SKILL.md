@@ -34,7 +34,7 @@ Indice (salta alla sezione che serve, non leggere tutto):
 **error** in `eslint.config.mjs` sui file di test: `npm run lint` fallisce
 prima della push. Era l'unica delle tre trappole di questa skill a non avere
 un gate locale — Vitest conta verde un `it()` senza assertion, e la bocciatura
-arrivava da SonarCloud (**S6661, Blocker**) solo dopo (REVIEW.md #104,
+arrivava da SonarCloud (**S6661, Blocker**) solo dopo (PR #904,
 misurato: zero violazioni su 317 file al momento dell'accensione).
 
 Resta la parte che il lint non può insegnarti: **quale** assertion scrivere.
@@ -74,8 +74,8 @@ Le variabili usate nella factory `vi.mock` **devono iniziare con `mock`**: la
 chiamata è hoistata in cima al file e una variabile senza quel prefisso non
 esiste ancora quando la factory gira.
 
-**Queste due un gate ce l'hanno già, ed è il test run** (misurato, REVIEW.md
-#104 — per questo NON sono diventate regole ESLint):
+**Queste due un gate ce l'hanno già, ed è il test run** (misurato, PR
+#904 — per questo NON sono diventate regole ESLint):
 
 - arrow al posto di `function` → `TypeError: X is not a constructor`;
 - variabile senza prefisso → l'errore di Vitest _"make sure there are no top
@@ -191,13 +191,13 @@ magic number):
 Note che non si deducono dai numeri:
 
 - `emit` è a 120/ora **per allinearsi** a `api:emit`: la cassa non può avere un
-  tetto più basso della Developer API per lo stesso account (REVIEW.md #72).
+  tetto più basso della Developer API per lo stesso account (PR #781).
 - `void` a 10/ora perché l'annullo è irreversibile; `verify-ade` a 5/15min per
-  REVIEW.md #36.
+  PR #671.
 - `save-ade` è più alto (10/15min) del gemello `verify-ade`: non tocca AdE, ma
   invalida le due cache di sessione (Fisconline ~10 round-trip, CIE non
   ri-creabile senza azione umana) — il gate protegge quelle, non un login
-  (REVIEW.md #80). Va controllato **dopo** i guard cheap sull'input, così un
+  (PR #803). Va controllato **dopo** i guard cheap sull'input, così un
   `businessId` malformato non consuma quota.
 - `pdf:<ip>` e `receipt-page:<ip>` hanno la **stessa** soglia ma bucket separati:
   vista pagina e download PDF devono avere budget indipendenti.

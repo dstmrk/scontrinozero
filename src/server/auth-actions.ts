@@ -389,7 +389,7 @@ async function sendConfirmationEmail(email: string): Promise<void> {
  * **presente ma vuoto** (`[]`). In quel caso l'`id` ritornato è quello
  * dell'utente esistente, non di uno nuovo — inserire un profilo qui rischia la
  * unique violation il cui compensating delete cancellerebbe l'auth user
- * legittimo dell'altra registrazione (REVIEW #65).
+ * legittimo dell'altra registrazione (PR #732).
  *
  * Controlliamo SOLO l'array vuoto esplicito, mai `undefined`/`null`: un
  * `identities` assente non è una response reale di Supabase per un signup
@@ -404,7 +404,7 @@ function isObfuscatedExistingUser(
 }
 
 /**
- * Guard della race del doppio signUp (REVIEW #65): esiste già un profilo per
+ * Guard della race del doppio signUp (PR #732): esiste già un profilo per
  * questo `authUserId`? In caso affermativo l'auth user appartiene a una
  * registrazione concorrente GIÀ committata e NON va cancellato (nessuna FK
  * `profiles → auth.users` ripulisce un eventuale orfano: cancellarlo
@@ -472,7 +472,7 @@ async function insertProfileOrRollback(
     });
     return null;
   } catch (err) {
-    // Doppio signUp race (REVIEW #65): per un'email esistente NON confermata
+    // Doppio signUp race (PR #732): per un'email esistente NON confermata
     // Supabase ritorna lo STESSO auth user id, quindi questo insert può fallire
     // con unique violation mentre l'auth user appartiene già a una
     // registrazione committata dall'altra richiesta. Prima di cancellare
@@ -646,7 +646,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     // registrazione perché la prima mail non è arrivata (filtro, quarantena
     // Exchange). Reindirizzare a "Ti abbiamo inviato un'email" senza inviare
     // nulla lo lasciava ad aspettare un messaggio mai partito. `signUp` resta
-    // non chiamata: la race del doppio signUp (REVIEW #65) non si riapre.
+    // non chiamata: la race del doppio signUp (PR #732) non si riapre.
     //
     // Per un'email già CONFERMATA GoTrue rifiuta il resend e non parte nulla —
     // è la protezione che impedisce di usare questo path per molestare un
@@ -678,7 +678,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     return { error: "Registrazione fallita. Riprova." };
   }
 
-  // Anti-enumeration Supabase (REVIEW #65): se l'email esiste già ed è non
+  // Anti-enumeration Supabase (PR #732): se l'email esiste già ed è non
   // confermata, signUp non crea un nuovo utente e ritorna un oggetto obfuscato
   // con `identities: []` riusando l'id dell'utente esistente. Trattiamo come
   // "già registrato" → redirect senza insert, così non tentiamo un profilo il

@@ -1,6 +1,6 @@
 /**
  * Verifica manuale di uno scontrino rimasto `PENDING` a esito AdE ignoto
- * (REVIEW.md #103, slice 2).
+ * (PR #904, slice 2).
  *
  * **Perché serve una strada a parte, e non basta il recovery esistente.** La
  * stale-recovery è pull-based: il suo unico ingresso è il ramo `alreadyExists`

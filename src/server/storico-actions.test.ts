@@ -190,7 +190,7 @@ describe("storico-actions", () => {
 
     // Entry point della ricevuta di annullamento: dal dettaglio di una
     // vendita annullata l'esercente deve poter aprire e stampare l'annullo.
-    // Senza questi campi la riga e' un vicolo cieco (REVIEW.md #85).
+    // Senza questi campi la riga e' un vicolo cieco (PR #836).
     it("espone l'annullo collegato su una vendita annullata", async () => {
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(1))

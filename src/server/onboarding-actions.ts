@@ -123,15 +123,15 @@ const changePasswordLimiter = new RateLimiter({
 // getFiscalData). Senza questo gate un utente autenticato — già filtrato
 // dall'ownership check — può martellare il login AdE ripetendo
 // verifyAdeCredentials, rischiando un lockout/IP-block lato AdE sull'egress
-// condiviso che impatterebbe TUTTI gli utenti (REVIEW.md #36). 5/15 min in
+// condiviso che impatterebbe TUTTI gli utenti (PR #671). 5/15 min in
 // simmetria con changePasswordLimiter.
 const verifyAdeLimiter = new RateLimiter({
   maxRequests: 5,
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
-// saveAdeCredentials era l'unica action credenziali AdE senza gate (REVIEW.md
-// #80). Il costo non è la cifratura ma l'invalidazione delle DUE cache di
+// saveAdeCredentials era l'unica action credenziali AdE senza gate (PR
+// #803). Il costo non è la cifratura ma l'invalidazione delle DUE cache di
 // sessione AdE in coda alla action: la sessione Fisconline vale ~10 round-trip
 // HTTP (è la ragione per cui session-cache.ts esiste) e quella CIE non è
 // ri-creabile senza azione umana. Un client in loop — o una sessione rubata —
@@ -510,7 +510,7 @@ export async function saveAdeCredentials(
 
   logger.info({ businessId, loginMethod }, "ADE credentials updated");
 
-  // Invalida la sessione AdE cached (REVIEW #5): le credenziali sono cambiate,
+  // Invalida la sessione AdE cached (PR #624): le credenziali sono cambiate,
   // la prossima emissione/annullo deve rieffettuare il login con le nuove.
   await adeSessionCache.invalidate(businessId);
   await adeInteractiveSessionStore.invalidate(businessId);
@@ -1199,7 +1199,7 @@ export async function verifyAdeCredentials(
 
   // Rate limit DOPO l'ownership gate, PRIMA del decrypt/login AdE: degradare
   // con un messaggio standard (regola 19), warn senza Sentry (input prevedibile,
-  // regola 20). Simmetria con changeAdePassword (REVIEW.md #36).
+  // regola 20). Simmetria con changeAdePassword (PR #671).
   const rateLimitResult = verifyAdeLimiter.check(`verify-ade:${user.id}`);
   if (!rateLimitResult.success) {
     logger.warn(
@@ -1254,7 +1254,7 @@ export async function verifyAdeCredentials(
   // Un solo punto di scrittura, dopo ogni ramo d'uscita. Spargere la chiamata
   // sui dodici `return` di `runAdeVerification` avrebbe garantito che prima o
   // poi qualcuno ne dimenticasse uno, e un buco nell'attribuzione è
-  // indistinguibile da un "mai tentato" (REVIEW.md #107).
+  // indistinguibile da un "mai tentato" (PR #957).
   await recordVerifyOutcome(db, businessId, outcome);
 
   return result;
@@ -1312,7 +1312,7 @@ async function runAdeVerification(params: {
   // below will match 0 rows, preventing verifiedAt from being set on stale data.
   const credentialVersion = selection.credentialVersion ?? cred.updatedAt;
 
-  // Key map per VERSIONE reale (REVIEW #17): sotto rotazione la riga può
+  // Key map per VERSIONE reale (PR #785): sotto rotazione la riga può
   // essere ancora cifrata con la chiave precedente.
   const keys = getEncryptionKeys();
 
@@ -1630,8 +1630,8 @@ function formatChangePasswordError(err: unknown, businessId: string): string {
  * rotazione, un payload marcato v1 ma cifrato con la chiave v2: una key-map
  * multi-versione corretta lo decifrerebbe con la chiave v1 → authTag mismatch
  * → credenziali illeggibili. Allineare l'intera riga alla versione corrente
- * chiude il buco (REVIEW #71) e non ostacola la rotazione zero-downtime
- * (REVIEW #17).
+ * chiude il buco (PR #782) e non ostacola la rotazione zero-downtime
+ * (PR #785).
  *
  * `encryptedUsername` è normalmente null su Fisconline (l'username è il CF), ma
  * viene ri-cifrato se presente: qualunque campo lasciato alla chiave vecchia
@@ -1716,7 +1716,7 @@ export async function changeAdePassword(
     return { error: "Codice fiscale non disponibile per il cambio password." };
   }
 
-  // Si decifra da N versioni (`keys`, REVIEW #17) ma si ri-cifra sempre con la
+  // Si decifra da N versioni (`keys`, PR #785) ma si ri-cifra sempre con la
   // chiave corrente (`key`), coerentemente con `reencryptCredentialFields`.
   const key = getEncryptionKey();
   const keys = getEncryptionKeys();

@@ -8,8 +8,8 @@
 > questo file e diventa un'issue.
 >
 > Migrati da `REVIEW.md` il 2026-10-02, quando il backlog è passato alle issue
-> GitHub: le citazioni `REVIEW.md #N` rimaste nel codice per queste voci
-> puntano qui.
+> GitHub. Le voci nate come finding portano nel titolo la PR che le ha chiuse:
+> è la stessa che cita il codice.
 
 > ⚠️ **Un rischio accettato su un advisory ha una data di scadenza implicita.**
 > Quando il job `audit` inizia a fallire su un advisory documentato qui come
@@ -163,10 +163,10 @@ dev (`drizzle-kit`/`tsx`/`@esbuild-kit/*`, tutte `devDependencies`), mai a runti
 né nella build Next (SWC). Superficie ≈ 0. **Riaprire:** quando la toolchain
 aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
 
-## Verifica su AdE reale sostituita da sentinella Sentry (ex `REVIEW.md #57`)
+## Verifica su AdE reale sostituita da sentinella Sentry (PR #702)
 
-Il fix di `REVIEW.md #57` (totali payload per-riga in cents) è spedito. Il
-sub-task A del mapper (ex `REVIEW.md #88`) ha poi allineato il payload alla
+Il fix della PR #702 (totali payload per-riga in cents) è spedito. Il
+sub-task A del mapper (PR #849) ha poi allineato il payload alla
 semantica del portale — `prezzoLordo` unitario, netti a piena precisione —
 su prova documentale (due
 payload reali accettati dall'AdE, `HAR.md` voci #1 e #12), ma **entrambi a
@@ -192,7 +192,7 @@ delega il rilevamento a due sentinelle in `runSubmitSale`
 l'assunzione sui totali va rivista, e il campione da chiedere è un rifiuto AdE
 su riga a quantità frazionaria con aliquota IVA.
 
-## `flagIdentificativiModificati` diverge dal portale (ex `REVIEW.md #88`)
+## `flagIdentificativiModificati` diverge dal portale (PR #849)
 
 `src/lib/ade/mapper.ts` manda `flagIdentificativiModificati: true` (e
 `altriDatiIdentificativi.modificati: true`), il portale manda `false` su
@@ -204,7 +204,7 @@ quelli memorizzati sul portale. Registrato per non ri-scoprirlo a ogni audit del
 mapper. **Riaprire:** se l'AdE iniziasse a rifiutare o a trattare diversamente i
 documenti con il flag a `true`.
 
-## Link pubblici scontrini senza TTL/revoca, UUID come token (ex `REVIEW.md #8`)
+## Link pubblici scontrini senza TTL/revoca, UUID come token (PR #632)
 
 `src/app/r/[documentId]/page.tsx` + `src/lib/receipts/fetch-public-receipt.ts`
 usano il document UUID come token, senza scadenza/revoca. UUID = 122 bit
@@ -214,7 +214,7 @@ consegnare, `robots: noindex`. Fix (tabella + migration + route + UI) sproporzio
 per un hobby project. **Riaprire:** se lo scontrino includerà dati anagrafici del
 cliente, o se servirà audit/revoca degli accessi.
 
-## Referral bonus: limiti dopo lo split trial-vs-Stripe (ex `REVIEW.md #33`)
+## Referral bonus: limiti dopo lo split trial-vs-Stripe (PR #670)
 
 `src/lib/plans.ts` (`fetchPlan`), `src/server/onboarding-actions.ts`
 (`finalizeAdeVerification`), `src/server/referral-reward.ts`

@@ -44,7 +44,7 @@ vi.mock("@/lib/server-auth", () => ({
   checkBusinessOwnership: mockCheckBusinessOwnership,
 }));
 
-// `classifyPlanReadError` resta l'implementazione reale (REVIEW.md #78): qui
+// `classifyPlanReadError` resta l'implementazione reale (PR #804): qui
 // interessa proprio che un ProfileNotFoundError sollevato dalla lettura del
 // piano venga classificato e degradato, non il fatto che il mock ritorni una
 // stringa qualsiasi.
@@ -232,7 +232,7 @@ describe("listApiKeys", () => {
     expect(mockCanUseApi).toHaveBeenCalledWith("trial", null, trialStartedAt);
   });
 
-  // REVIEW.md #78: authorizeApiKeyBusiness leggeva il piano con una
+  // PR #804: authorizeApiKeyBusiness leggeva il piano con una
   // Promise.all non protetta — un profilo orfano o uno statement timeout
   // propagavano fino all'error boundary di Next. Entrambe le promise possono
   // rigettare, quindi il guard copre la Promise.all, non il solo getPlan.

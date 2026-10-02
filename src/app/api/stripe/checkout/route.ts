@@ -32,7 +32,7 @@ type Db = ReturnType<typeof getDb>;
  * non deve mai generare un secondo checkout, altrimenti Stripe crea una sub
  * duplicata sullo stesso customer e `syncSubscriptionData` sovrascrive l'unica
  * riga DB lasciando la vecchia sub viva e non tracciata (rischio doppio
- * addebito sul dunning `past_due` — REVIEW #38).
+ * addebito sul dunning `past_due` — PR #669).
  *
  * `incomplete`/`incomplete_expired` NON inclusi: sono il pre-attivazione del
  * primo pagamento, bloccarli impedirebbe il retry SCA legittimo. `trialing`

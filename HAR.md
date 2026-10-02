@@ -1129,7 +1129,7 @@ l'incassato oltre il corrispettivo, e **nessuno dei sei slot della voce #6 si
 chiama così**. Non sappiamo se il tracciato del _documento commerciale online_
 lo preveda: serve una cattura fatta apposta.
 
-Tracciato in issue #991. Nulla di questo blocca gli sconti o il pagamento
+Tracciato nell'issue #991. Nulla di questo blocca gli sconti o il pagamento
 misto: è il perimetro di ciò che non risolvono.
 
 ---
@@ -1140,7 +1140,7 @@ misto: è il perimetro di ciò che non risolvono.
 quattro società (`ivaservizi.agenziaentrate.gov.it.har`, 120 entry). È la prima
 cattura di un account **non** a entità singola: fino a qui ogni HAR veniva da
 utenze in cui la P.IVA è intestata alla persona, dove il portale salta del tutto
-questo passo. Chiude l'ipotesi lasciata aperta da issue #984 e la issue
+questo passo. Chiude l'ipotesi lasciata aperta dall'issue #984 e la issue
 Sentry SCONTRINOZERO-13.
 
 **Mascheramento.** Le quattro P.IVA reali sono rese `<PIVA-A>` … `<PIVA-D>`, il

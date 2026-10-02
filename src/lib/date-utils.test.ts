@@ -107,7 +107,7 @@ describe("formatRomeDate / formatRomeTime", () => {
     );
   });
 
-  // Regression guard sui bordi DST (REVIEW #16): la transizione CET↔CEST in
+  // Regression guard sui bordi DST (PR #638): la transizione CET↔CEST in
   // Europe/Rome avviene alle 01:00 UTC (ultima domenica di marzo/ottobre).
   describe("confini DST", () => {
     it("resta su CET un secondo prima del passaggio all'ora legale", () => {

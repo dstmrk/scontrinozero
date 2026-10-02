@@ -86,7 +86,7 @@ function resolveBaseUrl(): string {
  * funzione cadrebbe quindi sull'host di produzione, sostituendo l'href
  * corretto emesso in SSR — silenziosamente, in sandbox/self-hosted. Da un
  * client component, calcolare l'href in un parent server component e
- * passarlo come prop (REVIEW.md #93).
+ * passarlo come prop (PR #904).
  */
 export function appHref(path: `/${string}`): string {
   return `${resolveBaseUrl()}${path}`;

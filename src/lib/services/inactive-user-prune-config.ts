@@ -27,7 +27,7 @@ export const DEFAULT_DELETE_AFTER_DAYS = 365;
 export const DEFAULT_WARN_BEFORE_DAYS = 30;
 
 /**
- * Floor di sicurezza sulla soglia di cancellazione (REVIEW.md #39). Sotto
+ * Floor di sicurezza sulla soglia di cancellazione (PR #783). Sotto
  * questo valore lo sweep NON parte: un typo nella env (es. `3` al posto di
  * `365`) porterebbe `warnCutoff` a "adesso" e preavviserebbe TUTTI gli utenti
  * non protetti al primo sweep, cancellandoli il giorno dopo. Su una feature
@@ -77,7 +77,7 @@ function readPositiveInt(
  * meno un giorno (minimo 1) e la violazione finisce in `warnings`.
  *
  * ⚠️ Floor: `deleteAfterDays` < `MIN_DELETE_AFTER_DAYS` forza `enabled = false`
- * (REVIEW.md #39). Il floor NON può accendere uno sweep spento: agisce solo in
+ * (PR #783). Il floor NON può accendere uno sweep spento: agisce solo in
  * direzione fail-safe.
  */
 export function readPruneConfig(
@@ -114,7 +114,7 @@ export function readPruneConfig(
     warnings.push(
       `INACTIVE_USER_DELETE_AFTER_DAYS=${deleteAfterDays} è sotto il floor di ` +
         `sicurezza di ${MIN_DELETE_AFTER_DAYS} giorni: lo sweep di cancellazione ` +
-        `NON verrà avviato (fail-safe, REVIEW.md #39).`,
+        `NON verrà avviato (fail-safe, PR #783).`,
     );
   }
 

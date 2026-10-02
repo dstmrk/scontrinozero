@@ -24,7 +24,7 @@ export type BillingPlanData = {
  *
  * `past_due` e `unpaid` mappano entrambi su `past-due` (CTA portale): sono gli
  * stati di dunning Stripe in cui il checkout server-side è bloccato
- * (`BILLABLE_STATUSES` in api/stripe/checkout/route.ts — REVIEW #38), quindi la
+ * (`BILLABLE_STATUSES` in api/stripe/checkout/route.ts — PR #669), quindi la
  * UI deve coerentemente instradare al portale invece di offrire un nuovo
  * checkout che genererebbe una subscription duplicata.
  */
@@ -39,7 +39,7 @@ export function computeBillingCardState(
       planData.subscriptionStatus === "unpaid")
   )
     return "past-due";
-  // Safety-net per webhook `customer.subscription.deleted` persi (REVIEW #31):
+  // Safety-net per webhook `customer.subscription.deleted` persi (PR #638):
   // se il piano pagato e' scaduto oltre la grazia i gate sono gia' read-only
   // (isPaidPlanExpired). La subscription row puo' essere rimasta `active`:
   // senza questo check la card mostrerebbe "Pro attivo" mentre cassa/catalogo/

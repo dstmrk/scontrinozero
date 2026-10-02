@@ -54,7 +54,7 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
 Se lo stato di una feature cambia (spedita, rimossa dalla roadmap), questo
 elenco e la tabella Pricing in `CLAUDE.md` vanno aggiornati nello stesso PR.
 
-Esempio del costo di questa regola violata: REVIEW.md #47 — la copy di
+Esempio del costo di questa regola violata: PR #754 — la copy di
 `/help` è rimasta Fisconline-only dopo che il login CIE è stato spedito in
 v1.5.0, e il sito contraddiceva il prodotto.
 
@@ -402,7 +402,7 @@ conversione **zero**.
 
 La pagina più visitata del sito converte zero, e non è rumore: con un tasso
 reale del 2% la probabilità di osservare zero su 267 sessioni è dello 0,45%.
-Dati e limiti in issue #999, query ripetibile in
+Dati e limiti nell'issue #999, query ripetibile in
 `deploy/umami/README.md`.
 
 **La regola che ne esce.** Le pagine si dividono per **intento d'acquisto**,

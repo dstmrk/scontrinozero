@@ -26,7 +26,7 @@ Due precisazioni che cambiano il posizionamento:
 **SPID non è parità di feature, è un canale d'ingresso.** Fisconline richiede
 di _ottenere_ le credenziali: richiesta, PIN diviso, attesa. SPID ce l'hanno
 già tutti. Chi scarica l'app, scopre di dover recuperare un PIN e chiude è
-plausibilmente una fetta del 45% fermo di REVIEW.md #107 — e il pannello
+plausibilmente una fetta del 45% fermo misurato nella PR #957 — e il pannello
 «Onboarding fermi» su `/admin` misura già quell'ipotesi, senza scrivere codice:
 `last_verify_at IS NULL` distingue «non ho le credenziali» da «ho sbagliato
 password».
@@ -156,7 +156,7 @@ usare da un'altra macchina: un concorrente che chiama l'AdE dal telefono non
 trasporta niente. Se il trapianto fallisce restano due strade, entrambe care:
 l'emissione con sessione SPID dal dispositivo (HTTP nativo), che cambia il
 percorso emissione/annullo/recovery lato server, oppure SPID di nuovo su HTTP
-dal server, il fallback di issue #997 col problema AgID del punto 7. Il
+dal server, il fallback dell'issue #997 col problema AgID del punto 7. Il
 guscio serve in entrambi i casi, ed è per questo che si costruisce in
 parallelo al test.
 

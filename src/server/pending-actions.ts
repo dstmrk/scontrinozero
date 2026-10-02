@@ -16,7 +16,7 @@ import { isValidUuid } from "@/lib/uuid";
 
 /**
  * Server action della verifica manuale di uno scontrino rimasto `PENDING`
- * (REVIEW.md #103, slice 2).
+ * (PR #904, slice 2).
  *
  * Il servizio sotto non conosce né sessione né ownership: qui si autentica
  * l'utente, si verifica che il business sia suo e si limita la frequenza —

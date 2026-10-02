@@ -5,7 +5,7 @@ import { UnauthenticatedError } from "./auth-errors";
 // --- Mocks ---
 
 // `getAuthenticatedUser` è wrappata in React `cache()` (dedup del round-trip
-// Supabase Auth nel render RSC, REVIEW.md #2). Fuori dal render `cache()` è
+// Supabase Auth nel render RSC, PR #606). Fuori dal render `cache()` è
 // passthrough; mockarlo esplicitamente come tale rende i test deterministici e
 // indipendenti dagli internals di React.
 vi.mock("react", async (importActual) => {
@@ -238,7 +238,7 @@ describe("server-auth", () => {
       expect(mockExecute).not.toHaveBeenCalled();
     });
 
-    it("is wrapped in React cache() to dedupe the auth round-trip (REVIEW.md #2)", async () => {
+    it("is wrapped in React cache() to dedupe the auth round-trip (PR #606)", async () => {
       // La dedup per-render evita 3 chiamate a supabase.auth.getUser() nel
       // render di /dashboard (page + getOnboardingStatus + getCatalogItems).
       // `cache` è mockato come passthrough sopra, quindi qui verifichiamo solo

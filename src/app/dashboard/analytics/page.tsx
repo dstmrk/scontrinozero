@@ -32,7 +32,7 @@ export default async function AnalyticsPage({
 
   const user = await getAuthenticatedUser();
 
-  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): il piano qui decide quale
+  // `getPlanSafe` e non `getPlan` (PR #806): il piano qui decide quale
   // delle due viste rendere, e sia `getStarterKpis` sia `getAnalyticsBundle`
   // degradano già a `{ error }` — questa era l'unica lettura che lanciava.
   const planResult = await getPlanSafe(user.id, "analyticsPage");

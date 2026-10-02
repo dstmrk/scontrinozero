@@ -37,7 +37,7 @@ export type PurgeUserResult = {
  * La riga `subscriptions` NON è nella cascata (nessuna FK verso auth.users né
  * verso profiles), quindi va cancellata esplicitamente qui: senza questa DELETE
  * resterebbe orfana e i webhook Stripe continuerebbero a sincronizzarla con un
- * UPDATE su 0 righe, in silenzio (REVIEW.md #63). L'annullamento della
+ * UPDATE su 0 righe, in silenzio (PR #731). L'annullamento della
  * subscription su Stripe è invece responsabilità del chiamante self-service
  * (deleteAccount): lo sweep GDPR agisce solo su account non paganti.
  *

@@ -1,5 +1,5 @@
 /**
- * Envelope d'errore uniforme per le route `/api/v1/*` (REVIEW.md #18).
+ * Envelope d'errore uniforme per le route `/api/v1/*` (PR #780).
  *
  * Ogni risposta d'errore della Developer API ha esattamente questa forma:
  *
