@@ -105,11 +105,17 @@ Analogo all'emissione: `src/server/void-actions.ts` →
 CIE dell'emissione (pre-check `isCieSessionMissing` → `reauthRequired`,
 dialog "Ricollegati" in `src/components/storico/void-receipt-dialog.tsx`).
 
-## Reso merce (return) — motore e lettura, creazione non ancora esposta
+## Reso merce (return)
 
-Documento commerciale di reso (`HAR.md` #19). Il motore è
-`src/lib/services/return-service.ts`; storico, CSV, stampa e analytics
-leggono i resi, ma nessuna server action né route ne crea ancora uno.
+Documento commerciale di reso (`HAR.md` #19), su tutti i piani (gate
+`canEmit`, come l'emissione). Dalla cassa: dettaglio della vendita nello
+storico → "Fai un reso" (`src/components/storico/return-receipt-panel.tsx`,
+quantità per riga con tetto = venduti − già resi, anteprima dell'importo con
+`buildReturnLines`) → `returnReceipt` (`src/server/return-actions.ts`: auth,
+rate limit `return:<userId>`, zod, ownership) →
+`src/lib/services/return-service.ts`. A reso registrato il pannello rilegge il
+RETURN per la stampa termica e lo storico rilegge la vendita (già-reso). La
+Developer API v1 non espone ancora il reso.
 
 1. Riga `commercial_documents` con `kind = 'RETURN'` e `returned_document_id`
    verso la vendita (migrazione 0042). La vendita resta `ACCEPTED`: una

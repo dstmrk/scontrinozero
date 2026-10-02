@@ -24,8 +24,9 @@ import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import { saleReturnProgress } from "@/lib/receipts/return-progress";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
-import type { PrintableReceipt } from "@/lib/printing/types";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
+import { toPrintableReceipt } from "./storico-printable";
+import { ReturnReceiptPanel } from "./return-receipt-panel";
 
 interface VoidReceiptDialogProps {
   readonly receipt: ReceiptListItem;
@@ -37,6 +38,8 @@ interface VoidReceiptDialogProps {
   readonly printProfile?: ReceiptPrintProfile | null;
   readonly onClose: () => void;
   readonly onSuccess: (result: VoidReceiptResult, originalId: string) => void;
+  /** Reso registrato sulla vendita: il parent la rilegge. */
+  readonly onReturnSuccess?: (saleId: string) => void;
 }
 
 function formatVat(vatCode: string): string {
@@ -48,8 +51,10 @@ function formatVat(vatCode: string): string {
  *  confirmingVoid — chiede conferma dell'annullo con il warning
  *  voidSuccess   — annullo completato con successo
  *  qr            — mostra la ricevuta come QR code (no Dialog annidata)
+ *  returning     — reso: scelta dei pezzi, conferma, ricevuta di reso
  */
-type DialogView = "detail" | "confirmingVoid" | "voidSuccess" | "qr";
+type DialogView =
+  "detail" | "confirmingVoid" | "voidSuccess" | "qr" | "returning";
 
 export function VoidReceiptDialog({
   receipt,
@@ -57,6 +62,7 @@ export function VoidReceiptDialog({
   printProfile = null,
   onClose,
   onSuccess,
+  onReturnSuccess,
 }: VoidReceiptDialogProps) {
   const [view, setView] = useState<DialogView>("detail");
   // Stable idempotency key: generated once per dialog open, reused on retries
@@ -80,83 +86,16 @@ export function VoidReceiptDialog({
    * storna due volte il corrispettivo (HAR.md #19f).
    */
   const canVoid = receipt.kind === "SALE" && isDeliverable && !hasReturns;
+  /** Si rende una vendita valida finché le resta qualche pezzo. */
+  const canReturn =
+    receipt.kind === "SALE" &&
+    isDeliverable &&
+    saleReturnProgress(receipt.lines) !== "full";
 
-  /**
-   * Copia stampabile da consegnare al cliente che torna al banco a chiederla.
-   *
-   * Su una vendita annullata NON è più la ricevuta di vendita — quella non è
-   * più un documento valido, e infatti le route PDF si rifiutano di servirla
-   * (`isPrintableDocument`) — ma la **ricevuta di annullamento**: stesse righe,
-   * riferimento all'originale, progressivo e istante dell'annullo. Le righe
-   * sono già in `receipt.lines`: nessuna fetch aggiuntiva.
-   */
-  const printableReceipt = useMemo<PrintableReceipt | null>(() => {
-    // Il gate sulle righe è lo stesso di `ReceiptSuccess`: un documento senza
-    // righe (dato degenere/legacy — `linesByDocId.get(doc.id) ?? []` in
-    // `searchReceipts`) produrrebbe uno scontrino termico con zero articoli e
-    // "TOTALE COMPLESSIVO 0,00" consegnato al cliente. Senza `printableReceipt`
-    // il bottone ripiega sul PDF.
-    if (
-      !printProfile ||
-      !receipt.adeProgressive ||
-      receipt.lines.length === 0
-    ) {
-      return null;
-    }
-
-    const base = {
-      header: printProfile.header,
-      lines: receipt.lines,
-    };
-
-    // Il reso porta le sue righe (pezzi resi e quota di sconto) e cita la
-    // vendita. Senza la vendita (FK ON DELETE SET NULL) non c'è riferimento
-    // da stampare: il bottone ripiega sul PDF, che lo rilegge dal DB.
-    if (isReturn) {
-      if (!receipt.returnOf) return null;
-      return {
-        ...base,
-        kind: "RETURN",
-        adeRegisteredAt: new Date(receipt.adeRegisteredAt),
-        adeProgressive: receipt.adeProgressive,
-        referenceDocument: {
-          adeProgressive: receipt.returnOf.adeProgressive,
-          adeRegisteredAt: new Date(receipt.returnOf.adeRegisteredAt),
-        },
-        publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
-      };
-    }
-
-    if (receipt.voidDocument) {
-      return {
-        ...base,
-        kind: "VOID",
-        adeRegisteredAt: new Date(receipt.voidDocument.adeRegisteredAt),
-        adeProgressive: receipt.voidDocument.adeProgressive,
-        referenceDocument: {
-          adeProgressive: receipt.adeProgressive,
-          adeRegisteredAt: new Date(receipt.adeRegisteredAt),
-        },
-        publicUrl: `${globalThis.location.origin}/r/${receipt.voidDocument.id}`,
-      };
-    }
-
-    // La ristampa di una vendita porta il messaggio di cortesia come la stampa
-    // in cassa e come il PDF dello stesso documento: le rese non divergono.
-    // L'annullo qui sopra non lo porta, e il tipo lo impedisce.
-    return {
-      ...base,
-      kind: "SALE",
-      paymentMethod: receipt.paymentMethod,
-      payments: receipt.payments,
-      lotteryCode: receipt.lotteryCode,
-      globalDiscountCents: receipt.globalDiscountCents,
-      footerNote: printProfile.footerNote,
-      adeRegisteredAt: new Date(receipt.adeRegisteredAt),
-      adeProgressive: receipt.adeProgressive,
-      publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
-    };
-  }, [isReturn, printProfile, receipt]);
+  const printableReceipt = useMemo(
+    () => toPrintableReceipt(receipt, printProfile, globalThis.location.origin),
+    [printProfile, receipt],
+  );
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -316,6 +255,16 @@ export function VoidReceiptDialog({
             </DialogFooter>
           </>
         )}
+        {view === "returning" && (
+          <ReturnReceiptPanel
+            receipt={receipt}
+            businessId={businessId}
+            printProfile={printProfile}
+            onBack={() => setView("detail")}
+            onClose={onClose}
+            onReturned={(saleId) => onReturnSuccess?.(saleId)}
+          />
+        )}
         {view === "detail" && (
           // ── Stato 1: dettaglio scontrino ───────────────────────────────────
           <>
@@ -392,6 +341,11 @@ export function VoidReceiptDialog({
             {/* `flex-wrap`: i cinque bottoni sono `shrink-0 whitespace-nowrap`
                 e da soli superano i 512px di `sm:max-w-lg`. */}
             <DialogFooter className="flex-wrap gap-2">
+              {canReturn && (
+                <Button variant="outline" onClick={() => setView("returning")}>
+                  Fai un reso
+                </Button>
+              )}
               {canVoid && (
                 <Button
                   variant="destructive"

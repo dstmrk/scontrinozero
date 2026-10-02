@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
@@ -118,21 +119,31 @@ export default function AnnullareScontrinoPage() {
             {" prima di annullare."}
           </li>
           <li>
+            Scontrini con almeno un reso (badge{" "}
+            <strong>&quot;Reso parziale&quot;</strong> o{" "}
+            <strong>&quot;Reso totale&quot;</strong>): l&apos;annullo
+            stornerebbe una seconda volta la parte già resa, e l&apos;Agenzia
+            non lo impedisce. ScontrinoZero sì.
+          </li>
+          <li>
             Scontrini con stato <strong>&quot;Errore&quot;</strong>: non sono
             mai stati registrati dall&apos;AdE, quindi non c&apos;è nulla da
             annullare. Riemetti la vendita dalla Cassa.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Reso merce post-vendita:</strong> il Provvedimento AdE sui
-          corrispettivi telematici prevede, per il reso di prodotti già
-          consegnati, un <em>documento commerciale per reso merce</em> distinto
-          dall&apos;annullo. In questa versione ScontrinoZero non espone quel
-          tipo di documento: in pratica il reso si gestisce annullando lo
-          scontrino originale e, se il reso è parziale, ri-emettendo dalla Cassa
-          uno scontrino con il solo importo effettivamente venduto. Per casi
-          complessi (reso dopo mesi, parziale con più prodotti) consulta il tuo
-          commercialista.
+          <strong>Merce restituita dopo la vendita:</strong> non annullare, fai
+          un <em>reso</em>. Il documento commerciale di reso storna solo i pezzi
+          restituiti, anche uno su tre, e lascia valido lo scontrino originale.
+          Da ScontrinoZero lo emetti dallo stesso dettaglio, con{" "}
+          <strong>Fai un reso</strong>: la procedura è in{" "}
+          <Link
+            href="/help/reso-merce"
+            className="text-primary hover:underline"
+          >
+            Reso merce: emettere il documento di reso
+          </Link>
+          {"."}
         </p>
 
         {/* ─── Limiti temporali ─── */}
@@ -220,13 +231,13 @@ export default function AnnullareScontrinoPage() {
 
         {/* ─── Rimborso al cliente ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Reso merce: devo fare altro?
+          E il rimborso al cliente?
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;annullo dello scontrino è sufficiente ai fini fiscali. Il
-          rimborso al cliente (contante, bonifico, voucher) è una questione
-          commerciale separata che gestisci tu direttamente — non passa
-          attraverso ScontrinoZero.
+          L&apos;annullo, come il reso, rettifica i corrispettivi. Il rimborso
+          al cliente (contante, bonifico, voucher) è una questione commerciale
+          separata che gestisci tu direttamente: non passa attraverso
+          ScontrinoZero.
         </p>
 
         {/* ─── Errori frequenti ─── */}
@@ -241,7 +252,10 @@ export default function AnnullareScontrinoPage() {
               ancora <strong>PENDING</strong> aspetta la conferma AdE, se è{" "}
               <strong>Errore</strong> non è stato registrato all&apos;origine
               quindi non c&apos;è nulla da annullare, se è già{" "}
-              <strong>Annullato</strong> l&apos;operazione è stata fatta.
+              <strong>Annullato</strong> l&apos;operazione è stata fatta. Non
+              compare nemmeno su uno scontrino che ha già un reso: lì
+              l&apos;unica strada è un altro reso, finché restano pezzi da
+              rendere.
             </p>
           </div>
           <div>

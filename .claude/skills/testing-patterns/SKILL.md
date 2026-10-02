@@ -166,6 +166,7 @@ magic number):
 | -------------------------------- | ---------------------------------- | -------- |
 | `emit:<userId>`                  | `emitReceipt`                      | 120/ora  |
 | `void:<userId>`                  | `voidReceipt`                      | 10/ora   |
+| `return:<userId>`                | `returnReceipt`                    | 20/ora   |
 | `analytics:<userId>`             | analytics dashboard                | 60/ora   |
 | `csv:<userId>`                   | `GET /api/export/receipts`         | 10/ora   |
 | `pdf-auth:<userId>`              | PDF autenticato                    | 60/ora   |
@@ -192,6 +193,8 @@ Note che non si deducono dai numeri:
 
 - `emit` è a 120/ora **per allinearsi** a `api:emit`: la cassa non può avere un
   tetto più basso della Developer API per lo stesso account (PR #781).
+- `return` a 20/ora: irreversibile come l'annullo ma più frequente (un reso
+  per pezzo restituito), allineato a `api:void`.
 - `void` a 10/ora perché l'annullo è irreversibile; `verify-ade` a 5/15min per
   PR #671.
 - `save-ade` è più alto (10/15min) del gemello `verify-ade`: non tocca AdE, ma

@@ -103,6 +103,7 @@ export const helpHubCategories: readonly HubCategory[] = [
       { slug: "primo-scontrino" },
       { slug: "metodi-di-pagamento" },
       { slug: "annullare-scontrino" },
+      { slug: "reso-merce" },
       { slug: "chiusura-giornaliera" },
       { slug: "storico-ed-esportazione" },
       { slug: "analytics-e-report" },

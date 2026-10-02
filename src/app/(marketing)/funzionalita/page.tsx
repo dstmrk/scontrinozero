@@ -8,6 +8,7 @@ import {
   Shield,
   Smartphone,
   Undo2,
+  PackageX,
   Share2,
   Ticket,
   CreditCard,
@@ -69,6 +70,12 @@ const sections = [
         title: "Annullamento scontrini",
         description:
           "Hai inserito un importo errato? Annulla lo scontrino direttamente dall'app. La comunicazione di annullamento viene inviata automaticamente all'AdE.",
+      },
+      {
+        icon: PackageX,
+        title: "Reso merce",
+        description:
+          "Il cliente restituisce un articolo? Dallo storico emetti il documento di reso, anche parziale: scegli i pezzi, l'app lo trasmette all'AdE e ti dà la ricevuta da consegnare.",
       },
       {
         icon: BarChart3,

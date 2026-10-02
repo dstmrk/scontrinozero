@@ -28,21 +28,35 @@ export const helpArticles: Record<string, HelpArticle> = {
   "annullare-scontrino": {
     slug: "annullare-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-22",
+    dateModified: "2026-10-02",
     title: "Annullare uno scontrino: quando si può e come fare",
     metaTitle: "Annullare uno scontrino da ScontrinoZero: la procedura",
     description:
       "Entro quanto tempo si può annullare uno scontrino elettronico e come farlo da ScontrinoZero: la procedura, cosa succede sul portale AdE e quando emettere un reso invece dell'annullo.",
     related: [
-      "primo-scontrino",
+      "reso-merce",
       "numero-documento-azzeramento",
       "storico-ed-esportazione",
+    ],
+  },
+  "reso-merce": {
+    slug: "reso-merce",
+    datePublished: "2026-10-02",
+    dateModified: "2026-10-02",
+    title: "Reso merce: emettere il documento di reso",
+    metaTitle: "Fare un reso merce da ScontrinoZero: il documento di reso",
+    description:
+      "Come emettere il documento commerciale di reso da ScontrinoZero: reso totale o parziale, differenza con l'annullo, cosa succede a storico, CSV e corrispettivi. Su tutti i piani.",
+    related: [
+      "annullare-scontrino",
+      "storico-ed-esportazione",
+      "analytics-e-report",
     ],
   },
   "analytics-e-report": {
     slug: "analytics-e-report",
     datePublished: "2026-07-13",
-    dateModified: "2026-07-13",
+    dateModified: "2026-10-02",
     title: "Analytics e report: ricavi, scontrini e prodotti",
     metaTitle: "Analytics e report: ricavi, scontrini e prodotti più venduti",
     description:
@@ -218,7 +232,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "numero-documento-azzeramento": {
     slug: "numero-documento-azzeramento",
     datePublished: "2026-07-12",
-    dateModified: "2026-07-13",
+    dateModified: "2026-10-02",
     title: "Numero documento e azzeramento sullo scontrino",
     metaTitle: "Numero azzeramento e numero documento scontrino: cosa sono",
     description:
@@ -332,7 +346,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "storico-ed-esportazione": {
     slug: "storico-ed-esportazione",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-19",
+    dateModified: "2026-10-02",
     title: "Storico scontrini: filtri, ricerca ed esportazione",
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:

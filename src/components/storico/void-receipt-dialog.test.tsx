@@ -11,6 +11,11 @@ vi.mock("@/server/void-actions", () => ({
   voidReceipt: vi.fn(),
 }));
 
+// Il pannello di reso ha la sua suite (`return-receipt-panel.test.tsx`):
+// qui serve solo che le sue server action non partano davvero.
+vi.mock("@/server/return-actions", () => ({ returnReceipt: vi.fn() }));
+vi.mock("@/server/storico-actions", () => ({ getReceiptDetail: vi.fn() }));
+
 const mockPrinter: { current: UsePrinterResult } = {
   current: {} as UsePrinterResult,
 };
@@ -705,5 +710,64 @@ describe("VoidReceiptDialog — reso", () => {
     );
 
     expect(screen.getByText("Già reso: 1")).toBeInTheDocument();
+  });
+});
+
+describe("VoidReceiptDialog — ingresso al reso", () => {
+  it("una vendita valida si può rendere", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Fai un reso" }));
+
+    expect(
+      screen.getByRole("button", { name: "Conferma reso" }),
+    ).toBeInTheDocument();
+  });
+
+  it("dal reso si torna al dettaglio", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Fai un reso" }));
+    fireEvent.click(screen.getByRole("button", { name: "Indietro" }));
+
+    expect(screen.getByText("Annulla scontrino")).toBeInTheDocument();
+  });
+
+  it("una vendita resa in parte si può ancora rendere", () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={{
+          ...ACCEPTED_RECEIPT,
+          lines: [{ ...ACCEPTED_RECEIPT.lines[0], returnedQuantity: "1" }],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Fai un reso" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "una vendita resa del tutto",
+      {
+        ...ACCEPTED_RECEIPT,
+        lines: [{ ...ACCEPTED_RECEIPT.lines[0], returnedQuantity: "2" }],
+      },
+    ],
+    ["una vendita annullata", VOIDED_RECEIPT],
+    ["un reso", { ...ACCEPTED_RECEIPT, kind: "RETURN" as const }],
+  ])("non propone il reso su %s", (_label, receipt) => {
+    renderWithQuery(<VoidReceiptDialog {...defaultProps} receipt={receipt} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Fai un reso" }),
+    ).not.toBeInTheDocument();
   });
 });

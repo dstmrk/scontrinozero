@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { saleReturnProgress } from "./return-progress";
+import {
+  parseReturnQuantityInput,
+  returnableQuantity,
+  saleReturnProgress,
+} from "./return-progress";
 
 const line = (quantity: string, returnedQuantity: string) => ({
   quantity,
@@ -40,5 +44,44 @@ describe("saleReturnProgress", () => {
 
   it("documento senza righe: none", () => {
     expect(saleReturnProgress([])).toBe("none");
+  });
+});
+
+describe("returnableQuantity", () => {
+  it("venduti meno già resi", () => {
+    expect(returnableQuantity(line("3.000", "1"))).toBe(2);
+  });
+
+  it("in centesimi interi, senza residui float", () => {
+    expect(returnableQuantity(line("0.300", "0.1"))).toBe(0.2);
+  });
+
+  it("mai sotto zero", () => {
+    expect(returnableQuantity(line("1.000", "2"))).toBe(0);
+  });
+});
+
+describe("parseReturnQuantityInput", () => {
+  it("vuoto vale zero: riga non resa", () => {
+    expect(parseReturnQuantityInput("", 2)).toBe(0);
+    expect(parseReturnQuantityInput("  ", 2)).toBe(0);
+  });
+
+  it("accetta la virgola decimale", () => {
+    expect(parseReturnQuantityInput("0,5", 2)).toBe(0.5);
+  });
+
+  it("accetta il massimo rendibile", () => {
+    expect(parseReturnQuantityInput("2", 2)).toBe(2);
+  });
+
+  it.each([
+    ["oltre il rendibile", "3"],
+    ["negativo", "-1"],
+    ["non numerico", "abc"],
+    ["più di due decimali", "0.125"],
+    ["notazione esponenziale", "1e1"],
+  ])("rifiuta %s", (_label, raw) => {
+    expect(parseReturnQuantityInput(raw, 2)).toBeNull();
   });
 });

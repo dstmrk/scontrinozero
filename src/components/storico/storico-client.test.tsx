@@ -39,10 +39,12 @@ vi.mock("./void-receipt-dialog", () => ({
   VoidReceiptDialog: ({
     receipt,
     onSuccess,
+    onReturnSuccess,
     onClose,
   }: {
     receipt: ReceiptListItem;
     onSuccess: (result: { error?: string }, originalId: string) => void;
+    onReturnSuccess: (saleId: string) => void;
     onClose: () => void;
   }) => (
     <div data-testid="dialog">
@@ -50,8 +52,14 @@ vi.mock("./void-receipt-dialog", () => ({
       <span data-testid="dialog-void-doc">
         {receipt.voidDocument?.id ?? "nessuno"}
       </span>
+      <span data-testid="dialog-returned">
+        {receipt.lines[0]?.returnedQuantity ?? "-"}
+      </span>
       <button type="button" onClick={onClose}>
         Chiudi modale
+      </button>
+      <button type="button" onClick={() => onReturnSuccess(receipt.id)}>
+        Conferma reso
       </button>
       <button type="button" onClick={() => onSuccess({}, receipt.id)}>
         Conferma annullo
@@ -492,5 +500,31 @@ describe("StoricoClient — resi", () => {
     renderRows([ACCEPTED_ROW]);
 
     expect(within(rowOf("5111-2188")).queryByText(/^Reso/)).toBeNull();
+  });
+});
+
+describe("StoricoClient — dopo un reso", () => {
+  it("rilegge la vendita: già-reso nel dettaglio aperto e badge nell'elenco", async () => {
+    vi.mocked(getReceiptDetail).mockResolvedValue({
+      item: {
+        ...ACCEPTED_ROW,
+        lines: [{ ...ACCEPTED_ROW.lines[0], returnedQuantity: "1" }],
+      },
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByText("5111-2188"));
+    fireEvent.click(screen.getByText("Conferma reso"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-returned")).toHaveTextContent("1"),
+    );
+    expect(getReceiptDetail).toHaveBeenCalledWith(BUSINESS_ID, ACCEPTED_ROW.id);
+    expect(
+      within(rowOf("5111-2188")).getByText("Reso parziale"),
+    ).toBeInTheDocument();
+    // Nessuna nuova ricerca: i filtri del form potrebbero non essere quelli
+    // applicati all'elenco.
+    expect(searchReceipts).not.toHaveBeenCalled();
   });
 });
