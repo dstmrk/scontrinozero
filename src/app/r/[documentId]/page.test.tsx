@@ -48,7 +48,7 @@ const MOCK_RECEIPT_DATA = {
     vatNumber: "12345678901",
   },
   lines: [],
-  voidedSale: null,
+  referenceSale: null,
 };
 
 /** Riga VOID: righe e progressivo di riferimento vengono dalla vendita. */
@@ -62,7 +62,7 @@ const MOCK_VOID_DATA = {
     adeRegisteredAt: new Date("2026-01-02T10:00:00Z"),
     publicRequest: null,
   },
-  voidedSale: {
+  referenceSale: {
     ...MOCK_RECEIPT_DATA.doc,
     adeProgressive: "ABC-123",
     adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
@@ -511,6 +511,48 @@ describe("PublicReceiptPage — ricevuta di annullamento", () => {
   ])("non mostra %s", async (_caso, assente) => {
     await renderVoid();
     expect(screen.queryByText(assente)).not.toBeInTheDocument();
+  });
+});
+
+describe("PublicReceiptPage — ricevuta di reso", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "7.7.7.7" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  it("mostra `emesso per RESO`, la vendita resa e nessun pagamento", async () => {
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_VOID_DATA,
+      doc: { ...MOCK_VOID_DATA.doc, kind: "RETURN" as const },
+      lines: [
+        {
+          id: "l1",
+          documentId: "void-1",
+          lineIndex: 0,
+          description: "Maglia",
+          quantity: "1",
+          grossUnitPrice: "30.00",
+          lineDiscount: "0.50",
+          vatCode: "22",
+        },
+      ],
+    });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+
+    expect(screen.getByText("emesso per RESO")).toBeInTheDocument();
+    expect(screen.getByText("N. ABC-123 del 01-01-2026")).toBeInTheDocument();
+    expect(screen.getByText("Maglia")).toBeInTheDocument();
+    expect(screen.queryByText("Importo pagato")).not.toBeInTheDocument();
   });
 });
 

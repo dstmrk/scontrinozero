@@ -27,6 +27,7 @@ import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import { resolvePaymentRows } from "@/lib/receipts/public-request";
 import {
+  DOCUMENT_SUBTITLE,
   PAYMENT_LABELS,
   formatBusinessAddressLines,
   formatReceiptDate,
@@ -106,15 +107,11 @@ function printHeader(encoder: Encoder, receipt: PrintableReceipt): void {
 
   encoder.align("left").rule();
   encoder.align("center").bold(true).line("DOCUMENTO COMMERCIALE");
-  encoder.line(
-    receipt.kind === "VOID"
-      ? "emesso per ANNULLAMENTO"
-      : "di vendita o prestazione",
-  );
+  encoder.line(DOCUMENT_SUBTITLE[receipt.kind]);
   encoder.bold(false);
 
-  if (receipt.kind === "VOID") {
-    const { adeProgressive, adeRegisteredAt } = receipt.voidedDocument;
+  if (receipt.kind !== "SALE") {
+    const { adeProgressive, adeRegisteredAt } = receipt.referenceDocument;
     encoder.line("Documento di riferimento:");
     encoder
       .bold(true)

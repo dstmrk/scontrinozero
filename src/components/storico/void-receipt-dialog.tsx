@@ -98,7 +98,7 @@ export function VoidReceiptDialog({
         kind: "VOID",
         adeRegisteredAt: new Date(receipt.voidDocument.adeRegisteredAt),
         adeProgressive: receipt.voidDocument.adeProgressive,
-        voidedDocument: {
+        referenceDocument: {
           adeProgressive: receipt.adeProgressive,
           adeRegisteredAt: new Date(receipt.adeRegisteredAt),
         },

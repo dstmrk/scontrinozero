@@ -77,10 +77,11 @@ fallimento di emissione.
    (ordine sezioni, `Importo pagato` sempre presente, `di cui IVA` sotto il
    totale, codifica IVA `ES*` + legenda da `src/lib/receipts/vat-display.ts`);
    la pagina pubblica `src/app/r` espone le stesse voci in forma di card.
-   Le stesse tre superfici rendono anche la **ricevuta di annullamento**
-   (sottotitolo `emesso per ANNULLAMENTO`, blocco `Documento di riferimento`,
-   nessun pagamento): le righe sono quelle della vendita annullata, che i
-   lettori restituiscono in `voidedSale`.
+   Le stesse tre superfici rendono anche la **ricevuta di annullamento** e
+   quella **di reso** (sottotitolo `emesso per ANNULLAMENTO` / `emesso per
+RESO`, blocco `Documento di riferimento`, nessun pagamento): i lettori
+   restituiscono la vendita citata in `referenceSale`; le righe sono quelle
+   della vendita sull'annullo, quelle proprie sul reso.
    `src/lib/printing/thermal-text.ts` traslittera le accentate maiuscole, che
    CP437 non rappresenta.
 5. Composizione e invio: `src/lib/printing/print-receipt.ts` importa l'encoder
@@ -131,8 +132,9 @@ né route lo chiama ancora.
    e se è registrata la richiesta nuova va rifatta (`RETURN_STATE_CHANGED`),
    se è assente si chiude ERROR e la nuova procede. Una riga nata in questa
    richiesta e fallita prima della POST si cancella.
-5. Superfici: nessun RETURN è stampabile (`PrintableKind` in
-   `src/lib/receipts/printable-document.ts`) e la Developer API v1 resta su
+5. Superfici: il RETURN accettato si stampa (PDF, termica, ricevuta
+   pubblica) col layout AdE del reso — `emesso per RESO`, documento di
+   riferimento, righe proprie, nessun pagamento. La Developer API v1 resta su
    `SALE`/`VOID` (`V1_DOCUMENT_KINDS`); analytics, CSV e storico filtrano già
    `kind = 'SALE'`, quindi un reso non conta come vendita ma non viene
    nemmeno sottratto. Logging con `flow: "return-receipt"`.

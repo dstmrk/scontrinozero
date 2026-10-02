@@ -6,6 +6,7 @@ import {
 } from "../../../tests/_helpers/pdf-text";
 import {
   generateCommercialDocumentPdf,
+  type ReturnDocumentPdfData,
   type SaleDocumentPdfData,
   type VoidDocumentPdfData,
 } from "./commercial-document";
@@ -779,7 +780,7 @@ const VOID_DATA: VoidDocumentPdfData = {
   adeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
   adeProgressive: "DCW2026/5111-0043",
   adeTransactionId: "TRX-0043",
-  voidedDocument: {
+  referenceDocument: {
     adeProgressive: "DCW2026/5111-0042",
     adeRegisteredAt: new Date("2026-02-15T12:30:00Z"),
   },
@@ -887,5 +888,71 @@ describe("documento di annullo — corpo", () => {
     });
     const withoutQr = await generateCommercialDocumentPdf(VOID_DATA);
     expect(pdfPageHeight(withQr)).toBeGreaterThan(pdfPageHeight(withoutQr));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Documento di reso (layout normativo AdE pag. 3, HAR.md #19g)
+// ---------------------------------------------------------------------------
+
+const RETURN_DATA: ReturnDocumentPdfData = {
+  ...VOID_DATA,
+  kind: "RETURN",
+  adeProgressive: "DCW2026/5111-0044",
+  // Le righe del reso: i pezzi resi, con la loro quota di sconto.
+  lines: [
+    {
+      description: "Maglia",
+      quantity: 1,
+      grossUnitPrice: 30,
+      lineDiscount: 0.5,
+      vatCode: "22",
+    },
+  ],
+};
+
+describe("documento di reso", () => {
+  it("usa il sottotitolo `emesso per RESO` e cita la vendita", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(RETURN_DATA),
+    );
+    expect(runs).toContain("emesso per RESO");
+    expect(runs).not.toContain("emesso per ANNULLAMENTO");
+    expect(runs).not.toContain("di vendita o prestazione");
+    const iRef = runs.indexOf("Documento di riferimento:");
+    expect(runs[iRef + 1]).toBe("N. DCW2026/5111-0042 del 15-02-2026");
+  });
+
+  it("stampa solo i pezzi resi, con la loro quota di sconto", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(RETURN_DATA),
+    );
+    expect(runs).toContain("Maglia");
+    expect(runs).toContain("-0,50");
+    expect(runs).toContain("29,50");
+    expect(runs).not.toContain("Pizza Margherita");
+  });
+
+  it("non stampa pagamenti, lotteria né messaggio di cortesia", async () => {
+    const text = extractPdfText(
+      await generateCommercialDocumentPdf(RETURN_DATA),
+    );
+    expect(text).not.toContain("Importo pagato");
+    expect(text).not.toContain("Codice Lotteria");
+  });
+
+  it("il footer porta il progressivo DEL RESO", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(RETURN_DATA),
+    );
+    expect(runs).toContain("DOCUMENTO N. DCW2026/5111-0044");
+  });
+
+  it("sta in una pagina sola col QR", async () => {
+    const buf = await generateCommercialDocumentPdf({
+      ...RETURN_DATA,
+      publicUrl: "https://app.scontrinozero.it/r/return-uuid",
+    });
+    expect(pdfPageCount(buf)).toBe(1);
   });
 });

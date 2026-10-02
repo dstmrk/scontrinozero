@@ -1,5 +1,5 @@
 /**
- * Documento commerciale in PDF a 58mm — di vendita o di annullamento.
+ * Documento commerciale in PDF a 58mm — di vendita, di annullamento o di reso.
  *
  * Il layout segue il **"layout standard"** pubblicato dall'AdE per il
  * documento commerciale (`Layout_documento_commerciale_v4`): ordine delle
@@ -26,6 +26,10 @@
  * vendita annullata, e sparisce il blocco pagamenti — un annullo non incassa.
  * Il footer porta il progressivo e l'istante DELL'ANNULLO, non dell'originale.
  *
+ * Il reso (pagina "DOCUMENTO COMMERCIALE DI RESO" del template, `HAR.md`
+ * #19g) è lo stesso layout dell'annullo con `emesso per RESO`, ma le righe sono
+ * **sue**: i pezzi resi con la loro quota di sconto, non la vendita intera.
+ *
  * Il tipo è un'unione discriminata su `kind` perché l'invariante è reale: un
  * annullo senza il documento di riferimento sarebbe un documento fiscale
  * mutilo, e una vendita col blocco di riferimento sarebbe una bugia. Il
@@ -39,6 +43,7 @@
 import PDFDocument from "pdfkit";
 import qrcode from "qrcode-generator";
 import {
+  DOCUMENT_SUBTITLE,
   PAYMENT_LABELS,
   formatBusinessAddressLines,
   formatReceiptDate,
@@ -72,8 +77,8 @@ export interface CommercialDocumentLine {
   vatCode: string;
 }
 
-/** La vendita annullata, citata dal blocco "Documento di riferimento". */
-export interface VoidedDocumentRef {
+/** La vendita annullata o resa, citata dal blocco "Documento di riferimento". */
+export interface ReferenceDocumentRef {
   adeProgressive: string;
   adeRegisteredAt: Date;
 }
@@ -149,8 +154,8 @@ export interface SaleDocumentPdfData extends CommonDocumentPdfData {
    * L'unione discriminata rende il campo irraggiungibile su un VOID, invece di
    * affidare la regola a un controllo a runtime in ogni renderer.
    *
-   * ⚠️ Quando arrivera' il reso (`R`/`RX`): li' il saluto va omesso comunque,
-   * e' l'unico dei quattro layout in cui l'AdE non lo mette.
+   * Sul reso il saluto manca anche nel layout AdE: e' l'unico dei quattro
+   * layout in cui non c'e'.
    */
   footerNote?: string | null;
 }
@@ -164,11 +169,23 @@ export interface VoidDocumentPdfData extends CommonDocumentPdfData {
    * Nessun `paymentMethod` e nessun `lotteryCode`: il primo non ha senso su un
    * annullo, il secondo non compare sul PDF ufficiale (`HAR.md` #16e).
    */
-  voidedDocument: VoidedDocumentRef;
+  referenceDocument: ReferenceDocumentRef;
+}
+
+export interface ReturnDocumentPdfData extends CommonDocumentPdfData {
+  kind: "RETURN";
+  /**
+   * Obbligatorio come sull'annullo. Le `lines` invece sono quelle del reso:
+   * pezzi resi e quota di sconto (`src/lib/receipts/return-lines.ts`).
+   *
+   * Niente pagamenti, lotteria né messaggio di cortesia: il layout AdE del reso
+   * non ha il saluto (pag. 3), e un reso non incassa.
+   */
+  referenceDocument: ReferenceDocumentRef;
 }
 
 export type CommercialDocumentPdfData =
-  SaleDocumentPdfData | VoidDocumentPdfData;
+  SaleDocumentPdfData | VoidDocumentPdfData | ReturnDocumentPdfData;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -281,8 +298,8 @@ function drawQrCode(doc: Doc, cur: Cursor, url: string): void {
 
 /**
  * Intestazione nell'ordine del layout AdE: ragione sociale, P.IVA, via,
- * `Comune(PR), CAP`; poi il titolo, il cui sottotitolo distingue le due forme
- * del documento; e su un annullo il blocco "Documento di riferimento".
+ * `Comune(PR), CAP`; poi il titolo, il cui sottotitolo distingue le tre forme
+ * del documento; e su annullo e reso il blocco "Documento di riferimento".
  */
 function drawHeader(
   doc: Doc,
@@ -309,16 +326,13 @@ function drawHeader(
     bold: true,
     size: 7,
   });
-  drawText(
-    doc,
-    cur,
-    data.kind === "VOID"
-      ? "emesso per ANNULLAMENTO"
-      : "di vendita o prestazione",
-    { align: "center", bold: true, size: 6 },
-  );
+  drawText(doc, cur, DOCUMENT_SUBTITLE[data.kind], {
+    align: "center",
+    bold: true,
+    size: 6,
+  });
 
-  if (data.kind === "VOID") {
+  if (data.kind !== "SALE") {
     cur.y += 2;
     drawText(doc, cur, "Documento di riferimento:", {
       align: "center",
@@ -327,7 +341,7 @@ function drawHeader(
     drawText(
       doc,
       cur,
-      `N. ${data.voidedDocument.adeProgressive} del ${formatReceiptDate(data.voidedDocument.adeRegisteredAt)}`,
+      `N. ${data.referenceDocument.adeProgressive} del ${formatReceiptDate(data.referenceDocument.adeRegisteredAt)}`,
       { align: "center", bold: true, size: 6 },
     );
   }
@@ -592,8 +606,8 @@ function estimateHeight(data: CommercialDocumentPdfData): number {
     (legendRows > 0 ? legendRows * 9 + 5 : 0) +
     (hasLotteryCode ? 22 : 0) +
     (footerNoteRows > 0 ? footerNoteRows * 11 + 2 : 0) +
-    // Nessun termine per l'annullo: scambia il blocco pagamenti (due righe
-    // piu' separatore) col blocco di riferimento (due righe), quindi in
+    // Nessun termine per annullo e reso: scambiano il blocco pagamenti (due
+    // righe piu' separatore) col blocco di riferimento (due righe), quindi in
     // altezza si equivalgono.
     (data.publicUrl ? QR_SIZE + 12 : 0) +
     8

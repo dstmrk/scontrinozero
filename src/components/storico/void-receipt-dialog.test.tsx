@@ -381,12 +381,12 @@ describe("VoidReceiptDialog — ricevuta di annullamento", () => {
 
     await waitFor(() => expect(mockPrinter.current.print).toHaveBeenCalled());
     const printed = vi.mocked(mockPrinter.current.print).mock.calls[0][0];
-    // Narrowing sull'unione discriminata: `voidedDocument` esiste solo sul
+    // Narrowing sull'unione discriminata: `referenceDocument` esiste solo sul
     // ramo VOID, ed e' esattamente cio' che il test deve dimostrare.
     expect(printed.kind).toBe("VOID");
     if (printed.kind !== "VOID") throw new Error("atteso un documento VOID");
     expect(printed.adeProgressive).toBe("DCW2026/5111-2189");
-    expect(printed.voidedDocument).toEqual({
+    expect(printed.referenceDocument).toEqual({
       adeProgressive: "DCW2026/5111-2188",
       adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
     });

@@ -14,6 +14,8 @@ import { resolveReceiptFooterNote } from "./footer-note";
 import {
   isPrintableDocument,
   printableDocumentCondition,
+  printedLinesDocumentId,
+  referencedSaleId,
   type PrintableKind,
 } from "./printable-document";
 
@@ -29,12 +31,13 @@ export interface PublicReceiptData {
    */
   lines: SelectCommercialDocumentLine[];
   /**
-   * La vendita annullata — valorizzata **solo** quando `doc.kind === "VOID"`.
+   * La vendita annullata o resa — valorizzata su annullo e reso, `null` su
+   * una vendita.
    * Serve al blocco "Documento di riferimento: N. ..." della ricevuta di
    * annullamento, che riporta il progressivo dell'originale mentre il footer
    * riporta quello dell'annullo.
    */
-  voidedSale: SelectCommercialDocument | null;
+  referenceSale: SelectCommercialDocument | null;
   /**
    * Messaggio di cortesia dell'esercente, gia' passato per il gate di piano
    * (`resolveReceiptFooterNote`): `null` quando non c'e' o quando il piano non
@@ -103,25 +106,30 @@ export async function fetchPublicReceipt(
   // condizione SQL e la regola in memoria dovessero mai divergere.
   if (!isPrintableDocument(doc)) return null;
 
-  // Un annullo non ha righe proprie: ristampa quelle della vendita annullata.
-  let voidedSale: SelectCommercialDocument | null = null;
-  if (doc.kind === "VOID") {
-    if (!doc.voidedDocumentId) return null;
+  // Annullo e reso citano la vendita che correggono; l'annullo ne ristampa
+  // anche le righe, il reso ha le sue (`printedLinesDocumentId`).
+  let referenceSale: SelectCommercialDocument | null = null;
+  if (doc.kind !== "SALE") {
+    const saleId = referencedSaleId(doc);
+    if (!saleId) return null;
 
     const [sale] = await db
       .select()
       .from(commercialDocuments)
-      .where(eq(commercialDocuments.id, doc.voidedDocumentId))
+      .where(eq(commercialDocuments.id, saleId))
       .limit(1);
 
-    // La FK e' ON DELETE SET NULL: un VOID puo' restare orfano. Senza le righe
-    // dell'originale non c'e' nulla da stampare — meglio un 404 di una
-    // ricevuta mutila (stessa logica della PR #614).
+    // La FK e' ON DELETE SET NULL: una correzione puo' restare orfana. Senza
+    // la vendita il riferimento sarebbe vuoto — meglio un 404 di una ricevuta
+    // mutila (stessa logica della PR #614).
     if (!sale) return null;
-    voidedSale = sale;
+    referenceSale = sale;
   }
 
-  const linesDocumentId = voidedSale?.id ?? doc.id;
+  const linesDocumentId = printedLinesDocumentId(
+    doc,
+    referenceSale?.id ?? null,
+  );
 
   const lines = await db
     .select()
@@ -133,7 +141,7 @@ export async function fetchPublicReceipt(
     doc,
     biz,
     lines,
-    voidedSale,
+    referenceSale,
     // Solo la vendita, come sul PDF e sulla termica — divergenza voluta dal
     // layout AdE, che il saluto sull'annullo ce l'ha. Motivazione per esteso
     // sul campo `footerNote` in `src/lib/pdf/commercial-document.ts`.

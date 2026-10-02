@@ -12,6 +12,7 @@ import {
   resolvePaymentRows,
 } from "@/lib/receipts/public-request";
 import {
+  DOCUMENT_SUBTITLE,
   PAYMENT_LABELS,
   formatBusinessAddressLines,
   formatReceiptDate,
@@ -84,13 +85,12 @@ export default async function PublicReceiptPage({
 
   if (!data) notFound();
 
-  const { doc, biz, lines, voidedSale, footerNote } = data;
+  const { doc, biz, lines, referenceSale, footerNote } = data;
 
-  // Su un annullo le righe sono quelle della vendita annullata e il blocco
-  // pagamenti sparisce: un annullo non incassa. `fetchPublicReceipt` rifiuta
-  // gia' un VOID che non trova la sua vendita, quindi qui `voidedSale` c'e'
-  // sempre quando serve.
-  const isVoid = doc.kind === "VOID";
+  // Annullo e reso citano la vendita e non hanno blocco pagamenti: non
+  // incassano. `fetchPublicReceipt` rifiuta gia' una correzione che non trova
+  // la sua vendita, quindi qui `referenceSale` c'e' sempre quando serve.
+  const isCorrection = doc.kind !== "SALE";
 
   const { paymentMethod, payments, lotteryCode, globalDiscountCents } =
     parsePublicRequest(doc.publicRequest);
@@ -151,14 +151,14 @@ export default async function PublicReceiptPage({
               Documento Commerciale
             </p>
             <p className="text-xs text-gray-500">
-              {isVoid ? "emesso per ANNULLAMENTO" : "di vendita o prestazione"}
+              {DOCUMENT_SUBTITLE[doc.kind]}
             </p>
-            {isVoid && voidedSale && (
+            {isCorrection && referenceSale && (
               <div className="mt-2 text-xs text-gray-500">
                 <p>Documento di riferimento:</p>
                 <p className="font-medium text-gray-700">
-                  N. {voidedSale.adeProgressive} del{" "}
-                  {formatReceiptDate(voidedSale.adeRegisteredAt)}
+                  N. {referenceSale.adeProgressive} del{" "}
+                  {formatReceiptDate(referenceSale.adeRegisteredAt)}
                 </p>
               </div>
             )}
@@ -263,7 +263,7 @@ export default async function PublicReceiptPage({
               l'INCASSATO, non il totale complessivo, che resta pieno. Le
               modalità sono una riga ciascuna: un pagamento misto ne mostra
               due, `Importo pagato` resta uno e ne porta la somma. */}
-          {!isVoid && (
+          {!isCorrection && (
             <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4 text-xs text-gray-500">
               {paymentRows.map((row) => (
                 <div key={row.type} className="flex justify-between">

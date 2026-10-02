@@ -226,7 +226,7 @@ const VOID_DATA = {
     adeRegisteredAt: new Date("2026-02-24T09:15:00Z"),
     publicRequest: null,
   },
-  voidedSale: VOIDED_SALE,
+  referenceSale: VOIDED_SALE,
 };
 
 describe("generatePdfResponse — annullo", () => {
@@ -242,7 +242,7 @@ describe("generatePdfResponse — annullo", () => {
         kind: "VOID",
         adeProgressive: "DCW2026/5111-0002",
         adeRegisteredAt: new Date("2026-02-24T09:15:00Z"),
-        voidedDocument: {
+        referenceDocument: {
           adeProgressive: "DCW2026/5111-0001",
           adeRegisteredAt: new Date("2026-02-23T10:30:00Z"),
         },
@@ -267,9 +267,48 @@ describe("generatePdfResponse — annullo", () => {
   });
 
   it("degrada a 404 se un VOID arriva senza la vendita annullata, invece di stampare un annullo senza referenza", async () => {
-    const res = await generatePdfResponse({ ...VOID_DATA, voidedSale: null });
+    const res = await generatePdfResponse({
+      ...VOID_DATA,
+      referenceSale: null,
+    });
     expect(res.status).toBe(404);
     expect(mockGeneratePdf).not.toHaveBeenCalled();
+  });
+});
+
+describe("generatePdfResponse — reso", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGeneratePdf.mockResolvedValue(Buffer.from("%PDF-return"));
+  });
+
+  const RETURN_DATA = {
+    ...VOID_DATA,
+    doc: { ...VOID_DATA.doc, kind: "RETURN" as const },
+  };
+
+  it("costruisce un documento kind RETURN col riferimento alla vendita resa", async () => {
+    await generatePdfResponse(RETURN_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "RETURN",
+        referenceDocument: {
+          adeProgressive: "DCW2026/5111-0001",
+          adeRegisteredAt: new Date("2026-02-23T10:30:00Z"),
+        },
+      }),
+    );
+    const arg = mockGeneratePdf.mock.calls[0][0];
+    expect(arg).not.toHaveProperty("paymentMethod");
+    expect(arg).not.toHaveProperty("footerNote");
+  });
+
+  it("degrada a 404 se il reso arriva senza la vendita resa", async () => {
+    const res = await generatePdfResponse({
+      ...RETURN_DATA,
+      referenceSale: null,
+    });
+    expect(res.status).toBe(404);
   });
 });
 

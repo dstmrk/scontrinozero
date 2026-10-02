@@ -3,12 +3,11 @@ import { and, eq, or, type SQL } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
 
 /**
- * I `kind` che oggi hanno una resa (PDF, ricevuta pubblica, termica). Il reso
- * (`RETURN`, migrazione 0042) è un documento fiscale a tutti gli effetti, ma
- * il suo layout normativo (HAR.md #19g) non è ancora implementato: finché non
- * lo è, nessuna superficie deve stamparlo con il layout di una vendita.
+ * I `kind` che hanno una resa (PDF, ricevuta pubblica, termica): tutti e tre.
+ * Il tipo resta perché `isPrintableDocument` lo restringe dal `kind` della
+ * colonna, e i renderer lo esigono.
  */
-export type PrintableKind = "SALE" | "VOID";
+export type PrintableKind = "SALE" | "VOID" | "RETURN";
 
 /**
  * Il minimo per decidere se un documento e' stampabile. Lo soddisfa
@@ -28,7 +27,7 @@ export interface PrintableDocumentRef {
  * | SALE | ACCEPTED       | si'        |
  * | SALE | VOID_ACCEPTED  | **no**     |
  * | VOID | VOID_ACCEPTED  | si'        |
- * | RETURN | qualunque    | **no**, finché non ha la sua resa (`PrintableKind`) |
+ * | RETURN | ACCEPTED     | si'        |
  *
  * Le prime due righe dicono la regola fiscale: annullato uno scontrino, la
  * ricevuta di vendita non e' piu' un documento valido e non va piu' consegnata
@@ -56,7 +55,38 @@ export function isPrintableDocument<T extends PrintableDocumentRef>(
 ): doc is T & { readonly kind: PrintableKind } {
   if (doc.kind === "SALE") return doc.status === "ACCEPTED";
   if (doc.kind === "VOID") return doc.status === "VOID_ACCEPTED";
-  return false;
+  // Un reso non cambia mai la vendita né se stesso dopo l'esito: ACCEPTED.
+  return doc.status === "ACCEPTED";
+}
+
+/** Le colonne che collegano annullo e reso alla vendita che correggono. */
+export interface CorrectionRef {
+  readonly kind: PrintableKind;
+  readonly voidedDocumentId: string | null;
+  readonly returnedDocumentId: string | null;
+}
+
+/**
+ * La vendita citata dal blocco "Documento di riferimento", o `null` su una
+ * vendita. Su annullo e reso un `null` è un documento orfano (FK ON DELETE
+ * SET NULL): il lettore risponde 404 invece di stampare un riferimento vuoto.
+ */
+export function referencedSaleId(doc: CorrectionRef): string | null {
+  if (doc.kind === "VOID") return doc.voidedDocumentId;
+  if (doc.kind === "RETURN") return doc.returnedDocumentId;
+  return null;
+}
+
+/**
+ * Di quale documento sono le righe da stampare. L'annullo non ha righe
+ * proprie e ristampa la vendita; il reso ha le sue — i pezzi resi con la loro
+ * quota di sconto (`src/lib/receipts/return-lines.ts`).
+ */
+export function printedLinesDocumentId(
+  doc: CorrectionRef & { readonly id: string },
+  referenceSaleId: string | null,
+): string {
+  return doc.kind === "VOID" && referenceSaleId ? referenceSaleId : doc.id;
 }
 
 /**
@@ -73,6 +103,10 @@ export function printableDocumentCondition(): SQL {
     and(
       eq(commercialDocuments.kind, "VOID"),
       eq(commercialDocuments.status, "VOID_ACCEPTED"),
+    ),
+    and(
+      eq(commercialDocuments.kind, "RETURN"),
+      eq(commercialDocuments.status, "ACCEPTED"),
     ),
   )!;
 }

@@ -16,6 +16,8 @@ import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
 import {
   isPrintableDocument,
   printableDocumentCondition,
+  printedLinesDocumentId,
+  referencedSaleId,
 } from "@/lib/receipts/printable-document";
 import { isValidUuid } from "@/lib/uuid";
 
@@ -113,29 +115,33 @@ export async function GET(
         // Un annullo non ha righe proprie: ristampa quelle della vendita
         // annullata, e ne porta il progressivo per il blocco "Documento di
         // riferimento" della ricevuta di annullamento.
-        let voidedSale = null;
-        if (doc.kind === "VOID") {
-          if (!doc.voidedDocumentId) return null;
+        let referenceSale = null;
+        if (doc.kind !== "SALE") {
+          const saleId = referencedSaleId(doc);
+          if (!saleId) return null;
 
           const [sale] = await tx
             .select()
             .from(commercialDocuments)
-            .where(eq(commercialDocuments.id, doc.voidedDocumentId))
+            .where(eq(commercialDocuments.id, saleId))
             .limit(1);
 
           if (!sale) return null;
-          voidedSale = sale;
+          referenceSale = sale;
         }
 
         const lines = await tx
           .select()
           .from(commercialDocumentLines)
           .where(
-            eq(commercialDocumentLines.documentId, voidedSale?.id ?? doc.id),
+            eq(
+              commercialDocumentLines.documentId,
+              printedLinesDocumentId(doc, referenceSale?.id ?? null),
+            ),
           )
           .orderBy(commercialDocumentLines.lineIndex);
 
-        return { doc, biz, lines, voidedSale, owner };
+        return { doc, biz, lines, referenceSale, owner };
       },
     );
   } catch (err) {
@@ -153,7 +159,7 @@ export async function GET(
     return Response.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  const { doc, biz, lines, voidedSale, owner } = queryResult;
+  const { doc, biz, lines, referenceSale, owner } = queryResult;
 
   // `?qr=1`: l'esercente decide via `printQr` (preferenze stampante, per
   // dispositivo/localStorage — non leggibile qui) e lo passa come query param
@@ -165,7 +171,7 @@ export async function GET(
       doc,
       biz,
       lines,
-      voidedSale,
+      referenceSale,
       // Solo la vendita: su una ricevuta di annullamento non si ringrazia.
       footerNote:
         doc.kind === "SALE"

@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 
-import { isPrintableDocument } from "./printable-document";
+import {
+  isPrintableDocument,
+  printedLinesDocumentId,
+  referencedSaleId,
+} from "./printable-document";
 
 describe("isPrintableDocument", () => {
   it("consente il PDF di una vendita accettata", () => {
@@ -41,17 +45,43 @@ describe("isPrintableDocument", () => {
     );
   });
 
-  // Il reso è un documento fiscale ma non ha ancora la sua resa: stamparlo con
-  // il layout di una vendita sarebbe un documento falso (HAR.md #19g).
-  it("nega il PDF di un reso, in ogni stato, finché non ha la sua resa", () => {
+  // Il reso nasce PENDING e si chiude ACCEPTED: non ha la doppia lettura di
+  // VOID_ACCEPTED, perché non cambia mai dopo l'esito.
+  it("consente il PDF di un reso accettato, nega gli altri stati", () => {
+    expect(isPrintableDocument({ kind: "RETURN", status: "ACCEPTED" })).toBe(
+      true,
+    );
     for (const status of [
       "PENDING",
-      "ACCEPTED",
-      "VOID_ACCEPTED",
       "REJECTED",
       "ERROR",
+      "VOID_ACCEPTED",
     ] as const) {
       expect(isPrintableDocument({ kind: "RETURN", status })).toBe(false);
     }
+  });
+});
+
+describe("referencedSaleId / printedLinesDocumentId", () => {
+  const base = {
+    id: "doc",
+    voidedDocumentId: "sale-v",
+    returnedDocumentId: "sale-r",
+  };
+
+  it("la vendita citata dipende dalla forma", () => {
+    expect(referencedSaleId({ ...base, kind: "SALE" })).toBeNull();
+    expect(referencedSaleId({ ...base, kind: "VOID" })).toBe("sale-v");
+    expect(referencedSaleId({ ...base, kind: "RETURN" })).toBe("sale-r");
+  });
+
+  it("l'annullo ristampa le righe della vendita, reso e vendita le proprie", () => {
+    expect(printedLinesDocumentId({ ...base, kind: "VOID" }, "sale-v")).toBe(
+      "sale-v",
+    );
+    expect(printedLinesDocumentId({ ...base, kind: "RETURN" }, "sale-r")).toBe(
+      "doc",
+    );
+    expect(printedLinesDocumentId({ ...base, kind: "SALE" }, null)).toBe("doc");
   });
 });

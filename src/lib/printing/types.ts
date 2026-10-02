@@ -40,12 +40,12 @@ export interface PrintableReceiptLine {
 }
 
 /** La vendita annullata, citata dal blocco "Documento di riferimento". */
-export interface PrintableVoidedDocument {
+export interface PrintableReferenceDocument {
   readonly adeProgressive: string;
   readonly adeRegisteredAt: Date;
 }
 
-/** Campi comuni alle due forme del documento commerciale stampabile. */
+/** Campi comuni alle forme del documento commerciale stampabile. */
 interface PrintableDocumentBase {
   readonly header: ReceiptPrintHeader;
   /**
@@ -112,11 +112,22 @@ export interface PrintableSaleReceipt extends PrintableDocumentBase {
  */
 export interface PrintableVoidReceipt extends PrintableDocumentBase {
   readonly kind: "VOID";
-  readonly voidedDocument: PrintableVoidedDocument;
+  readonly referenceDocument: PrintableReferenceDocument;
+}
+
+/**
+ * Ricevuta di reso (layout AdE pag. 3, `HAR.md` #19g): come l'annullo, ma le
+ * `lines` sono quelle del reso — pezzi resi e quota di sconto — non della
+ * vendita intera.
+ */
+export interface PrintableReturnReceipt extends PrintableDocumentBase {
+  readonly kind: "RETURN";
+  readonly referenceDocument: PrintableReferenceDocument;
 }
 
 /** Documento commerciale pronto per la stampa. */
-export type PrintableReceipt = PrintableSaleReceipt | PrintableVoidReceipt;
+export type PrintableReceipt =
+  PrintableSaleReceipt | PrintableVoidReceipt | PrintableReturnReceipt;
 
 /** Larghezza carta supportata, in colonne di caratteri. */
 export const PAPER_COLUMNS = {
