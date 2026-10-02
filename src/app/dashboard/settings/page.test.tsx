@@ -346,7 +346,7 @@ describe("SettingsPage — Informazioni senza card", () => {
   });
 });
 
-// REVIEW.md #106. La pagina è l'unico punto che tiene insieme i tre pezzi del
+// issue #984. La pagina è l'unico punto che tiene insieme i tre pezzi del
 // verdetto: il nome stampato (businesses), quello osservato all'AdE
 // (businesses) e il tipo di utenza (ade_credentials). Il predicato ha i suoi
 // test; qui si verifica che la pagina legga le colonne giuste.

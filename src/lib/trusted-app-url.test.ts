@@ -85,7 +85,7 @@ describe("getTrustedAppUrl", () => {
       env: { NODE_ENV: "development", NEXT_PUBLIC_APP_URL: "" },
       expected: "http://localhost:3000",
     },
-    // REVIEW.md #93 — un'immagine sola serve prod E sandbox, quindi
+    // PR #904 — un'immagine sola serve prod E sandbox, quindi
     // `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione anche nel
     // container sandbox: `APP_HOSTNAME` è l'unico segnale runtime che
     // distingue i due ambienti. Senza questa precedenza il QR stampato sui

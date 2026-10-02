@@ -773,7 +773,7 @@ describe("profile-actions", () => {
       vi.useRealTimers();
     });
   });
-  // REVIEW.md #106. Chi opera per conto di una societa' digita la ragione
+  // issue #984. Chi opera per conto di una societa' digita la ragione
   // sociale al primo passo dell'onboarding, prima di scegliere su quale P.IVA
   // operera': lo scontrino puo' uscire con la P.IVA della societa' e il nome
   // della persona. Questa action allinea `business_name` a cio' che l'AdE ha
@@ -910,7 +910,7 @@ describe("profile-actions", () => {
     utenzaPiva: "07790350966",
   };
 
-  // REVIEW.md #106, migrazione 0040. Stesso difetto della denominazione sulle
+  // issue #984, migrazione 0040. Stesso difetto della denominazione sulle
   // cinque colonne dell'indirizzo, con un'asimmetria: divergere qui è spesso
   // legittimo (sede legale del commercialista, punto vendita altrove).
   describe("applyAdeSedeLegale", () => {

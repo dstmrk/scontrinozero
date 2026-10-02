@@ -4,7 +4,7 @@ import { listStalePendingSales } from "@/lib/services/pending-verification";
 
 /**
  * Legge le vendite rimaste in sospeso e rende il banner che le verifica
- * (REVIEW.md #103, slice 2).
+ * (PR #904, slice 2).
  *
  * Server component a sé, montato dal layout dentro un `<Suspense>`: la query
  * non deve poter ritardare lo shell del dashboard, che è la parte da cui

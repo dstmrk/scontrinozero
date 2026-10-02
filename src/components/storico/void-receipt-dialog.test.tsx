@@ -151,7 +151,7 @@ describe("VoidReceiptDialog — QR code", () => {
   });
 });
 
-describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
+describe("VoidReceiptDialog — ristampa (PR #779)", () => {
   const PRINT_PROFILE: ReceiptPrintProfile = {
     header: {
       businessName: "Bar da Mario",
@@ -228,7 +228,7 @@ describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
   });
 });
 
-describe("VoidReceiptDialog — banner reauth CIE (REVIEW #54)", () => {
+describe("VoidReceiptDialog — banner reauth CIE (PR #710)", () => {
   function openReauthBanner() {
     renderWithQuery(
       <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
@@ -254,7 +254,7 @@ describe("VoidReceiptDialog — banner reauth CIE (REVIEW #54)", () => {
     const banner = await openReauthBanner();
 
     // Senza le varianti dark: il testo eredita il foreground chiaro del tema
-    // su fondo amber-50 chiaro → contrasto quasi nullo (REVIEW #54). Le classi
+    // su fondo amber-50 chiaro → contrasto quasi nullo (PR #710). Le classi
     // dark: vivono sul contenitore del banner, non sul <p> del messaggio.
     expect(banner.closest("div")).toHaveClass(
       "dark:bg-amber-950",
@@ -332,7 +332,7 @@ describe("VoidReceiptDialog — descrizioni lunghe senza scroll orizzontale", ()
 
 // ---------------------------------------------------------------------------
 // Ricevuta di annullamento: l'entry point dal dettaglio di una vendita
-// annullata. Senza, la riga e' un vicolo cieco (REVIEW.md #85).
+// annullata. Senza, la riga e' un vicolo cieco (PR #836).
 // ---------------------------------------------------------------------------
 
 describe("VoidReceiptDialog — ricevuta di annullamento", () => {

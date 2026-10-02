@@ -84,7 +84,7 @@ describe("StoricoPage — percorso nominale", () => {
   });
 });
 
-describe("StoricoPage — degrado della lettura del piano (REVIEW #85)", () => {
+describe("StoricoPage — degrado della lettura del piano (PR #806)", () => {
   it("rende il fallback inline senza lanciare quando il profilo manca", async () => {
     mockGetPlanSafe.mockResolvedValue({
       ok: false,

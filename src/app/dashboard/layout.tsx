@@ -50,7 +50,7 @@ export default async function DashboardLayout({
     redirect("/onboarding");
   }
 
-  // Onboarding tour: mostrato una sola volta al primo accesso (PLAN.md v1.4.1).
+  // Onboarding tour: mostrato una sola volta al primo accesso (v1.4.1).
   // Letto server-side → niente flash dell'overlay. Degrada a "visto" su errore
   // DB (la funzione gestisce il fallback), quindi non blocca mai il dashboard.
   const tourSeen = await getOnboardingTourSeen();
@@ -142,7 +142,7 @@ export default async function DashboardLayout({
         */}
         <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
           {/*
-            Scontrini rimasti in sospeso (REVIEW.md #103). Sta nel layout e non
+            Scontrini rimasti in sospeso (PR #904). Sta nel layout e non
             in una pagina perché l'esercente deve incontrarlo ovunque stia
             lavorando — cassa compresa, che è da dove la slice 3 lo manda
             quando la riemissione è bloccata.
@@ -156,7 +156,7 @@ export default async function DashboardLayout({
           </Suspense>
           {/*
             Identità stampata diversa da quella registrata all'AdE
-            (REVIEW.md #106). Stessa ragione di stare nel layout: finita la
+            (issue #984). Stessa ragione di stare nel layout: finita la
             verifica si atterra su /dashboard e si va in cassa, quindi chi
             opera per conto di una società incontrerebbe l'avviso solo
             aprendo le impostazioni di sua iniziativa — cioè quasi mai.

@@ -82,7 +82,7 @@ export function OPTIONS(): Response {
 export async function POST(request: Request): Promise<Response> {
   // `requestId` nasce qui e accompagna ogni risposta (header X-Request-Id) e
   // ogni riga di log della richiesta: è il filo di correlazione fra una
-  // segnalazione dell'utente API e i nostri log/Sentry (REVIEW #18).
+  // segnalazione dell'utente API e i nostri log/Sentry (PR #780).
   const requestId = newRequestId();
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -400,7 +400,7 @@ export async function GET(request: Request): Promise<Response> {
       // campo e' assente e `readRawPaymentMethod` restituisce `null` da se',
       // senza un ramo dedicato.
       // Nessun consumer v1 si rompe: `null` e' una forma che il contratto
-      // produce da sempre (REVIEW.md #87, che v2 chiudera' togliendo lo scalare).
+      // produce da sempre (issue #983, che v2 chiudera' togliendo lo scalare).
       paymentMethod: readRawPaymentMethod(doc.publicRequest),
       payments: v1Payments(payments),
       total: docTotal.toFixed(2),

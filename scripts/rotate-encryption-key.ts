@@ -2,7 +2,7 @@
  * Key rotation script for ade_credentials.
  *
  * Ri-cifra le credenziali dalla vecchia ENCRYPTION_KEY alla nuova. È il passo 2
- * di un runbook in tre fasi che NON richiede downtime (REVIEW #17): l'app legge
+ * di un runbook in tre fasi che NON richiede downtime (PR #785): l'app legge
  * la key map con `getEncryptionKeys()` (`src/lib/crypto.ts`), quindi durante la
  * rotazione decifra sia le righe già ruotate sia quelle ancora alla versione
  * precedente.

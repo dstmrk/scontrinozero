@@ -91,7 +91,7 @@ vi.mock("@/lib/plans", () => ({
 }));
 
 /**
- * REVIEW.md #78: addCatalogItem legge il piano via `getPlanSafe`, che ritorna
+ * PR #804: addCatalogItem legge il piano via `getPlanSafe`, che ritorna
  * un envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
  * wrapping in ogni test — il percorso di fallimento si simula direttamente con
  * `mockGetPlanSafe.mockResolvedValue({ ok: false, error })`.
@@ -488,7 +488,7 @@ describe("catalog-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    // REVIEW.md #78: prima la lettura del piano poteva lanciare (profilo
+    // PR #804: prima la lettura del piano poteva lanciare (profilo
     // orfano / statement timeout) e nessuno la catturava. Ora degrada a
     // { error } — e l'early-return avviene PRIMA della transazione, per non
     // aprire un lock su `businesses` destinato a essere scartato.

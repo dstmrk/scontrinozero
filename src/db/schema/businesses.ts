@@ -25,7 +25,7 @@ export const businesses = pgTable(
     // verifica riuscita (migration 0039). NON e' cio' che viene stampato: il
     // cedente/prestatore lo costruisce `businessName`. E' il termine di
     // confronto che rende visibile uno scontrino intestato alla persona
-    // sbagliata quando si opera per conto di una societa' (REVIEW.md #106).
+    // sbagliata quando si opera per conto di una societa' (issue #984).
     // Senza CHECK di lunghezza: la scrive l'AdE, e un vincolo violato
     // abortirebbe l'intera transazione di verifica (motivazione nella 0039).
     adeDenominazione: text("ade_denominazione"),

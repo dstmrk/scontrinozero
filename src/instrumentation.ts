@@ -42,7 +42,7 @@ export async function raiseServerResponseMaxListeners(): Promise<void> {
 export const KEEP_ALIVE_INTERVAL_MS = 5 * 24 * 60 * 60 * 1000; // 5 giorni
 
 // Guardia di idempotenza: register() può essere invocata più volte per lo stesso
-// deploy (osservati due ping reali a ~13s di distanza in prod, REVIEW.md #29).
+// deploy (osservati due ping reali a ~13s di distanza in prod, PR #643).
 // Senza questa guardia ogni invocazione impilerebbe un nuovo setInterval.
 let keepAliveStarted = false;
 
@@ -69,10 +69,10 @@ export function startSupabaseKeepAlive() {
 }
 
 // Soglia oltre la quale un claim non completato è considerato "stuck"
-// (REVIEW.md #20: handleEvent fallito + DELETE del claim anch'essa fallita).
+// (PR #652: handleEvent fallito + DELETE del claim anch'essa fallita).
 export const STUCK_WEBHOOK_CLAIM_THRESHOLD_MS = 30 * 60 * 1000; // 30 minuti
 
-// Retention delle righe COMPLETATE di `stripe_webhook_events` (REVIEW.md #82).
+// Retention delle righe COMPLETATE di `stripe_webhook_events` (PR #830).
 // La tabella è un registro di dedup: senza retention accumula una riga per ogni
 // evento Stripe ricevuto, per sempre. Stripe non ritenta un evento oltre ~3
 // giorni, quindi una riga più vecchia di 30 giorni (~10× quella finestra) non
@@ -166,7 +166,7 @@ export const INACTIVE_USER_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 // `setInterval` non esegue MAI il callback subito: col solo interval il primo
 // sweep cadrebbe 24h dopo il boot, e un ambiente che riavvia il container più
 // spesso di una volta al giorno (il Pi dev ridéploya a ogni push su `main`) non
-// lo eseguirebbe mai — starvation (REVIEW.md #41). Un run iniziale ritardato
+// lo eseguirebbe mai — starvation (PR #783). Un run iniziale ritardato
 // chiude il buco. 15 minuti tengono lo sweep fuori dalla finestra di overlap
 // dei container durante `docker compose up -d`, dove due istanze coesistono.
 export const INACTIVE_USER_PRUNE_INITIAL_DELAY_MS = 15 * 60 * 1000; // 15 min
@@ -174,10 +174,10 @@ export const INACTIVE_USER_PRUNE_INITIAL_DELAY_MS = 15 * 60 * 1000; // 15 min
 let inactiveUserPruneStarted = false;
 
 /**
- * Sweep GDPR di cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
+ * Sweep GDPR di cancellazione utenti inattivi >12 mesi (v1.4.2).
  * Stesso pattern di `startSupabaseKeepAlive`/`startStripeWebhookClaimSweep`:
  * timer unref'd con guardia d'idempotenza, cadenza fissa giornaliera, più un
- * run iniziale ritardato (REVIEW.md #41). `register()` avvia lo sweep SOLO se
+ * run iniziale ritardato (PR #783). `register()` avvia lo sweep SOLO se
  * la feature è abilitata (`INACTIVE_USER_PRUNE_ENABLED`) e la config passa il
  * floor di sicurezza. Il carico DB/email è tutto lazy dentro il callback: al
  * boot non si tocca il DB.
@@ -215,7 +215,7 @@ export function startInactiveUserPruneSweep() {
 }
 
 /**
- * Cadenza del rilevatore dei documenti in sospeso (REVIEW.md #103).
+ * Cadenza del rilevatore dei documenti in sospeso (PR #904).
  *
  * Sei ore: le righe orfane sono rare e non urgenti — l'azione che le chiude è
  * dell'esercente, dentro la sua sessione, non nostra — ma un giro al giorno
@@ -240,8 +240,8 @@ export const STALE_PENDING_SWEEP_INITIAL_DELAY_MS = 5 * 60 * 1000;
  * job di background che scandisce una tabella senza filtro per tenant sullo
  * stesso pool da 10 che serve la cassa. Non rende la query più veloce — rende
  * limitato il suo fallimento, così una scansione degenere non tiene occupata
- * una connessione che serve a emettere scontrini (la lezione di REVIEW.md
- * #81).
+ * una connessione che serve a emettere scontrini (la lezione di issue
+ * #981).
  */
 export const STALE_PENDING_COUNT_TIMEOUT_MS = 30_000;
 
@@ -256,7 +256,7 @@ let stalePendingSweepStarted = false;
  * richiesta utente e fare un login per ogni business con righe orfane — e
  * soprattutto sposterebbe la decisione lontano dall'unica persona che sa se
  * la vendita è avvenuta davvero. Quella parte vive nella dashboard
- * dell'esercente (REVIEW.md #103, "Cosa non fare").
+ * dell'esercente (PR #904, "Cosa non fare").
  *
  * `warn` e non `error`: non è un fallimento del sistema, è un lavoro in
  * attesa di qualcuno. E solo quando il conteggio è diverso da zero: a regime
@@ -338,19 +338,19 @@ export async function register() {
 
     // Keep-alive Supabase: la guardia di idempotenza dentro
     // startSupabaseKeepAlive() evita timer duplicati su invocazioni multiple
-    // di register() (REVIEW.md #29).
+    // di register() (PR #643).
     startSupabaseKeepAlive();
 
-    // Sweep dei claim webhook Stripe "stuck" (REVIEW.md #20): stessa guardia
+    // Sweep dei claim webhook Stripe "stuck" (PR #652): stessa guardia
     // di idempotenza e pattern setInterval unref'd di startSupabaseKeepAlive.
     startStripeWebhookClaimSweep();
 
-    // Rilevatore dei documenti PENDING orfani (REVIEW.md #103): conta e
+    // Rilevatore dei documenti PENDING orfani (PR #904): conta e
     // logga, nessuna scrittura e nessuna sessione AdE. Non è opt-in — un
     // `count(*)` ogni sei ore non è una feature da spegnere.
     startStalePendingSweep();
 
-    // Sweep GDPR cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
+    // Sweep GDPR cancellazione utenti inattivi >12 mesi (v1.4.2).
     // Feature OPT-IN e distruttiva: parte SOLO se INACTIVE_USER_PRUNE_ENABLED=true.
     // La config (pure, no deps DB) è letta a parte per non tirare dentro la
     // pipeline di cancellazione quando la feature è spenta (default).
@@ -359,7 +359,7 @@ export async function register() {
     const pruneConfig = readPruneConfig();
     // Le violazioni della config (soglia sotto il floor di sicurezza, invariante
     // warn ≥ delete, env malformata) sono visibili al boot: una soglia sbagliata
-    // su una feature IRREVERSIBILE non deve degradare in silenzio (REVIEW.md #39).
+    // su una feature IRREVERSIBILE non deve degradare in silenzio (PR #783).
     if (pruneConfig.warnings.length > 0) {
       const { logger } = await import("@/lib/logger");
       logger.warn(

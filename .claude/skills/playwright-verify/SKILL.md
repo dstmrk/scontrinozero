@@ -459,8 +459,8 @@ serve 10%).
   il 2026-08-19: dalla stessa pagina `fetch('/sw.js')` torna
   `type=basic status=200`, mentre `navigator.serviceWorker.register('/sw.js')`
   sulla stessa URL dà `SecurityError` — è la prova che il redirect colpisce solo
-  la richiesta dell'installer. Corollario: **REVIEW #84 non è chiudibile su
-  dev**, serve sandbox o prod, dove non c'è Access davanti.
+  la richiesta dell'installer. Corollario: **la verifica del service worker
+  (PR #790) non si chiude su dev**, serve sandbox o prod, dove non c'è Access davanti.
 
   Quel che invece **si verifica benissimo qui** è il comportamento dell'app
   davanti a una registrazione fallita — dev riproduce fedelmente la classe di
@@ -472,7 +472,7 @@ serve 10%).
 
 - **Il service worker si verifica su `sandbox.scontrinozero.it`, che NON è
   dietro Access** (risponde 200 senza service token). È l'unico posto dove i
-  punti di REVIEW #84 sono osservabili, e in sola lettura: nessun login serve,
+  punti di quella verifica sono osservabili, e in sola lettura: nessun login serve,
   perché il root layout monta `Providers` su ogni pagina — basta `/login`.
   Ricette misurate il 2026-08-19 (release `1.6.2+b09692b`), tutte sotto i 5s:
 

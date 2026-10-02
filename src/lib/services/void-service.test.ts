@@ -8,7 +8,7 @@ const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
-  // Helper puro (REVIEW.md #55): mappa AdePrerequisites → WithAdeSessionParams.
+  // Helper puro (PR #752): mappa AdePrerequisites → WithAdeSessionParams.
   // Mockato con la mappatura reale così `withAdeSession` riceve params validi.
   toAdeSessionParams: (
     businessId: string,
@@ -30,7 +30,7 @@ vi.mock("@/lib/server-auth", () => ({
 // DB mock
 const mockSelectLimit = vi.fn();
 // `.where()` serve due chiamanti: i lookup doc usano `.limit()`, mentre
-// findClaimedTransactionIds (REVIEW.md #4) awaita direttamente `.where()`.
+// findClaimedTransactionIds (PR #653) awaita direttamente `.where()`.
 // Il thenable risolve [] (nessun idtrx già rivendicato → il match regge).
 const selectWhereResult = {
   limit: mockSelectLimit,
@@ -87,7 +87,7 @@ const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockGetDocument = vi.fn();
 const mockSubmitVoid = vi.fn();
-// Lookup AdE pre-retry (REVIEW.md #4): default "nessun match" → il recovery
+// Lookup AdE pre-retry (PR #653): default "nessun match" → il recovery
 // procede col re-submit come prima. Override per-test per match/ambiguous/throw.
 const mockSearchDocuments = vi
   .fn()
@@ -99,7 +99,7 @@ const mockAdeClient = {
   submitVoid: mockSubmitVoid,
   searchDocuments: mockSearchDocuments,
 };
-// withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
+// withAdeSession (PR #624) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitVoid restano valide.
 const mockIsCieSessionMissing = vi.fn().mockReturnValue(false);
@@ -316,7 +316,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockSubmitVoid).not.toHaveBeenCalled();
   });
 
-  it("REVIEW #48 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga VOID marcata ERROR", async () => {
+  it("PR #707 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga VOID marcata ERROR", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",
       cedentePrestatore: { built: true },
@@ -332,13 +332,13 @@ describe("voidReceiptForBusiness", () => {
     // registrato). L'index unique parziale su voided_document_id esclude ERROR
     // (migration 0012) e il SALE resta ACCEPTED → un retry re-inserisce una nuova
     // riga VOID senza duplicato. Marchiamo ERROR per evitare il ghost PENDING
-    // perpetuo (REVIEW.md #48).
+    // perpetuo (PR #707).
     expect(mockSubmitVoid).toHaveBeenCalled();
     const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(updateSets).toContain("ERROR");
   });
 
-  it("REVIEW #48 — reauth in-flight VOID: UPDATE a ERROR fallito è swallowed, reauthRequired invariato", async () => {
+  it("PR #707 — reauth in-flight VOID: UPDATE a ERROR fallito è swallowed, reauthRequired invariato", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",
       cedentePrestatore: { built: true },
@@ -384,7 +384,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("REVIEW #15: logga warn v1_document_not_found sul not-found via API key", async () => {
+  it("PR #638: logga warn v1_document_not_found sul not-found via API key", async () => {
     mockSelectLimit.mockResolvedValue([]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
@@ -406,7 +406,7 @@ describe("voidReceiptForBusiness", () => {
     );
   });
 
-  it("REVIEW #15: NON logga il warn v1 sul not-found da UI session (apiKeyId assente)", async () => {
+  it("PR #638: NON logga il warn v1 sul not-found da UI session (apiKeyId assente)", async () => {
     mockSelectLimit.mockResolvedValue([]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
@@ -512,7 +512,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("REVIEW.md #56: void con la key di un'emissione (SALE) → IDEMPOTENCY_PAYLOAD_MISMATCH, nessun falso annullo", async () => {
+  it("PR #704: void con la key di un'emissione (SALE) → IDEMPOTENCY_PAYLOAD_MISMATCH, nessun falso annullo", async () => {
     mockReturning.mockResolvedValue([]); // INSERT VOID conflict sulla key
     // La riga trovata per questa key è un SALE ACCEPTED (stale): senza il guard
     // kind, resolveVoidConflict cadeva nel ramo "PENDING or ERROR" e
@@ -625,7 +625,7 @@ describe("voidReceiptForBusiness", () => {
     expect(result.voidDocumentId).toBe("void-doc-uuid");
   });
 
-  it("recovery annullo: searchDocuments trova un match → finalize-only, niente submitVoid (REVIEW.md #4)", async () => {
+  it("recovery annullo: searchDocuments trova un match → finalize-only, niente submitVoid (PR #653)", async () => {
     mockReturning.mockResolvedValue([]); // INSERT conflict
     mockSelectLimit
       .mockResolvedValueOnce([FAKE_SALE_DOC]) // sale fetch (adeProgressive = DCW2026/5111-2188)
@@ -667,7 +667,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockGetDocument).not.toHaveBeenCalled();
   });
 
-  it("recovery annullo: finalize-only scrive ade_registered_at sull'ANNULLO, non sulla vendita (REVIEW.md #91)", async () => {
+  it("recovery annullo: finalize-only scrive ade_registered_at sull'ANNULLO, non sulla vendita (issue #995)", async () => {
     mockReturning.mockResolvedValue([]); // INSERT conflict
     mockSelectLimit
       .mockResolvedValueOnce([FAKE_SALE_DOC])
@@ -1054,11 +1054,11 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
-  it("REVIEW #35: AdE transient (AdePortalError 5xx) dopo submitVoid NON marca ERROR (resta PENDING)", async () => {
+  it("PR #668: AdE transient (AdePortalError 5xx) dopo submitVoid NON marca ERROR (resta PENDING)", async () => {
     // Stesso intento dell'outer-catch emit: se submitVoid è forse arrivato ad
     // AdE ma la risposta è 5xx/timeout, marcare ERROR escluderebbe la riga dal
     // partial unique index e dalla riconciliazione, permettendo un secondo VOID
-    // per la stessa SALE. La riga resta PENDING (REVIEW.md #35).
+    // per la stessa SALE. La riga resta PENDING (PR #668).
     const { AdePortalError } = await import("@/lib/ade/errors");
     mockSubmitVoid.mockRejectedValue(
       new AdePortalError(503, "service unavailable"),
@@ -1071,7 +1071,7 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
-  it("REVIEW #35: AdeNetworkError dopo submitVoid NON marca ERROR (resta PENDING)", async () => {
+  it("PR #668: AdeNetworkError dopo submitVoid NON marca ERROR (resta PENDING)", async () => {
     const { AdeNetworkError } = await import("@/lib/ade/errors");
     mockSubmitVoid.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
@@ -1082,7 +1082,7 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
-  it("REVIEW #18: un fallimento transient sull'annullo è classificato ADE_UNAVAILABLE", async () => {
+  it("PR #780: un fallimento transient sull'annullo è classificato ADE_UNAVAILABLE", async () => {
     // Come sull'emissione: è il codice che sul canale API diventa un 503
     // ritentabile invece del 422 indistinto.
     const { AdeNetworkError } = await import("@/lib/ade/errors");
@@ -1095,7 +1095,7 @@ describe("voidReceiptForBusiness", () => {
     expect(result.error).toBeTruthy();
   });
 
-  it("REVIEW #64: submitVoid 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
+  it("PR #733: submitVoid 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
     // Esito ignoto dopo il POST di annullo: marcare ERROR permetterebbe un
     // secondo VOID (doppio annullo su AdE). La riga resta PENDING e la
     // stale-recovery riconcilia via searchDocuments prima di ogni re-submit.
@@ -1111,7 +1111,7 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
-  it("REVIEW #35: errore pre-submit permanente (non transient) marca ancora ERROR", async () => {
+  it("PR #668: errore pre-submit permanente (non transient) marca ancora ERROR", async () => {
     // Un errore generico non-transient e non-timeout (es. fallimento permanente
     // pre-submit) deve continuare a marcare ERROR: AdE non ha ricevuto nulla e
     // il retry è sicuro. Guardia di non-regressione sul ramo permanente.

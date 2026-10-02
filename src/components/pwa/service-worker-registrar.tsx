@@ -19,7 +19,7 @@ import { useEffect } from "react";
  * rigetto con un `console.warn` (breadcrumb in Sentry, non un evento) invece di
  * lasciarlo diventare rumore.
  *
- * Non stiamo nascondendo la regressione di REVIEW #84 (`/sw.js` 404): quella
+ * Non stiamo nascondendo la regressione corretta nella PR #790 (`/sw.js` 404): quella
  * classe è coperta a monte da `scripts/check-service-worker.mjs` nello script
  * di build e dal test sul matcher di `src/proxy.ts`, non da Sentry.
  *

@@ -125,7 +125,7 @@ describe("assertIdentityEnv — failure modes in production", () => {
   });
 
   // `getTrustedAppUrl()` preferisce l'override runtime `APP_HOSTNAME` al
-  // valore bakato (REVIEW.md #93): la guardia di boot deve continuare a
+  // valore bakato (PR #904): la guardia di boot deve continuare a
   // validare `NEXT_PUBLIC_APP_URL` comunque, perché quel valore finisce nel
   // bundle client (`header.tsx`), nelle email e in `next.config.ts` — un
   // override valido non lo rende irrilevante.

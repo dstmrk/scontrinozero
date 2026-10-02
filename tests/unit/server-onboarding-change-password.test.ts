@@ -126,7 +126,7 @@ const FAKE_CRED = {
   encryptedPin: "enc-pin",
   keyVersion: 1,
   verifiedAt: null,
-  // Snapshot dell'optimistic lock (REVIEW #60): l'UPDATE finale lo serializza
+  // Snapshot dell'optimistic lock (PR #782): l'UPDATE finale lo serializza
   // nel WHERE, quindi la riga di fixture DEVE averlo valorizzato.
   updatedAt: CRED_UPDATED_AT,
 };
@@ -310,7 +310,7 @@ describe("changeAdePassword", () => {
     expect(result.error).toBeUndefined();
     expect(result.businessId).toBe(BIZ_ID);
     // Versione corrente della chiave, non quella memorizzata sulla riga
-    // (REVIEW #71): qui coincidono, il caso divergente è testato in
+    // (PR #782): qui coincidono, il caso divergente è testato in
     // src/server/onboarding-actions.test.ts.
     expect(mockEncrypt).toHaveBeenCalledWith("NewPass12", FAKE_KEY, 1);
     expect(mockSet).toHaveBeenCalledWith(
@@ -329,7 +329,7 @@ describe("verifyAdeCredentials — AdePasswordExpiredError", () => {
     vi.resetAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
     mockCheckBusinessOwnership.mockResolvedValue(null);
-    // verifyAdeCredentials ora ha un rate limit (REVIEW.md #36): senza questo
+    // verifyAdeCredentials ora ha un rate limit (PR #671): senza questo
     // default check() ritorna undefined dopo resetAllMocks → crash su .success.
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);

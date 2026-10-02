@@ -1,6 +1,6 @@
 ---
 name: decision-ledger
-description: Use when closing out a task and handing work back to the user — writing the PR title or description, summarizing what was built, auditing the decisions taken where the prompt or the spec was silent, or reporting the size/cost of a change. Covers the squash-only merge setup (merge commits and rebase are disabled, the commit message comes from the PR title and body, so the PR title is the commit subject and needs a conventional-commit prefix in Italian, the body must be written at ~70 columns and free of HTML entities because GitHub rewraps it at ~72 and destroys list indentation, and both must be written before the merge because afterwards they are immutable history), the choices ledger (what counts as a decision vs. an implementation detail, the entry format, triage into solida/da-rivedere/serve-l-utente with a confidence, ordering least-confident first, why "it works" is not a verdict, why an empty ledger on substantial work is a symptom), where each entry goes afterwards (PR body, promoted into the owning skill as a durable invariant, or a REVIEW.md finding), and the mandatory cost table (added/deleted/net split across production code, comments, tests, docs, plus the new structural surfaces the user now owns). CLAUDE.md regola 32.
+description: Use when closing out a task and handing work back to the user — writing the PR title or description, summarizing what was built, auditing the decisions taken where the prompt or the spec was silent, or reporting the size/cost of a change. Covers the squash-only merge setup (merge commits and rebase are disabled, the commit message comes from the PR title and body, so the PR title is the commit subject and needs a conventional-commit prefix in Italian, the body must be written at ~70 columns and free of HTML entities because GitHub rewraps it at ~72 and destroys list indentation, and both must be written before the merge because afterwards they are immutable history), the choices ledger (what counts as a decision vs. an implementation detail, the entry format, triage into solida/da-rivedere/serve-l-utente with a confidence, ordering least-confident first, why "it works" is not a verdict, why an empty ledger on substantial work is a symptom), where each entry goes afterwards (PR body, promoted into the owning skill as a durable invariant, or a new GitHub issue), how to file a finding as a GitHub issue (self-contained body, priority and category labels, never the `ready` label, check open issues and accepted risks first, the Closes keyword only for a full fix), and the mandatory cost table (added/deleted/net split across production code, comments, tests, docs, plus the new structural surfaces the user now owns). CLAUDE.md regola 32.
 ---
 
 # decision-ledger — consegna le decisioni, non il diff
@@ -80,9 +80,9 @@ Il repo mergia **solo in squash** (merge commit e rebase sono disabilitati), con
 il messaggio del commit preso da titolo e descrizione della PR. Quindi il corpo
 della PR non è una nota di passaggio: diventa **storia git**, la stessa che
 raggiungi con `git log` e a cui ti porta `git blame` da una riga sospetta. È il
-motivo per cui il ledger vive lì e non in un file dedicato accanto a `PLAN.md`,
-`REVIEW.md` e `docs/architecture/`: un quarto posto dove scrivere sarebbe un
-quarto posto che invecchia, e non servirebbe comunque a niente in più.
+motivo per cui il ledger vive lì e non in un file dedicato accanto alle issue
+e a `docs/architecture/`: un terzo posto dove scrivere sarebbe un terzo posto
+che invecchia, e non servirebbe comunque a niente in più.
 
 Tre conseguenze operative.
 
@@ -137,11 +137,41 @@ PR:
 | ------------------------------------- | ---------------------------------------------------------------------------- |
 | solida + diventa invariante           | promossa nella skill che possiede il dominio (regola 7)                      |
 | solida + resta un dettaglio           | resta nella PR, nient'altro da fare                                          |
-| da rivedere, non risolta in questa PR | riga in `REVIEW.md` nella sezione di priorità giusta                         |
+| da rivedere, non risolta in questa PR | issue GitHub nuova, linkata dalla PR (sezione sotto)                         |
 | serve l'utente                        | resta nella PR con la chiamata provvisoria dichiarata, in attesa di risposta |
 
 I messaggi dei commit intermedi, invece, non sopravvivono allo squash: sono
 appunti di lavoro. Non metterci niente che non sia anche nel corpo della PR.
+
+## Un finding diventa un'issue
+
+Una voce "da rivedere" che resta aperta, o un difetto trovato strada facendo
+fuori dallo scope della PR, diventa un'issue GitHub prima di chiudere il task
+(regola 33), e la PR la linka. Prima di aprirla cerca fra le issue aperte e in
+`docs/architecture/accepted-risks.md`: un finding già registrato, o una scelta
+già accettata, non si riapre come voce nuova.
+
+**Il corpo si legge da solo.** Chi lo implementerà, quasi sempre un agente,
+parte da lì e da nient'altro: deve poter chiudere l'issue senza la
+conversazione che l'ha generata e nel rispetto delle regole sempre-attive.
+Struttura:
+
+- `**Categoria:** … · **Severità:** …` e `**File:**` con i path coinvolti;
+- **Problema**: lo scenario concreto, con i numeri misurati e la data;
+- **Fix**: la soluzione decisa, oppure le opzioni con la raccomandata;
+- **Test**: gli edge case che il fix deve coprire (regola 4);
+- **Trigger**: per un finding rimandato, cosa lo rende urgente.
+
+**Label.** Una di priorità (`P1` alta, `P2` media, `P3` bassa) e una di
+categoria, fra quelle elencate nella regola 33. Un'idea di prodotto senza
+domanda documentata prende `nice-to-have` al posto della priorità. **Mai
+`ready`**: dire che cosa un agente può prendere da solo è una decisione
+dell'utente.
+
+**Chiusura.** Un fix completo porta `Closes #N` nel corpo della PR, e l'issue
+si chiude al merge su `main`. Un fix parziale non usa `Closes`: la PR cita
+l'issue, e **dopo** il merge il corpo dell'issue si aggiorna con quello che
+resta, così torna a leggersi da solo.
 
 ## La tabella del costo (sempre per ultima, dopo il ledger)
 

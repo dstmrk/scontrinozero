@@ -107,7 +107,7 @@ describe("startInactiveUserPruneSweep()", () => {
     expect(global.setInterval).toHaveBeenCalledOnce();
   });
 
-  describe("run iniziale ritardato (REVIEW #41)", () => {
+  describe("run iniziale ritardato (PR #783)", () => {
     it("schedula un run iniziale con setTimeout, ben prima delle 24h", () => {
       startInactiveUserPruneSweep();
 

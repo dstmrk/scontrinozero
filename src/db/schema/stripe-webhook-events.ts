@@ -12,7 +12,7 @@ export const stripeWebhookEvents = pgTable(
     /**
      * Set only after handleEvent succeeds. NULL means "claimed but not (yet)
      * completed" — used by the sweep job in src/instrumentation.ts to detect
-     * and unblock stuck claims (REVIEW.md #20).
+     * and unblock stuck claims (PR #652).
      */
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },

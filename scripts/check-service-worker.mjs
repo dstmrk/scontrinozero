@@ -1,7 +1,7 @@
 /**
  * Verifica che il build abbia davvero emesso il service worker.
  *
- * Esiste per la ragione precisa che ha prodotto REVIEW #84: `@serwist/next`
+ * Esiste per la ragione precisa che ha prodotto la PR #790: `@serwist/next`
  * girava come plugin webpack, Next 16 builda con Turbopack, il plugin non
  * partiva — e degradava a un **warning**, lasciando il build verde. Per mesi
  * `/sw.js` è stato 404 in produzione (niente offline, niente installazione su
@@ -74,7 +74,7 @@ if (isMain) {
       }
       console.error(
         "\nFix: verifica che `serwist build serwist.config.mjs` sia ancora " +
-          "incatenato allo script `build` di package.json (REVIEW #84).",
+          "incatenato allo script `build` di package.json (PR #790).",
       );
       process.exit(1);
     }

@@ -5,7 +5,7 @@ import { buildSecurityHeaders } from "./src/lib/security-headers";
 
 // Il service worker NON è più costruito da un plugin qui: `withSerwistInit` è
 // un plugin webpack e Next 16 builda con Turbopack, quindi non girava e il SW
-// non veniva emesso senza rompere il build (REVIEW #84). Ora è uno step di
+// non veniva emesso senza rompere il build (PR #790). Ora è uno step di
 // build a sé — `serwist.config.mjs` + `serwist build`, incatenato allo script
 // `build` di package.json e verificato da scripts/check-service-worker.mjs.
 
@@ -105,7 +105,7 @@ const nextConfig: NextConfig = {
         // Resta qui e non in `src/proxy.ts`: `/api/v1` è fuori dal matcher del
         // proxy, quindi le due regole CORS non si sovrappongono mai. La CORS
         // delle API interne (ristretta all'origin dell'app) la applica invece
-        // il proxy, che a runtime vede `APP_HOSTNAME` (REVIEW.md #93).
+        // il proxy, che a runtime vede `APP_HOSTNAME` (PR #904).
         source: "/api/v1/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },

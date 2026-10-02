@@ -135,7 +135,7 @@ export function calcLineTotalCents(line: ReceiptLineAmounts): number {
  * the public receipt page and the amount transmitted to AdE — they all derive
  * from the same per-line cents. (Historically this rounded the float sum once
  * per document, which drifted by 1 cent from the per-line surfaces on
- * fractional quantities — REVIEW.md #1.)
+ * fractional quantities — PR #605.)
  */
 export function calcDocTotal(lines: readonly ReceiptLineAmounts[]): number {
   return lines.reduce((sum, l) => sum + calcLineTotalCents(l), 0) / 100;

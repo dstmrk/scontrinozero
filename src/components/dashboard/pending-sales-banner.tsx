@@ -58,7 +58,7 @@ const RESULT_MESSAGES: Record<SettledOutcome, string> = {
 
 /**
  * Avviso non bloccante sugli scontrini rimasti in sospeso, con l'azione che li
- * verifica su AdE (REVIEW.md #103, slice 2).
+ * verifica su AdE (PR #904, slice 2).
  *
  * **Un banner, non righe nello storico.** Storico e analytics continuano a
  * filtrare `ACCEPTED`/`VOID_ACCEPTED`: una riga che potrebbe non essere nulla

@@ -95,7 +95,7 @@ describe("CassaPage — percorso nominale", () => {
   });
 });
 
-describe("CassaPage — degrado della lettura del piano (REVIEW #85)", () => {
+describe("CassaPage — degrado della lettura del piano (PR #806)", () => {
   it("rende il fallback inline senza lanciare quando il profilo manca", async () => {
     mockGetPlanSafe.mockResolvedValue({
       ok: false,
@@ -136,7 +136,7 @@ describe("CassaPage — il fallback non intercetta i redirect", () => {
 
     await expect(CassaPage()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard/settings#api-keys");
-    // A differenza del catalogo (REVIEW.md #2), qui il gate precede le query:
+    // A differenza del catalogo (PR #606), qui il gate precede le query:
     // per un piano developer il DB non viene toccato affatto.
     expect(mockLimit).not.toHaveBeenCalled();
   });

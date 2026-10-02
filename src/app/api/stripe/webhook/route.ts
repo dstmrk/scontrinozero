@@ -315,7 +315,7 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
  *
  * La firma accetta di proposito il solo `status`: `currentPeriodEnd` ha un
  * unico writer, `syncSubscriptionData`, e restringere il tipo impedisce a un
- * handler futuro di reintrodurre la scrittura da un'invoice (REVIEW #70).
+ * handler futuro di reintrodurre la scrittura da un'invoice (PR #779).
  */
 async function applySubscriptionUpdate(
   db: ReturnType<typeof getDb>,
@@ -338,7 +338,7 @@ async function applySubscriptionUpdate(
 }
 
 /**
- * Guardia sull'ordine di consegna (REVIEW.md #61): un evento full-sync si
+ * Guardia sull'ordine di consegna (PR #784): un evento full-sync si
  * applica solo se non è più vecchio dell'ultimo già applicato sulla riga.
  *
  * `lte` e non `lt`: due eventi Stripe possono condividere lo stesso `created`
@@ -476,7 +476,7 @@ async function syncSubscriptionData(
   const currentPeriodEnd = new Date(
     (stripeSub.items.data[0]?.current_period_end ?? 0) * 1000,
   );
-  // Annullamento a fine periodo dal portale Stripe (REVIEW.md #34): lo status
+  // Annullamento a fine periodo dal portale Stripe (PR #677): lo status
   // resta 'active' fino a currentPeriodEnd. Scriviamo sempre il valore corrente
   // così la riattivazione (toggle a false) si riallinea senza update parziali.
   const cancelAtPeriodEnd = stripeSub.cancel_at_period_end;

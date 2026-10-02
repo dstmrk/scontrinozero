@@ -30,7 +30,7 @@ const NO_HASH_TARGETS: readonly string[] = [];
  * `ScrollToHash` da solo non basta: il suo effect gira prima di questo
  * (ordine di documento fra sibling) e a quel punto il target non è ancora nel
  * DOM, perché i children di una sezione chiusa non sono renderizzati affatto.
- * È il difetto che rendeva morto il deep-link `#api-keys` (REVIEW.md #95).
+ * È il difetto che rendeva morto il deep-link `#api-keys` (PR #904).
  *
  * L'hash è letto con `useSyncExternalStore` e non in un effect: è stato
  * esterno al render, il server non lo vede mai, e leggerlo così fa idratare

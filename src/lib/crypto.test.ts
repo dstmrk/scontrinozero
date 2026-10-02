@@ -329,7 +329,7 @@ describe("getEncryptionKeys", () => {
   });
 });
 
-describe("key rotation E2E (REVIEW #17)", () => {
+describe("key rotation E2E (PR #785)", () => {
   const KEY_ENVS = [
     "ENCRYPTION_KEY",
     "ENCRYPTION_KEY_VERSION",

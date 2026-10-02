@@ -55,7 +55,7 @@ const deleteAccountLimiter = new RateLimiter({
  * sweep. This action wraps it with the session-specific concerns: re-auth gate,
  * sign-out, confirmation email and redirect.
  *
- * Re-autenticazione server-side (REVIEW.md #62): la conferma "ELIMINA" del
+ * Re-autenticazione server-side (PR #708): la conferma "ELIMINA" del
  * dialog vive solo nel client, quindi una chiamata diretta alla server action
  * (sessione rubata, XSS, estensione malevola) cancellerebbe l'account —
  * l'azione più distruttiva dell'app — senza alcun attrito. Richiediamo la
@@ -108,7 +108,7 @@ export async function deleteAccount(
     return { error: "Password non corretta." };
   }
 
-  // 0. Annulla l'abbonamento Stripe PRIMA del purge (REVIEW.md #63). Un utente
+  // 0. Annulla l'abbonamento Stripe PRIMA del purge (PR #731). Un utente
   //    cancellato non può più accedere né al Billing Portal (richiede login),
   //    quindi se lasciassimo la subscription attiva Stripe continuerebbe ad
   //    addebitare la carta senza modo di fermarlo. `customers.del` cancella

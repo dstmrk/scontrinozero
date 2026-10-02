@@ -51,7 +51,7 @@ export interface PublicReceiptData {
  * - the document is a VOID whose voided SALE is unreachable (senza le righe
  *   dell'originale non c'e' una ricevuta di annullamento da mostrare)
  *
- * The `adeTransactionId IS NOT NULL` clause is defense-in-depth (REVIEW.md #7):
+ * The `adeTransactionId IS NOT NULL` clause is defense-in-depth (PR #614):
  * finalize persists `adeTransactionId: adeResponse.idtrx ?? null`, so a drift in
  * the finalize/recovery flow could leave an ACCEPTED SALE without a fiscal
  * identifier. Serving such a document publicly would present it as a valid
@@ -108,7 +108,7 @@ export async function fetchPublicReceipt(
 
     // La FK e' ON DELETE SET NULL: un VOID puo' restare orfano. Senza le righe
     // dell'originale non c'e' nulla da stampare — meglio un 404 di una
-    // ricevuta mutila (stessa logica di REVIEW.md #7).
+    // ricevuta mutila (stessa logica della PR #614).
     if (!sale) return null;
     voidedSale = sale;
   }

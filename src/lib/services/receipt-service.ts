@@ -135,7 +135,7 @@ function resolveLotteryCode(input: SubmitReceiptInput): {
   }
 
   if (code) {
-    // Per-line cents (canonical, REVIEW.md #1): same total as PDF/public page
+    // Per-line cents (canonical, PR #605): same total as PDF/public page
     // and as the amount transmitted to AdE. round(...*100) per line also avoids
     // IEEE-754 false negatives at €1.00 (e.g. 10 × 0.10 → round(100.0…) = 100 ✓).
     const totalCents = calcInputLinesTotalCents(input.lines);
@@ -361,7 +361,7 @@ async function handleExistingReceipt(args: {
     };
   }
 
-  // REVIEW.md #56: il vincolo UNIQUE è (business_id, idempotency_key) senza
+  // PR #704: il vincolo UNIQUE è (business_id, idempotency_key) senza
   // distinzione di kind, quindi per una key esiste al più una riga di qualsiasi
   // kind. Se la riga trovata è un VOID, il client ha riusato per un'emissione la
   // key di un annullo: la key NON appartiene a questo SALE. Ritornare successo
@@ -421,7 +421,7 @@ async function handleExistingReceipt(args: {
     };
   }
 
-  // REVIEW.md #56: SALE già annullato. Un replay dell'emit con la stessa key
+  // PR #704: SALE già annullato. Un replay dell'emit con la stessa key
   // (es. retry queue at-least-once dopo che lo scontrino è stato annullato) NON
   // deve cadere nel ramo stale: recoverStaleReceipt vedrebbe adeTransactionId
   // valorizzato e finalizeSaleOnly riporterebbe la riga da VOID_ACCEPTED ad
@@ -511,7 +511,7 @@ async function recoverStaleReceipt(args: {
     return pendingInProgress(existing.id);
   }
 
-  // Lookup AdE pre-retry (REVIEW.md #4): submitSaleToAde, prima di ri-sottomettere,
+  // Lookup AdE pre-retry (PR #653): submitSaleToAde, prima di ri-sottomettere,
   // interroga searchDocuments nella stessa sessione e riconcilia il documento con
   // AdE. Se AdE l'aveva già accettato → finalize-only (nessun duplicato fiscale);
   // se la ricerca è ambigua o fallisce → resta PENDING (fail-safe), niente submit.
@@ -546,7 +546,7 @@ async function recoverStaleReceipt(args: {
  * Esportata perché la verifica manuale di un PENDING orfano
  * (`pending-verification.ts`) chiude con la stessa UPDATE: duplicarla
  * significherebbe due posti dove ricordarsi i guard su `kind`, sugli stati
- * finalizzabili e sull'istante autorevole di REVIEW.md #91.
+ * finalizzabili e sull'istante autorevole dell'issue #995.
  */
 export async function finalizeSaleOnly(
   documentId: string,
@@ -559,7 +559,7 @@ export async function finalizeSaleOnly(
     // submitSale è già andato a buon fine, dobbiamo riuscire a finalizzare
     // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s). Simmetrico a
     // finalizeVoidOnly in void-service.ts.
-    // REVIEW.md #56 (defense in depth): l'UPDATE è ristretto a kind='SALE' e ai
+    // PR #704 (defense in depth): l'UPDATE è ristretto a kind='SALE' e ai
     // soli stati finalizzabili. ACCEPTED è incluso per mantenere idempotente il
     // retry legittimo della finalizzazione; VOID_ACCEPTED/REJECTED sono esclusi
     // così una riga già annullata non può essere flippata ad ACCEPTED da un
@@ -573,7 +573,7 @@ export async function finalizeSaleOnly(
             status: "ACCEPTED",
             adeTransactionId,
             adeProgressive,
-            // REVIEW.md #91: su una riga stale il DEFAULT now() dell'INSERT puo'
+            // issue #995: su una riga stale il DEFAULT now() dell'INSERT puo'
             // precedere di minuti l'istante in cui AdE ha registrato, e quella
             // data finisce su PDF, storico ed export. Quando il recovery ha
             // riconciliato il documento scriviamo l'istante autorevole; sul
@@ -687,7 +687,7 @@ function formatEmitError(
   }
   // Transient (rete / AdE 5xx / timeout SPID): l'esito della trasmissione è
   // IGNOTO — la riga resta PENDING e il recovery la riconcilia contro l'AdE.
-  // Classificarlo (REVIEW #18) è ciò che permette alla route di rispondere 503
+  // Classificarlo (PR #780) è ciò che permette alla route di rispondere 503
   // ritentabile invece del 422 indistinto: sul canale API la differenza fra
   // "riprova con la stessa key" e "correggi il documento" è tutta qui.
   if (isTransientAdeError(err)) {
@@ -713,7 +713,7 @@ function formatEmitError(
 }
 
 /**
- * Lookup AdE pre-retry per il recovery di una VENDITA stale (REVIEW.md #4).
+ * Lookup AdE pre-retry per il recovery di una VENDITA stale (PR #653).
  *
  * Gira dentro `withAdeSession`, prima di `runSubmitSale`, nella stessa sessione.
  * Interroga `searchDocuments` nella finestra del documento e riconcilia per
@@ -822,7 +822,7 @@ async function submitSaleToAde(
   const db = getDb();
   const { cedentePrestatore } = prerequisites;
 
-  // Per-line cents (canonical, REVIEW.md #1): the amount sent to AdE must match
+  // Per-line cents (canonical, PR #605): the amount sent to AdE must match
   // the total on the PDF / public page (computeReceiptTotals) and the storico
   // (calcDocTotal), all derived from round(price * qty * 100) per line.
   const totalCents = calcInputLinesTotalCents(input.lines);
@@ -833,7 +833,7 @@ async function submitSaleToAde(
   // legittimamente, e riconciliare sul secondo darebbe un falso mismatch.
   const globalDiscountCents = Math.round((input.globalDiscount ?? 0) * 100);
   const globalDiscount = globalDiscountCents / 100;
-  // Totale legacy (somma float dei lordi) trasmesso dal mapper pre-REVIEW.md #57:
+  // Totale legacy (somma float dei lordi) trasmesso dal mapper pre-PR #702:
   // su quantità frazionarie diverge di 1 cent dal canonico per-riga. Serve alla
   // recovery per riconoscere un documento già registrato su AdE con quel totale
   // ed evitare un re-submit duplicato. Passato solo se differisce dal canonico.
@@ -878,7 +878,7 @@ async function submitSaleToAde(
     return await withAdeSession(
       toAdeSessionParams(input.businessId, prerequisites),
       async (adeClient) => {
-        // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
+        // Lookup AdE pre-retry (PR #653): solo in recovery, prima di
         // ri-sottomettere, riconcilia il documento con AdE nella stessa sessione.
         if (options.reconcile) {
           const reconciled = await reconcileSaleBeforeResubmit(adeClient, {
@@ -906,7 +906,7 @@ async function submitSaleToAde(
     // durante il submit). Un 401 AdE = documento NON registrato → nessun rischio
     // di duplicato. A differenza dei transient (esito ignoto → PENDING
     // obbligatorio, sotto), qui sappiamo che submitSale non è passato: marchiamo
-    // ERROR best-effort (REVIEW.md #48). Lasciarla PENDING la renderebbe un ghost
+    // ERROR best-effort (PR #707). Lasciarla PENDING la renderebbe un ghost
     // perpetuo nello storico — la cassa genera una idempotencyKey nuova a ogni
     // retry, quindi la riga orfana non verrebbe mai più toccata. Non è un failure
     // nostro: niente logAdeFailure/Sentry (regola 20).
@@ -936,7 +936,7 @@ async function submitSaleToAde(
     // Don't mark ERROR on a statement timeout OR an AdE transient failure
     // (network / 5xx / SPID timeout) — in both cases we don't know whether
     // submitSale succeeded on AdE, so the row must stay PENDING and let stale
-    // recovery reconcile against AdE before any re-submit (REVIEW.md #35).
+    // recovery reconcile against AdE before any re-submit (PR #668).
     // Marking ERROR would drop the row out of the partial unique index and the
     // pre-resubmit reconciliation, risking a duplicate fiscal emission.
     if (!isStatementTimeoutError(err) && !isTransientAdeError(err)) {
@@ -961,7 +961,7 @@ async function submitSaleToAde(
 
 /**
  * Esegue la submitSale su un client AdE già autenticato e persiste il risultato.
- * Separata da `submitSaleToAde` perché gira dentro `withAdeSession` (REVIEW #5):
+ * Separata da `submitSaleToAde` perché gira dentro `withAdeSession` (PR #624):
  * la gestione errori/logout vive nel chiamante, qui solo la logica di emissione.
  */
 async function runSubmitSale(

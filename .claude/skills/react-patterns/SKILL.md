@@ -66,7 +66,7 @@ l'href nel **parent Server Component** e passalo come prop al Client Component
 
 > ⚠️ **La regola è stata violata dal codice che la documenta.**
 > `src/components/marketing/header.tsx` è `"use client"` e chiamava
-> `appHref("/login")` al render (REVIEW.md #93): il link "Accedi" — il primo
+> `appHref("/login")` al render (PR #904): il link "Accedi" — il primo
 > che un visitatore clicca — portava su produzione da ogni ambiente non-prod.
 > Non c'era errore né warning: la prop mancante non si vede, e un hydration
 > mismatch su un solo attributo `href` passa inosservato. Il grep che lo
@@ -76,7 +76,7 @@ l'href nel **parent Server Component** e passalo come prop al Client Component
 
 > Per `/register` la regola ha un gate:
 > `src/lib/signup-source.contract.test.ts` boccia sia `appHref("/register")`
-> nudo (perde l'attribuzione, `REVIEW.md` #109) sia un `href="/register"`
+> nudo (perde l'attribuzione, issue #999) sia un `href="/register"`
 > letterale (perde la cross-origin, cioè questo bug). Ha trovato da solo la
 > CTA dell'indice `/per`, che era un `<Link>` dal giorno in cui è nata. Per
 > `/login` e `/reset-password` il gate non c'è: lì resta il grep.

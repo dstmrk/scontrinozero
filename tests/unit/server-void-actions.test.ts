@@ -69,7 +69,7 @@ function makeValidInput(overrides: Record<string, unknown> = {}) {
 // --- Tests ---
 
 /**
- * REVIEW.md #78: la lettura del piano passa da `getPlanSafe`, che ritorna un
+ * PR #804: la lettura del piano passa da `getPlanSafe`, che ritorna un
  * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
  * wrapping in ogni test.
  */

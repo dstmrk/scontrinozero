@@ -17,7 +17,7 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: mockLoggerWarn, info: vi.fn() },
 }));
 
-// Il keep-alive Supabase è dentro lo stesso register() (REVIEW.md #29): va
+// Il keep-alive Supabase è dentro lo stesso register() (PR #643): va
 // mockato @/lib/supabase/admin e intercettato setInterval, altrimenti register()
 // in nodejs lascerebbe un timer reale al termine dei test.
 vi.mock("@/lib/supabase/admin", () => ({
@@ -38,7 +38,7 @@ describe("instrumentation register()", () => {
     vi.spyOn(global, "setInterval").mockReturnValue({
       unref: vi.fn(),
     } as unknown as ReturnType<typeof setInterval>);
-    // Il prune sweep schedula anche un run iniziale con setTimeout (REVIEW #41):
+    // Il prune sweep schedula anche un run iniziale con setTimeout (PR #783):
     // intercettato qui per non lasciare un timer reale al termine dei test.
     vi.spyOn(global, "setTimeout").mockReturnValue({
       unref: vi.fn(),
@@ -104,14 +104,14 @@ describe("instrumentation register()", () => {
     expect(mockAssertIdentityEnv).not.toHaveBeenCalled();
   });
 
-  it("avvia il keep-alive Supabase nel ramo nodejs (REVIEW.md #29)", async () => {
+  it("avvia il keep-alive Supabase nel ramo nodejs (PR #643)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     const { register } = await import("./instrumentation");
 
     await register();
 
     // Tre timer incondizionati nel ramo nodejs: keep-alive Supabase
-    // (REVIEW.md #29), sweep dei claim webhook Stripe (#20) e rilevatore dei
+    // (PR #643), sweep dei claim webhook Stripe (#20) e rilevatore dei
     // documenti PENDING orfani (#103).
     expect(global.setInterval).toHaveBeenCalledTimes(3);
   });
@@ -138,7 +138,7 @@ describe("instrumentation register()", () => {
     expect(global.setInterval).toHaveBeenCalledTimes(3);
   });
 
-  it("NON avvia il prune sweep quando la soglia è sotto il floor di sicurezza (REVIEW #39)", async () => {
+  it("NON avvia il prune sweep quando la soglia è sotto il floor di sicurezza (PR #783)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     process.env.INACTIVE_USER_PRUNE_ENABLED = "true";
     process.env.INACTIVE_USER_DELETE_AFTER_DAYS = "3";
@@ -150,7 +150,7 @@ describe("instrumentation register()", () => {
     expect(global.setInterval).toHaveBeenCalledTimes(3);
   });
 
-  it("logga a warn le violazioni della config prune al boot (REVIEW #39)", async () => {
+  it("logga a warn le violazioni della config prune al boot (PR #783)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     process.env.INACTIVE_USER_PRUNE_ENABLED = "true";
     process.env.INACTIVE_USER_DELETE_AFTER_DAYS = "3";

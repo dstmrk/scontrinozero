@@ -351,7 +351,7 @@ describe("SettingsPage — cardState state machine", () => {
     });
   });
 
-  describe("expired paid plan fallback (REVIEW #31)", () => {
+  describe("expired paid plan fallback (PR #638)", () => {
     it("shows PlanSelection (not portal link) when paid plan is expired despite active subscription row", async () => {
       // Webhook customer.subscription.deleted perso: la row e' rimasta active
       // ma il piano e' scaduto oltre la grazia → gate read-only.

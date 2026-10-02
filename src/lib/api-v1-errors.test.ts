@@ -33,7 +33,7 @@ describe("v1Error", () => {
       message: "Documento non trovato.",
       requestId: REQUEST_ID,
     });
-    // Il campo legacy `error` è stato rimosso (breaking change v1, REVIEW #18)
+    // Il campo legacy `error` è stato rimosso (breaking change v1, PR #780)
     expect(body).not.toHaveProperty("error");
   });
 

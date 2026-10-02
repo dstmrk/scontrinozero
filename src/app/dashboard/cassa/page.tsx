@@ -23,7 +23,7 @@ export default async function CassaPage() {
   // non è esposta loro, vedi `canUseDashboardCashier`.
   const user = await getAuthenticatedUser();
 
-  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): su profilo orfano o `57014`
+  // `getPlanSafe` e non `getPlan` (PR #806): su profilo orfano o `57014`
   // il throw finirebbe al boundary di segmento, che in produzione può solo dire
   // "qualcosa è andato storto" — qui invece il messaggio è preciso. Niente
   // `try/catch` intorno alla regione: il `redirect()` qui sotto funziona

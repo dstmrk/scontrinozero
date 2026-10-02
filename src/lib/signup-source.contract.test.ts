@@ -6,7 +6,7 @@ import type { ContentCluster } from "./signup-source";
 
 /**
  * Guardia sul contratto fra le CTA di registrazione e l'attribuzione
- * server-side (`REVIEW.md` #109).
+ * server-side (issue #999).
  *
  * Il funnel Umami misura le sessioni che hanno toccato una pagina **e**
  * `/register`: non è attribuzione, e non distingue un'iscrizione da chi apre

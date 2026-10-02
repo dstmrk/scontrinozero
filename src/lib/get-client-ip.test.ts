@@ -143,7 +143,7 @@ describe("getClientIp", () => {
     });
   });
 
-  describe("throttle dell'allarme misconfig (REVIEW #83)", () => {
+  describe("throttle dell'allarme misconfig (PR #803)", () => {
     afterEach(() => {
       vi.useRealTimers();
     });

@@ -192,7 +192,7 @@ describe("GET /api/v1/receipts/[id]", () => {
   });
 
   it("ritorna payments[] e paymentMethod null su un pagamento misto", async () => {
-    // Additivo, non breaking (REVIEW.md #87): il formato persistito scrive
+    // Additivo, non breaking (issue #983): il formato persistito scrive
     // `paymentMethod` SOLO sui metodi singoli, quindi sui misti il campo è
     // assente e la response porta il `null` che il contratto v1 produce già
     // oggi sulle righe storiche.
@@ -293,7 +293,7 @@ describe("GET /api/v1/receipts/[id]", () => {
     const res = await GET(makeRequest(), makeParams(missingId));
     expect(res.status).toBe(404);
 
-    // REVIEW #15: un warn unico sul not-found dà visibilità sull'enumerazione
+    // PR #638: un warn unico sul not-found dà visibilità sull'enumerazione
     // cross-tenant. Risposta HTTP invariata (404 generico, niente oracle).
     expect(mockLoggerWarn).toHaveBeenCalledOnce();
     const [ctx] = mockLoggerWarn.mock.calls[0];

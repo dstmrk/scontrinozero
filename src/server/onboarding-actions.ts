@@ -123,15 +123,15 @@ const changePasswordLimiter = new RateLimiter({
 // getFiscalData). Senza questo gate un utente autenticato — già filtrato
 // dall'ownership check — può martellare il login AdE ripetendo
 // verifyAdeCredentials, rischiando un lockout/IP-block lato AdE sull'egress
-// condiviso che impatterebbe TUTTI gli utenti (REVIEW.md #36). 5/15 min in
+// condiviso che impatterebbe TUTTI gli utenti (PR #671). 5/15 min in
 // simmetria con changePasswordLimiter.
 const verifyAdeLimiter = new RateLimiter({
   maxRequests: 5,
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
-// saveAdeCredentials era l'unica action credenziali AdE senza gate (REVIEW.md
-// #80). Il costo non è la cifratura ma l'invalidazione delle DUE cache di
+// saveAdeCredentials era l'unica action credenziali AdE senza gate (PR
+// #803). Il costo non è la cifratura ma l'invalidazione delle DUE cache di
 // sessione AdE in coda alla action: la sessione Fisconline vale ~10 round-trip
 // HTTP (è la ragione per cui session-cache.ts esiste) e quella CIE non è
 // ri-creabile senza azione umana. Un client in loop — o una sessione rubata —
@@ -153,7 +153,7 @@ export type OnboardingStatus = {
    * opera per conto di una societa', o ne ha piu' d'una propria.
    *
    * Sta qui e non dietro una query a parte perche' e' il gate a monte
-   * dell'avviso sull'identita' AdE (REVIEW.md #106), che puo' accendersi solo
+   * dell'avviso sull'identita' AdE (issue #984), che puo' accendersi solo
    * in questo caso. Costa un'espressione su un JOIN che gia' c'e' — zero
    * righe, zero join in piu' — e in cambio risparmia la lettura mirata delle
    * tredici colonne a tutti gli altri, che sono la stragrande maggioranza.
@@ -510,7 +510,7 @@ export async function saveAdeCredentials(
 
   logger.info({ businessId, loginMethod }, "ADE credentials updated");
 
-  // Invalida la sessione AdE cached (REVIEW #5): le credenziali sono cambiate,
+  // Invalida la sessione AdE cached (PR #624): le credenziali sono cambiate,
   // la prossima emissione/annullo deve rieffettuare il login con le nuove.
   await adeSessionCache.invalidate(businessId);
   await adeInteractiveSessionStore.invalidate(businessId);
@@ -736,7 +736,7 @@ async function finalizeAdeVerification(params: {
     const vatNumber = fiscalData.identificativiFiscali.partitaIva;
     const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
 
-    // Denominazione registrata sulla P.IVA (REVIEW.md #106). Scritta qui e non
+    // Denominazione registrata sulla P.IVA (issue #984). Scritta qui e non
     // in una UPDATE propria per due motivi: eredita lo stesso lock ottimistico
     // — una sessione stantia non ne lascia traccia piu' di quanta ne lasci
     // sugli identificativi — e viaggia con la P.IVA a cui si riferisce, che e'
@@ -974,7 +974,7 @@ async function attemptAdeLoginForVerification(
       },
     );
     // Più partite IVA disponibili: la lista risale alla UI, che la trasforma nel
-    // picker (HAR.md #18, REVIEW.md #106).
+    // picker (HAR.md #18, issue #984).
     //
     // Su un business già collegato il picker NON si offre: `applyUtenzaSelection`
     // rifiuta ogni scelta, quindi mostrarlo sarebbe un vicolo cieco — l'utente
@@ -1199,7 +1199,7 @@ export async function verifyAdeCredentials(
 
   // Rate limit DOPO l'ownership gate, PRIMA del decrypt/login AdE: degradare
   // con un messaggio standard (regola 19), warn senza Sentry (input prevedibile,
-  // regola 20). Simmetria con changeAdePassword (REVIEW.md #36).
+  // regola 20). Simmetria con changeAdePassword (PR #671).
   const rateLimitResult = verifyAdeLimiter.check(`verify-ade:${user.id}`);
   if (!rateLimitResult.success) {
     logger.warn(
@@ -1254,7 +1254,7 @@ export async function verifyAdeCredentials(
   // Un solo punto di scrittura, dopo ogni ramo d'uscita. Spargere la chiamata
   // sui dodici `return` di `runAdeVerification` avrebbe garantito che prima o
   // poi qualcuno ne dimenticasse uno, e un buco nell'attribuzione è
-  // indistinguibile da un "mai tentato" (REVIEW.md #107).
+  // indistinguibile da un "mai tentato" (PR #957).
   await recordVerifyOutcome(db, businessId, outcome);
 
   return result;
@@ -1312,7 +1312,7 @@ async function runAdeVerification(params: {
   // below will match 0 rows, preventing verifiedAt from being set on stale data.
   const credentialVersion = selection.credentialVersion ?? cred.updatedAt;
 
-  // Key map per VERSIONE reale (REVIEW #17): sotto rotazione la riga può
+  // Key map per VERSIONE reale (PR #785): sotto rotazione la riga può
   // essere ancora cifrata con la chiave precedente.
   const keys = getEncryptionKeys();
 
@@ -1521,7 +1521,7 @@ export const getOnboardingStatus = cache(
 );
 
 /**
- * Legge il flag "tour onboarding visto" per l'utente corrente (PLAN.md v1.4.1).
+ * Legge il flag "tour onboarding visto" per l'utente corrente (v1.4.1).
  * Usato dal dashboard layout per decidere se montare il walkthrough guidato:
  * letto server-side → niente flash di overlay (performance percepita, priorità #1).
  *
@@ -1550,8 +1550,8 @@ export const getOnboardingTourSeen = cache(async (): Promise<boolean> => {
 });
 
 /**
- * Marca il tour onboarding come visto/skippato per l'utente corrente (PLAN.md
- * v1.4.1). Chiamata dal componente client quando il walkthrough termina
+ * Marca il tour onboarding come visto/skippato per l'utente corrente
+ * (v1.4.1). Chiamata dal componente client quando il walkthrough termina
  * (FINISHED) o viene skippato (SKIPPED).
  *
  * `WHERE onboarding_tour_seen_at IS NULL`: idempotente e race-safe — il primo
@@ -1630,8 +1630,8 @@ function formatChangePasswordError(err: unknown, businessId: string): string {
  * rotazione, un payload marcato v1 ma cifrato con la chiave v2: una key-map
  * multi-versione corretta lo decifrerebbe con la chiave v1 → authTag mismatch
  * → credenziali illeggibili. Allineare l'intera riga alla versione corrente
- * chiude il buco (REVIEW #71) e non ostacola la rotazione zero-downtime
- * (REVIEW #17).
+ * chiude il buco (PR #782) e non ostacola la rotazione zero-downtime
+ * (PR #785).
  *
  * `encryptedUsername` è normalmente null su Fisconline (l'username è il CF), ma
  * viene ri-cifrato se presente: qualunque campo lasciato alla chiave vecchia
@@ -1716,7 +1716,7 @@ export async function changeAdePassword(
     return { error: "Codice fiscale non disponibile per il cambio password." };
   }
 
-  // Si decifra da N versioni (`keys`, REVIEW #17) ma si ri-cifra sempre con la
+  // Si decifra da N versioni (`keys`, PR #785) ma si ri-cifra sempre con la
   // chiave corrente (`key`), coerentemente con `reencryptCredentialFields`.
   const key = getEncryptionKey();
   const keys = getEncryptionKeys();

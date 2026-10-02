@@ -786,7 +786,7 @@ describe("metaTitle allineati all'intento di ricerca (dati GSC 2026-09-17)", () 
  * Attenzione a non leggerci più di quello che c'è: la guida commerciale aveva
  * **già 14 link interni in entrata**, è la più linkata del registry, e questo
  * non l'ha portata oltre la posizione 22. Il collo di bottiglia è l'autorità
- * di dominio, non il link interno (`REVIEW.md` #109). Questa riga si giustifica
+ * di dominio, non il link interno (issue #999). Questa riga si giustifica
  * sulla **pertinenza per chi legge** — chi teme la multa spesso il registratore
  * non ce l'ha — non su un atteso guadagno di ranking o di conversione.
  *

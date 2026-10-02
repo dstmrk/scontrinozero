@@ -177,7 +177,7 @@ describe("calcDocTotal", () => {
   });
 
   it("usa l'arrotondamento per-riga sui bordi x.xx5 (canonico)", () => {
-    // Caso canonico REVIEW #1: 3 righe qty=1.5 × price=0.33.
+    // Caso canonico PR #605: 3 righe qty=1.5 × price=0.33.
     // Per-riga: round(0.495 * 100) = 50 cents × 3 = 150 → €1,50.
     // (Il vecchio per-documento dava round(1.485 * 100) = 149 → €1,49.)
     const lines = [

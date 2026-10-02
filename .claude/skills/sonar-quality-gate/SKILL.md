@@ -70,7 +70,7 @@ regolarmente le sue righe. Non aggiungere
 `sonar.scanner.excludeHiddenFiles=false` sperando che basti: la doc che lo
 descrive parla dell'analisi _Secrets_, e sull'analizzatore TS l'evidenza dice
 il contrario — sarebbe un placebo. Razionale completo e trigger di
-riapertura: `REVIEW.md`, "Rischi accettati".
+riapertura: `docs/architecture/accepted-risks.md`.
 
 ---
 

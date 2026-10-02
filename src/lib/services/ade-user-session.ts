@@ -1,7 +1,7 @@
 /**
  * Risolve la sessione AdE dell'esercente dentro una sua richiesta HTTP.
  *
- * Estratto da `pending-verification.ts` (REVIEW.md #103, slice 2) quando la
+ * Estratto da `pending-verification.ts` (PR #904, slice 2) quando la
  * ricerca dei documenti su AdE (v1.8.0) è diventata il secondo chiamante dello
  * stesso identico gesto: leggere i prerequisiti, scartare subito una CIE senza
  * sessione interattiva viva, tradurre in `WithAdeSessionParams`.

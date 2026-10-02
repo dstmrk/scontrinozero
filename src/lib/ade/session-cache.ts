@@ -1,6 +1,6 @@
 /**
  * In-process cache delle sessioni AdE per riusare un singolo login Fisconline
- * su più operazioni ravvicinate dello stesso business (REVIEW #5).
+ * su più operazioni ravvicinate dello stesso business (PR #624).
  *
  * Il login Fisconline è la latenza dominante dell'emissione (~10 round-trip
  * HTTP sequenziali verso AdE), mentre il `submitSale`/`submitVoid` vero è un
@@ -13,7 +13,7 @@
  *  - una **entry** conserva il client autenticato (AdeSession + CookieJar) con
  *    TTL sotto la scadenza sessione AdE e cap **LRU**.
  *
- * Sicurezza (REVIEW #5.4): la entry conserva solo i cookie di sessione. Le
+ * Sicurezza (PR #624): la entry conserva solo i cookie di sessione. Le
  * credenziali decifrate vengono re-iniettate per la singola operazione (così il
  * re-auth su 401 in `submitDocument` funziona) e **azzerate** subito dopo —
  * mai trattenute nella cache long-lived.

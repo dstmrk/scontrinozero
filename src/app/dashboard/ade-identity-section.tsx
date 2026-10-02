@@ -4,7 +4,7 @@ import { AdeIdentityNotice } from "@/components/settings/ade-identity-notice";
 
 /**
  * Avviso sul disallineamento fra l'identità stampata sullo scontrino e quella
- * registrata all'AdE (REVIEW.md #106), montato nello shell del dashboard.
+ * registrata all'AdE (issue #984), montato nello shell del dashboard.
  *
  * **Perché non basta averlo in impostazioni.** Finita la verifica,
  * l'onboarding manda l'esercente su `/dashboard` e da lì si va in cassa: chi

@@ -96,8 +96,8 @@ export async function GET(
 
   if (!result) {
     // Not-found cross-tenant: la query filtra per businessId della API key e
-    // risponde 404 generico (no IDOR/oracle). Loggare un warn unico (REVIEW
-    // #15) dà visibilità sull'enumerazione di UUID altrui — il rate per
+    // risponde 404 generico (no IDOR/oracle). Loggare un warn unico (PR
+    // #638) dà visibilità sull'enumerazione di UUID altrui — il rate per
     // apiKeyId è il segnale. warn, non error (input prevedibile, regola 20):
     // niente issue Sentry, query canonica `errorClass:v1_document_not_found`.
     logger.warn(
@@ -137,7 +137,7 @@ export async function GET(
       // campo e' assente e `readRawPaymentMethod` restituisce `null` da se',
       // senza un ramo dedicato.
       // Nessun consumer v1 si rompe: `null` e' una forma che il contratto
-      // produce da sempre (REVIEW.md #87, che v2 chiudera' togliendo lo scalare).
+      // produce da sempre (issue #983, che v2 chiudera' togliendo lo scalare).
       paymentMethod: readRawPaymentMethod(doc.publicRequest),
       payments: v1Payments(payments),
       lotteryCode: doc.lotteryCode,

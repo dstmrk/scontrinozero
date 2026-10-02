@@ -13,11 +13,12 @@ scaffale, stesso mestiere.
 
 ## 1. Il driver reale
 
-La motivazione storica in `PLAN.md` era doppia — SPID e stampa Bluetooth su
-iOS — con un trigger di volume («un volume di utenti iOS con stampantina BT»).
+La motivazione storica nel vecchio `PLAN.md` era doppia — SPID e stampa
+Bluetooth su iOS — con un trigger di volume («un volume di utenti iOS con
+stampantina BT»).
 Il trigger di volume è **superato**, e va detto perché: la decisione è
 competitiva, non dimensionale. SPID è presente in tutti i prodotti
-concorrenti, e il volume non era nemmeno misurabile (REVIEW.md #109: manca
+concorrenti, e il volume non era nemmeno misurabile (issue #999: manca
 l'attribuzione della pagina di atterraggio al signup).
 
 Due precisazioni che cambiano il posizionamento:
@@ -25,7 +26,7 @@ Due precisazioni che cambiano il posizionamento:
 **SPID non è parità di feature, è un canale d'ingresso.** Fisconline richiede
 di _ottenere_ le credenziali: richiesta, PIN diviso, attesa. SPID ce l'hanno
 già tutti. Chi scarica l'app, scopre di dover recuperare un PIN e chiude è
-plausibilmente una fetta del 45% fermo di REVIEW.md #107 — e il pannello
+plausibilmente una fetta del 45% fermo misurato nella PR #957 — e il pannello
 «Onboarding fermi» su `/admin` misura già quell'ipotesi, senza scrivere codice:
 `last_verify_at IS NULL` distingue «non ho le credenziali» da «ho sbagliato
 password».
@@ -155,7 +156,7 @@ usare da un'altra macchina: un concorrente che chiama l'AdE dal telefono non
 trasporta niente. Se il trapianto fallisce restano due strade, entrambe care:
 l'emissione con sessione SPID dal dispositivo (HTTP nativo), che cambia il
 percorso emissione/annullo/recovery lato server, oppure SPID di nuovo su HTTP
-dal server, il fallback di REVIEW.md #28 col problema AgID del punto 7. Il
+dal server, il fallback dell'issue #997 col problema AgID del punto 7. Il
 guscio serve in entrambi i casi, ed è per questo che si costruisce in
 parallelo al test.
 
@@ -208,7 +209,7 @@ per evitare: manda codice fiscale e password SPID dell'utente attraverso il
 nostro server. Le regole SPID di AgID e i termini degli IdP vietano a un
 soggetto non accreditato di raccogliere quelle credenziali — da confermare con
 un legale, ma la direzione è quella, e i concorrenti che usano tutti la webview
-sono un indizio concorde. Si rimuove, non si avvolge (regola 28). REVIEW.md #28
+sono un indizio concorde. Si rimuove, non si avvolge (regola 28). L'issue #997
 si chiude per cancellazione, non scrivendo `SPID_ALLOWED_IDP_HOSTS`.
 
 **Resta Fisconline su HTTP.** Le credenziali cifrate danno il re-auth

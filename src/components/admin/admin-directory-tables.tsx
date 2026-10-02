@@ -77,7 +77,7 @@ const HEADINGS = {
 } as const;
 
 /**
- * Etichette degli esiti di verifica (REVIEW.md #107).
+ * Etichette degli esiti di verifica (PR #957).
  *
  * `Record<RecordedVerifyOutcome, string>` e non un indice largo: così un valore
  * nuovo nel vocabolario non compila finché qualcuno non decide come si chiama

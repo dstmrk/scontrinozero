@@ -237,7 +237,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
   });
 
   it("ritorna 404 se il documento ACCEPTED è privo di adeTransactionId (filtro IS NOT NULL → 0 righe)", async () => {
-    // Defense-in-depth REVIEW.md #7: un ACCEPTED senza identificativo fiscale
+    // Defense-in-depth PR #614: un ACCEPTED senza identificativo fiscale
     // è escluso dal WHERE (isNotNull), quindi 0 righe → 404.
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(makeSelectBuilder([]));

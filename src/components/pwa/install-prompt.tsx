@@ -12,7 +12,7 @@ const DISMISSED_KEY = "pwa-install-dismissed";
 
 // Pannello fisso in fondo, condiviso dalla variante iOS e da quella Android.
 //
-// **Si impila sopra la bottom nav, non ci si sovrappone** (REVIEW #85). Sotto
+// **Si impila sopra la bottom nav, non ci si sovrappone** (PR #821). Sotto
 // `md` entrambi erano `fixed bottom-0 z-50` e il pannello copriva le quattro
 // voci per intero: finché l'utente non faceva dismiss, la navigazione era
 // raggiungibile solo per URL. L'offset `4rem` è l'`h-16` della nav, più la

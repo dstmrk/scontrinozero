@@ -36,7 +36,7 @@ export function adeRegisteredAtPatch(
  * Stessa patch, ma a partire da un istante gia' in forma di `Date`: e' il caso
  * del recovery stale-pending, dove l'istante autorevole non arriva dall'header
  * `Date` di una submit ma dal campo `data` del documento riconciliato via
- * `searchDocuments` (REVIEW.md #91), gia' parsato da `parseAdeResultDate`.
+ * `searchDocuments` (issue #995), gia' parsato da `parseAdeResultDate`.
  *
  * `null`/`undefined` sono i due modi in cui il chiamante dice "non ho un istante
  * migliore del default": `null` = documento riconciliato con `data` illeggibile,

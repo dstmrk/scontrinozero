@@ -90,7 +90,7 @@ function makeUpdateBuilder(
   // .where() returns the builder (for chaining .returning()).
   // .returning() resolves to [row] by default (1 row updated); passare [] simula
   // un UPDATE che non tocca righe — è così che si testa la guardia di ordering
-  // (REVIEW.md #61), che scarta gli eventi più vecchi del watermark.
+  // (PR #784), che scarta gli eventi più vecchi del watermark.
   const builder = {
     set: vi.fn(),
     where: vi.fn(),
@@ -150,7 +150,7 @@ describe("POST /api/stripe/webhook — request validation", () => {
     // DELETE: called when handleEvent fails to release the claim
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
     // UPDATE default: used to set completedAt on the claim after a
-    // successful handleEvent (REVIEW.md #20); individual tests override this
+    // successful handleEvent (PR #652); individual tests override this
     // when they need to assert against a specific subscriptions/profiles update.
     mockUpdate.mockReturnValue(makeUpdateBuilder());
   });
@@ -285,7 +285,7 @@ describe("POST /api/stripe/webhook — invoice.payment_action_required", () => {
   });
 });
 
-describe("POST /api/stripe/webhook — invoice.paid (REVIEW #70)", () => {
+describe("POST /api/stripe/webhook — invoice.paid (PR #779)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
@@ -418,7 +418,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     expect(res.status).toBe(200);
     expect(mockTransaction).toHaveBeenCalled();
     // First update: subscription → canceled + null su id/price/period, più il
-    // watermark di ordering (REVIEW.md #61).
+    // watermark di ordering (PR #784).
     // Necessario perché un futuro customer.subscription.updated cerca per
     // stripeSubscriptionId e non troverebbe la nuova sub se la riga ne porta uno stale.
     expect(updateBuilder.set).toHaveBeenCalledWith({
@@ -450,7 +450,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     expect(res.status).toBe(200);
     expect(mockTransaction).toHaveBeenCalled();
     // Two .set() calls: the subscription cancellation inside the tx, plus the
-    // claim's completedAt update in processWithClaimRelease (REVIEW.md #20).
+    // claim's completedAt update in processWithClaimRelease (PR #652).
     // No profile update happens since no userId was found.
     expect(updateBuilder.set).toHaveBeenCalledTimes(2);
     expect(updateBuilder.set).toHaveBeenCalledWith({
@@ -753,7 +753,7 @@ describe("POST /api/stripe/webhook — charge.dispute.created", () => {
   });
 });
 
-describe("POST /api/stripe/webhook — ordering guard event.created (REVIEW #61)", () => {
+describe("POST /api/stripe/webhook — ordering guard event.created (PR #784)", () => {
   const OLD_EVENT_CREATED = 1_700_000_000;
   const NEW_EVENT_CREATED = 1_700_009_999;
 

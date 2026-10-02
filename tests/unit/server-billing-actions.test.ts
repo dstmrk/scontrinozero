@@ -43,7 +43,7 @@ vi.mock("@/db/schema", () => ({
   subscriptions: "subscriptions-table",
 }));
 
-// getEffectivePlan spostata in "@/lib/plans" (REVIEW #66) — i suoi test vivono
+// getEffectivePlan spostata in "@/lib/plans" (PR #749) — i suoi test vivono
 // ora in src/lib/plans.test.ts.
 import { getProfilePlan } from "@/server/billing-actions";
 
@@ -68,7 +68,7 @@ function makeSubRow(
 // --- Tests ---
 
 /**
- * REVIEW.md #78: la lettura del piano passa da `getPlanSafe`, che ritorna un
+ * PR #804: la lettura del piano passa da `getPlanSafe`, che ritorna un
  * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
  * wrapping in ogni test.
  */
@@ -261,7 +261,7 @@ describe("getProfilePlan", () => {
   });
 });
 
-describe("getEffectivePlan (hardening REVIEW #66)", () => {
+describe("getEffectivePlan (hardening PR #749)", () => {
   it("non è più esportata dal modulo 'use server' billing-actions", async () => {
     const mod = await import("@/server/billing-actions");
     expect("getEffectivePlan" in mod).toBe(false);

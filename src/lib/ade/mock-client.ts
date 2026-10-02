@@ -33,7 +33,7 @@ import { buildCedenteFromBusiness } from "./mapper";
  * Esiste perché il flusso che quella forma produce — il picker delle utenze —
  * non era percorribile fuori dalla produzione: il mock rispondeva sempre con
  * una sessione, quindi ogni verifica passava dal portale vero, che in dev va
- * toccato con parsimonia (rate limit AdE sull'IP di uscita, REVIEW.md #36).
+ * toccato con parsimonia (rate limit AdE sull'IP di uscita, PR #671).
  *
  * È un PIN valido per `adePinSchema` (dieci cifre), quindi attraversa il
  * boundary come uno qualunque e la sentinella resta confinata qui.

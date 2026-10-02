@@ -86,7 +86,7 @@ function resolveBaseUrl(): string {
  * funzione cadrebbe quindi sull'host di produzione, sostituendo l'href
  * corretto emesso in SSR — silenziosamente, in sandbox/self-hosted. Da un
  * client component, calcolare l'href in un parent server component e
- * passarlo come prop (REVIEW.md #93).
+ * passarlo come prop (PR #904).
  */
 export function appHref(path: `/${string}`): string {
   return `${resolveBaseUrl()}${path}`;
@@ -99,7 +99,7 @@ export function appHref(path: `/${string}`): string {
  * progetto: nessuno storage lato client, nessun consenso da chiedere, la
  * sorgente viaggia nel link e il server la valida contro l'allowlist
  * (`normalizeSignupSource`) prima di scriverla su `profiles.signup_source`.
- * `REVIEW.md` #109.
+ * issue #999.
  *
  * Le due firme tengono fuori il caso che non esiste: una pagina indice non ha
  * slug (`registerHref("prezzi")`), un cluster di contenuto non sta in piedi

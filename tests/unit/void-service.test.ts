@@ -55,7 +55,7 @@ vi.mock("@/db/schema", () => ({
 }));
 vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: mockFetchAdePrerequisites,
-  // REVIEW.md #55: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
+  // PR #752: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
   toAdeSessionParams: (
     businessId: string,
     prerequisites: { method: string; [k: string]: unknown },
@@ -75,7 +75,7 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   createAdeClient: mockCreateAdeClient,
-  // withAdeSession (REVIEW #5): replica il ciclo mock-mode usando il client
+  // withAdeSession (PR #624): replica il ciclo mock-mode usando il client
   // costruito da mockCreateAdeClient → login/fn/logout, così le asserzioni
   // esistenti su mockAdeLogin/mockAdeSubmitVoid/mockAdeLogout restano valide.
   withAdeSession: async (

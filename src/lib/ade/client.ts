@@ -105,7 +105,7 @@ export interface AdeClient {
    *   GET /ser/api/documenti/v1/doc/documenti/?numeroProgressivo=...&tipoOperazione=V
    *
    * Usato dal recovery pre-retry per riconciliare un documento PENDING con AdE
-   * prima di ri-sottometterlo (evita duplicati fiscali — REVIEW.md #4).
+   * prima di ri-sottometterlo (evita duplicati fiscali — PR #653).
    */
   searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList>;
 

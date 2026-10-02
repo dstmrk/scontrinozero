@@ -32,7 +32,7 @@ export function Providers({
   return (
     // Registrazione esplicita del service worker: la configurator mode di
     // Serwist costruisce il bundle ma non inietta più lo script di
-    // registrazione come faceva il vecchio plugin webpack (REVIEW #84).
+    // registrazione come faceva il vecchio plugin webpack (PR #790).
     //
     // I due default disattivati non sono preferenze estetiche:
     // - `reloadOnOnline` (default true) ricarica la pagina all'evento `online`.

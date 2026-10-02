@@ -81,7 +81,7 @@ function pageProps(range?: string) {
 
 /**
  * `getPlanSafe` ritorna un envelope `{ ok, info }` invece del solo `PlanInfo`
- * (REVIEW.md #85): l'helper evita di ripeterlo a ogni test e riempie i campi
+ * (PR #806): l'helper evita di ripeterlo a ogni test e riempie i campi
  * trial/scadenza che la maggior parte dei casi non usa.
  */
 function planOk(info: {
@@ -220,7 +220,7 @@ describe("AnalyticsPage — Pro view", () => {
   });
 });
 
-describe("AnalyticsPage — degrado della lettura del piano (REVIEW #85)", () => {
+describe("AnalyticsPage — degrado della lettura del piano (PR #806)", () => {
   it("rende il fallback inline senza lanciare quando il profilo manca", async () => {
     mockGetPlanSafe.mockResolvedValue({
       ok: false,

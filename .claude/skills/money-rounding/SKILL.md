@@ -93,12 +93,12 @@ client.
 | Dialogo di annullo         | `computeReceiptTotals` (`perLine`)     |
 | Export CSV dettaglio riga  | `calcLineTotalCents`                   |
 
-## Perché mai per-documento (REVIEW.md #1)
+## Perché mai per-documento (PR #605)
 
 La strategia per-documento (somma float, poi un solo `round`) **divergeva di
 1 cent** dalla somma delle righe su quantità frazionarie: il documento fiscale
 trasmesso ad AdE differiva da quello consegnato al cliente. Era stata scelta
-nei PR #519 e #534, poi **superata** da REVIEW.md #1 — non reintrodurla
+nei PR #519 e #534, poi **superata** dalla PR #605 — non reintrodurla
 citando quei PR come precedente.
 
 ## Riconciliazione KPI ↔ breakdown

@@ -94,7 +94,7 @@ describe("ExtraSettingsSection", () => {
     expect(region).toContainElement(screen.getByText("Contenuto nascosto"));
   });
 
-  // --- Apertura da deep-link (REVIEW.md #95) ---
+  // --- Apertura da deep-link (PR #904) ---
 
   it("si apre da sola quando l'hash punta a una card che contiene", () => {
     stubScrollIntoView();

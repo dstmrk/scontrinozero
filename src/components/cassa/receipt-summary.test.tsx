@@ -72,7 +72,7 @@ describe("ReceiptSummary", () => {
   it("deriva l'importo mostrato dai centesimi, non da una somma float", () => {
     // 3 righe da 1.15 × 0.35 → 40 cents ciascuna = 120 cents. La somma float
     // valeva 1.2074999999999998 e sarebbe stata mostrata come €1,21, cioè un
-    // centesimo in più di quanto viene trasmesso all'AdE (REVIEW.md #76).
+    // centesimo in più di quanto viene trasmesso all'AdE (PR #792).
     const fractional: CartLine[] = [
       {
         id: "1",

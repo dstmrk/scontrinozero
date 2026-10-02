@@ -1,6 +1,6 @@
 /**
  * Verifica manuale di uno scontrino rimasto `PENDING` a esito AdE ignoto
- * (REVIEW.md #103, slice 2).
+ * (PR #904, slice 2).
  *
  * **Perché serve una strada a parte, e non basta il recovery esistente.** La
  * stale-recovery è pull-based: il suo unico ingresso è il ramo `alreadyExists`
@@ -393,7 +393,7 @@ async function reconcileUnderUserSession(
 /**
  * Verifica su AdE una vendita rimasta `PENDING` e chiude la riga.
  *
- * - match singolo → `ACCEPTED` con l'istante autorevole di AdE (REVIEW.md #91);
+ * - match singolo → `ACCEPTED` con l'istante autorevole di AdE (issue #995);
  * - nessun match → `ERROR`, la vendita va riemessa;
  * - più candidati → li ritorna e non tocca niente: sceglie l'esercente.
  */

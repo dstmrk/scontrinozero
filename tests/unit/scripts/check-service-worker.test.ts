@@ -26,7 +26,7 @@ describe("checkServiceWorker", () => {
   });
 
   it("fails when the bundle was never emitted", async () => {
-    // È il caso reale di REVIEW #84: `@serwist/next` sotto Turbopack stampa un
+    // È il caso reale corretto nella PR #790: `@serwist/next` sotto Turbopack stampa un
     // warning e non emette nulla, lasciando il build verde.
     mockStat.mockRejectedValue(
       Object.assign(new Error("ENOENT"), { code: "ENOENT" }),

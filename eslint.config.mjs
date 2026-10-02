@@ -38,7 +38,7 @@ const eslintConfig = defineConfig([
     // prefisso `mock` nei factory `vi.mock`) fanno già fallire il test run
     // con un errore esplicito — `TypeError: X is not a constructor` e il
     // messaggio di hoisting di Vitest, che linka pure la doc. Misurato, non
-    // dedotto (REVIEW.md #104).
+    // dedotto (PR #904).
     //
     // Acceso a zero violazioni su 317 file di test: il gate non ha richiesto
     // nessuna bonifica.
@@ -53,7 +53,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     // Service worker generato da `serwist build` (bundle esbuild minificato +
-    // precache manifest). Prima di REVIEW #84 non veniva mai emesso, quindi
+    // precache manifest). Prima della PR #790 non veniva mai emesso, quindi
     // non era mai presente nel working tree e nessuno se n'era accorto.
     "public/sw.js",
     // Progetti nativi generati da `cap add` e asset copiati da `cap sync`

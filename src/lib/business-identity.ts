@@ -4,7 +4,7 @@ import { BUSINESS_PROFILE_LIMITS, isValidItalianZipCode } from "./validation";
  * Identita' dell'attivita': il confronto fra la ragione sociale che finisce
  * sullo scontrino e quella che l'AdE ha registrato sulla partita IVA.
  *
- * Perche' esiste (REVIEW.md #106). `businesses.business_name` lo digita
+ * Perche' esiste (issue #984). `businesses.business_name` lo digita
  * l'utente al primo passo dell'onboarding — campo facoltativo — e da li' va
  * sul PDF, sulla pagina pubblica /r/, sullo scontrino termico e nel
  * cedente/prestatore inviato all'AdE con `modificati: true`. La scelta della
@@ -282,7 +282,7 @@ export interface AdeIdentityMismatches {
 }
 
 /**
- * I due verdetti sull'identita' registrata all'AdE (REVIEW.md #106), calcolati
+ * I due verdetti sull'identita' registrata all'AdE (issue #984), calcolati
  * insieme perche' hanno lo stesso gate e la stessa riga d'origine.
  *
  * Vive qui e non nella pagina che per prima lo ha usato perche' le superfici

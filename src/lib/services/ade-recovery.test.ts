@@ -212,7 +212,7 @@ describe("reconcile con esclusione claimedIdtrx", () => {
     });
     expect(result).toMatchObject({ kind: "ambiguous" });
     // I candidati viaggiano con l'esito: il recovery automatico li ignora, la
-    // verifica dentro la sessione dell'esercente li mostra (REVIEW.md #103).
+    // verifica dentro la sessione dell'esercente li mostra (PR #904).
     expect(
       result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
     ).toEqual(["1", "2"]);
@@ -305,7 +305,7 @@ describe("reconcileSaleDocument", () => {
     expect(result).toEqual({ kind: "none" });
   });
 
-  // Invariante su cui si appoggia REVIEW.md #91: un match VENDITA ha sempre un
+  // Invariante su cui si appoggia issue #995: un match VENDITA ha sempre un
   // `data` parsabile, perché la prossimità temporale è una condizione del match.
   it("ritorna none quando il `data` non è parsabile (mai un match senza istante)", () => {
     const result = reconcileSaleDocument({
@@ -379,7 +379,7 @@ describe("reconcileSaleDocument", () => {
   });
 });
 
-describe("reconcileSaleDocument — totale legacy float (REVIEW.md #57)", () => {
+describe("reconcileSaleDocument — totale legacy float (PR #702)", () => {
   it("matcha un documento AdE registrato col totale legacy quando differisce dal canonico", () => {
     // 2 righe da 0,5 × €0,99: canonico per-riga = 100 cents (1,00), ma il
     // documento fu emesso col vecchio mapper → AdE registrò 0,99. Senza il
@@ -488,7 +488,7 @@ describe("markDocumentErrorBestEffort", () => {
     vi.restoreAllMocks();
   });
 
-  it("marca il documento ERROR (REVIEW.md #48)", async () => {
+  it("marca il documento ERROR (PR #707)", async () => {
     await markDocumentErrorBestEffort(
       "doc-123",
       { documentId: "doc-123" },
@@ -521,7 +521,7 @@ describe("markDocumentErrorBestEffort", () => {
   });
 });
 
-describe("registeredAt sul match riconciliato (REVIEW.md #91)", () => {
+describe("registeredAt sul match riconciliato (issue #995)", () => {
   it("vendita: il match porta l'istante dichiarato da AdE, non il nostro createdAt", () => {
     // `data` AdE è wall-clock italiano: 10:06:14 CET → 09:06:14 UTC.
     const result = reconcileSaleDocument({

@@ -179,7 +179,7 @@ describe("fetchPublicReceipt", () => {
     await fetchPublicReceipt(VALID_UUID);
 
     // Il WHERE della query documento è un AND di id + kind + status +
-    // adeTransactionId IS NOT NULL (REVIEW.md #7: nessun documento ACCEPTED
+    // adeTransactionId IS NOT NULL (PR #614: nessun documento ACCEPTED
     // senza identificativo fiscale deve essere servito pubblicamente).
     // Il WHERE e' un AND di id + condizione di stampabilita' +
     // adeTransactionId IS NOT NULL. La stampabilita' e' un OR di due coppie
@@ -269,7 +269,7 @@ describe("fetchPublicReceipt", () => {
 
   // La FK voided_document_id e' ON DELETE SET NULL: un annullo puo' restare
   // orfano. Senza le righe dell'originale meglio un 404 di una ricevuta
-  // mutila (stessa logica di REVIEW.md #7).
+  // mutila (stessa logica della PR #614).
   it("ritorna null per un VOID senza voidedDocumentId", async () => {
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(

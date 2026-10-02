@@ -204,7 +204,7 @@ describe("account-actions", () => {
       expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
-    // ---- Re-authentication gate (REVIEW.md #62) -------------------------
+    // ---- Re-authentication gate (PR #708) -------------------------
 
     it("returns an error and never purges when the password field is missing", async () => {
       const { deleteAccount } = await import("./account-actions");
@@ -268,7 +268,7 @@ describe("account-actions", () => {
       expect(mockAdminDeleteUser).not.toHaveBeenCalled();
     });
 
-    // ---- Stripe subscription cancellation (REVIEW.md #63) ---------------
+    // ---- Stripe subscription cancellation (PR #731) ---------------
 
     it("cancels the Stripe customer BEFORE purging when an active subscription exists", async () => {
       mockSelectLimit.mockResolvedValue([{ stripeCustomerId: "cus_123" }]);

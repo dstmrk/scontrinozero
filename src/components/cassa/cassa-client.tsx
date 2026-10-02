@@ -73,7 +73,7 @@ export function CassaClient({
     total,
   } = useCassa();
 
-  // Chiave di idempotenza stabile per carrello (REVIEW.md #103, slice 3): un
+  // Chiave di idempotenza stabile per carrello (PR #904, slice 3): un
   // retry sullo stesso carrello riusa la stessa chiave e collide sul vincolo
   // UNIQUE, che è l'unico ingresso della stale-recovery. Prima la cassa ne
   // coniava una nuova a ogni submit e ogni retry lasciava indietro una riga

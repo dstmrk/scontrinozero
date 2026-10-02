@@ -15,14 +15,14 @@ import { isTransientAdeError } from "./error-messages";
  * della 0038**: è il DB ad avere l'ultima parola, e un valore fuori elenco fa
  * fallire la UPDATE.
  *
- * Perché esiste (REVIEW.md #107): dieci righe su ventidue si fermano a metà
+ * Perché esiste (PR #957): dieci righe su ventidue si fermano a metà
  * onboarding e condividono lo stesso stato DB — `verified_at IS NULL` +
  * `businesses.fiscal_code IS NULL` — qualunque sia la causa. Credenziali
  * sbagliate, abbandono puro e utenza non supportata sono tre problemi di
  * prodotto diversi, con tre rimedi diversi, e finora erano indistinguibili.
  * L'informazione c'era già tutta a runtime: moriva in un messaggio a schermo.
  *
- * Perché non i Sentry Logs: campionano e scartano (misurato, REVIEW.md #106),
+ * Perché non i Sentry Logs: campionano e scartano (misurato, issue #984),
  * quindi non reggono un conteggio. Questa colonna si interroga con un
  * `GROUP BY` ed è esatta.
  *

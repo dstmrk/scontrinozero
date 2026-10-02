@@ -64,7 +64,7 @@ const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 const mockTransaction = vi.fn();
 // `db.execute(sql`...`)` — usato dalla sola scrittura dell'esito verifica
-// (REVIEW.md #107), che va in SQL raw per NON far scattare `$onUpdate` su
+// (PR #957), che va in SQL raw per NON far scattare `$onUpdate` su
 // `updatedAt`. Default: risolve, così il best-effort non disturba i test
 // che non se ne occupano.
 const mockExecute = vi.fn().mockResolvedValue(undefined);
@@ -104,7 +104,7 @@ vi.mock("@/lib/crypto", () => ({
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
   getEncryptionKey: () => Buffer.alloc(32),
   // Legge la env come il modulo reale: serve ai test di rotazione chiave
-  // (REVIEW #71), dove ENCRYPTION_KEY_VERSION=2 su righe ancora a v1.
+  // (PR #782), dove ENCRYPTION_KEY_VERSION=2 su righe ancora a v1.
   getKeyVersion: () => Number(process.env.ENCRYPTION_KEY_VERSION ?? "1"),
   // Map corrente + precedente, come il modulo reale sotto rotazione (#17).
   getEncryptionKeys: () =>
@@ -607,7 +607,7 @@ describe("onboarding-actions", () => {
       // L'invalidazione è la parte costosa: la sessione Fisconline vale ~10
       // round-trip HTTP e quella CIE non è ri-creabile senza azione umana, quindi
       // un client in loop terrebbe l'esercente permanentemente senza sessione
-      // cached (REVIEW.md #80).
+      // cached (PR #803).
       const { adeSessionCache } = await import("@/lib/ade/session-cache");
       const { adeInteractiveSessionStore } =
         await import("@/lib/ade/interactive-session-store");
@@ -1036,7 +1036,7 @@ describe("onboarding-actions", () => {
       expect(mockLogin).toHaveBeenCalledWith(expect.anything(), "07790350966");
     });
 
-    // REVIEW.md #106: `dati/fiscali` risponde con l'intero cedente/prestatore,
+    // issue #984: `dati/fiscali` risponde con l'intero cedente/prestatore,
     // di cui persistevamo i soli identificativi. La denominazione è il termine
     // di confronto contro `business_name`, che l'utente digita prima ancora di
     // scegliere su quale P.IVA opererà.
@@ -1336,7 +1336,7 @@ describe("onboarding-actions", () => {
     it("R36: alla soglia rate limit → warn + errore standard, senza toccare AdE", async () => {
       // Simmetria con changeAdePassword: stesso profilo di costo (login AdE),
       // stessa protezione. Senza il gate un utente autenticato puo' martellare
-      // il login AdE rischiando un IP-block sull'egress condiviso (REVIEW.md #36).
+      // il login AdE rischiando un IP-block sull'egress condiviso (PR #671).
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockRateLimiterCheck.mockReturnValueOnce({
         success: false,
@@ -2566,7 +2566,7 @@ describe("onboarding-actions", () => {
       expect(compiled.sql).toContain("::timestamptz");
     });
 
-    // --- Esito dell'ultimo tentativo (REVIEW.md #107) ---
+    // --- Esito dell'ultimo tentativo (PR #957) ---
     //
     // L'attribuzione è il punto: dieci righe ferme a metà onboarding
     // condividono lo stesso stato DB qualunque sia la causa. Qui si verifica
@@ -2916,7 +2916,7 @@ describe("onboarding-actions", () => {
         hasUtenzaPiva: false,
       });
       // Esattamente 1 query DB: profile JOIN business JOIN creds. `hasUtenzaPiva`
-      // è un'espressione in più sullo stesso JOIN (REVIEW.md #106), non una
+      // è un'espressione in più sullo stesso JOIN (issue #984), non una
       // lettura in più: il conteggio non deve muoversi.
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });
@@ -3074,7 +3074,7 @@ describe("onboarding-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
-    // --- REVIEW #60 (optimistic lock) + #71 (key version) ---
+    // --- PR #782 (optimistic lock) + #71 (key version) ---
 
     const CHANGE_PW_BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
     const CRED_UPDATED_AT = new Date("2026-07-01T10:00:00.000Z");
@@ -3195,7 +3195,7 @@ describe("onboarding-actions", () => {
       );
     }
 
-    it("guarda l'UPDATE finale con lo snapshot di updatedAt e loginMethod (REVIEW #60)", async () => {
+    it("guarda l'UPDATE finale con lo snapshot di updatedAt e loginMethod (PR #782)", async () => {
       arrangeChangePassword();
 
       const result = await runChangePassword();
@@ -3234,7 +3234,7 @@ describe("onboarding-actions", () => {
       expect(result.error).toMatch(/bloccat/i);
     });
 
-    it("lock miss (0 righe): nessun revalidate e messaggio che spinge alla ri-verifica (REVIEW #60)", async () => {
+    it("lock miss (0 righe): nessun revalidate e messaggio che spinge alla ri-verifica (PR #782)", async () => {
       arrangeChangePassword();
       mockUpdateReturning.mockReset().mockResolvedValue([]);
 
@@ -3254,7 +3254,7 @@ describe("onboarding-actions", () => {
       );
     });
 
-    it("ri-cifra TUTTI i campi della riga con la chiave corrente e allinea key_version (REVIEW #71)", async () => {
+    it("ri-cifra TUTTI i campi della riga con la chiave corrente e allinea key_version (PR #782)", async () => {
       // Rotazione in corso: env a v2, riga ancora a v1.
       process.env.ENCRYPTION_KEY_VERSION = "2";
       arrangeChangePassword({ keyVersion: 1 });

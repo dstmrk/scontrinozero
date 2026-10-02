@@ -572,7 +572,7 @@ describe("computeProductBreakdown", () => {
 
   it("matches per-line rounding (calcDocTotal) so KPI and product totals reconcile", () => {
     // 3 righe stesso prodotto, qty=0.333, price=1.00.
-    // Strategia canonica per-riga (REVIEW.md #1): round(33.3) * 3 = 99 cents,
+    // Strategia canonica per-riga (PR #605): round(33.3) * 3 = 99 cents,
     // identica a `calcDocTotal` per-riga sullo stesso documento. KPI e breakdown
     // sommano lo stesso round(qty*price*100) su tutte le righe → riconciliano.
     const docs = [makeDoc("a", "ACCEPTED", new Date())];

@@ -64,7 +64,7 @@ describe("purgeUserById", () => {
     expect(result).toEqual({ authDeleted: true, profileDeleted: true });
   });
 
-  it("cancella anche la riga subscriptions insieme al profilo (no righe orfane, REVIEW.md #63)", async () => {
+  it("cancella anche la riga subscriptions insieme al profilo (no righe orfane, PR #731)", async () => {
     const { purgeUserById } = await import("./purge-user");
     const { profiles, subscriptions } = await import("@/db/schema");
 

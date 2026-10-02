@@ -30,7 +30,7 @@ import { logger } from "@/lib/logger";
  */
 
 /**
- * Finestra di throttle dell'allarme "CF-Connecting-IP mancante" (REVIEW #83).
+ * Finestra di throttle dell'allarme "CF-Connecting-IP mancante" (PR #803).
  *
  * L'allarme è un `logger.error({ critical: true })`, quindi il logMethod hook
  * di `logger.ts` lo inoltra a Sentry: senza throttle una misconfigurazione

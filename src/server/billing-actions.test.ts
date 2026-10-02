@@ -204,7 +204,7 @@ describe("billing-actions", () => {
       expect(result.cancelAtPeriodEnd).toBe(true);
     });
 
-    // REVIEW.md #78: getPlan poteva lanciare (profilo orfano / statement
+    // PR #804: getPlan poteva lanciare (profilo orfano / statement
     // timeout) e getProfilePlan non lo catturava — la sezione piano delle
     // impostazioni finiva nell'error boundary di Next invece del suo fallback
     // inline (regola 19).
@@ -250,11 +250,11 @@ describe("billing-actions", () => {
   });
 
   // getEffectivePlan NON deve più essere esportata da questo modulo "use
-  // server" (REVIEW #66): ogni export async diventa un endpoint POST pubblico,
+  // server" (PR #749): ogni export async diventa un endpoint POST pubblico,
   // e getEffectivePlan accetta uno userId arbitrario senza autenticazione. È
   // stata spostata in "@/lib/plans" come helper server-only. I test funzionali
   // vivono ora in src/lib/plans.test.ts.
-  describe("getEffectivePlan (hardening REVIEW #66)", () => {
+  describe("getEffectivePlan (hardening PR #749)", () => {
     it("non è più esportata dal modulo 'use server' billing-actions", async () => {
       const mod = await import("./billing-actions");
       expect("getEffectivePlan" in mod).toBe(false);

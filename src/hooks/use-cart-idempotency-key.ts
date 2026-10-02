@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 
 /**
- * Chiave di idempotenza **stabile per carrello** (REVIEW.md #103, slice 3).
+ * Chiave di idempotenza **stabile per carrello** (PR #904, slice 3).
  *
  * **Il difetto che chiude.** La cassa coniava `crypto.randomUUID()` dentro
  * `handleSubmit`, cioè una chiave nuova a ogni click. Un retry dopo un

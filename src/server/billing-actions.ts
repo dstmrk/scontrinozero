@@ -10,7 +10,7 @@ import type { Plan } from "@/lib/plans";
 import { planFromPriceId } from "@/lib/stripe";
 
 // getEffectivePlan è stato spostato in "@/lib/plans" (helper server-only, non
-// una action pubblica invocabile via POST) — vedi REVIEW #66.
+// una action pubblica invocabile via POST) — vedi PR #749.
 
 export type ProfilePlanResult =
   | {
@@ -41,7 +41,7 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
 
   // Profilo orfano o DB sovraccarico → { error } inline: la sezione piano di
   // /dashboard/impostazioni ha già il suo fallback, un throw la sostituirebbe
-  // con l'error boundary di Next (REVIEW.md #78, regola 19).
+  // con l'error boundary di Next (PR #804, regola 19).
   const planResult = await getPlanSafe(user.id, "getProfilePlan");
   if (!planResult.ok) return { error: planResult.error };
   const planInfo = planResult.info;

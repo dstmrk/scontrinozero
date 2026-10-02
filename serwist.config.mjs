@@ -3,7 +3,7 @@
  *
  * Perché non il plugin `withSerwistInit` in `next.config.ts`: quello è un
  * plugin **webpack**, e Next 16 builda con Turbopack. Non girava, degradava a
- * warning, e il SW non veniva emesso senza rompere il build — REVIEW #84.
+ * warning, e il SW non veniva emesso senza rompere il build — PR #790.
  * La configurator mode non si aggancia al bundler: è uno step di build a sé,
  * quindi sopravvive a Turbopack e a qualunque bundler venga dopo.
  *

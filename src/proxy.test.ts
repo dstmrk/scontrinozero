@@ -97,10 +97,10 @@ describe("proxy", () => {
     });
   });
 
-  // REVIEW.md #6: il refresh sessione Supabase (getUser → token refresh) deve
+  // PR #615: il refresh sessione Supabase (getUser → token refresh) deve
   // girare SOLO sulle route che ne consumano l'esito (PROTECTED_PREFIXES +
   // AUTH_ONLY_PATHS). Sulle pagine marketing/SSG il client non va nemmeno creato.
-  describe("skips Supabase session on public/marketing routes (REVIEW.md #6)", () => {
+  describe("skips Supabase session on public/marketing routes (PR #615)", () => {
     const PUBLIC_ROUTES = [
       "/",
       "/privacy",
@@ -833,7 +833,7 @@ describe("config.matcher", () => {
   });
 });
 
-describe("header calcolati a runtime (REVIEW.md #93)", () => {
+describe("header calcolati a runtime (PR #904)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";

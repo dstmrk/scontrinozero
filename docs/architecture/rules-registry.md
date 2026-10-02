@@ -2,7 +2,7 @@
 
 > Mappa _descrittiva_ per risolvere un `regola N` che trovi citato in un
 > commento, un test o una skill. Le regole **sempre-attive** (1, 2, 3, 4, 5, 7,
-> 9, 19, 20, 28, 29, 32) stanno per esteso in `CLAUDE.md` e non si ripetono qui:
+> 9, 19, 20, 28, 29, 32, 33) stanno per esteso in `CLAUDE.md` e non si ripetono qui:
 > servono prima che una skill possa attivarsi. Tutte le altre vivono nella skill
 > o nel gate che le possiede — questa è solo la rubrica.
 >

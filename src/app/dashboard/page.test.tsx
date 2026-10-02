@@ -91,7 +91,7 @@ describe("DashboardPage — percorso nominale", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it("legge piano e catalogo in parallelo (REVIEW.md #2)", async () => {
+  it("legge piano e catalogo in parallelo (PR #606)", async () => {
     // I due fetch indipendenti partono entrambi nello stesso Promise.all:
     // piano via user.id, catalogo via businessId. La dedup di
     // getAuthenticatedUser (React cache()) evita il triplo round-trip verso
@@ -105,7 +105,7 @@ describe("DashboardPage — percorso nominale", () => {
   });
 });
 
-describe("DashboardPage — degrado della lettura del piano (REVIEW #85)", () => {
+describe("DashboardPage — degrado della lettura del piano (PR #806)", () => {
   it("rende il fallback inline senza lanciare quando il profilo manca", async () => {
     mockGetPlanSafe.mockResolvedValue({
       ok: false,
@@ -161,7 +161,7 @@ describe("DashboardPage — il fallback non intercetta i redirect", () => {
     await expect(DashboardPage()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard/settings#api-keys");
     // Il catalogo viene comunque recuperato e scartato: sta nella stessa
-    // Promise.all del piano, tradeoff accettato in REVIEW.md #2 per
+    // Promise.all del piano, tradeoff accettato nella PR #606 per
     // parallelizzare i due fetch nel caso comune (merchant Starter/Pro).
     expect(mockGetCatalogItems).toHaveBeenCalledWith("biz-1");
   });

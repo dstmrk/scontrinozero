@@ -211,7 +211,7 @@ describe("pruneInactiveUsers", () => {
       },
     ]);
 
-    // Ri-lettura di d1 prima del purge (REVIEW #40): conferma l'eleggibilità.
+    // Ri-lettura di d1 prima del purge (PR #783): conferma l'eleggibilità.
     mockExecute.mockResolvedValue([deleteRow()]);
 
     const { pruneInactiveUsers } = await import("./inactive-user-prune");
@@ -274,7 +274,7 @@ describe("pruneInactiveUsers", () => {
     expect(mockPurgeUserById).not.toHaveBeenCalled();
   });
 
-  describe("contenimento della query candidati (REVIEW #81)", () => {
+  describe("contenimento della query candidati (issue #981)", () => {
     it("esegue la SELECT candidati dentro withStatementTimeout col budget di background", async () => {
       mockExecute.mockResolvedValue([]);
 
@@ -468,7 +468,7 @@ describe("pruneInactiveUsers", () => {
     );
   });
 
-  describe("ri-lettura prima del purge (REVIEW #40)", () => {
+  describe("ri-lettura prima del purge (PR #783)", () => {
     // Lo snapshot dei candidati è preso a inizio sweep, ma il loop processa gli
     // utenti in sequenza con side-effect lenti (email fino a 8s l'una): con N
     // utenti il batch dura minuti. Un utente che torna attivo o si abbona TRA la

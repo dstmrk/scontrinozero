@@ -91,7 +91,7 @@ export type AdminStalledOnboardingRow = {
   readonly email: string;
   /**
    * `last_verify_outcome`, o `null` per chi non ha MAI premuto Verifica —
-   * che è un esito a sua volta, ed è il più interessante (REVIEW.md #107).
+   * che è un esito a sua volta, ed è il più interessante (PR #957).
    */
   readonly outcome: string | null;
   readonly attempts: number;
@@ -144,7 +144,7 @@ export type AdminTrialsResult =
 export type AdminPaidUsersResult =
   { rows: readonly AdminPaidUserRow[] } | { error: string };
 
-/** Un documento `SALE` fermo oltre la soglia stale (REVIEW.md #103). */
+/** Un documento `SALE` fermo oltre la soglia stale (PR #904). */
 export type AdminStalePendingDocumentRow = {
   readonly businessName: string | null;
   /** ISO 8601 — quando lo scontrino è stato creato, non l'ultimo tentativo. */
@@ -562,7 +562,7 @@ export async function getAdminPaidUsers(): Promise<AdminPaidUsersResult> {
 
 /**
  * Chi ha inserito le credenziali AdE e non ha mai completato l'onboarding, con
- * l'esito dell'ultimo tentativo e da quanto è fermo (REVIEW.md #107).
+ * l'esito dell'ultimo tentativo e da quanto è fermo (PR #957).
  *
  * **La definizione di "fermo" è quella deterministica**: `verified_at IS NULL`
  * su `ade_credentials` più `fiscal_code IS NULL` su `businesses`, **e** un
@@ -570,7 +570,7 @@ export async function getAdminPaidUsers(): Promise<AdminPaidUsersResult> {
  * scadere il trial senza mai completare non è più un caso su cui intervenire.
  * La query senza l'ultimo filtro è quella con cui il finding è stato misurato
  * (10 righe su 22 il 16/09/2026), e sta qui perché i Sentry Logs campionano e
- * scartano — un conteggio preso da lì non regge (REVIEW.md #106).
+ * scartano — un conteggio preso da lì non regge (issue #984).
  *
  * **Non prende un range**, come `getAdminTrialExpiring`: la domanda è "chi è
  * fermo adesso", e chi si è arenato a maggio deve comparire anche guardando
@@ -675,8 +675,8 @@ export async function getAdminStalledOnboarding(): Promise<AdminStalledOnboardin
 }
 
 /**
- * Documenti `SALE` fermi oltre la soglia stale, su tutti i tenant (REVIEW.md
- * #103) — sostituisce il banner che si limitava a contarli: qui l'operatore
+ * Documenti `SALE` fermi oltre la soglia stale, su tutti i tenant (PR
+ * #904) — sostituisce il banner che si limitava a contarli: qui l'operatore
  * vede DI CHI sono e quanto valgono, non solo quanti.
  *
  * **Solo `SALE`, mai `VOID`.** Un annullo fermo non ha un "importo" proprio —

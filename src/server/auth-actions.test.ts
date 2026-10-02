@@ -548,7 +548,7 @@ describe("auth-actions", () => {
       // inviare nulla: chi ri-tentava la registrazione perché la prima mail non
       // era arrivata vedeva la stessa pagina di conferma e restava ad aspettare
       // un messaggio che non era mai partito. `signUp` resta non chiamata (la
-      // race di REVIEW #65 non si riapre), ma la conferma ora parte davvero.
+      // race chiusa nella PR #732 non si riapre), ma la conferma ora parte davvero.
       mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
       mockResend.mockResolvedValue({ error: null });
 
@@ -1068,7 +1068,7 @@ describe("auth-actions", () => {
       );
     });
 
-    // --- REVIEW #65: race sul doppio signUp ---
+    // --- PR #732: race sul doppio signUp ---
 
     it("NON cancella l'auth user quando un profilo esiste già per lo stesso authUserId (race doppio signUp)", async () => {
       // R2 del doppio signUp: Supabase riusa lo stesso auth user id, l'insert
@@ -1528,7 +1528,7 @@ describe("auth-actions", () => {
     //   verifyCaptcha lo rifiutava come `captcha_hostname_mismatch`.
     // - "lowercase / mixed case": Turnstile ritorna data.hostname sempre
     //   lowercase; se l'env d'identità ha maiuscole ("App.ScontrinoZero.IT")
-    //   il match esatto fallirebbe senza normalizzazione (REVIEW.md #37).
+    //   il match esatto fallirebbe senza normalizzazione (PR #673).
     it.each([
       {
         name: "accepts a captcha token whose hostname is the marketing domain (single-domain / client-side nav)",
