@@ -76,6 +76,7 @@ const ACCEPTED_ROW: ReceiptListItem = {
   createdAt: new Date("2026-02-15T09:59:57Z"),
   adeRegisteredAt: new Date("2026-02-15T10:00:00Z"),
   voidDocument: null,
+  returnOf: null,
   paymentMethod: "PC",
   payments: null,
   lotteryCode: null,
@@ -88,6 +89,7 @@ const ACCEPTED_ROW: ReceiptListItem = {
       grossUnitPrice: "6.00",
       lineDiscount: "0",
       vatCode: "22",
+      returnedQuantity: "0",
     },
   ],
 };
@@ -405,5 +407,90 @@ describe("StoricoClient — riga rileggibile dopo l'annullo", () => {
 
     expect(getReceiptDetail).not.toHaveBeenCalled();
     expect(screen.getByTestId("dialog-status")).toHaveTextContent("ACCEPTED");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Resi: righe proprie dell'elenco, e un segno sulla vendita resa
+// ---------------------------------------------------------------------------
+
+const RETURN_ROW: ReceiptListItem = {
+  ...ACCEPTED_ROW,
+  id: "33333333-3333-4333-8333-333333333333",
+  kind: "RETURN",
+  adeProgressive: "DCW2026/5111-2190",
+  adeRegisteredAt: new Date("2026-02-17T10:00:00Z"),
+  total: "6.00",
+  returnOf: {
+    id: ACCEPTED_ROW.id,
+    adeProgressive: ACCEPTED_ROW.adeProgressive as string,
+    adeRegisteredAt: ACCEPTED_ROW.adeRegisteredAt,
+  },
+  lines: [{ ...ACCEPTED_ROW.lines[0], quantity: "1" }],
+};
+
+function renderRows(rows: ReceiptListItem[]) {
+  return render(
+    <StoricoClient
+      businessId={BUSINESS_ID}
+      initialItems={rows}
+      initialTotal={rows.length}
+      plan="pro"
+    />,
+  );
+}
+
+function rowOf(progressive: string): HTMLElement {
+  return screen.getByText(progressive).closest("tr") as HTMLElement;
+}
+
+describe("StoricoClient — resi", () => {
+  it("un reso si legge come tale, con il totale in negativo", () => {
+    renderRows([RETURN_ROW]);
+
+    const row = rowOf("5111-2190");
+    expect(within(row).getByText("Reso")).toBeInTheDocument();
+    expect(within(row).queryByText("Emesso")).not.toBeInTheDocument();
+    expect(within(row).getByText(/-6,00/)).toBeInTheDocument();
+  });
+
+  it("un reso si apre: il cliente può chiederne la ricevuta", () => {
+    renderRows([RETURN_ROW]);
+
+    fireEvent.click(screen.getByText("5111-2190"));
+
+    expect(screen.getByTestId("dialog")).toBeInTheDocument();
+  });
+
+  it("una vendita resa in parte lo dichiara accanto allo stato", () => {
+    renderRows([
+      {
+        ...ACCEPTED_ROW,
+        lines: [{ ...ACCEPTED_ROW.lines[0], returnedQuantity: "1" }],
+      },
+    ]);
+
+    const row = rowOf("5111-2188");
+    expect(within(row).getByText("Emesso")).toBeInTheDocument();
+    expect(within(row).getByText("Reso parziale")).toBeInTheDocument();
+  });
+
+  it("una vendita resa del tutto lo dichiara accanto allo stato", () => {
+    renderRows([
+      {
+        ...ACCEPTED_ROW,
+        lines: [{ ...ACCEPTED_ROW.lines[0], returnedQuantity: "2" }],
+      },
+    ]);
+
+    expect(
+      within(rowOf("5111-2188")).getByText("Reso totale"),
+    ).toBeInTheDocument();
+  });
+
+  it("una vendita senza resi non porta nessun segno di reso", () => {
+    renderRows([ACCEPTED_ROW]);
+
+    expect(within(rowOf("5111-2188")).queryByText(/^Reso/)).toBeNull();
   });
 });

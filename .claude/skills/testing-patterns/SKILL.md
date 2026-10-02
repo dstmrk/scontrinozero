@@ -239,6 +239,22 @@ sempre `@/lib/server-auth` nei test delle server actions che usano ownership che
 Cerca file affetti con:
 `grep -rn "FAKE_PROFILE\|Ownership check" tests/ src/ --include="*.test.ts"`
 
+Un secondo `.leftJoin()` sulla stessa chain rompe i mock che restituiscono
+`{ where }` dal primo: fai restituire al mock di `leftJoin` sia `leftJoin`
+che `where`, così regge N join.
+
+**Query condizionale accodata a `mockReturnValueOnce`.** Se il codice aggiunge
+una query che parte solo in certi casi (es. i resi di una pagina solo se la
+pagina ha vendite), le sequenze `mockReturnValueOnce` esistenti si
+disallineano: la query nuova consuma il builder pensato per la successiva, e
+l'errore compare in un test diverso (`leftJoin is not a function`). Fix: in
+`beforeEach` una `mockImplementation` di default con il risultato "vuoto"
+della query nuova, che vale quando la coda è esaurita; nei test con più
+chiamate in sequenza accoda esplicitamente il builder vuoto fra una chiamata e
+l'altra. Ricorda che `Promise.all([f(), g()])` chiama `select()` nell'ordine
+in cui le funzioni arrivano al primo `await`. Esempio:
+`src/server/storico-actions.test.ts` (`makeReturnsBuilder`).
+
 ---
 
 ## Testare `NODE_ENV` con `vi.stubEnv`

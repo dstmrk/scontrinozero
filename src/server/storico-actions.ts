@@ -76,6 +76,16 @@ const voidDocJoinCondition = and(
   eq(voidDocAlias.status, "VOID_ACCEPTED"),
 );
 
+/**
+ * Self-join inverso per un reso: la vendita a cui `returned_document_id`
+ * punta. Su vendite e annulli la colonna è NULL e il JOIN non trova nulla.
+ */
+const returnedSaleAlias = alias(commercialDocuments, "returned_sale");
+const returnedSaleJoinCondition = eq(
+  returnedSaleAlias.id,
+  commercialDocuments.returnedDocumentId,
+);
+
 /** Colonne di una riga dello storico, condivise fra elenco e dettaglio. */
 const receiptColumns = {
   id: commercialDocuments.id,
@@ -90,6 +100,11 @@ const receiptColumns = {
   voidDocumentId: voidDocAlias.id,
   voidAdeProgressive: voidDocAlias.adeProgressive,
   voidAdeRegisteredAt: voidDocAlias.adeRegisteredAt,
+  // Su un reso, la vendita resa: il riferimento che dettaglio e ristampa
+  // portano ("Documento di riferimento", HAR.md #19g).
+  returnOfId: returnedSaleAlias.id,
+  returnOfAdeProgressive: returnedSaleAlias.adeProgressive,
+  returnOfAdeRegisteredAt: returnedSaleAlias.adeRegisteredAt,
   // Serve alla ristampa su termica: la copia consegnata al cliente deve
   // riportare il metodo di pagamento REALE del documento trasmesso
   // all'AdE, non un default.
@@ -110,12 +125,19 @@ type ReceiptDocRow = Pick<
   voidDocumentId: string | null;
   voidAdeProgressive: string | null;
   voidAdeRegisteredAt: Date | null;
+  returnOfId: string | null;
+  returnOfAdeProgressive: string | null;
+  returnOfAdeRegisteredAt: Date | null;
 };
+
+/** Pezzi già resi per vendita e per `lineIndex`. */
+type ReturnedByLine = Map<string, Map<number, number>>;
 
 /** Compone la riga DB + le sue righe articolo nella forma esposta al client. */
 function toReceiptListItem(
   doc: ReceiptDocRow,
   docLines: SelectCommercialDocumentLine[],
+  returned?: ReadonlyMap<number, number>,
 ): ReceiptListItem {
   const publicRequest = parsePublicRequest(doc.publicRequest);
 
@@ -136,6 +158,16 @@ function toReceiptListItem(
             adeRegisteredAt: doc.voidAdeRegisteredAt,
           }
         : null,
+    returnOf:
+      doc.returnOfId &&
+      doc.returnOfAdeProgressive &&
+      doc.returnOfAdeRegisteredAt
+        ? {
+            id: doc.returnOfId,
+            adeProgressive: doc.returnOfAdeProgressive,
+            adeRegisteredAt: doc.returnOfAdeRegisteredAt,
+          }
+        : null,
     paymentMethod: publicRequest.paymentMethod,
     payments: publicRequest.payments,
     lotteryCode: publicRequest.lotteryCode,
@@ -147,8 +179,73 @@ function toReceiptListItem(
       grossUnitPrice: l.grossUnitPrice,
       lineDiscount: l.lineDiscount,
       vatCode: l.vatCode,
+      returnedQuantity: String(returned?.get(l.lineIndex) ?? 0),
     })),
   };
+}
+
+/**
+ * Pezzi già resi per ogni riga delle vendite indicate, dai resi accettati.
+ *
+ * Una query sui resi e una sulle loro righe, invece di un JOIN per pagina:
+ * le righe del reso portano il `lineIndex` della vendita
+ * (`src/lib/receipts/return-lines.ts`), quindi la somma si fa per chiave.
+ * Le quantità si sommano in centesimi interi, come il servizio di reso.
+ */
+async function fetchReturnedByLine(
+  saleIds: readonly string[],
+): Promise<ReturnedByLine> {
+  const byLine: ReturnedByLine = new Map();
+  if (saleIds.length === 0) return byLine;
+
+  const returns = await getDb()
+    .select({
+      id: commercialDocuments.id,
+      saleId: commercialDocuments.returnedDocumentId,
+    })
+    .from(commercialDocuments)
+    .where(
+      and(
+        inArray(commercialDocuments.returnedDocumentId, [...saleIds]),
+        eq(commercialDocuments.kind, "RETURN"),
+        eq(commercialDocuments.status, "ACCEPTED"),
+      ),
+    );
+  if (returns.length === 0) return byLine;
+
+  const saleOf = new Map(returns.map((r) => [r.id, r.saleId]));
+  const lines = await fetchLinesByDocIds(returns.map((r) => r.id));
+  for (const line of lines) {
+    const saleId = saleOf.get(line.documentId);
+    if (!saleId) continue;
+    const perLine = byLine.get(saleId) ?? new Map<number, number>();
+    const cents =
+      Math.round((perLine.get(line.lineIndex) ?? 0) * 100) +
+      Math.round(Number(line.quantity) * 100);
+    perLine.set(line.lineIndex, cents / 100);
+    byLine.set(saleId, perLine);
+  }
+  return byLine;
+}
+
+/** Righe DB + righe articolo + già-reso → elementi dello storico. */
+async function toReceiptListItems(
+  docs: readonly ReceiptDocRow[],
+): Promise<ReceiptListItem[]> {
+  if (docs.length === 0) return [];
+  const saleIds = docs.filter((d) => d.kind === "SALE").map((d) => d.id);
+  const [lines, returned] = await Promise.all([
+    fetchLinesByDocIds(docs.map((d) => d.id)),
+    fetchReturnedByLine(saleIds),
+  ]);
+  const linesByDocId = groupLinesByDocId(lines);
+  return docs.map((doc) =>
+    toReceiptListItem(
+      doc,
+      linesByDocId.get(doc.id) ?? [],
+      returned.get(doc.id),
+    ),
+  );
 }
 
 /**
@@ -207,8 +304,12 @@ function buildStoricoConditions(
   | { error: string } {
   const conditions: SQL[] = [
     eq(commercialDocuments.businessId, businessId),
-    // Show only SALE documents (VOID docs are internal bookkeeping)
-    eq(commercialDocuments.kind, "SALE"),
+    // Vendite e resi: il reso è un documento fiscale con la sua data, e un
+    // export di ottobre deve contenere il reso di ottobre di una vendita di
+    // settembre. Un reso che conta è sempre ACCEPTED, quindi il filtro di
+    // stato qui sotto lo tiene sotto "emessi" e fuori da "annullati". Gli
+    // annulli restano uno stato della vendita, non righe.
+    inArray(commercialDocuments.kind, ["SALE", "RETURN"]),
   ];
 
   // Filtro di periodo su `ade_registered_at`, la stessa grandezza che la riga
@@ -287,6 +388,7 @@ export async function searchReceipts(
       .select(receiptColumns)
       .from(commercialDocuments)
       .leftJoin(voidDocAlias, voidDocJoinCondition)
+      .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
       .where(and(...conditions))
       // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
       // a parita' di `ade_registered_at` Postgres non garantisce un ordine
@@ -302,16 +404,8 @@ export async function searchReceipts(
 
   if (docs.length === 0) return { items: [], total };
 
-  // Fetch lines only for the current page's documents
-  const docIds = docs.map((d) => d.id);
-  const lines = await fetchLinesByDocIds(docIds);
-  const linesByDocId = groupLinesByDocId(lines);
-
-  const items = docs.map((doc) =>
-    toReceiptListItem(doc, linesByDocId.get(doc.id) ?? []),
-  );
-
-  return { items, total };
+  // Righe articolo e già-reso solo per i documenti della pagina.
+  return { items: await toReceiptListItems(docs), total };
 }
 
 // ---------------------------------------------------------------------------
@@ -319,8 +413,8 @@ export async function searchReceipts(
 // ---------------------------------------------------------------------------
 
 /**
- * Rilegge UNA vendita con le stesse colonne e lo stesso JOIN sull'annullo di
- * `searchReceipts`.
+ * Rilegge UN documento dello storico (vendita o reso) con le stesse colonne,
+ * gli stessi JOIN e lo stesso già-reso di `searchReceipts`.
  *
  * Serve allo storico subito dopo un annullo riuscito: l'aggiornamento
  * ottimistico della riga conosce solo il nuovo `status`, mentre l'annullo
@@ -348,19 +442,20 @@ export async function getReceiptDetail(
     .select(receiptColumns)
     .from(commercialDocuments)
     .leftJoin(voidDocAlias, voidDocJoinCondition)
+    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
     .where(
       and(
         eq(commercialDocuments.id, documentId),
         eq(commercialDocuments.businessId, businessId),
-        eq(commercialDocuments.kind, "SALE"),
+        inArray(commercialDocuments.kind, ["SALE", "RETURN"]),
       ),
     )
     .limit(1);
 
   if (!doc) return { item: null };
 
-  const lines = await fetchLinesByDocIds([doc.id]);
-  return { item: toReceiptListItem(doc, lines) };
+  const [item] = await toReceiptListItems([doc]);
+  return { item };
 }
 
 // ---------------------------------------------------------------------------
@@ -412,6 +507,7 @@ async function hydrateLocalRows(
     .select(receiptColumns)
     .from(commercialDocuments)
     .leftJoin(voidDocAlias, voidDocJoinCondition)
+    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
     .where(
       and(
         eq(commercialDocuments.businessId, businessId),
@@ -419,15 +515,8 @@ async function hydrateLocalRows(
       ),
     );
 
-  const lines = await fetchLinesByDocIds(docs.map((d) => d.id));
-  const linesByDocId = groupLinesByDocId(lines);
-
-  return new Map(
-    docs.map((doc) => [
-      doc.id,
-      toReceiptListItem(doc, linesByDocId.get(doc.id) ?? []),
-    ]),
-  );
+  const items = await toReceiptListItems(docs);
+  return new Map(items.map((item) => [item.id, item]));
 }
 
 /**

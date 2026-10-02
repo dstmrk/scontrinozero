@@ -27,6 +27,10 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
+  saleReturnProgress,
+  type SaleReturnProgress,
+} from "@/lib/receipts/return-progress";
+import {
   ADE_SEARCH_MAX_DAYS,
   STORICO_PAGE_SIZE,
   type ReceiptListItem,
@@ -104,6 +108,39 @@ function StatusBadge({
   return (
     <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
       {status}
+    </span>
+  );
+}
+
+/** Il reso è sempre ACCEPTED: a distinguerlo nell'elenco è il `kind`. */
+function ReturnDocumentBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">
+      Reso
+    </span>
+  );
+}
+
+const RETURN_PROGRESS_LABELS: Record<
+  Exclude<SaleReturnProgress, "none">,
+  string
+> = {
+  partial: "Reso parziale",
+  full: "Reso totale",
+};
+
+/**
+ * Segno accanto allo stato di una vendita resa: chi scorre l'elenco vede che
+ * il totale mostrato non è più tutto incassato, senza aprire la riga.
+ */
+function SaleReturnBadge({
+  lines,
+}: Readonly<{ lines: ReceiptListItem["lines"] }>) {
+  const progress = saleReturnProgress(lines);
+  if (progress === "none") return null;
+  return (
+    <span className="ml-1 inline-flex items-center rounded-full border border-orange-200 px-2 py-0.5 text-xs font-medium text-orange-800">
+      {RETURN_PROGRESS_LABELS[progress]}
     </span>
   );
 }
@@ -488,12 +525,14 @@ export function StoricoClient({
                   );
                 }
 
-                // SALE receipts (both ACCEPTED and VOID_ACCEPTED) can open the
-                // detail dialog to view lines and re-send the PDF receipt.
+                // Vendite (emesse o annullate) e resi accettati aprono il
+                // dettaglio: righe, ricevuta da reinviare, ristampa.
+                const isReturn = receipt.kind === "RETURN";
                 const hasDetail =
-                  receipt.kind === "SALE" &&
-                  (receipt.status === "ACCEPTED" ||
-                    receipt.status === "VOID_ACCEPTED");
+                  (receipt.kind === "SALE" &&
+                    (receipt.status === "ACCEPTED" ||
+                      receipt.status === "VOID_ACCEPTED")) ||
+                  (isReturn && receipt.status === "ACCEPTED");
                 return (
                   <tr
                     key={receipt.id}
@@ -512,7 +551,7 @@ export function StoricoClient({
                     tabIndex={hasDetail ? 0 : undefined}
                     aria-label={
                       hasDetail
-                        ? `Apri dettaglio scontrino ${formatProgressive(receipt.adeProgressive)}`
+                        ? `Apri dettaglio ${isReturn ? "reso" : "scontrino"} ${formatProgressive(receipt.adeProgressive)}`
                         : undefined
                     }
                   >
@@ -525,10 +564,23 @@ export function StoricoClient({
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatCurrency(receipt.total)}
+                      {/* Il reso esce dalla cassa: in negativo, come nel CSV
+                          e nei ricavi netti dell'analytics. */}
+                      {formatCurrency(
+                        isReturn
+                          ? -Number.parseFloat(receipt.total)
+                          : receipt.total,
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <StatusBadge status={receipt.status} />
+                      {isReturn ? (
+                        <ReturnDocumentBadge />
+                      ) : (
+                        <>
+                          <StatusBadge status={receipt.status} />
+                          <SaleReturnBadge lines={receipt.lines} />
+                        </>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {hasDetail && (

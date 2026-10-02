@@ -176,6 +176,29 @@ describe("formatReceiptRow", () => {
     ]);
   });
 
+  // Il reso e' un documento fiscale proprio, con la sua data: nel file sta
+  // come riga a se', in negativo, cosi' la somma di `totale` e' il netto dei
+  // corrispettivi del periodo. Le celle di cassa restano vuote: il reso non
+  // registra se e come l'esercente ha restituito il denaro.
+  it("scrive un reso in negativo, senza celle di cassa", () => {
+    const row = formatReceiptRow(
+      doc({
+        kind: "RETURN",
+        lotteryCode: null,
+        publicRequest: { documentId: "sale-1", quantities: [1] },
+      }),
+      12.34,
+      "Caffè",
+    );
+    expect(row[sumCol("stato")]).toBe("reso");
+    expect(row[sumCol("totale")]).toBe("-12,34");
+    expect(row[sumCol("sconto_a_pagare")]).toBe("");
+    expect(row[sumCol("incassato")]).toBe("");
+    expect(row[sumCol("metodo_pagamento")]).toBe("");
+    expect(row[sumCol("data_annullo")]).toBe("");
+    expect(row[sumCol("descrizione")]).toBe("Caffè");
+  });
+
   it("unisce le modalità su un pagamento misto", () => {
     // Scrivere solo la prima darebbe a chi apre il file un metodo che non
     // regge il confronto con la colonna `incassato`.
@@ -578,6 +601,29 @@ describe("formatReceiptLineRows", () => {
   it("restituisce nessuna riga su un documento senza voci", () => {
     expect(formatReceiptLineRows(doc(), [])).toEqual([]);
   });
+
+  // Il reso esce dalla cassa: quantita' e totale di riga negativi, prezzo
+  // unitario di listino. Cosi' la pivot sul dettaglio somma al netto e
+  // `quantita × prezzo_unitario` torna col segno di `totale_riga`.
+  it("scrive un reso con quantita' e totale di riga negativi", () => {
+    const rows = formatReceiptLineRows(
+      doc({ kind: "RETURN", publicRequest: null }),
+      [lines[0]],
+    );
+    expect(rows[0]).toEqual([
+      "19/05/2026",
+      "14:35:01",
+      "00042",
+      "reso",
+      "1",
+      "Caffè",
+      "-2",
+      "1,20",
+      "-2,40",
+      "22",
+      "doc-1",
+    ]);
+  });
 });
 
 describe("buildReceiptLinesCsvStream", () => {
@@ -826,6 +872,10 @@ describe("buildReceiptsCsvStream", () => {
       _gte: ["ade_registered_at", dateFrom],
     });
     expect(conditions).toContainEqual({ _lt: ["ade_registered_at", dateTo] });
+    // Stesse righe dello storico a schermo: vendite e resi, mai gli annulli.
+    expect(conditions).toContainEqual({
+      _inArray: ["kind", ["SALE", "RETURN"]],
+    });
   });
 });
 

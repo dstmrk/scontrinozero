@@ -19,6 +19,13 @@ export interface ReceiptLineItem {
    */
   lineDiscount: string;
   vatCode: string;
+  /**
+   * Pezzi già resi di questa riga, sommati sui resi accettati registrati da
+   * ScontrinoZero (`"0"` se nessuno). Solo sulle righe di una vendita: è ciò
+   * che il dialog di reso sottrae dal venduto. I resi fatti dal portale AdE
+   * qui non compaiono; li vede il servizio di reso, che rilegge l'AdE.
+   */
+  returnedQuantity: string;
 }
 
 export interface ReceiptListItem {
@@ -51,6 +58,16 @@ export interface ReceiptListItem {
    * l'esercente la apre e la stampa. `null` su una vendita ancora valida.
    */
   voidDocument: {
+    id: string;
+    adeProgressive: string;
+    adeRegisteredAt: Date;
+  } | null;
+  /**
+   * Su un reso (`kind = RETURN`): la vendita resa, citata dal blocco
+   * "Documento di riferimento". `null` su vendite e annulli, e su un reso la
+   * cui vendita non c'è più (FK ON DELETE SET NULL).
+   */
+  returnOf: {
     id: string;
     adeProgressive: string;
     adeRegisteredAt: Date;
