@@ -45,6 +45,7 @@ vi.mock("@/db/schema", () => ({
     adeProgressive: "cd.ade_progressive",
     adeTransactionId: "cd.ade_transaction_id",
     publicRequest: "cd.public_request",
+    returnedDocumentId: "cd.returned_document_id",
   },
   commercialDocumentLines: "commercial-document-lines-table",
 }));
@@ -111,6 +112,16 @@ function makeDetailBuilder(result: unknown[]) {
   return b;
 }
 
+/** Simula la query dei resi accettati di una pagina: risolve al .where() */
+function makeReturnsBuilder(result: unknown[]) {
+  const b = {
+    from: vi.fn(),
+    where: vi.fn().mockResolvedValue(result),
+  };
+  b.from.mockReturnValue(b);
+  return b;
+}
+
 /** Simula la query lines: risolve al .orderBy() */
 function makeLinesBuilder(result: unknown[]) {
   const b = {
@@ -161,6 +172,9 @@ const FAKE_DOC_LINES = [
 describe("storico-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // La query dei resi segue quella delle righe solo quando la pagina ha
+    // vendite: senza un valore accodato, nessun reso.
+    mockSelect.mockImplementation(() => makeReturnsBuilder([]));
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
@@ -231,6 +245,87 @@ describe("storico-actions", () => {
       );
 
       expect(result.items[0].voidDocument).toBeNull();
+    });
+
+    // Il reso è una riga dello storico a sé: porta la vendita che rettifica,
+    // e la pagina di soli resi non chiede i pezzi resi (non ha vendite).
+    it("espone su un reso la vendita rettificata, senza query dei resi", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(
+          makeDocsBuilder([
+            {
+              ...FAKE_SALE_DOC,
+              id: "return-doc-uuid",
+              kind: "RETURN",
+              adeProgressive: "DCW2026/5111-2190",
+              returnOfId: "sale-doc-uuid",
+              returnOfAdeProgressive: "DCW2026/5111-2188",
+              returnOfAdeRegisteredAt: new Date("2026-02-15T10:00:00Z"),
+            },
+          ]),
+        )
+        .mockReturnValueOnce(
+          makeLinesBuilder(
+            FAKE_DOC_LINES.map((l) => ({
+              ...l,
+              documentId: "return-doc-uuid",
+              quantity: "1.000",
+            })),
+          ),
+        );
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].kind).toBe("RETURN");
+      expect(result.items[0].returnOf).toEqual({
+        id: "sale-doc-uuid",
+        adeProgressive: "DCW2026/5111-2188",
+        adeRegisteredAt: new Date("2026-02-15T10:00:00Z"),
+      });
+      expect(result.items[0].total).toBe("5.00");
+      expect(mockSelect).toHaveBeenCalledTimes(3);
+    });
+
+    // Il dialog di reso limita ogni riga a quantità − già reso: la somma
+    // attraversa più resi della stessa vendita, per `lineIndex`.
+    it("somma per riga i pezzi resi dai resi accettati della vendita", async () => {
+      const saleLines = [
+        ...FAKE_DOC_LINES,
+        { ...FAKE_DOC_LINES[0], id: "line-2", lineIndex: 1, quantity: "1.000" },
+      ];
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(makeDocsBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeLinesBuilder(saleLines))
+        .mockReturnValueOnce(
+          makeReturnsBuilder([
+            { id: "ret-1", saleId: "sale-doc-uuid" },
+            { id: "ret-2", saleId: "sale-doc-uuid" },
+          ]),
+        )
+        .mockReturnValueOnce(
+          makeLinesBuilder([
+            { documentId: "ret-1", lineIndex: 0, quantity: "1.000" },
+            { documentId: "ret-2", lineIndex: 0, quantity: "0.500" },
+            // Riga orfana (reso non in pagina): ignorata, non lancia.
+            { documentId: "ret-x", lineIndex: 0, quantity: "9.000" },
+          ]),
+        );
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].lines.map((l) => l.returnedQuantity)).toEqual([
+        "1.5",
+        "0",
+      ]);
+      expect(result.items[0].returnOf).toBeNull();
     });
 
     it("returns receipts with computed totals and sorted lines", async () => {
@@ -613,6 +708,7 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeCountBuilder(30))
         .mockReturnValueOnce(makePagedBuilder())
         .mockReturnValueOnce(makeLinesBuilder([]))
+        .mockReturnValueOnce(makeReturnsBuilder([]))
         .mockReturnValueOnce(makeCountBuilder(30))
         .mockReturnValueOnce(makePagedBuilder())
         .mockReturnValueOnce(makeLinesBuilder([]));
@@ -668,7 +764,11 @@ describe("storico-actions", () => {
     it("restituisce la stessa forma di una riga dell'elenco (righe e totale)", async () => {
       mockSelect
         .mockReturnValueOnce(makeDetailBuilder([{ ...FAKE_SALE_DOC, id: DOC }]))
-        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+        .mockReturnValueOnce(
+          makeLinesBuilder(
+            FAKE_DOC_LINES.map((l) => ({ ...l, documentId: DOC })),
+          ),
+        );
 
       const { getReceiptDetail } = await import("./storico-actions");
       const result = await getReceiptDetail(BIZ, DOC);
@@ -680,9 +780,11 @@ describe("storico-actions", () => {
           quantity: "2.000",
           grossUnitPrice: "5.00",
           vatCode: "10",
+          returnedQuantity: "0",
         },
       ]);
       expect(result.item?.voidDocument).toBeNull();
+      expect(result.item?.returnOf).toBeNull();
     });
 
     it("restituisce item null quando il documento non esiste", async () => {

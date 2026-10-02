@@ -84,8 +84,12 @@ function setupDbMocksEmpty(total = 0): void {
   mockDocsLimit.mockReturnValue({ offset: mockDocsOffset });
   mockDocsOrderBy.mockReturnValue({ limit: mockDocsLimit });
   mockDocsWhere.mockReturnValue({ orderBy: mockDocsOrderBy });
-  // Il self-join sull'annullo si interpone fra `.from()` e `.where()`.
-  mockDocsLeftJoin.mockReturnValue({ where: mockDocsWhere });
+  // I self-join (annullo, vendita resa) si interpongono fra `.from()` e
+  // `.where()`: ogni `.leftJoin()` concede il successivo.
+  mockDocsLeftJoin.mockReturnValue({
+    leftJoin: mockDocsLeftJoin,
+    where: mockDocsWhere,
+  });
   mockDocsFrom.mockReturnValue({ leftJoin: mockDocsLeftJoin });
 
   mockSelect

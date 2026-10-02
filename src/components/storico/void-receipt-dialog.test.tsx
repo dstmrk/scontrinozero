@@ -74,6 +74,7 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
   createdAt: new Date("2026-01-01T09:59:57Z"),
   adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
   voidDocument: null,
+  returnOf: null,
   paymentMethod: "PC",
   payments: null,
   lotteryCode: null,
@@ -86,6 +87,7 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
       grossUnitPrice: "1.20",
       lineDiscount: "0",
       vatCode: "22",
+      returnedQuantity: "0",
     },
   ],
 };
@@ -546,6 +548,7 @@ describe("VoidReceiptDialog — sconto di riga", () => {
               grossUnitPrice: "160.65",
               lineDiscount: "10.65",
               vatCode: "22",
+              returnedQuantity: "0",
             },
           ],
         }}
@@ -555,5 +558,152 @@ describe("VoidReceiptDialog — sconto di riga", () => {
 
     expect(screen.getAllByText(/150,00/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/160,65\s*$/)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Resi: il dettaglio di un reso, e la vendita resa che non si annulla più
+// ---------------------------------------------------------------------------
+
+describe("VoidReceiptDialog — reso", () => {
+  const PRINT_PROFILE: ReceiptPrintProfile = {
+    header: {
+      businessName: "Bar Mario",
+      vatNumber: "12345678901",
+      address: null,
+      city: null,
+      province: null,
+      zipCode: null,
+    },
+    footerNote: "Arrivederci e grazie!",
+  };
+
+  const RETURN_RECEIPT: ReceiptListItem = {
+    ...ACCEPTED_RECEIPT,
+    id: "return-uuid-456",
+    kind: "RETURN",
+    adeProgressive: "DCW2026/5111-2190",
+    adeRegisteredAt: new Date("2026-01-03T10:00:00Z"),
+    total: "6.00",
+    returnOf: {
+      id: ACCEPTED_RECEIPT.id,
+      adeProgressive: "DCW2026/5111-2188",
+      adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
+    },
+    lines: [{ ...ACCEPTED_RECEIPT.lines[0], quantity: "1" }],
+  };
+
+  const RETURNED_SALE: ReceiptListItem = {
+    ...ACCEPTED_RECEIPT,
+    lines: [{ ...ACCEPTED_RECEIPT.lines[0], returnedQuantity: "1" }],
+  };
+
+  it("intitola il reso e cita la vendita che rettifica", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RETURN_RECEIPT} />,
+    );
+
+    expect(screen.getByText("Reso DCW2026/5111-2190")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Reso della vendita DCW2026\/5111-2188 del 01\/01\/2026/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("non offre l'annullo di un reso (l'AdE non lo consente)", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RETURN_RECEIPT} />,
+    );
+
+    expect(screen.queryByText("Annulla scontrino")).not.toBeInTheDocument();
+  });
+
+  it("offre la ricevuta del reso e il QR code", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RETURN_RECEIPT} />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Invia ricevuta/ }),
+    ).toHaveAttribute("href", "/r/return-uuid-456");
+    expect(screen.getByText("Mostra QR code")).toBeInTheDocument();
+  });
+
+  it("ristampa il reso con il riferimento alla vendita", async () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={RETURN_RECEIPT}
+        printProfile={PRINT_PROFILE}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() => expect(mockPrinter.current.print).toHaveBeenCalled());
+    const printed = vi.mocked(mockPrinter.current.print).mock.calls[0][0];
+    expect(printed.kind).toBe("RETURN");
+    if (printed.kind !== "RETURN") throw new Error("atteso un reso");
+    expect(printed.adeProgressive).toBe("DCW2026/5111-2190");
+    expect(printed.referenceDocument).toEqual({
+      adeProgressive: "DCW2026/5111-2188",
+      adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
+    });
+    expect(printed.lines).toEqual(RETURN_RECEIPT.lines);
+  });
+
+  // La vendita non c'è più (FK ON DELETE SET NULL): senza riferimento la
+  // termica stamperebbe un reso che non cita nulla. Il PDF lo legge dal DB.
+  it("ripiega sul PDF quando il reso ha perso la vendita", async () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={{ ...RETURN_RECEIPT, returnOf: null }}
+        printProfile={PRINT_PROFILE}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() =>
+      expect(openSpy).toHaveBeenCalledWith(
+        "/api/documents/return-uuid-456/pdf?qr=0",
+        "_blank",
+        "noopener,noreferrer",
+      ),
+    );
+    expect(mockPrinter.current.print).not.toHaveBeenCalled();
+  });
+
+  // L'AdE accetta l'annullo di una vendita resa e storna il corrispettivo due
+  // volte (HAR.md #19f): il servizio lo rifiuta, la modale non lo propone.
+  it("non propone l'annullo di una vendita con resi, e dice perché", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RETURNED_SALE} />,
+    );
+
+    expect(screen.queryByText("Annulla scontrino")).not.toBeInTheDocument();
+    expect(screen.getByText(/ha dei resi/)).toBeInTheDocument();
+  });
+
+  it("la vendita resa resta consegnabile: ricevuta, stampa e QR", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RETURNED_SALE} />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Invia ricevuta/ }),
+    ).toHaveAttribute("href", "/r/doc-uuid-123");
+    expect(screen.getByRole("button", { name: /Stampa/ })).toBeInTheDocument();
+    expect(screen.getByText("Mostra QR code")).toBeInTheDocument();
+  });
+
+  it("mostra i pezzi già resi sulla riga della vendita", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RETURNED_SALE} />,
+    );
+
+    expect(screen.getByText("Già reso: 1")).toBeInTheDocument();
   });
 });

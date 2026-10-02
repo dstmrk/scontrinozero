@@ -21,6 +21,7 @@ import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
 import { VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
 import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
+import { saleReturnProgress } from "@/lib/receipts/return-progress";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
 import type { PrintableReceipt } from "@/lib/printing/types";
@@ -61,8 +62,24 @@ export function VoidReceiptDialog({
   // Stable idempotency key: generated once per dialog open, reused on retries
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
-  /** Solo i SALE non ancora annullati possono essere annullati. */
-  const canVoid = receipt.status === "ACCEPTED";
+  const isReturn = receipt.kind === "RETURN";
+  /**
+   * Documento valido da consegnare al cliente: vendita non annullata o reso.
+   * È il gate di "Invia ricevuta", ristampa e QR del documento stesso.
+   */
+  const isDeliverable = receipt.status === "ACCEPTED";
+  /**
+   * Una vendita resa ha i resi registrati da ScontrinoZero sulle sue righe.
+   * Quelli fatti dal portale AdE qui non si vedono: li ferma il servizio di
+   * annullo, che rilegge il dettaglio AdE (`ALREADY_RETURNED`).
+   */
+  const hasReturns = !isReturn && saleReturnProgress(receipt.lines) !== "none";
+  /**
+   * Si annulla solo una vendita valida e mai resa. Il reso non si annulla
+   * (l'AdE non lo consente, HAR.md #19), e l'annullo di una vendita resa
+   * storna due volte il corrispettivo (HAR.md #19f).
+   */
+  const canVoid = receipt.kind === "SALE" && isDeliverable && !hasReturns;
 
   /**
    * Copia stampabile da consegnare al cliente che torna al banco a chiederla.
@@ -91,6 +108,24 @@ export function VoidReceiptDialog({
       header: printProfile.header,
       lines: receipt.lines,
     };
+
+    // Il reso porta le sue righe (pezzi resi e quota di sconto) e cita la
+    // vendita. Senza la vendita (FK ON DELETE SET NULL) non c'è riferimento
+    // da stampare: il bottone ripiega sul PDF, che lo rilegge dal DB.
+    if (isReturn) {
+      if (!receipt.returnOf) return null;
+      return {
+        ...base,
+        kind: "RETURN",
+        adeRegisteredAt: new Date(receipt.adeRegisteredAt),
+        adeProgressive: receipt.adeProgressive,
+        referenceDocument: {
+          adeProgressive: receipt.returnOf.adeProgressive,
+          adeRegisteredAt: new Date(receipt.returnOf.adeRegisteredAt),
+        },
+        publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
+      };
+    }
 
     if (receipt.voidDocument) {
       return {
@@ -121,7 +156,7 @@ export function VoidReceiptDialog({
       adeProgressive: receipt.adeProgressive,
       publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
     };
-  }, [printProfile, receipt]);
+  }, [isReturn, printProfile, receipt]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -286,11 +321,20 @@ export function VoidReceiptDialog({
           <>
             <DialogHeader>
               <DialogTitle>
-                Scontrino {receipt.adeProgressive ?? receipt.id.slice(0, 8)}
+                {isReturn ? "Reso" : "Scontrino"}{" "}
+                {receipt.adeProgressive ?? receipt.id.slice(0, 8)}
               </DialogTitle>
               <DialogDescription>
                 {formatDate(receipt.adeRegisteredAt)} — Totale:{" "}
                 {formatCurrency(receipt.total)}
+                {receipt.returnOf && (
+                  <>
+                    <br />
+                    Reso della vendita {
+                      receipt.returnOf.adeProgressive
+                    } del {formatDate(receipt.returnOf.adeRegisteredAt)}
+                  </>
+                )}
               </DialogDescription>
             </DialogHeader>
 
@@ -318,6 +362,14 @@ export function VoidReceiptDialog({
                       × {formatCurrency(line.grossUnitPrice)} —{" "}
                       {formatVat(line.vatCode)}
                     </p>
+                    {Number.parseFloat(line.returnedQuantity) > 0 && (
+                      <p className="text-xs text-orange-800 dark:text-orange-300">
+                        Già reso:{" "}
+                        {Number.parseFloat(
+                          line.returnedQuantity,
+                        ).toLocaleString("it-IT")}
+                      </p>
+                    )}
                   </div>
                   <p className="shrink-0 font-medium">
                     {formatCurrency(perLine[index].lineTotal)}
@@ -330,18 +382,26 @@ export function VoidReceiptDialog({
               </div>
             </div>
 
+            {hasReturns && isDeliverable && (
+              <p className="text-muted-foreground text-sm">
+                Questa vendita ha dei resi, quindi non si può più annullare.
+              </p>
+            )}
+
             {/* Bottoni: Annulla scontrino | Invia ricevuta | Chiudi */}
             {/* `flex-wrap`: i cinque bottoni sono `shrink-0 whitespace-nowrap`
                 e da soli superano i 512px di `sm:max-w-lg`. */}
             <DialogFooter className="flex-wrap gap-2">
               {canVoid && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setView("confirmingVoid")}
+                >
+                  Annulla scontrino
+                </Button>
+              )}
+              {isDeliverable && (
                 <>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setView("confirmingVoid")}
-                  >
-                    Annulla scontrino
-                  </Button>
                   <Button variant="outline" asChild>
                     <a
                       href={`/r/${receipt.id}`}

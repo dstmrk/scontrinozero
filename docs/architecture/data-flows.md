@@ -105,11 +105,11 @@ Analogo all'emissione: `src/server/void-actions.ts` →
 CIE dell'emissione (pre-check `isCieSessionMissing` → `reauthRequired`,
 dialog "Ricollegati" in `src/components/storico/void-receipt-dialog.tsx`).
 
-## Reso merce (return) — motore, senza superficie utente
+## Reso merce (return) — motore e lettura, creazione non ancora esposta
 
-Documento commerciale di reso (`HAR.md` #19). Oggi esiste il motore,
-`src/lib/services/return-service.ts`, con i suoi test; nessuna server action
-né route lo chiama ancora.
+Documento commerciale di reso (`HAR.md` #19). Il motore è
+`src/lib/services/return-service.ts`; storico, CSV, stampa e analytics
+leggono i resi, ma nessuna server action né route ne crea ancora uno.
 
 1. Riga `commercial_documents` con `kind = 'RETURN'` e `returned_document_id`
    verso la vendita (migrazione 0042). La vendita resta `ACCEPTED`: una
@@ -138,9 +138,16 @@ né route lo chiama ancora.
    `SALE`/`VOID` (`V1_DOCUMENT_KINDS`). L'analytics sottrae i resi nel giorno
    del reso: ricavi, serie temporale e prodotti sono netti, scontrini emessi e
    scontrino medio restano sulle vendite, i metodi di pagamento pure (il
-   rimborso non ha un metodo noto). Storico ed export CSV filtrano ancora
-   `kind = 'SALE'` e devono mostrare le stesse righe: i resi entrano in
-   entrambi insieme. Logging con `flow: "return-receipt"`.
+   rimborso non ha un metodo noto). Storico ed export CSV leggono
+   `kind IN ('SALE','RETURN')`, con le stesse righe nello stesso ordine: il
+   reso è una riga a sé, nel giorno del reso, in negativo, con stato `reso`
+   (il CSV lascia vuote le celle di cassa, il dettaglio porta quantità e
+   totale di riga negativi). Sulla riga della vendita `returnedQuantity`
+   somma i resi accettati per `lineIndex` (`fetchReturnedByLine` in
+   `src/server/storico-actions.ts`); da lì `saleReturnProgress`
+   (`src/lib/receipts/return-progress.ts`) dà il badge reso parziale/totale
+   e toglie "Annulla scontrino" dal dettaglio. Il reso si apre, si reinvia e
+   si ristampa; non si annulla. Logging con `flow: "return-receipt"`.
 
 ## Onboarding AdE (collegamento credenziali)
 

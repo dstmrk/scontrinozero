@@ -11,7 +11,7 @@ import { commercialDocuments } from "@/db/schema";
 // Alias self-join: per ogni SALE, troviamo il documento VOID che lo annulla
 // (se esiste). Senza il join la colonna `data_annullo` del CSV resterebbe
 // sempre vuota — il campo `voided_document_id` e' popolato solo sui VOID, e
-// il CSV filtra `kind = "SALE"`.
+// i VOID non sono righe del CSV.
 const voidDocAlias = alias(commercialDocuments, "void_doc");
 import {
   calcDocTotal,
@@ -40,10 +40,11 @@ const BATCH_SIZE = 500;
  * l'assistenza e la Developer API ritrovano il documento,
  * `id_transazione_ade` e' l'unico appiglio verso l'AdE in caso di
  * contestazione. Il vecchio `id_documento_annullato` e' sparito perche'
- * puntava a una riga che nel file non c'e' (l'export filtra `kind = "SALE"`,
+ * puntava a una riga che nel file non c'e' (l'export tiene vendite e resi,
  * i VOID non sono righe): al suo posto `data_annullo`, che e' l'informazione
  * che quella colonna provava a dare. Sparita anche `tipo`, che valeva `SALE`
- * su ogni riga.
+ * su ogni riga: il reso, quando e' arrivato, si e' preso uno `stato` suo
+ * (`reso`) invece di riportarla, per non cambiare la forma del file.
  */
 export const RECEIPT_CSV_HEADERS = [
   "data",
@@ -112,6 +113,26 @@ const STATUS_LABELS = new Map<string, string>([
   ["VOID_ACCEPTED", "annullato"],
 ]);
 
+/**
+ * Etichetta di stato di un documento nostro. Il reso e' sempre `ACCEPTED`
+ * (un reso non si annulla, `HAR.md` #19): a distinguerlo e' il `kind`.
+ */
+function statusLabel(doc: Pick<ReceiptDocRow, "kind" | "status">): string {
+  if (doc.kind === "RETURN") return "reso";
+  // Fallback sul codice grezzo invece che stringa vuota: uno stato nuovo e
+  // non tradotto deve essere visibile nel file, non sparire.
+  return STATUS_LABELS.get(doc.status) ?? doc.status;
+}
+
+/**
+ * Segno degli importi e delle quantita' di un documento: il reso esce dalla
+ * cassa. Con i resi in negativo, la somma di `totale` (e di `totale_riga`)
+ * su un periodo e' il netto dei corrispettivi, come nell'analytics.
+ */
+function amountSign(doc: Pick<ReceiptDocRow, "kind">): 1 | -1 {
+  return doc.kind === "RETURN" ? -1 : 1;
+}
+
 const PAYMENT_METHOD_LABELS = new Map<string, string>([
   ["PC", "contanti"],
   ["PE", "elettronico"],
@@ -159,6 +180,36 @@ function formatItalianAmount(amount: number): string {
 }
 
 /**
+ * Riga di riepilogo di un reso. Le celle di cassa (`sconto_a_pagare`,
+ * `incassato`, `metodo_pagamento`) restano vuote: il documento di reso non
+ * registra se e come il denaro e' stato restituito, e uno `0,00` o un
+ * metodo affermerebbero un fatto che non conosciamo. `data_annullo` e'
+ * vuota per costruzione: un reso non si annulla.
+ */
+function formatReturnRow(
+  doc: ReceiptDocRow,
+  total: number,
+  description: string,
+): string[] {
+  return [
+    formatRomeDate(doc.adeRegisteredAt),
+    formatRomeTime(doc.adeRegisteredAt),
+    doc.adeProgressive ?? "",
+    "scontrinozero",
+    statusLabel(doc),
+    formatItalianAmount(-total),
+    "",
+    "",
+    "",
+    description,
+    doc.lotteryCode ?? "",
+    "",
+    doc.id,
+    doc.adeTransactionId ?? "",
+  ];
+}
+
+/**
  * Descrizioni delle righe di uno scontrino, in una sola cella.
  *
  * Il CSV di riepilogo tiene una riga per scontrino: le N righe articolo
@@ -188,6 +239,7 @@ export function formatReceiptRow(
   total: number,
   description: string,
 ): string[] {
+  if (doc.kind === "RETURN") return formatReturnRow(doc, total, description);
   const { globalDiscountCents } = parsePublicRequest(doc.publicRequest);
 
   return [
@@ -195,9 +247,7 @@ export function formatReceiptRow(
     formatRomeTime(doc.adeRegisteredAt),
     doc.adeProgressive ?? "",
     "scontrinozero",
-    // Fallback sul codice grezzo invece che stringa vuota: uno stato nuovo e
-    // non tradotto deve essere visibile nel file, non sparire.
-    STATUS_LABELS.get(doc.status) ?? doc.status,
+    statusLabel(doc),
     formatItalianAmount(total),
     // `totale` e' il corrispettivo, `incassato` e' cio' che e' entrato in
     // cassa: con uno sconto a pagare i due divergono di proposito (HAR.md
@@ -322,7 +372,11 @@ export function formatReceiptLineRows(
 ): string[][] {
   const data = formatRomeDate(doc.adeRegisteredAt);
   const ora = formatRomeTime(doc.adeRegisteredAt);
-  const stato = STATUS_LABELS.get(doc.status) ?? doc.status;
+  const stato = statusLabel(doc);
+  // Sul reso quantita' e totale di riga scendono sotto zero insieme, il
+  // prezzo unitario resta quello di listino: `quantita × prezzo` torna col
+  // segno di `totale_riga`, e la pivot somma al netto come il riepilogo.
+  const sign = amountSign(doc);
 
   return lines.map((line) => {
     // Canone condiviso: il `totale_riga` del dettaglio deve sommare al
@@ -337,9 +391,11 @@ export function formatReceiptLineRows(
       // 1-based: la prima voce dello scontrino e' la riga 1, non la riga 0.
       String(line.lineIndex + 1),
       line.description,
-      formatItalianQuantity(line.quantity),
+      formatItalianQuantity(
+        String(sign * Number.parseFloat(line.quantity ?? "0")),
+      ),
       formatItalianAmount(Number.parseFloat(line.grossUnitPrice ?? "0")),
-      formatItalianAmount(lineTotalCents / 100),
+      formatItalianAmount((sign * lineTotalCents) / 100),
       line.vatCode,
       doc.id,
     ];
@@ -349,7 +405,10 @@ export function formatReceiptLineRows(
 function buildConditions(params: BuildCsvStreamParams) {
   const conditions = [
     eq(commercialDocuments.businessId, params.businessId),
-    eq(commercialDocuments.kind, "SALE"),
+    // Le stesse righe dello storico a schermo (`buildStoricoConditions`):
+    // vendite e resi, che hanno ciascuno la propria data fiscale. Gli annulli
+    // restano uno stato della vendita.
+    inArray(commercialDocuments.kind, ["SALE", "RETURN"]),
   ];
 
   // Il periodo si seleziona sulla stessa grandezza che la riga mostra
