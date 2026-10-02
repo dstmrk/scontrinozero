@@ -113,6 +113,7 @@ vi.mock("drizzle-orm", () => ({
   gte: (a: unknown, b: unknown) => ({ _gte: [a, b] }),
   lt: (a: unknown, b: unknown) => ({ _lt: [a, b] }),
   inArray: (a: unknown, b: unknown) => ({ _inArray: [a, b] }),
+  or: (...args: unknown[]) => ({ _or: args }),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -439,15 +440,22 @@ describe("getAnalyticsKpis", () => {
       count: 0,
       aovCents: 0,
       voidCount: 0,
+      returnCount: 0,
+      returnCents: 0,
     });
   });
 
   it("computes revenue (cents), count, AOV, and voidCount", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
-        { id: "d2", status: "ACCEPTED", createdAt: new Date() },
-        { id: "d3", status: "VOID_ACCEPTED", createdAt: new Date() },
+        { id: "d1", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d2", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
+        {
+          id: "d3",
+          kind: "SALE",
+          status: "VOID_ACCEPTED",
+          createdAt: new Date(),
+        },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -480,6 +488,8 @@ describe("getAnalyticsKpis", () => {
       count: 2,
       aovCents: 1000,
       voidCount: 1,
+      returnCount: 0,
+      returnCents: 0,
     });
   });
 
@@ -503,8 +513,8 @@ describe("getAnalyticsKpis", () => {
     // senza crashare la pipeline analytics.
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
-        { id: "d2", status: "ACCEPTED" /* createdAt mancante */ },
+        { id: "d1", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d2", kind: "SALE", status: "ACCEPTED" /* createdAt mancante */ },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -524,13 +534,20 @@ describe("getAnalyticsKpis", () => {
       count: 1,
       aovCents: 1000,
       voidCount: 0,
+      returnCount: 0,
+      returnCents: 0,
     });
   });
 
   it("does not divide by zero when computing AOV", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "VOID_ACCEPTED", createdAt: new Date() },
+        {
+          id: "d1",
+          kind: "SALE",
+          status: "VOID_ACCEPTED",
+          createdAt: new Date(),
+        },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -550,6 +567,8 @@ describe("getAnalyticsKpis", () => {
       count: 0,
       aovCents: 0,
       voidCount: 1,
+      returnCount: 0,
+      returnCents: 0,
     });
   });
 });
@@ -562,6 +581,7 @@ describe("getRevenueTimeseries", () => {
       makeSelectBuilder([
         {
           id: "d1",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: new Date("2026-05-18T22:30:00Z"),
         },
@@ -593,16 +613,19 @@ describe("getRevenueTimeseries", () => {
       makeSelectBuilder([
         {
           id: "d1",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: new Date("2026-05-17T10:00:00Z"),
         },
         {
           id: "d2",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: new Date("2026-05-19T09:00:00Z"),
         },
         {
           id: "d3",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: new Date("2026-05-19T11:00:00Z"),
         },
@@ -663,6 +686,7 @@ describe("getRevenueTimeseries", () => {
       makeSelectBuilder([
         {
           id: "d1",
+          kind: "SALE",
           status: "VOID_ACCEPTED",
           createdAt: new Date("2026-05-19T09:00:00Z"),
         },
@@ -693,23 +717,32 @@ describe("getPaymentBreakdown", () => {
       makeSelectBuilder([
         {
           id: "d1",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: at,
           publicRequest: { paymentMethod: "PC" },
         },
         {
           id: "d2",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: at,
           publicRequest: { paymentMethod: "PE" },
         },
         {
           id: "d3",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: at,
           publicRequest: { paymentMethod: "PC" },
         },
-        { id: "d4", status: "ACCEPTED", createdAt: at, publicRequest: null },
+        {
+          id: "d4",
+          kind: "SALE",
+          status: "ACCEPTED",
+          createdAt: at,
+          publicRequest: null,
+        },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -772,6 +805,7 @@ describe("getPaymentBreakdown", () => {
       makeSelectBuilder([
         {
           id: "d1",
+          kind: "SALE",
           status: "VOID_ACCEPTED",
           createdAt: new Date("2026-05-19T10:00:00Z"),
           publicRequest: { paymentMethod: "PC" },
@@ -836,9 +870,9 @@ describe("getProductBreakdown", () => {
     const at = new Date("2026-05-19T10:00:00Z");
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "ACCEPTED", createdAt: at },
-        { id: "d2", status: "ACCEPTED", createdAt: at },
-        { id: "d3", status: "VOID_ACCEPTED", createdAt: at },
+        { id: "d1", kind: "SALE", status: "ACCEPTED", createdAt: at },
+        { id: "d2", kind: "SALE", status: "ACCEPTED", createdAt: at },
+        { id: "d3", kind: "SALE", status: "VOID_ACCEPTED", createdAt: at },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -903,6 +937,7 @@ describe("getAnalyticsBundle", () => {
       makeSelectBuilder([
         {
           id: "d1",
+          kind: "SALE",
           status: "ACCEPTED",
           createdAt: at,
           publicRequest: { paymentMethod: "PC" },
@@ -930,6 +965,8 @@ describe("getAnalyticsBundle", () => {
       count: 1,
       aovCents: 300,
       voidCount: 0,
+      returnCount: 0,
+      returnCents: 0,
     });
     expect(res.breakdown).toEqual([
       { method: "PC", count: 1, revenueCents: 300 },
@@ -996,7 +1033,7 @@ describe("getAnalyticsBundle", () => {
     // un 57014 sulla query piu' pesante del bundle degrada come quello sui docs.
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d1", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
       ]),
     );
     const timeoutErr = Object.assign(new Error("statement timeout"), {
@@ -1041,9 +1078,14 @@ describe("getStarterKpis", () => {
     });
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
-        { id: "d2", status: "ACCEPTED", createdAt: new Date() },
-        { id: "d3", status: "VOID_ACCEPTED", createdAt: new Date() },
+        { id: "d1", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d2", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
+        {
+          id: "d3",
+          kind: "SALE",
+          status: "VOID_ACCEPTED",
+          createdAt: new Date(),
+        },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -1068,7 +1110,14 @@ describe("getStarterKpis", () => {
     ]);
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
-      kpis: { revenueCents: 2000, count: 2, aovCents: 1000, voidCount: 1 },
+      kpis: {
+        revenueCents: 2000,
+        count: 2,
+        aovCents: 1000,
+        voidCount: 1,
+        returnCount: 0,
+        returnCents: 0,
+      },
       truncated: false,
     });
   });
@@ -1083,7 +1132,14 @@ describe("getStarterKpis", () => {
     mockFetchLinesByDocIds.mockResolvedValue([]);
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
-      kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
+      kpis: {
+        revenueCents: 0,
+        count: 0,
+        aovCents: 0,
+        voidCount: 0,
+        returnCount: 0,
+        returnCents: 0,
+      },
       truncated: false,
     });
   });
@@ -1094,7 +1150,14 @@ describe("getStarterKpis", () => {
     mockFetchLinesByDocIds.mockResolvedValue([]);
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
-      kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
+      kpis: {
+        revenueCents: 0,
+        count: 0,
+        aovCents: 0,
+        voidCount: 0,
+        returnCount: 0,
+        returnCents: 0,
+      },
       truncated: false,
     });
   });
@@ -1174,7 +1237,7 @@ describe("getStarterKpis", () => {
     // (finding #69): un 57014 qui deve degradare come quello sui docs.
     mockSelect.mockReturnValue(
       makeSelectBuilder([
-        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d1", kind: "SALE", status: "ACCEPTED", createdAt: new Date() },
       ]),
     );
     const timeoutErr = Object.assign(new Error("statement timeout"), {
@@ -1224,9 +1287,14 @@ const TRUNC_REF = new Date("2026-05-19T12:00:00Z");
 // per giorno fiscale, gia' coperto altrove).
 function makeDocRows(n: number) {
   const createdAt = new Date("2026-05-19T10:00:00Z");
-  const rows = new Array<{ id: string; status: string; createdAt: Date }>(n);
+  const rows = new Array<{
+    id: string;
+    kind: string;
+    status: string;
+    createdAt: Date;
+  }>(n);
   for (let i = 0; i < n; i++) {
-    rows[i] = { id: `d${i}`, status: "ACCEPTED", createdAt };
+    rows[i] = { id: `d${i}`, kind: "SALE", status: "ACCEPTED", createdAt };
   }
   return rows;
 }
@@ -1309,7 +1377,7 @@ describe("troncamento del dataset analytics", () => {
     // sopravvissute al type guard: altrimenti un drift di schema farebbe
     // scendere il conteggio sotto il cap e il troncamento sparirebbe.
     const rows: unknown[] = makeDocRows(MAX_DOCS + 1);
-    rows[0] = { id: "drift", status: 42, createdAt: new Date() };
+    rows[0] = { id: "drift", kind: "SALE", status: 42, createdAt: new Date() };
     mockSelect.mockReturnValue(makeSelectBuilder(rows));
 
     const res = await getAnalyticsBundle(TRUNC_BIZ, "30d", TRUNC_REF);
@@ -1335,5 +1403,51 @@ describe("troncamento del dataset analytics", () => {
 
     expect(res).toMatchObject({ truncated: false });
     expect(logger.error).not.toHaveBeenCalled();
+  });
+});
+
+describe("i resi nell'analytics", () => {
+  it("chiede vendite e resi accettati, e storna il reso dai ricavi", async () => {
+    const at = new Date("2026-05-19T10:00:00Z");
+    const builder = makeSelectBuilder([
+      {
+        id: "d1",
+        kind: "SALE",
+        status: "ACCEPTED",
+        createdAt: at,
+        publicRequest: { paymentMethod: "PC" },
+      },
+      { id: "r1", kind: "RETURN", status: "ACCEPTED", createdAt: at },
+    ]);
+    mockSelect.mockReturnValue(builder);
+    mockFetchLinesByDocIds.mockResolvedValue([
+      {
+        documentId: "d1",
+        description: "Caffè",
+        quantity: "2",
+        grossUnitPrice: "1.50",
+      },
+      {
+        documentId: "r1",
+        description: "Caffè",
+        quantity: "1",
+        grossUnitPrice: "1.50",
+      },
+    ]);
+
+    const res = await getAnalyticsBundle(
+      "11111111-1111-4111-8111-111111111111",
+      "7d",
+      new Date("2026-05-19T12:00:00Z"),
+    );
+
+    if ("error" in res) throw new Error(res.error);
+    expect(JSON.stringify(builder.where.mock.calls[0])).toContain('"RETURN"');
+    expect(res.kpis).toMatchObject({
+      revenueCents: 150,
+      count: 1,
+      returnCount: 1,
+      returnCents: 150,
+    });
   });
 });

@@ -20,6 +20,8 @@ const ZERO_KPIS: AnalyticsKpis = {
   count: 0,
   aovCents: 0,
   voidCount: 0,
+  returnCount: 0,
+  returnCents: 0,
 };
 
 export default async function AnalyticsPage({

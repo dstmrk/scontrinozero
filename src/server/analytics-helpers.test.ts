@@ -19,6 +19,7 @@ import {
 
 type DocRow = {
   id: string;
+  kind: string;
   status: string;
   createdAt: Date;
   publicRequest?: unknown;
@@ -30,7 +31,12 @@ function makeDoc(
   createdAt: Date,
   publicRequest?: unknown,
 ): DocRow {
-  return { id, status, createdAt, publicRequest };
+  return { id, kind: "SALE", status, createdAt, publicRequest };
+}
+
+/** Un reso accettato (HAR.md #19): storna il corrispettivo nel suo giorno. */
+function makeReturn(id: string, createdAt: Date): DocRow {
+  return { id, kind: "RETURN", status: "ACCEPTED", createdAt };
 }
 
 describe("parseAnalyticsRange", () => {
@@ -114,6 +120,8 @@ describe("computeKpis", () => {
       count: 0,
       aovCents: 0,
       voidCount: 0,
+      returnCount: 0,
+      returnCents: 0,
     });
   });
 
@@ -820,5 +828,86 @@ describe("computeBreakdown — pagamento misto", () => {
     );
 
     expect(sum).toBe(expected);
+  });
+});
+
+describe("resi negli aggregati", () => {
+  const day1 = new Date("2026-10-01T10:00:00Z");
+  const day2 = new Date("2026-10-02T10:00:00Z");
+  const docs = [
+    makeDoc("s1", "ACCEPTED", day1, { paymentMethod: "PC" }),
+    makeDoc("s2", "ACCEPTED", day1, { paymentMethod: "PE" }),
+    makeReturn("r1", day2),
+  ];
+  const totals = new Map([
+    ["s1", 30],
+    ["s2", 20],
+    ["r1", 12.5],
+  ]);
+
+  it("i ricavi sono al netto dei resi; scontrini e medio restano sulle vendite", () => {
+    expect(computeKpis(docs, totals)).toEqual({
+      revenueCents: 3750,
+      count: 2,
+      aovCents: 2500,
+      voidCount: 0,
+      returnCount: 1,
+      returnCents: 1250,
+    });
+  });
+
+  it("il reso storna nel giorno del reso, non in quello della vendita", () => {
+    const series = computeTimeseries(
+      docs,
+      totals,
+      romeMidnightUtc("2026-10-01"),
+      romeMidnightUtc("2026-10-03"),
+    );
+    expect(series).toEqual([
+      { date: "2026-10-01", revenueCents: 5000 },
+      { date: "2026-10-02", revenueCents: -1250 },
+    ]);
+  });
+
+  it("i metodi di pagamento restano sulle vendite: il rimborso non ha metodo", () => {
+    const breakdown = computeBreakdown(docs, totals);
+    expect(breakdown).toEqual(
+      expect.arrayContaining([
+        { method: "PC", count: 1, revenueCents: 3000 },
+        { method: "PE", count: 1, revenueCents: 2000 },
+      ]),
+    );
+    expect(breakdown).toHaveLength(2);
+  });
+
+  it("i prodotti sono al netto dei pezzi resi", () => {
+    const lines = new Map([
+      [
+        "s1",
+        [{ description: "Maglia", quantity: "1", grossUnitPrice: "30.00" }],
+      ],
+      [
+        "s2",
+        [{ description: "Calze", quantity: "2", grossUnitPrice: "10.00" }],
+      ],
+      [
+        "r1",
+        [
+          {
+            description: "maglia ",
+            quantity: "1",
+            grossUnitPrice: "30.00",
+            lineDiscount: "17.50",
+          },
+        ],
+      ],
+    ]);
+    const products = computeProductBreakdown(docs, lines);
+    expect(products).toEqual([
+      { description: "Calze", revenueCents: 2000, count: 1 },
+      { description: "Maglia", revenueCents: 1750, count: 1 },
+    ]);
+    // Riconcilia col KPI: la somma per prodotto è il ricavo netto.
+    expect(products.reduce((acc, p) => acc + p.revenueCents, 0)).toBe(3750);
   });
 });

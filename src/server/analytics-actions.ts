@@ -1,7 +1,7 @@
 "use server";
 
 import { cache } from "react";
-import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
 import {
   checkBusinessOwnership,
@@ -138,6 +138,7 @@ function validateRange(
 
 type DocRow = {
   id: string;
+  kind: string;
   status: string;
   createdAt: Date;
   publicRequest?: unknown;
@@ -153,6 +154,7 @@ function isDocRow(value: unknown): value is DocRow {
   const v = value as Record<string, unknown>;
   return (
     typeof v.id === "string" &&
+    typeof v.kind === "string" &&
     typeof v.status === "string" &&
     v.createdAt instanceof Date
   );
@@ -187,6 +189,7 @@ async function fetchSaleDocsInRange(
 ): Promise<SaleDocsPage> {
   const baseSelection = {
     id: commercialDocuments.id,
+    kind: commercialDocuments.kind,
     status: commercialDocuments.status,
     createdAt: commercialDocuments.createdAt,
   };
@@ -200,8 +203,21 @@ async function fetchSaleDocsInRange(
       .where(
         and(
           eq(commercialDocuments.businessId, businessId),
-          eq(commercialDocuments.kind, "SALE"),
-          inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
+          // Vendite (accettate o annullate, per il KPI degli annulli) e resi
+          // accettati, che stornano ricavi e prodotti nel loro giorno.
+          or(
+            and(
+              eq(commercialDocuments.kind, "SALE"),
+              inArray(commercialDocuments.status, [
+                "ACCEPTED",
+                "VOID_ACCEPTED",
+              ]),
+            ),
+            and(
+              eq(commercialDocuments.kind, "RETURN"),
+              eq(commercialDocuments.status, "ACCEPTED"),
+            ),
+          ),
           gte(commercialDocuments.createdAt, from),
           lt(commercialDocuments.createdAt, to),
         ),

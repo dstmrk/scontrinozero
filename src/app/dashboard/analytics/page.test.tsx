@@ -71,7 +71,14 @@ vi.mock("@/lib/logger", () => ({
 
 import AnalyticsPage from "./page";
 
-const KPIS = { revenueCents: 12345, count: 7, aovCents: 1763, voidCount: 1 };
+const KPIS = {
+  revenueCents: 12345,
+  count: 7,
+  aovCents: 1763,
+  voidCount: 1,
+  returnCount: 0,
+  returnCents: 0,
+};
 
 // La page ora riceve `searchParams` (Next 16 → Promise). Helper per costruire
 // la prop con un range opzionale.
