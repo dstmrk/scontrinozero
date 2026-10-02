@@ -330,11 +330,11 @@ export function StoricoClient({
     // ancora al banco. Chiuderla qui costringeva a ritrovare e riaprire la
     // riga proprio in quel momento.
     replaceRow(originalId, (r) => ({ ...r, status: "VOID_ACCEPTED" }));
-    refreshVoidedRow(originalId);
+    refreshRow(originalId);
   }
 
   /**
-   * Rilegge dal server la riga appena annullata.
+   * Rilegge dal server la riga appena annullata o resa.
    *
    * L'aggiornamento ottimistico qui sopra sa solo che lo stato è passato a
    * VOID_ACCEPTED: l'annullo appena creato (id, progressivo, istante
@@ -344,10 +344,16 @@ export function StoricoClient({
    * ricevuta di annullamento né stampa, e i bottoni compaiono solo rifacendo
    * la ricerca.
    *
+   * Dopo un reso serve per il già-reso per riga: badge "Reso parziale/totale"
+   * nell'elenco e tetto del prossimo reso nel dettaglio ancora aperto. La
+   * riga del reso stesso compare alla ricerca successiva: rifare la ricerca
+   * qui userebbe i filtri del form anche se non ancora applicati, e con
+   * l'archivio AdE costerebbe un login.
+   *
    * Fallimento (sessione scaduta, DB in errore) → si tiene la riga
    * ottimistica: la ricerca successiva la riallinea comunque.
    */
-  function refreshVoidedRow(documentId: string) {
+  function refreshRow(documentId: string) {
     startTransition(async () => {
       const detail = await getReceiptDetail(businessId, documentId);
       const fresh = detail.item;
@@ -631,6 +637,7 @@ export function StoricoClient({
           printProfile={printProfile}
           onClose={() => setSelected(null)}
           onSuccess={handleVoidSuccess}
+          onReturnSuccess={refreshRow}
         />
       )}
     </div>

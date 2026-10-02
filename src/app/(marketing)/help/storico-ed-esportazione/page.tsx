@@ -41,10 +41,10 @@ export default function StoricoEdEsportazionePage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La sezione <strong>Storico</strong> raccoglie gli scontrini emessi e
-          annullati con successo. Puoi filtrare per periodo e per stato, aprire
-          il dettaglio di ogni documento e ricondividerlo come PDF al cliente.
-          L&apos;esportazione CSV per il commercialista è disponibile sul piano
-          Pro.
+          annullati con successo e i documenti di reso. Puoi filtrare per
+          periodo e per stato, aprire il dettaglio di ogni documento e
+          ricondividerlo come PDF al cliente. L&apos;esportazione CSV per il
+          commercialista è disponibile sul piano Pro.
         </p>
         <HelpArticleUpdatedAt slug="storico-ed-esportazione" />
 
@@ -65,7 +65,9 @@ export default function StoricoEdEsportazionePage() {
             Ogni riga mostra: <strong>data</strong>,{" "}
             <strong>progressivo</strong> (numero scontrino assegnato
             dall&apos;AdE), <strong>totale</strong> e <strong>stato</strong>{" "}
-            (Emesso o Annullato).
+            (Emesso o Annullato). Un reso compare come riga a sé, con il badge{" "}
+            <strong>Reso</strong> e il totale in negativo; la vendita resa porta
+            accanto allo stato <em>Reso parziale</em> o <em>Reso totale</em>.
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -118,7 +120,8 @@ export default function StoricoEdEsportazionePage() {
               <strong>Annullato</strong> e <strong>Tutti</strong>. La voce
               &quot;Tutti&quot; mostra comunque solo gli scontrini emessi e
               annullati con successo: gli scontrini la cui emissione è fallita
-              non compaiono mai nello Storico.
+              non compaiono mai nello Storico. I resi stanno sotto{" "}
+              <strong>Emesso</strong>: un reso trasmesso non si annulla.
             </p>
           </div>
         </div>
@@ -216,7 +219,19 @@ export default function StoricoEdEsportazionePage() {
             di annullo, disponibile solo se lo scontrino è in stato{" "}
             <strong>Emesso</strong>. Verrà chiesta una conferma esplicita perché
             l&apos;annullo è irreversibile e viene trasmesso all&apos;AdE come
-            documento di annullo.
+            documento di annullo. Non compare su uno scontrino che ha già un
+            reso.
+          </li>
+          <li>
+            Premere <strong>Fai un reso</strong> per restituire al cliente uno o
+            più articoli: scegli i pezzi per riga e confermi. La procedura è in{" "}
+            <Link
+              href="/help/reso-merce"
+              className="text-primary hover:underline"
+            >
+              Reso merce
+            </Link>
+            {"."}
           </li>
         </ul>
         <figure className="mt-6">
@@ -316,19 +331,24 @@ export default function StoricoEdEsportazionePage() {
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">stato</td>
                 <td className="py-2">
-                  <em>emesso</em> oppure <em>annullato</em>
+                  <em>emesso</em>, <em>annullato</em> oppure <em>reso</em>
                 </td>
               </tr>
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">totale</td>
-                <td className="py-2">Importo complessivo dello scontrino</td>
+                <td className="py-2">
+                  Importo complessivo dello scontrino, in negativo sui resi:
+                  sommando la colonna ottieni il netto del periodo
+                </td>
               </tr>
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">
                   metodo_pagamento
                 </td>
                 <td className="py-2">
-                  <em>contanti</em> oppure <em>elettronico</em>
+                  <em>contanti</em> oppure <em>elettronico</em>; vuota sui resi,
+                  perché il documento di reso non registra come hai rimborsato
+                  il cliente
                 </td>
               </tr>
               <tr>
@@ -348,6 +368,12 @@ export default function StoricoEdEsportazionePage() {
                 <td className="py-2 pr-4 font-mono text-xs">data_annullo</td>
                 <td className="py-2">
                   Giorno in cui lo scontrino è stato annullato, se annullato
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">rif_vendita</td>
+                <td className="py-2">
+                  Solo sui resi: il numero dello scontrino della vendita resa
                 </td>
               </tr>
               <tr>
@@ -401,7 +427,8 @@ export default function StoricoEdEsportazionePage() {
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">quantita</td>
                 <td className="py-2">
-                  Quantità venduta, anche frazionaria (0,5 · 1,25)
+                  Quantità venduta, anche frazionaria (0,5 · 1,25); negativa
+                  sulle righe di un reso
                 </td>
               </tr>
               <tr>

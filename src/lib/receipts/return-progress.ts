@@ -23,3 +23,36 @@ export function saleReturnProgress(
   );
   return allReturned ? "full" : "partial";
 }
+
+/** Pezzi ancora rendibili di una riga: venduti meno già resi, mai sotto 0. */
+export function returnableQuantity(line: {
+  quantity: string;
+  returnedQuantity: string;
+}): number {
+  return (
+    Math.max(
+      0,
+      toHundredths(line.quantity) - toHundredths(line.returnedQuantity),
+    ) / 100
+  );
+}
+
+/** Numero con al massimo due decimali, punto o virgola: niente `1e1`. */
+const QUANTITY_INPUT = /^\d+(?:[.,]\d{1,2})?$/;
+
+/**
+ * Quantità digitata nel dialog di reso → pezzi da rendere, o `null` se non
+ * è trasmissibile. Vuoto vale 0 (riga non resa). Due decimali al massimo,
+ * come accetta il portale (`validateReturnQuantities`); il tetto è il
+ * rendibile della riga.
+ */
+export function parseReturnQuantityInput(
+  raw: string,
+  max: number,
+): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return 0;
+  if (!QUANTITY_INPUT.test(trimmed)) return null;
+  const value = Number(trimmed.replace(",", "."));
+  return toHundredths(String(value)) > Math.round(max * 100) ? null : value;
+}

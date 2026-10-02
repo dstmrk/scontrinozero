@@ -65,8 +65,9 @@ export default function AnalyticsEReportPage() {
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Analytics considera solo gli scontrini che hanno completato la
-          trasmissione all&apos;AdE: i ricavi contano gli scontrini emessi, gli
-          annullati vengono conteggiati a parte e non gonfiano l&apos;incassato.
+          trasmissione all&apos;AdE: i ricavi contano gli scontrini emessi al
+          netto dei resi, gli annullati vengono conteggiati a parte e non
+          gonfiano l&apos;incassato.
         </p>
         <figure className="mt-6">
           <AppScreenshot
@@ -94,8 +95,10 @@ export default function AnalyticsEReportPage() {
           <div>
             <p className="text-sm font-medium">Ricavi</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Il totale incassato con gli scontrini emessi nel periodo. Gli
-              scontrini annullati non vengono conteggiati.
+              Il totale degli scontrini emessi nel periodo, meno i resi emessi
+              nel periodo: un reso conta nel giorno in cui lo fai, non in quello
+              della vendita. Sotto l&apos;importo la card indica quanti resi ha
+              sottratto. Gli scontrini annullati non vengono conteggiati.
             </p>
           </div>
           <div>

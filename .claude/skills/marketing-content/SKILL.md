@@ -51,6 +51,14 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   personalizzazione di intestazione/logo, che resta fuori dal prodotto: non
   prometterla.
 
+- Il **reso merce** (documento commerciale di reso) è **spedito su tutti i
+  piani**, Starter compreso: è un adempimento dell'esercente, non una feature
+  Pro. Si fa dallo storico ("Fai un reso"), anche parziale e in più volte.
+  Due vincoli da non contraddire nel copy: un reso **non si annulla** (l'AdE
+  non lo consente) e una vendita con un reso **non si annulla più**. Il
+  documento di reso **non** è un "DCO di importo negativo": cita lo scontrino
+  originale e storna i pezzi resi. Il reso dalla Developer API non c'è ancora.
+
 Se lo stato di una feature cambia (spedita, rimossa dalla roadmap), questo
 elenco e la tabella Pricing in `CLAUDE.md` vanno aggiornati nello stesso PR.
 

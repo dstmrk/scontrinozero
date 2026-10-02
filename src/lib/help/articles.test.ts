@@ -330,3 +330,18 @@ describe("annullare-scontrino: taglio operativo distinto dalla guida", () => {
     expect(article.metaTitle.toLowerCase()).not.toContain("entro quando");
   });
 });
+
+/**
+ * Reso e annullo sono le due correzioni di uno scontrino e chi cerca l'una
+ * spesso ha bisogno dell'altra: i due articoli devono linkarsi a vicenda.
+ */
+describe("reso-merce: collegato all'annullo", () => {
+  it("cita l'annullo fra i correlati, e viceversa", () => {
+    expect(helpArticles["reso-merce"].related).toContain("annullare-scontrino");
+    expect(helpArticles["annullare-scontrino"].related).toContain("reso-merce");
+  });
+
+  it("nomina il prodotto nel metaTitle (intent operativo)", () => {
+    expect(helpArticles["reso-merce"].metaTitle).toContain("ScontrinoZero");
+  });
+});

@@ -554,7 +554,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Sì, uno scontrino elettronico si può annullare, anche nei giorni successivi all\'emissione: lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici, e quando invece è più corretto gestire un reso.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-10-02",
     readingMinutes: 6,
     sections: [
       {
@@ -563,7 +563,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Differenza fra annullamento e reso",
-        body: 'Annullamento: cancella fiscalmente lo scontrino come se non fosse mai esistito, lascia traccia normativa nel sistema AdE. Si usa quando lo scontrino è errato o non doveva essere emesso (es. cliente paga in contanti ma battuto come "elettronico"). Reso: lo scontrino originale resta valido, e si emette un nuovo DCO di importo negativo che documenta la restituzione (es. cliente torna dopo 3 giorni perché il prodotto è difettoso).',
+        body: 'Annullamento: cancella fiscalmente lo scontrino come se non fosse mai esistito, lascia traccia normativa nel sistema AdE. Si usa quando lo scontrino è errato o non doveva essere emesso (es. cliente paga in contanti ma battuto come "elettronico"). Reso: lo scontrino originale resta valido, e si emette un documento commerciale di reso che cita lo scontrino originale e storna solo i pezzi restituiti, anche una parte (es. cliente torna dopo 3 giorni perché il prodotto è difettoso). Il reso riduce i corrispettivi del giorno in cui viene emesso; l\'Agenzia delle Entrate ha confermato con il Principio di diritto n. 21 del 1° agosto 2019 che la procedura di reso merce vale anche per il documento commerciale.',
       },
       {
         heading: "Procedura tecnica con il portale AdE",
@@ -571,7 +571,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Procedura con software dedicato",
-        body: "Un software come ScontrinoZero ti permette di annullare uno scontrino direttamente dallo storico: apri la riga del documento e selezioni \"Annulla\". L'app emette per te il DCO di annullamento con i riferimenti corretti, lo trasmette ad AdE e aggiorna lo stato. È un'operazione irreversibile: una volta annullato, lo scontrino non si recupera. Per sicurezza il sistema chiede conferma esplicita.",
+        body: 'Un software come ScontrinoZero ti permette di annullare uno scontrino direttamente dallo storico: apri la riga del documento e selezioni "Annulla". L\'app emette per te il DCO di annullamento con i riferimenti corretti, lo trasmette ad AdE e aggiorna lo stato. È un\'operazione irreversibile: una volta annullato, lo scontrino non si recupera. Per sicurezza il sistema chiede conferma esplicita. Dallo stesso dettaglio, con "Fai un reso", emetti invece il documento di reso quando il cliente restituisce uno o più articoli.',
         image: {
           src: "/screenshots/storico-dettaglio.png",
           alt: "Dettaglio di uno scontrino nello Storico di ScontrinoZero, con l'azione per annullare il documento",
@@ -587,14 +587,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Casi pratici",
-        body: "Errore di battitura su un prezzo (es. €15 invece di €1,50): annulla e ribatti. Cliente cambia idea prima di uscire dal negozio: annulla e restituisci il contante o storna la carta. Doppia battitura accidentale dello stesso scontrino: annulla quello in eccesso. Reso a distanza di tempo (giorni): NON annullare, emetti un DCO di importo negativo (gestione reso). Vendita errata con fattura B2B: NON annullare il DCO, emetti una nota di credito sulla fattura.",
+        body: "Errore di battitura su un prezzo (es. €15 invece di €1,50): annulla e ribatti. Cliente cambia idea prima di uscire dal negozio: annulla e restituisci il contante o storna la carta. Doppia battitura accidentale dello stesso scontrino: annulla quello in eccesso. Reso a distanza di tempo (giorni): NON annullare, emetti un documento commerciale di reso. Vendita errata con fattura B2B: NON annullare il DCO, emetti una nota di credito sulla fattura.",
       },
     ],
     faq: [
       {
         question: "Posso annullare uno scontrino emesso ieri?",
         answer:
-          "Tecnicamente sì, l'AdE accetta l'annullamento entro termini ragionevoli. In pratica, se è passato più di un giorno e il cliente è tornato per restituzione, è più corretto trattare il caso come reso (DCO negativo) anziché come annullamento, perché lo scontrino originale ha già documentato un'operazione reale.",
+          "Tecnicamente sì, l'AdE accetta l'annullamento entro termini ragionevoli. In pratica, se è passato più di un giorno e il cliente è tornato per restituzione, è più corretto trattare il caso come reso (documento commerciale di reso) anziché come annullamento, perché lo scontrino originale ha già documentato un'operazione reale.",
       },
       {
         question: "Cosa succede se annullo uno scontrino con codice lotteria?",
