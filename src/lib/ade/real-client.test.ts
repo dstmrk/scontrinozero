@@ -2395,6 +2395,35 @@ describe("RealAdeClient", () => {
     });
   });
 
+  describe("submitReturn", () => {
+    // Stessa POST di vendita e annullo (HAR.md #19a): il reso è un documento
+    // del portale come gli altri, cambia solo il payload.
+    it("sends POST and returns AdeResponse with registeredAt", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: successResponse,
+          headers: [["Date", "Fri, 02 Oct 2026 14:15:16 GMT"]],
+        }),
+      );
+
+      const result = await client.submitReturn(makeSalePayload());
+      expect(result.esito).toBe(true);
+      expect(result.registeredAt).toBe("2026-10-02T14:15:16.000Z");
+      const [url, init] = fetchMock.mock.calls.at(-1)!;
+      expect(String(url)).toContain("/ser/api/documenti/v1/doc/documenti/");
+      expect(init.method).toBe("POST");
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.submitReturn(makeSalePayload())).rejects.toThrow(
+        "Not logged in",
+      );
+    });
+  });
+
   describe("submitVoid", () => {
     it("sends POST and returns AdeResponse", async () => {
       mockLoginSequence(fetchMock);

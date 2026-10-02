@@ -3,7 +3,7 @@ import {
   readRawPaymentMethod,
 } from "@/lib/receipts/public-request";
 import { v1Payments } from "@/lib/receipts/v1-payments";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -15,7 +15,10 @@ import {
 import { withStatementTimeout } from "@/lib/db-timeout";
 import { isValidUuid } from "@/lib/uuid";
 import { logger } from "@/lib/logger";
-import { requireBusinessApiAuth } from "@/lib/api-v1-helpers";
+import {
+  requireBusinessApiAuth,
+  V1_DOCUMENT_KINDS,
+} from "@/lib/api-v1-helpers";
 import { calcDocTotal } from "@/lib/receipts/document-lines";
 
 // Single-doc read: 2 indexed SELECT, atteso < 50ms p99. 3s di budget cattura
@@ -65,6 +68,8 @@ export async function GET(
           and(
             eq(commercialDocuments.id, id),
             eq(commercialDocuments.businessId, auth.businessId),
+            // Un reso non è (ancora) nel contratto v1: 404 come un id altrui.
+            inArray(commercialDocuments.kind, [...V1_DOCUMENT_KINDS]),
           ),
         )
         .limit(1);

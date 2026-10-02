@@ -11,10 +11,15 @@ import type { SelectBusiness } from "@/db/schema/businesses";
 import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 import { isValidUuid } from "@/lib/uuid";
 import { resolveReceiptFooterNote } from "./footer-note";
-import { printableDocumentCondition } from "./printable-document";
+import {
+  isPrintableDocument,
+  printableDocumentCondition,
+  type PrintableKind,
+} from "./printable-document";
 
 export interface PublicReceiptData {
-  doc: SelectCommercialDocument;
+  /** Solo i `kind` che hanno una resa (`PrintableKind`). */
+  doc: SelectCommercialDocument & { kind: PrintableKind };
   biz: SelectBusiness;
   /**
    * Righe contabili del documento. Su un annullo sono quelle della **vendita
@@ -94,6 +99,9 @@ export async function fetchPublicReceipt(
   if (rows.length === 0) return null;
 
   const { doc, biz, owner } = rows[0];
+  // La WHERE l'ha già garantito; il guard lo dice al tipo, e regge se la
+  // condizione SQL e la regola in memoria dovessero mai divergere.
+  if (!isPrintableDocument(doc)) return null;
 
   // Un annullo non ha righe proprie: ristampa quelle della vendita annullata.
   let voidedSale: SelectCommercialDocument | null = null;

@@ -104,6 +104,39 @@ Analogo all'emissione: `src/server/void-actions.ts` →
 CIE dell'emissione (pre-check `isCieSessionMissing` → `reauthRequired`,
 dialog "Ricollegati" in `src/components/storico/void-receipt-dialog.tsx`).
 
+## Reso merce (return) — motore, senza superficie utente
+
+Documento commerciale di reso (`HAR.md` #19). Oggi esiste il motore,
+`src/lib/services/return-service.ts`, con i suoi test; nessuna server action
+né route lo chiama ancora.
+
+1. Riga `commercial_documents` con `kind = 'RETURN'` e `returned_document_id`
+   verso la vendita (migrazione 0042). La vendita resta `ACCEPTED`: una
+   vendita può avere più resi, e il già-reso si legge dall'AdE (cumulativo
+   `reso` di riga nel dettaglio GET), che vede anche i resi fatti dal portale.
+2. Guardie nostre, perché l'AdE non le ha (#19f): niente reso di una vendita
+   annullata (DB, più flag `annulli` della riga V per l'annullo dal portale);
+   niente annullo di una vendita con un reso (`hasAnyReturn` in
+   `src/lib/services/void-service.ts`, sul dettaglio già letto). L'indice
+   `idx_commercial_documents_correction_in_flight` ammette **una sola
+   correzione PENDING per vendita**, annullo o reso.
+3. In sessione: ricerca V (annullata?) → `getDocument` → validazione delle
+   quantità sul residuo → `mapReturnToAdePayload`
+   (`src/lib/ade/return-mapper.ts`) e righe del reso
+   (`src/lib/receipts/return-lines.ts`, sconto ripartito in modo telescopico)
+   → importo atteso e righe scritti **prima** della POST → `submitReturn`.
+4. Recovery: come l'annullo, pull-based sulla stessa key, con
+   `reconcileReturnDocument` (`resi` + importo a 8 decimali). In più, una riga
+   PENDING stale di **un'altra** key non blocca per sempre: la si riconcilia,
+   e se è registrata la richiesta nuova va rifatta (`RETURN_STATE_CHANGED`),
+   se è assente si chiude ERROR e la nuova procede. Una riga nata in questa
+   richiesta e fallita prima della POST si cancella.
+5. Superfici: nessun RETURN è stampabile (`PrintableKind` in
+   `src/lib/receipts/printable-document.ts`) e la Developer API v1 resta su
+   `SALE`/`VOID` (`V1_DOCUMENT_KINDS`); analytics, CSV e storico filtrano già
+   `kind = 'SALE'`, quindi un reso non conta come vendita ma non viene
+   nemmeno sottratto. Logging con `flow: "return-receipt"`.
+
 ## Onboarding AdE (collegamento credenziali)
 
 1. Wizard `src/app/onboarding` → `src/server/onboarding-actions.ts` —

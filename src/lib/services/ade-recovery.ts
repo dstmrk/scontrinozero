@@ -108,7 +108,7 @@ export function isStaleUpdatedAt(
  * non c'è" e annacquerebbe il segnale — anche se il gate del recovery accetta
  * entrambi gli stati.
  *
- * Entrambi i `kind`: l'annullo tiene la chiave di idempotenza stabile per la
+ * Tutti i `kind`: l'annullo tiene la chiave di idempotenza stabile per la
  * vita del dialog e quindi ha l'ingresso della recovery aperto, ma una riga
  * `VOID` orfana resta comunque possibile (fallimento prima di qualunque
  * retry) e sarebbe altrettanto invisibile.
@@ -120,6 +120,8 @@ export function isStaleUpdatedAt(
 export type StalePendingCount = {
   readonly sale: number;
   readonly void: number;
+  /** Resi merce (migrazione 0042): stesso esito ignoto, stesso rischio. */
+  readonly return: number;
   /** `null` quando non ci sono righe. */
   readonly oldestCreatedAt: Date | null;
 };
@@ -134,6 +136,7 @@ export async function countStalePendingDocuments(
     .select({
       sale: sql<string>`count(*) FILTER (WHERE ${commercialDocuments.kind} = 'SALE')`,
       void: sql<string>`count(*) FILTER (WHERE ${commercialDocuments.kind} = 'VOID')`,
+      return: sql<string>`count(*) FILTER (WHERE ${commercialDocuments.kind} = 'RETURN')`,
       oldestCreatedAt: sql<
         string | Date | null
       >`min(${commercialDocuments.createdAt})`,
@@ -151,6 +154,7 @@ export async function countStalePendingDocuments(
   return {
     sale: toCount(row?.sale),
     void: toCount(row?.void),
+    return: toCount(row?.return),
     oldestCreatedAt: toDateOrNull(row?.oldestCreatedAt),
   };
 }
@@ -494,6 +498,37 @@ export function reconcileVoidDocument(params: {
       doc.tipoOperazione === "A" &&
       !claimedIdtrx?.has(doc.idtrx) &&
       doc.annulli === saleProgressivo,
+  );
+  return decide(candidates);
+}
+
+/**
+ * Riconcilia un RESO PENDING con i risultati di `searchDocuments`.
+ *
+ * `tipoOperazione === "R"` + `resi === saleProgressivo`, come l'annullo, ma
+ * qui non basta: una vendita può avere più resi (HAR.md #19e), e uno fatto dal
+ * portale non è rivendicato da nessuna nostra riga. Serve anche l'importo,
+ * confrontato a 8 decimali perché un reso parziale non cade sul centesimo
+ * (0,00666667 nella voce #19c) e due resi di terzi diversi differiscono meno
+ * di un centesimo.
+ *
+ * `expectedAmount` è l'`ammontareComplessivo` che avevamo trasmesso (stringa
+ * AdE a 8 decimali), persistito sulla riga prima della POST.
+ */
+export function reconcileReturnDocument(params: {
+  documents: AdeDocumentSummary[];
+  saleProgressivo: string;
+  expectedAmount: string;
+  claimedIdtrx?: ReadonlySet<string>;
+}): AdeReconcileResult {
+  const { documents, saleProgressivo, expectedAmount, claimedIdtrx } = params;
+  const expected = Math.round(Number(expectedAmount) * 100_000_000);
+  const candidates = documents.filter(
+    (doc) =>
+      doc.tipoOperazione === "R" &&
+      !claimedIdtrx?.has(doc.idtrx) &&
+      doc.resi === saleProgressivo &&
+      Math.round(doc.ammontareComplessivo * 100_000_000) === expected,
   );
   return decide(candidates);
 }

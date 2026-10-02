@@ -2322,6 +2322,10 @@ export class RealAdeClient implements AdeClient {
     return this.submitDocument(payload);
   }
 
+  async submitReturn(payload: AdePayload): Promise<AdeResponse> {
+    return this.submitDocument(payload);
+  }
+
   /**
    * Parsa il body JSON di una response GET già verificata `ok`. Se il portale
    * risponde 200 con body non-JSON (manutenzione HTML, troncamento, proxy) un

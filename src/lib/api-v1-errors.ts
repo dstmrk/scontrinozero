@@ -98,8 +98,13 @@ export const V1_ERROR_CATALOG = {
   ALREADY_REJECTED: { status: 409, retryable: false },
   /** La key identifica uno scontrino già annullato: serve una key nuova. */
   ALREADY_VOIDED: { status: 409, retryable: false },
-  /** Annullo concorrente già in corso sullo stesso SALE. */
+  /** Un'altra correzione (annullo o reso) già in corso sullo stesso SALE. */
   VOID_ALREADY_TARGETED: { status: 409, retryable: false },
+  /**
+   * Lo scontrino ha almeno un reso registrato sull'AdE: annullarlo
+   * stornerebbe il corrispettivo due volte (HAR.md #19f). Nessuna trasmissione.
+   */
+  ALREADY_RETURNED: { status: 409, retryable: false },
   /** Key riusata con un payload diverso, o fra emissione e annullo. */
   IDEMPOTENCY_PAYLOAD_MISMATCH: { status: 409, retryable: false },
   /** Sessione AdE (CIE) scaduta: va rinnovata dall'app web (fattore umano). */

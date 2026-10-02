@@ -6,6 +6,8 @@ import {
   AdeUtenzaSelectionRequiredError,
 } from "./errors";
 import { createAdeClient } from "./index";
+import { mapSaleToAdePayload } from "./mapper";
+import { mapReturnToAdePayload } from "./return-mapper";
 import type {
   AdePayload,
   AdeCedentePrestatore,
@@ -289,6 +291,126 @@ describe("MockAdeClient", () => {
 
     it("throws if not logged in", async () => {
       await expect(client.getProducts()).rejects.toThrow();
+    });
+  });
+
+  describe("archivio dei documenti emessi (reso in dev/sandbox)", () => {
+    function twoLineSale(): AdePayload {
+      return mapSaleToAdePayload(
+        {
+          date: "2026-10-02",
+          lotteryCode: null,
+          isGiftDocument: false,
+          lines: [
+            {
+              description: "doppio",
+              quantity: 2,
+              unitPriceGross: 3,
+              lineDiscount: 1,
+              vatCode: "22",
+              isGift: false,
+            },
+            {
+              description: "singolo",
+              quantity: 1,
+              unitPriceGross: 2,
+              lineDiscount: 0,
+              vatCode: "N2",
+              isGift: false,
+            },
+          ],
+          payments: [{ type: "CASH", amount: 7 }],
+          globalDiscount: 0,
+          deductibleAmount: 0,
+        },
+        mockCedentePrestatore,
+      );
+    }
+
+    it("conia idtrx e progressivi univoci fra istanze diverse", async () => {
+      const a = new MockAdeClient();
+      const b = new MockAdeClient();
+      await a.login(mockCredentials);
+      await b.login(mockCredentials);
+      const first = await a.submitSale(twoLineSale());
+      const second = await b.submitSale(twoLineSale());
+
+      expect(first.idtrx).not.toBe(second.idtrx);
+      expect(first.progressivo).not.toBe(second.progressivo);
+    });
+
+    it("il dettaglio di una vendita emessa porta righe e reso a zero", async () => {
+      await client.login(mockCredentials);
+      const sale = await client.submitSale(twoLineSale());
+
+      const other = new MockAdeClient();
+      await other.login(mockCredentials);
+      const doc = await other.getDocument(sale.idtrx!);
+
+      expect(doc.documentoCommerciale.numeroProgressivo).toBe(sale.progressivo);
+      expect(
+        doc.documentoCommerciale.elementiContabili.map((el) => [
+          el.descrizioneProdotto,
+          el.quantita,
+          el.reso,
+        ]),
+      ).toEqual([
+        ["doppio", "2.00", "0"],
+        ["singolo", "1.00", "0"],
+      ]);
+      expect(
+        new Set(
+          doc.documentoCommerciale.elementiContabili.map(
+            (el) => el.idElementoContabile,
+          ),
+        ).size,
+      ).toBe(2);
+    });
+
+    it("submitReturn accumula il reso sulle righe della vendita", async () => {
+      await client.login(mockCredentials);
+      const sale = await client.submitSale(twoLineSale());
+      const before = await client.getDocument(sale.idtrx!);
+
+      const response = await client.submitReturn(
+        mapReturnToAdePayload({
+          cedentePrestatore: mockCedentePrestatore,
+          originalDoc: before,
+          originalProgressive: sale.progressivo!,
+          quantities: [1, 1],
+        }),
+      );
+      expect(response.esito).toBe(true);
+      expect(response.idtrx).not.toBe(sale.idtrx);
+
+      const after = await client.getDocument(sale.idtrx!);
+      expect(
+        after.documentoCommerciale.elementiContabili.map((el) => el.reso),
+      ).toEqual(["1", "1"]);
+    });
+
+    it("l'archivio ha un tetto: le vendite più vecchie escono per prime", async () => {
+      await client.login(mockCredentials);
+      const first = await client.submitSale(twoLineSale());
+      for (let i = 0; i < 500; i++) await client.submitSale(twoLineSale());
+
+      const evicted = await client.getDocument(first.idtrx!);
+      expect(evicted.documentoCommerciale.elementiContabili).toEqual([]);
+    });
+
+    it("submitReturn rifiuta come l'AdE quando la vendita non è in archivio", async () => {
+      await client.login(mockCredentials);
+      const response = await client.submitReturn({
+        ...twoLineSale(),
+        idtrx: "999",
+      });
+
+      expect(response.esito).toBe(false);
+      expect(response.errori).toHaveLength(1);
+    });
+
+    it("submitReturn senza sessione rifiuta la Promise", async () => {
+      await expect(client.submitReturn(twoLineSale())).rejects.toThrow();
     });
   });
 

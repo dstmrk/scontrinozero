@@ -36,6 +36,7 @@ import {
   markDocumentErrorBestEffort,
   parseAdeResultDate,
   reconcileSaleDocument,
+  reconcileReturnDocument,
   reconcileVoidDocument,
   staleUpdatedBefore,
 } from "./ade-recovery";
@@ -600,7 +601,12 @@ describe("countStalePendingDocuments", () => {
 
   it("legge i conteggi per kind e l'età della riga più vecchia", async () => {
     mockSelectWhere.mockResolvedValue([
-      { sale: "3", void: "1", oldestCreatedAt: "2026-09-01T08:00:00.000Z" },
+      {
+        sale: "3",
+        void: "1",
+        return: "2",
+        oldestCreatedAt: "2026-09-01T08:00:00.000Z",
+      },
     ]);
 
     const result = await countStalePendingDocuments(getDb());
@@ -608,6 +614,7 @@ describe("countStalePendingDocuments", () => {
     expect(result).toEqual({
       sale: 3,
       void: 1,
+      return: 2,
       oldestCreatedAt: new Date("2026-09-01T08:00:00.000Z"),
     });
   });
@@ -619,7 +626,12 @@ describe("countStalePendingDocuments", () => {
 
     const result = await countStalePendingDocuments(getDb());
 
-    expect(result).toEqual({ sale: 0, void: 0, oldestCreatedAt: null });
+    expect(result).toEqual({
+      sale: 0,
+      void: 0,
+      return: 0,
+      oldestCreatedAt: null,
+    });
   });
 
   it("degrada a zero se l'aggregato non torna nessuna riga", async () => {
@@ -627,7 +639,12 @@ describe("countStalePendingDocuments", () => {
 
     const result = await countStalePendingDocuments(getDb());
 
-    expect(result).toEqual({ sale: 0, void: 0, oldestCreatedAt: null });
+    expect(result).toEqual({
+      sale: 0,
+      void: 0,
+      return: 0,
+      oldestCreatedAt: null,
+    });
   });
 
   it("accetta un Date già tipizzato dal driver", async () => {
@@ -665,5 +682,114 @@ describe("countStalePendingDocuments", () => {
     // in corso.
     const [where] = mockSelectWhere.mock.calls[0] as [unknown];
     expect(JSON.stringify(where)).toContain("2026-09-10T11:30:00.000Z");
+  });
+});
+
+describe("reconcileReturnDocument", () => {
+  // HAR.md #19e: su una riga R, `resi` è il progressivo della vendita resa, e
+  // una vendita può averne più d'una. Il progressivo da solo non basta.
+  const SALE = "DCW2026/4801-7890";
+
+  it("ritorna match sul reso della vendita con lo stesso importo", () => {
+    const result = reconcileReturnDocument({
+      documents: [
+        summary({
+          idtrx: "247990317",
+          numeroProgressivo: "DCW2026/4801-8782",
+          tipoOperazione: "R",
+          resi: SALE,
+          ammontareComplessivo: 0.045,
+        }),
+      ],
+      saleProgressivo: SALE,
+      expectedAmount: "0.04500000",
+    });
+    expect(result).toMatchObject({
+      kind: "match",
+      idtrx: "247990317",
+      numeroProgressivo: "DCW2026/4801-8782",
+    });
+  });
+
+  it("confronta a 8 decimali: un terzo di centesimo non è un altro reso", () => {
+    const docs = [
+      summary({
+        idtrx: "a",
+        tipoOperazione: "R",
+        resi: SALE,
+        ammontareComplessivo: 0.00666667,
+      }),
+      summary({
+        idtrx: "b",
+        tipoOperazione: "R",
+        resi: SALE,
+        ammontareComplessivo: 0.01333333,
+      }),
+    ];
+    const result = reconcileReturnDocument({
+      documents: docs,
+      saleProgressivo: SALE,
+      expectedAmount: "0.01333333",
+    });
+    expect(result).toMatchObject({ kind: "match", idtrx: "b" });
+  });
+
+  it("ignora i resi già collegati ad altre nostre righe", () => {
+    const result = reconcileReturnDocument({
+      documents: [
+        summary({
+          idtrx: "claimed",
+          tipoOperazione: "R",
+          resi: SALE,
+          ammontareComplessivo: 0.025,
+        }),
+      ],
+      saleProgressivo: SALE,
+      expectedAmount: "0.02500000",
+      claimedIdtrx: new Set(["claimed"]),
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("due resi identici non rivendicati sono ambigui, non un match", () => {
+    const twin = {
+      tipoOperazione: "R" as const,
+      resi: SALE,
+      ammontareComplessivo: 0.025,
+    };
+    const result = reconcileReturnDocument({
+      documents: [
+        summary({ idtrx: "x", ...twin }),
+        summary({ idtrx: "y", ...twin }),
+      ],
+      saleProgressivo: SALE,
+      expectedAmount: "0.02500000",
+    });
+    expect(result.kind).toBe("ambiguous");
+  });
+
+  it("ignora vendite, annulli e resi di un'altra vendita", () => {
+    const result = reconcileReturnDocument({
+      documents: [
+        summary({
+          tipoOperazione: "V",
+          resi: "R",
+          ammontareComplessivo: 0.025,
+        }),
+        summary({
+          tipoOperazione: "A",
+          annulli: SALE,
+          ammontareComplessivo: 0.025,
+        }),
+        summary({
+          tipoOperazione: "R",
+          resi: "DCW2026/4801-0001",
+          ammontareComplessivo: 0.025,
+        }),
+      ],
+      saleProgressivo: SALE,
+      expectedAmount: "0.02500000",
+    });
+    expect(result).toEqual({ kind: "none" });
   });
 });

@@ -20,6 +20,7 @@ import {
 } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
+import { hasAnyReturn } from "@/lib/ade/return-mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
   retryOnStatementTimeout,
@@ -242,12 +243,27 @@ async function resolveVoidConflict(
     );
   }
 
-  // Case B: different idempotencyKey, same voidedDocumentId → race condition blocked.
+  // Case B: different idempotencyKey, same SALE → race condition blocked.
+  // L'indice "una correzione in volo per vendita" (migrazione 0042) fa
+  // scattare il conflitto anche per un RESO PENDING: il messaggio deve dire
+  // quale delle due correzioni è in corso.
+  const [returnInFlight] = await db
+    .select({ id: commercialDocuments.id })
+    .from(commercialDocuments)
+    .where(
+      and(
+        eq(commercialDocuments.returnedDocumentId, voidedDocumentId),
+        eq(commercialDocuments.status, "PENDING"),
+      ),
+    )
+    .limit(1);
+
   return {
     kind: "done",
     result: {
-      error:
-        "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
+      error: returnInFlight
+        ? "Su questo scontrino è in corso un reso: riprova quando è concluso."
+        : "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
       code: "VOID_ALREADY_TARGETED",
     },
   };
@@ -835,6 +851,22 @@ export async function voidReceiptForBusiness(
         // Fetch original document from AdE to get real idElementoContabile values
         const originalAdeDoc =
           await adeClient.getDocument(saleAdeTransactionId);
+
+        // HAR.md #19f: l'AdE accetta l'annullo di una vendita già resa e
+        // storna il corrispettivo due volte. Il cumulativo `reso` del
+        // dettaglio vede anche i resi fatti dal portale.
+        if (hasAnyReturn(originalAdeDoc)) {
+          await markDocumentErrorBestEffort(
+            voidDocumentId,
+            { voidDocumentId },
+            "Failed to mark VOID as ERROR after returned-sale refusal",
+          );
+          return {
+            error:
+              "Lo scontrino ha già un reso: non si può annullare. Per stornare il resto, emetti un reso dei prodotti rimasti.",
+            code: "ALREADY_RETURNED",
+          };
+        }
 
         const voidReq: VoidRequest = {
           idempotencyKey: input.idempotencyKey,

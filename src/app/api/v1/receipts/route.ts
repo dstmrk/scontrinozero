@@ -35,6 +35,7 @@ import {
   parseListPagination,
   serviceErrorResponse,
   ADE_REAUTH_REQUIRED_MESSAGE,
+  V1_DOCUMENT_KINDS,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
@@ -291,15 +292,18 @@ export async function GET(request: Request): Promise<Response> {
     lt(commercialDocuments.createdAt, toDateExclusive),
     inArray(commercialDocuments.status, listStatusValues(status)),
   ];
-  if (kind) {
-    conditions.push(eq(commercialDocuments.kind, kind));
-  }
+  conditions.push(
+    kind
+      ? eq(commercialDocuments.kind, kind)
+      : inArray(commercialDocuments.kind, [...V1_DOCUMENT_KINDS]),
+  );
 
   let queryResult: {
     total: number;
     docs: Array<{
       id: string;
-      kind: "SALE" | "VOID";
+      // Il tipo della colonna; la WHERE tiene fuori ciò che non è V1_DOCUMENT_KINDS.
+      kind: "SALE" | "VOID" | "RETURN";
       status: string;
       idempotencyKey: string;
       adeTransactionId: string | null;

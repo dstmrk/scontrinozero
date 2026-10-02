@@ -16,7 +16,11 @@ import type { AdeResponse } from "@/lib/ade/types";
 import { businesses } from "./businesses";
 import { apiKeys } from "./api-keys";
 
-export const documentKindEnum = pgEnum("document_kind", ["SALE", "VOID"]);
+export const documentKindEnum = pgEnum("document_kind", [
+  "SALE",
+  "VOID",
+  "RETURN",
+]);
 
 export const documentStatusEnum = pgEnum("document_status", [
   "PENDING",
@@ -28,7 +32,8 @@ export const documentStatusEnum = pgEnum("document_status", [
 
 /**
  * Scontrini elettronici emessi tramite Documento Commerciale Online (AdE).
- * Ogni record corrisponde a una vendita (SALE) o un annullo (VOID).
+ * Ogni record corrisponde a una vendita (SALE), un annullo (VOID) o un reso
+ * merce (RETURN, migrazione 0042 — HAR.md #19).
  * Il payload AdE response è archiviato as-is per audit.
  */
 export const commercialDocuments = pgTable(
@@ -69,6 +74,14 @@ export const commercialDocuments = pgTable(
      * FK definita nella table config con nome corto per rispettare il limite di 63 chars PostgreSQL.
      */
     voidedDocumentId: uuid("voided_document_id"),
+    /**
+     * Per documenti RETURN: UUID del SALE reso (migrazione 0042). Senza
+     * vincolo unique — una vendita può avere più resi parziali — ma coperto
+     * dall'indice "una correzione in volo per vendita", condiviso con
+     * `voidedDocumentId`: due resi, o un reso e un annullo, non possono essere
+     * PENDING insieme sulla stessa vendita.
+     */
+    returnedDocumentId: uuid("returned_document_id"),
     /**
      * Istante di registrazione presso l'AdE (migrazione 0031).
      *
@@ -126,6 +139,22 @@ export const commercialDocuments = pgTable(
       columns: [table.voidedDocumentId],
       foreignColumns: [table.id],
     }).onDelete("set null"),
+    foreignKey({
+      name: "fk_comm_docs_returned_doc",
+      columns: [table.returnedDocumentId],
+      foreignColumns: [table.id],
+    }).onDelete("set null"),
+    index("idx_commercial_documents_returned_document_id")
+      .on(table.returnedDocumentId)
+      .where(sql`${table.returnedDocumentId} IS NOT NULL`),
+    // Una sola correzione (annullo O reso) in volo per vendita (0042).
+    uniqueIndex("idx_commercial_documents_correction_in_flight")
+      .on(
+        sql`(COALESCE(${table.voidedDocumentId}, ${table.returnedDocumentId}))`,
+      )
+      .where(
+        sql`${table.status} = 'PENDING' AND (${table.voidedDocumentId} IS NOT NULL OR ${table.returnedDocumentId} IS NOT NULL)`,
+      ),
   ],
 );
 

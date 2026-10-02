@@ -133,6 +133,7 @@ const SERVICE_CODE_TO_V1: Record<string, V1ErrorCode> = {
   ALREADY_VOIDED: "ALREADY_VOIDED",
   VOID_PENDING_IN_PROGRESS: "VOID_PENDING_IN_PROGRESS",
   VOID_ALREADY_TARGETED: "VOID_ALREADY_TARGETED",
+  ALREADY_RETURNED: "ALREADY_RETURNED",
   VOID_SYNC_FAILED: "VOID_SYNC_FAILED",
   IDEMPOTENCY_PAYLOAD_MISMATCH: "IDEMPOTENCY_PAYLOAD_MISMATCH",
   ADE_REAUTH_REQUIRED: "ADE_REAUTH_REQUIRED",
@@ -263,10 +264,18 @@ export const LIST_MAX_LIMIT = 100;
 // Nota: nessun `.max()` su `limit` — un `limit` oltre il massimo NON è un errore
 // ma viene *ridotto* a LIST_MAX_LIMIT nel return (soft cap convenzionale). Solo
 // i valori malformati (non interi, < 1) sono rifiutati con 400.
+/**
+ * I `kind` del contratto `/api/v1/receipts` (DEVELOPER.md). Il reso
+ * (`RETURN`, migrazione 0042) non ne fa parte finché non è documentato lì:
+ * un valore nuovo dell'enum in risposta romperebbe un consumer che lo valida
+ * in modo stretto. Elenco e dettaglio filtrano su questa costante.
+ */
+export const V1_DOCUMENT_KINDS = ["SALE", "VOID"] as const;
+
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).optional(),
-  kind: z.enum(["SALE", "VOID"]).optional(),
+  kind: z.enum(V1_DOCUMENT_KINDS).optional(),
   // L'enum completo di `document_status` (src/db/schema/commercial-documents.ts),
   // non il solo `PENDING`: chi riconcilia le proprie scritture con le nostre ha
   // bisogno tanto degli scontrini in sospeso quanto di quelli finiti in `ERROR`

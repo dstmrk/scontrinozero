@@ -298,6 +298,12 @@ export interface AdeDocumentSummary {
    * (es. "DCW2026/5432-1548"). Assente se non pertinente. HAR: ricerca.har.
    */
   annulli?: string;
+  /**
+   * Stessa doppia semantica di `annulli` (HAR.md #19e). Su una vendita (V):
+   * "R" se ha almeno un reso. Su un reso (R): il numeroProgressivo della
+   * vendita resa — e una vendita può averne più d'uno.
+   */
+  resi?: string;
 }
 
 /** Risposta lista documenti (GET /documenti/) */
@@ -311,6 +317,9 @@ export interface AdeDocumentList {
  *
  * HAR finding (annullo.har [04]): resiPregressi è assente nella risposta GET
  * ma richiesto nel POST dell'annullo — il mapper lo aggiunge come "0.00".
+ *
+ * `reso` qui è il **cumulativo** dei pezzi già resi sulla riga (HAR.md #19a):
+ * `"0"` prima di ogni reso, e diventa il `resiPregressi` del reso successivo.
  */
 export interface AdeDocumentDetailElemento {
   idElementoContabile: string;
@@ -338,7 +347,12 @@ export interface AdeDocumentDetailElemento {
  * - elementiContabili senza resiPregressi (aggiunto dal mapper nel POST)
  */
 export interface AdeDocumentDetailBody {
-  cfCessionarioCommittente: string;
+  /**
+   * Codice lotteria (o CF) del cliente. **Assente** dal GET quando è vuoto
+   * (HAR.md #19: nessuno dei dettagli delle catture di reso lo porta), mentre
+   * nel POST il portale lo manda sempre, `""` compreso.
+   */
+  cfCessionarioCommittente?: string;
   flagDocCommPerRegalo: boolean;
   progressivoCollegato?: string;
   /** Data/ora documento in formato DD/MM/YYYY */
@@ -375,7 +389,7 @@ export interface AdeDocumentDetail {
  *
  * HAR finding (ricerca.har, annullo.har [03], [04]):
  * - query date in formato MM/DD/YYYY (es. "01/31/2026")
- * - tipoOperazione: "V" per vendite, "A" per annulli
+ * - tipoOperazione: "V" per vendite, "A" per annulli, "R" per resi
  * - la request reale include sempre anche start=1, pages=0, perPage e un
  *   cache-buster v=<timestamp>: gestiti da RealAdeClient.searchDocuments, non
  *   esposti qui (il chiamante controlla solo i filtri + page/perPage).
