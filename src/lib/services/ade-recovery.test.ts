@@ -125,6 +125,25 @@ describe("claimStaleDocument", () => {
 
     expect(won).toBe(false);
   });
+
+  it("di default non tocca lo stato: una riga ERROR resta ERROR", async () => {
+    mockReturning.mockResolvedValue([{ id: "doc-1" }]);
+
+    await claimStaleDocument(getDb(), "doc-1", new Date());
+
+    expect(mockSet.mock.calls[0]![0]).not.toHaveProperty("status");
+  });
+
+  it("con `reopen` riporta la riga a PENDING nello stesso UPDATE", async () => {
+    mockReturning.mockResolvedValue([{ id: "doc-1" }]);
+
+    await claimStaleDocument(getDb(), "doc-1", new Date(), { reopen: true });
+
+    expect(mockSet).toHaveBeenCalledWith({
+      updatedAt: expect.any(Date),
+      status: "PENDING",
+    });
+  });
 });
 
 describe("findClaimedTransactionIds", () => {

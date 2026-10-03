@@ -1,10 +1,30 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { fetchLinesByDocIds } from "@/lib/receipts/document-lines";
 
 /** Pezzi già resi per vendita (`id`) e per `lineIndex`. */
 export type ReturnedByLine = Map<string, Map<number, number>>;
+
+/**
+ * Colonna SQL "questa vendita ha almeno un reso accettato", da mettere nella
+ * SELECT della vendita: l'annullo la legge prima di aprire la sessione AdE,
+ * perché annullare una vendita resa storna il corrispettivo due volte e l'AdE
+ * lo accetta (HAR.md #19f).
+ *
+ * La vendita esterna è nominata con la tabella di proposito. Nella lista della
+ * SELECT drizzle rende `commercialDocuments.id` come `"id"` nudo, e dentro la
+ * subquery `"id"` si risolverebbe su `r.id`: una guardia sempre falsa, che
+ * nessun test con il DB mockato vedrebbe.
+ */
+export function saleHasAcceptedReturn(): SQL<boolean> {
+  return sql<boolean>`EXISTS (
+    SELECT 1 FROM ${commercialDocuments} AS r
+    WHERE r.returned_document_id = ${commercialDocuments}.id
+      AND r.kind = 'RETURN'
+      AND r.status = 'ACCEPTED'
+  )`;
+}
 
 /** Stesso contratto di `fetchLinesByDocIds`: db del pool o `tx`. */
 type QueryRunner = {

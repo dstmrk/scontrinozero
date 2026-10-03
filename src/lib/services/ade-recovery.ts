@@ -192,15 +192,27 @@ function toDateOrNull(value: unknown): Date | null {
  * ha il column-type context per bindare una JS Date (crash `Buffer.byteLength`
  * in postgres-js) e il default `NOW()` ha precisione al microsecondo mentre la
  * JS Date è al millisecondo (stesso pattern di `verifyAdeCredentials`).
+ *
+ * `reopen` riporta una riga `ERROR` a `PENDING` nello stesso UPDATE. Serve ad
+ * annullo e reso: gli indici che li serializzano sulla vendita (0012 per i
+ * VOID, 0042 "una correzione in volo per vendita") escludono `ERROR`, e una
+ * ritrasmissione da una riga `ERROR` partirebbe fuori da entrambi, in
+ * parallelo a un'altra correzione. Se un'altra correzione è già in volo
+ * l'UPDATE viola l'indice e lancia (23505): lo gestisce il chiamante. La
+ * vendita non lo usa: non ha un indice da cui uscire.
  */
 export async function claimStaleDocument(
   db: ReturnType<typeof getDb>,
   documentId: string,
   observedUpdatedAt: Date,
+  options: { reopen?: boolean } = {},
 ): Promise<boolean> {
   const claimed = await db
     .update(commercialDocuments)
-    .set({ updatedAt: new Date() })
+    .set({
+      updatedAt: new Date(),
+      ...(options.reopen ? { status: "PENDING" as const } : {}),
+    })
     .where(
       and(
         eq(commercialDocuments.id, documentId),

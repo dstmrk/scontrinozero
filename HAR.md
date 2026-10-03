@@ -1683,3 +1683,13 @@ controllo dell'interfaccia, presumibilmente legato all'abbinamento POS-cassa
   accetta. Per il reso seguiamo l'annullo.
 - **Un reso oltre la quantità residua.** Non provato: non sappiamo se l'AdE
   lo rifiuta. Lo impediamo noi.
+- **Il reso di una vendita emessa fino alla v1.7.0.** Quel mapper mandava
+  `prezzoUnitario` di riga (voce #11): sulle sue righe da più pezzi le formule
+  della voce #19b stornano un multiplo dell'importo. Non sappiamo cosa faccia
+  il portale su quei documenti né se l'AdE rifiuti un reso più grande della
+  vendita. Lo impediamo noi (`isReturnComputable`).
+- **L'`ammontareComplessivo` della lista di ricerca oltre i tre decimali.** La
+  voce #19e mostra `0.045` e `0.025`, cioè nessun arrotondamento al
+  centesimo; un reso in terzi (`0.00666667`) in lista non è catturato. La
+  riconciliazione confronta a 8 decimali: se la lista arrotondasse, un reso
+  registrato risulterebbe assente e verrebbe ritrasmesso.

@@ -171,6 +171,24 @@ recovery flow, batch jobs) cliccare almeno una volta su sandbox subito dopo il
 tag. I 2400+ unit test verdi non garantiscono che postgres-js sappia binare i
 parametri reali.
 
+### Subquery correlata nella lista della SELECT: la colonna esterna esce nuda
+
+In una `select({...})` su una tabella sola Drizzle rende le colonne **senza**
+tabella: `${commercialDocuments.id}` diventa `"id"`. Dentro una subquery
+correlata sulla stessa tabella (`EXISTS (SELECT 1 FROM ... AS r WHERE
+r.x = ${commercialDocuments.id})`) quel `"id"` si risolve sullo scope interno,
+cioè su `r.id`, e la condizione è sempre falsa. Nessun errore, nessun test con
+il DB mockato se ne accorge: è successo alla guardia "niente annullo di una
+vendita resa", verificata su PGlite prima del merge.
+
+**Pattern:** nominare la tabella esterna, `${commercialDocuments}.id`
+(→ `"commercial_documents".id`, invisibile dentro la subquery aliasata).
+**Test:** rendere il frammento con lo schema vero (`new
+QueryBuilder().select(...).toSQL()`) e asserire la correlazione — esempio in
+`src/lib/receipts/returned-quantities.test.ts`. E il frammento va costruito in
+una funzione, non a livello di modulo: molti test mockano `drizzle-orm` con un
+`sql` che non è una funzione, e un `sql` al caricamento li rompe all'import.
+
 ---
 
 ## Race condition multi-riga: constraint DB > application lock

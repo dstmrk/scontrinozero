@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db", () => ({ getDb: vi.fn() }));
 
-import { fetchReturnedByLine } from "./returned-quantities";
+import { QueryBuilder } from "drizzle-orm/pg-core";
+import { commercialDocuments } from "@/db/schema";
+import {
+  fetchReturnedByLine,
+  saleHasAcceptedReturn,
+} from "./returned-quantities";
 
 /**
  * Runner finto: la prima select sono i resi (risolve al `.where`), la
@@ -65,5 +70,29 @@ describe("fetchReturnedByLine", () => {
     expect(result.get("sale-1")?.get(0)).toBe(0.3);
     expect(result.get("sale-1")?.get(1)).toBe(1);
     expect(result.get("sale-2")?.get(0)).toBe(2);
+  });
+});
+
+describe("saleHasAcceptedReturn", () => {
+  // Lo schema è quello vero: è l'SQL reso da drizzle che va controllato, non
+  // un mock. Con `${commercialDocuments.id}` la vendita esterna usciva come
+  // `"id"` nudo e la subquery la leggeva come `r.id`: guardia sempre falsa.
+  function renderedSql(): string {
+    return new QueryBuilder()
+      .select({ id: commercialDocuments.id, returned: saleHasAcceptedReturn() })
+      .from(commercialDocuments)
+      .toSQL().sql;
+  }
+
+  it("correla il reso alla vendita esterna nominata con la tabella", () => {
+    expect(renderedSql()).toContain(
+      'r.returned_document_id = "commercial_documents".id',
+    );
+  });
+
+  it("conta solo i resi accettati", () => {
+    const text = renderedSql();
+    expect(text).toContain("r.kind = 'RETURN'");
+    expect(text).toContain("r.status = 'ACCEPTED'");
   });
 });

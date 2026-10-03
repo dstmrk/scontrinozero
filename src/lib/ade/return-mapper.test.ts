@@ -8,14 +8,20 @@ import {
   serie2Reso2,
   type ResoHarCase,
 } from "../../../tests/_helpers/reso-har-fixtures";
+import { computeLineAmounts } from "./mapper";
 import {
   getReturnableQuantities,
   getReturnedQuantities,
   hasAnyReturn,
+  isReturnComputable,
   mapReturnToAdePayload,
   validateReturnQuantities,
 } from "./return-mapper";
-import type { AdeCedentePrestatore, AdeDocumentDetail } from "./types";
+import type {
+  AdeCedentePrestatore,
+  AdeDocumentDetail,
+  AdeDocumentDetailElemento,
+} from "./types";
 
 const cedente: AdeCedentePrestatore = {
   identificativiFiscali: {
@@ -180,6 +186,119 @@ describe("hasAnyReturn", () => {
     expect(hasAnyReturn(serie1Reso2.before)).toBe(true);
     expect(hasAnyReturn(serie1DopoResi)).toBe(true);
   });
+
+  it("è vero se il cumulativo non si legge: blocca l'annullo, non lo lascia passare", () => {
+    expect(hasAnyReturn(withLine({ quantita: "3", reso: "" }))).toBe(true);
+    expect(
+      hasAnyReturn(
+        withLine({ quantita: "3", reso: undefined as unknown as string }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("isReturnComputable — le formule del portale reggono sulla riga?", () => {
+  it.each([
+    ["serie 1, reso 1", serie1Reso1],
+    ["serie 1, reso 2", serie1Reso2],
+    ["serie 2, reso 1", serie2Reso1],
+    ["serie 2, reso 2", serie2Reso2],
+  ])("sì sugli oracoli HAR: %s", (_label, c) => {
+    expect(isReturnComputable(c.before, c.quantities)).toBe(true);
+  });
+
+  it.each([
+    ["quantità intera con sconto di riga", 2, 3, 1, "22"],
+    ["quantità frazionaria a due decimali", 0.25, 3.99, 0, "10"],
+    ["natura, più pezzi", 4, 2.5, 0, "N2"],
+    ["tre decimali che arrotondano innocui", 0.125, 1, 0, "22"],
+  ])(
+    "sì su una riga del mapper attuale: %s",
+    (_label, quantity, unitPriceGross, lineDiscount, vatCode) => {
+      const doc = docOf(
+        currentLine({ quantity, unitPriceGross, lineDiscount, vatCode }),
+      );
+      const all = Number(
+        doc.documentoCommerciale.elementiContabili[0]!.quantita,
+      );
+      expect(isReturnComputable(doc, [all])).toBe(true);
+    },
+  );
+
+  it("no su una vendita API a tre decimali che l'AdE ha ricevuto arrotondata", () => {
+    // 0,125 kg a 10 €/kg: venduto 1,25 €, ma l'AdE ha `quantita` 0,13 e
+    // `prezzoUnitario × 0,13` storna 1,30 €.
+    const doc = docOf(
+      currentLine({
+        quantity: 0.125,
+        unitPriceGross: 10,
+        lineDiscount: 0,
+        vatCode: "22",
+      }),
+    );
+    expect(isReturnComputable(doc, [0.13])).toBe(false);
+  });
+
+  it("no su una riga da più pezzi emessa fino alla v1.7.0 (prezzoUnitario di riga)", () => {
+    // Mapper ≤ v1.7.0 (HAR.md #11): 2 × 3,00 € al 22% → prezzoLordo e
+    // prezzoUnitario di RIGA. Il reso di 1 pezzo stornerebbe 6,00 €.
+    const doc = docOf(
+      legacyLine({ quantita: "2", prezzoUnitario: "4.92", imponibile: "4.92" }),
+    );
+    expect(isReturnComputable(doc, [1])).toBe(false);
+  });
+
+  it("sì su una riga da un pezzo senza sconto della v1.7.0: le formule coincidono", () => {
+    const doc = docOf(
+      legacyLine({ quantita: "1", prezzoUnitario: "2.46", imponibile: "2.46" }),
+    );
+    expect(isReturnComputable(doc, [1])).toBe(true);
+  });
+
+  it("no su uno sconto di riga della v1.7.0 (scontoUnitario lordo per pezzo)", () => {
+    // 1 × 5,00 € con sconto 1,00 € al 22%: imponibileNetto 3,28, ma
+    // imponibile − scontoUnitario fa 3,10.
+    const doc = docOf(
+      legacyLine({
+        quantita: "1",
+        prezzoUnitario: "4.10",
+        imponibile: "4.10",
+        scontoUnitario: "1.00",
+        imponibileNetto: "3.28",
+      }),
+    );
+    expect(isReturnComputable(doc, [1])).toBe(false);
+  });
+
+  it("guarda solo le righe rese adesso", () => {
+    const doc = docOf(
+      legacyLine({ quantita: "2", prezzoUnitario: "4.92", imponibile: "4.92" }),
+      legacyLine({ quantita: "1", prezzoUnitario: "2.46", imponibile: "2.46" }),
+    );
+    expect(isReturnComputable(doc, [0, 1])).toBe(true);
+    expect(isReturnComputable(doc, [1, 0])).toBe(false);
+  });
+
+  it("no su importi illeggibili", () => {
+    const doc = docOf(
+      legacyLine({ quantita: "1", prezzoUnitario: "", imponibile: "2.46" }),
+    );
+    expect(isReturnComputable(doc, [1])).toBe(false);
+  });
+
+  it("il mapper si rifiuta di costruire il payload", () => {
+    const doc = docOf(
+      legacyLine({ quantita: "2", prezzoUnitario: "4.92", imponibile: "4.92" }),
+    );
+    expect(() =>
+      mapReturnToAdePayload({
+        cedentePrestatore: cedente,
+        originalDoc: doc,
+        originalProgressive: "DCW2026/1-1",
+        quantities: [1],
+      }),
+    ).toThrow(/reso/i);
+  });
 });
 
 describe("validateReturnQuantities", () => {
@@ -215,7 +334,64 @@ describe("validateReturnQuantities", () => {
       "EXCEEDS_RETURNABLE",
     );
   });
+
+  it("rifiuta se il residuo non si legge, invece di dare via libera", () => {
+    expect(
+      validateReturnQuantities(withLine({ quantita: "3", reso: "x" }), [1]),
+    ).toBe("EXCEEDS_RETURNABLE");
+    expect(
+      validateReturnQuantities(withLine({ quantita: "", reso: "0" }), [1]),
+    ).toBe("EXCEEDS_RETURNABLE");
+  });
 });
+
+/** Riga del dettaglio GET come la produce il mapper di vendita attuale. */
+function currentLine(line: {
+  quantity: number;
+  unitPriceGross: number;
+  lineDiscount: number;
+  vatCode: string;
+}): AdeDocumentDetailElemento {
+  const { resiPregressi: _resiPregressi, ...el } = computeLineAmounts({
+    ...line,
+    description: "riga",
+    isGift: false,
+  });
+  return { ...el, idElementoContabile: "1", reso: "0" };
+}
+
+/** Riga del mapper ≤ v1.7.0: importi al centesimo, prezzi di riga. */
+function legacyLine(
+  over: Partial<AdeDocumentDetailElemento>,
+): AdeDocumentDetailElemento {
+  return {
+    idElementoContabile: "1",
+    reso: "0",
+    quantita: "1",
+    descrizioneProdotto: "riga",
+    prezzoLordo: "3.00",
+    prezzoUnitario: "2.46",
+    scontoUnitario: "0",
+    scontoLordo: "0",
+    aliquotaIVA: "22",
+    importoIVA: "0.54",
+    imponibile: "2.46",
+    imponibileNetto: over.imponibile ?? "2.46",
+    totale: "3.00",
+    omaggio: "N",
+    ...over,
+  };
+}
+
+function docOf(...lines: AdeDocumentDetailElemento[]): AdeDocumentDetail {
+  return {
+    idtrx: "1",
+    documentoCommerciale: {
+      ...serie2Reso1.before.documentoCommerciale,
+      elementiContabili: lines,
+    },
+  };
+}
 
 function withLine(over: { quantita: string; reso: string }): AdeDocumentDetail {
   const base = serie2Reso1.before;

@@ -26,8 +26,14 @@ import type {
   AdePayload,
 } from "./types";
 
-/** Quantità (stringa AdE o numero) in centesimi interi. */
+/**
+ * Quantità (stringa AdE o numero) in centesimi interi. Stretta di proposito:
+ * `Number("")` e `Number(null)` valgono 0, e un campo vuoto letto come "niente
+ * reso" aprirebbe le guardie invece di chiuderle. Qui diventano NaN.
+ */
 function toHundredths(value: string | number): number {
+  if (typeof value === "number") return Math.round(value * 100);
+  if (typeof value !== "string" || value.trim() === "") return Number.NaN;
   return Math.round(Number(value) * 100);
 }
 
@@ -50,10 +56,65 @@ export function getReturnableQuantities(doc: AdeDocumentDetail): number[] {
  * La vendita ha almeno un reso registrato sull'AdE, nostro o fatto dal
  * portale? È la guardia che l'AdE non mette: il portale accetta l'annullo di
  * una vendita già resa e storna il corrispettivo due volte (HAR.md #19f).
+ *
+ * Un cumulativo illeggibile conta come reso: la guardia protegge da un doppio
+ * storno irreversibile, quindi nel dubbio blocca invece di lasciar passare.
  */
 export function hasAnyReturn(doc: AdeDocumentDetail): boolean {
   return doc.documentoCommerciale.elementiContabili.some(
-    (el) => toHundredths(el.reso) > 0,
+    (el) => toHundredths(el.reso) !== 0,
+  );
+}
+
+/**
+ * Scarto massimo, in euro, fra le identità di riga su una vendita emessa dal
+ * mapper attuale: il lordo di riga arrotondato al centesimo (PR #702) sposta
+ * l'imponibile di al più mezzo centesimo rispetto a `prezzoUnitario ×
+ * quantita`, più il rumore degli 8 decimali moltiplicato per la quantità.
+ */
+const COMPUTABLE_TOLERANCE = 0.0051;
+
+/**
+ * Le formule del reso (HAR.md #19b) ricavano gli importi da `prezzoUnitario`
+ * e `scontoUnitario` della vendita, quindi reggono solo se la riga rispetta
+ * le identità del mapper attuale:
+ *
+ *   prezzoUnitario × quantita     ≈ imponibile
+ *   imponibile − scontoUnitario   ≈ imponibileNetto
+ *
+ * Non le rispettano due famiglie di vendite, su cui il reso stornerebbe
+ * l'importo sbagliato in modo irreversibile:
+ *
+ * - quelle emesse fino alla v1.7.0 (19/03–20/08/2026), il cui mapper mandava
+ *   `prezzoUnitario` di RIGA e `scontoUnitario` lordo per pezzo (HAR.md #11):
+ *   il reso di 1 pezzo su 2 stornerebbe il doppio;
+ * - quelle della Developer API con quantità a tre decimali, che l'AdE riceve
+ *   arrotondata a due (0,125 → 0,13) mentre gli importi restano sulla
+ *   quantità vera.
+ *
+ * Un importo illeggibile fallisce i confronti (NaN): la riga non è
+ * riproporzionabile.
+ */
+function isLineComputable(el: AdeDocumentDetailElemento): boolean {
+  const imponibile = Number(el.imponibile);
+  const byUnitPrice = Number(el.prezzoUnitario) * Number(el.quantita);
+  const netOfDiscount = imponibile - Number(el.scontoUnitario);
+  return (
+    Math.abs(byUnitPrice - imponibile) <= COMPUTABLE_TOLERANCE &&
+    Math.abs(netOfDiscount - Number(el.imponibileNetto)) <= COMPUTABLE_TOLERANCE
+  );
+}
+
+/**
+ * Il reso si può calcolare con le formule del portale su tutte le righe rese
+ * adesso? Le righe non rese viaggiano a zero e non contano.
+ */
+export function isReturnComputable(
+  doc: AdeDocumentDetail,
+  quantities: readonly number[],
+): boolean {
+  return doc.documentoCommerciale.elementiContabili.every(
+    (el, i) => toHundredths(quantities[i] ?? 0) === 0 || isLineComputable(el),
   );
 }
 
@@ -91,10 +152,13 @@ export function validateReturnQuantities(
     return "NOTHING_TO_RETURN";
   }
 
+  // Un residuo illeggibile (NaN) va rifiutato in modo esplicito: `q > NaN` è
+  // falso, e da solo lascerebbe trasmettere il reso.
   const returnable = getReturnableQuantities(doc);
-  const exceeds = quantities.some(
-    (q, i) => toHundredths(q) > toHundredths(returnable[i]!),
-  );
+  const exceeds = quantities.some((q, i) => {
+    const limit = toHundredths(returnable[i]!);
+    return Number.isNaN(limit) || toHundredths(q) > limit;
+  });
   return exceeds ? "EXCEEDS_RETURNABLE" : null;
 }
 
@@ -166,6 +230,9 @@ export function mapReturnToAdePayload(input: ReturnPayloadInput): AdePayload {
   const validation = validateReturnQuantities(originalDoc, quantities);
   if (validation) {
     throw new Error(`Quantità di reso non valide: ${validation}`);
+  }
+  if (!isReturnComputable(originalDoc, quantities)) {
+    throw new Error("Righe della vendita non riproporzionabili per il reso");
   }
 
   const docComm = originalDoc.documentoCommerciale;
