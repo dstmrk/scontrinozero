@@ -139,7 +139,7 @@ function SaleReturnBadge({
   const progress = saleReturnProgress(lines);
   if (progress === "none") return null;
   return (
-    <span className="ml-1 inline-flex items-center rounded-full border border-orange-200 px-2 py-0.5 text-xs font-medium text-orange-800">
+    <span className="inline-flex items-center rounded-full border border-orange-200 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-orange-800">
       {RETURN_PROGRESS_LABELS[progress]}
     </span>
   );
@@ -494,11 +494,22 @@ export function StoricoClient({
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Data</th>
-                <th className="px-3 py-2 text-left font-medium">Progressivo</th>
-                <th className="px-3 py-2 text-right font-medium">Totale</th>
-                <th className="px-3 py-2 text-left font-medium">Stato</th>
-                <th className="px-3 py-2" aria-label="Dettaglio"></th>
+                <th className="px-2 py-2 text-left font-medium sm:px-3">
+                  Data
+                </th>
+                <th className="px-2 py-2 text-left font-medium sm:px-3">
+                  Progressivo
+                </th>
+                <th className="px-2 py-2 text-right font-medium sm:px-3">
+                  Totale
+                </th>
+                <th className="px-2 py-2 text-left font-medium sm:px-3">
+                  Stato
+                </th>
+                <th
+                  className="hidden px-2 py-2 sm:table-cell sm:px-3"
+                  aria-label="Dettaglio"
+                ></th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -511,22 +522,22 @@ export function StoricoClient({
                 if (receipt.origin === "ade") {
                   return (
                     <tr key={`ade:${receipt.idtrx}`}>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className="px-2 py-2 whitespace-nowrap sm:px-3">
                         {formatDate(receipt.adeRegisteredAt)}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2 sm:px-3">
                         <span className="text-muted-foreground font-mono text-xs">
                           {formatProgressive(receipt.adeProgressive)}
                         </span>
                         <OriginBadge />
                       </td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums">
+                      <td className="px-2 py-2 text-right font-medium tabular-nums sm:px-3">
                         {formatCurrency(receipt.total)}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2 sm:px-3">
                         <StatusBadge status={receipt.status} />
                       </td>
-                      <td className="px-3 py-2" />
+                      <td className="hidden px-2 py-2 sm:table-cell sm:px-3" />
                     </tr>
                   );
                 }
@@ -562,15 +573,15 @@ export function StoricoClient({
                         : undefined
                     }
                   >
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-2 py-2 whitespace-nowrap sm:px-3">
                       {formatDate(receipt.adeRegisteredAt)}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 sm:px-3">
                       <span className="font-mono text-xs">
                         {formatProgressive(receipt.adeProgressive)}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
+                    <td className="px-2 py-2 text-right font-medium tabular-nums sm:px-3">
                       {/* Il reso esce dalla cassa: in negativo, come nel CSV
                           e nei ricavi netti dell'analytics. */}
                       {formatCurrency(
@@ -579,17 +590,17 @@ export function StoricoClient({
                           : receipt.total,
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 sm:px-3">
                       {isReturn ? (
                         <ReturnDocumentBadge />
                       ) : (
-                        <>
+                        <div className="flex flex-wrap gap-1">
                           <StatusBadge status={receipt.status} />
                           <SaleReturnBadge lines={receipt.lines} />
-                        </>
+                        </div>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="hidden px-2 py-2 text-right sm:table-cell sm:px-3">
                       {hasDetail && (
                         <span className="text-muted-foreground text-xs">›</span>
                       )}

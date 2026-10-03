@@ -417,6 +417,37 @@ riga grigia e sbaglia di decine di px. Lo script se ne accorge e rifiuta —
 passa `--paste-y=N`, leggendo l'`N` dall'output di una composizione normale
 sullo stesso donatore (`Incollata a y=187`).
 
+**Una schermata con un dialog aperto.** L'overlay sbiadisce anche la riga
+divisoria dell'header, e lo script si aggancia a un'altra riga grigia: chiede
+un viewport sbagliato (748 invece di 786 su `riepilogo-pagamento.png`) e, se
+lo accontenti, la cornice tiene il suo header nitido e sotto ricompare quello
+sbiadito della cattura. Cattura alla misura nota del donatore e passa
+`--paste-y` della composizione normale (187 per i donatori 900×1860). Così
+sono nati `reso-pannello.png` e `storico-reso.png` (2026-10-03).
+
+**Seminare il carrello senza tastierino.** Il carrello vive in
+`sessionStorage` (`cassa_cart`, `src/hooks/use-cassa.ts`): un
+`page.addInitScript` che lo scrive prima della `goto` su `/dashboard/cassa`
+(con una guardia per farlo una volta sola) dà righe con quantità e IVA
+arbitrarie in zero tempo. Poi "Continua" ed "Emetti scontrino" via DOM, e
+resta sulla pagina fino a "Scontrino emesso": se la sessione si chiude prima,
+la server action si perde.
+
+**L'utente di test e il piano.** L'emissione e il reso passano dal gate
+`canEmit`: con la prova scaduta la cassa risponde «Il tuo periodo di prova è
+scaduto» e non trasmette nulla. Dal 2026-10-03 l'utente di test di dev
+(progetto Supabase `scontrinozero-test`) ha `plan = 'unlimited'`, deciso con
+l'utente proprio per non incappare di nuovo nel blocco.
+
+**Le catture non dicono se un layout ci sta.** Nelle catture su dev il testo
+esce in un font di ripiego (Arial e un mono di sistema), non in Nunito Sans e
+Geist Mono, che sono più larghi: la tabella dello Storico ci stava nello
+screenshot e a 390 px reali sforava di 30 px. Per una questione di
+larghezza misura una replica statica con i font veri: markup copiato dal
+componente, `@tailwindcss/browser@4` e i `.woff2` di Google Fonts scaricati
+in locale, Chromium a 390×N, e confronta `scrollWidth` con `clientWidth` del
+contenitore `overflow-x-auto` (2026-10-03, badge «Reso parziale»).
+
 ⚠️ Il carrello della cassa è **stato client-side**: build + scatto devono stare
 in una sola `run_code` (Gotcha 1). Per popolarlo senza pilotare il tastierino
 due volte, sfrutta il prefill da URL di `cassa-client.tsx`

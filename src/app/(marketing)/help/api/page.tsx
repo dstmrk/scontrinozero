@@ -1061,7 +1061,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "400",
                   "INVALID_BODY · VALIDATION_ERROR · INVALID_QUERY_PARAM · INVALID_ID",
-                  "Richiesta non valida: corpo assente o non JSON, campo fuori schema (mancante, tipo errato, UUID non valido), oppure un parametro di query malformato — from/to mancanti o non in formato YYYY-MM-DD, intervallo oltre 31 giorni, page o limit non interi o minori di 1, kind diverso da SALE, VOID o RETURN. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
+                  "Richiesta non valida: corpo assente o non JSON, campo fuori schema (mancante, tipo errato, UUID non valido), oppure un parametro di query malformato — from/to mancanti o non in formato YYYY-MM-DD, intervallo oltre 31 giorni, page o limit non interi o minori di 1, kind diverso da SALE, VOID o RETURN; sul reso, quantities con valori negativi, con più di 2 decimali o tutti a zero. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
                 ],
                 [
                   "401",
