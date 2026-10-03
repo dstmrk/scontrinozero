@@ -53,6 +53,10 @@ const FAKE_AUTH = {
 
 const SALE_ID = "b2c3d4e5-f6a7-8901-bcde-f12345678901";
 
+const VALIDATION_BODY_BASE = {
+  idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+};
+
 const VALID_BODY = {
   idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
   quantities: [1, 0],
@@ -175,6 +179,10 @@ describe("POST /api/v1/receipts/[id]/return", () => {
     ["quantities vuoto", { ...VALID_BODY, quantities: [] }],
     ["quantità negativa", { ...VALID_BODY, quantities: [-1] }],
     ["quantità non numerica", { ...VALID_BODY, quantities: ["1"] }],
+    // Errori di forma: si vedono dal solo corpo, senza DB né AdE. 400, cioè
+    // "correggi il client"; il 422 resta per ciò che dipende dallo scontrino.
+    ["più di due decimali", { ...VALIDATION_BODY_BASE, quantities: [0.125] }],
+    ["tutte a zero", { ...VALIDATION_BODY_BASE, quantities: [0, 0] }],
     [
       "più di 100 righe",
       { ...VALID_BODY, quantities: Array.from({ length: 101 }, () => 0) },
@@ -192,6 +200,15 @@ describe("POST /api/v1/receipts/[id]/return", () => {
 
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("INVALID_ID");
+  });
+
+  it("accetta due decimali e righe a zero accanto a una resa", async () => {
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, quantities: [0.25, 0] }),
+      makeParams(),
+    );
+
+    expect(res.status).toBe(200);
   });
 
   it("422 RETURN_INVALID_QUANTITIES oltre il residuo", async () => {

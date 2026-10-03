@@ -1116,7 +1116,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "422",
                   "RETURN_INVALID_QUANTITIES",
-                  "Quantità del reso non trasmissibili: numero di valori diverso dalle righe dello scontrino, valori negativi o con più di 2 decimali, tutti a zero, oppure oltre i pezzi ancora rendibili (contando anche i resi fatti dal portale dell'Agenzia).",
+                  "Le quantità del reso non tornano con lo scontrino: numero di valori diverso dalle righe, oppure oltre i pezzi ancora rendibili (contando anche i resi fatti dal portale dell'Agenzia). Rileggi lo scontrino con GET /v1/receipts/{id} e ricalcola. Valori negativi, con più di 2 decimali o tutti a zero sono invece un 400 VALIDATION_ERROR.",
                 ],
                 [
                   "429",

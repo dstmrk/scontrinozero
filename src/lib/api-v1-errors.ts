@@ -141,9 +141,11 @@ export const V1_ERROR_CATALOG = {
    */
   ADE_REJECTED: { status: 422, retryable: false },
   /**
-   * Quantità del reso non trasmissibili: numero di righe diverso dal SALE,
-   * negative, più di due decimali, tutte a zero, o oltre il residuo letto
-   * dall'AdE in questo momento (che conta anche i resi fatti dal portale).
+   * Quantità del reso che non tornano con lo scontrino: numero di valori
+   * diverso dalle righe del SALE, o oltre il residuo letto dall'AdE in questo
+   * momento (che conta anche i resi fatti dal portale). Il client rilegge lo
+   * scontrino e ricalcola. Gli errori di sola forma (negativi, più di due
+   * decimali, tutte a zero) sono `VALIDATION_ERROR` al boundary.
    */
   RETURN_INVALID_QUANTITIES: { status: 422, retryable: false },
 

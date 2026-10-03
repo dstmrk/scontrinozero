@@ -320,6 +320,12 @@ per ogni riga, al massimo 2 decimali (limite del portale AdE), mai oltre
 Un SALE può avere più resi; con anche un solo reso non si annulla più
 (`409 ALREADY_RETURNED` su `/void`). Un reso non si annulla.
 
+Gli errori su `quantities` hanno due status, che dicono cosa fare: ciò che
+si vede dal solo corpo (valori negativi, più di 2 decimali, tutti a zero) è
+`400 VALIDATION_ERROR`, da correggere nel client; ciò che dipende dallo
+scontrino (numero di valori diverso dalle righe, pezzi oltre il residuo) è
+`422 RETURN_INVALID_QUANTITIES`, e si risolve rileggendo il SALE.
+
 ```json
 {
   "returnDocumentId": "uuid",
@@ -402,7 +408,7 @@ quindi leggibili anche da un client browser cross-origin.
 | `409`  | `ADE_PASSWORD_EXPIRED`                             | no (azione umana)          | Password Fisconline scaduta: va aggiornata **dall'app web ScontrinoZero**                                                                                                                    |
 | `413`  | `PAYLOAD_TOO_LARGE`                                | no                         | Corpo oltre il limite dell'endpoint (32 KB su emissione, 8 KB su annullo e reso)                                                                                                             |
 | `422`  | `ADE_REJECTED`                                     | no                         | L'AdE ha rifiutato il documento nel merito, o mancano dati fiscali. Il documento **non** è stato registrato: correggilo                                                                      |
-| `422`  | `RETURN_INVALID_QUANTITIES`                        | no                         | `quantities` non trasmissibile: numero di valori diverso dalle righe, negativi, più di 2 decimali, tutti a zero, o oltre il residuo letto dall'AdE (che conta i resi dal portale)            |
+| `422`  | `RETURN_INVALID_QUANTITIES`                        | no                         | `quantities` non torna con lo scontrino: numero di valori diverso dalle righe, o oltre il residuo letto dall'AdE (che conta i resi dal portale). Rileggi il SALE e ricalcola                 |
 | `429`  | `RATE_LIMIT_EXCEEDED`                              | **sì** (`Retry-After`)     | Rate limit superato                                                                                                                                                                          |
 | `500`  | `VOID_SYNC_FAILED`                                 | no (richiede intervento)   | Annullo registrato su AdE ma sync DB fallita                                                                                                                                                 |
 | `500`  | `RETURN_SYNC_FAILED`                               | no (richiede intervento)   | Reso registrato su AdE ma sync DB fallita: `documentId` indica la riga del reso                                                                                                              |

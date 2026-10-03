@@ -19,16 +19,29 @@ import {
 
 /**
  * `quantities[i]` = pezzi resi adesso della riga `i` di `lines` in
- * `GET /v1/receipts/{id}` (stesso ordine); `0` = riga non resa. Residuo e
- * due decimali li valida il servizio sul dettaglio AdE, che conta anche i
- * resi fatti dal portale: qui solo la forma.
+ * `GET /v1/receipts/{id}` (stesso ordine); `0` = riga non resa.
+ *
+ * Qui tutto ciò che si vede dal solo corpo → `400 VALIDATION_ERROR`: negativi,
+ * più di due decimali (limite del portale AdE), nessun pezzo reso. Ciò che
+ * dipende dallo scontrino — numero di righe, residuo letto dall'AdE, che conta
+ * anche i resi dal portale — lo valida il servizio → `422
+ * RETURN_INVALID_QUANTITIES`. Così lo status dice al client cosa fare:
+ * correggere il codice, oppure rileggere lo scontrino.
  */
 const returnBodySchema = z.object({
   idempotencyKey: z.string().uuid(),
   quantities: z
-    .array(z.number().finite().nonnegative().max(9999))
+    .array(
+      z
+        .number()
+        .finite()
+        .nonnegative()
+        .max(9999)
+        .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
+    )
     .min(1)
-    .max(SALE_LINES_MAX),
+    .max(SALE_LINES_MAX)
+    .refine((qs) => qs.some((q) => q > 0), "almeno una quantità maggiore di 0"),
 });
 
 // 20 resi/ora per API key: stessa soglia di `api:void` e del reso dalla cassa.
