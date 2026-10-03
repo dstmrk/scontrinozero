@@ -90,6 +90,7 @@ const FAKE_DOC = {
   publicRequest: { paymentMethod: "PC" } as unknown,
   lotteryCode: null as string | null,
   voidedDocumentId: null as string | null,
+  returnedDocumentId: null as string | null,
 };
 
 const FAKE_LINE = {
@@ -110,7 +111,20 @@ function makeParams(id = DOC_ID) {
   return { params: Promise.resolve({ id }) };
 }
 
+/** Query dei resi di una vendita, dopo doc e righe: di default nessuno. */
+function noReturnsBuilder() {
+  return { from: () => ({ where: () => Promise.resolve([]) }) };
+}
+
+/**
+ * Riparte da una coda vuota: chi chiama `setupDocMock` in un test sostituisce
+ * il documento del `beforeEach`, non lo accoda (`clearAllMocks` non svuota la
+ * coda di `mockReturnValueOnce`, e la terza query, quella dei resi, pescherebbe
+ * il documento in più).
+ */
 function setupDocMock(doc: typeof FAKE_DOC | null) {
+  mockSelect.mockReset();
+  mockSelect.mockImplementation(noReturnsBuilder);
   mockSelect.mockReturnValueOnce({ from: mockSelectDocFrom });
   mockSelectDocFrom.mockReturnValue({ where: mockSelectDocWhere });
   mockSelectDocWhere.mockReturnValue({ limit: mockSelectDocLimit });
@@ -143,7 +157,6 @@ describe("GET /api/v1/receipts/[id]", () => {
       cb({ execute: mockTxExecute, select: mockSelect }),
     );
     mockTxExecute.mockResolvedValue(undefined);
-
     setupDocMock(FAKE_DOC);
     setupLinesMock([FAKE_LINE]);
   });
@@ -156,11 +169,56 @@ describe("GET /api/v1/receipts/[id]", () => {
     expect(body.status).toBe("ACCEPTED");
   });
 
-  it("filtra sui kind del contratto v1: un reso risponde 404 come un id altrui", async () => {
+  it("filtra sui kind del contratto v1, reso compreso", async () => {
     const { inArray } = await import("drizzle-orm");
     await GET(makeRequest(), makeParams());
     // Il primo argomento è la colonna `kind`, che lo schema mockato non porta.
-    expect(vi.mocked(inArray).mock.calls[0]?.[1]).toEqual(["SALE", "VOID"]);
+    expect(vi.mocked(inArray).mock.calls[0]?.[1]).toEqual([
+      "SALE",
+      "VOID",
+      "RETURN",
+    ]);
+  });
+
+  // Il reso si legge per id: è così che il client segue il documento
+  // restituito da POST /v1/receipts/{id}/return.
+  it("ritorna un reso con la vendita che rettifica", async () => {
+    const saleId = "00000000-0000-0000-0000-000000000002";
+    setupDocMock({ ...FAKE_DOC, kind: "RETURN", returnedDocumentId: saleId });
+    setupLinesMock([{ ...FAKE_LINE, quantity: "1.000" }]);
+
+    const body = await (await GET(makeRequest(), makeParams())).json();
+
+    expect(body.kind).toBe("RETURN");
+    expect(body.returnedDocumentId).toBe(saleId);
+    expect(body.total).toBe("1.50");
+    // Sul reso il già-reso non ha senso: zero, e nessuna query dei resi.
+    expect(body.lines[0].returnedQuantity).toBe("0.000");
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it("su una vendita porta i pezzi già resi per riga", async () => {
+    mockSelect
+      .mockReturnValueOnce({
+        from: () => ({
+          where: () => Promise.resolve([{ id: "ret-1", saleId: DOC_ID }]),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            orderBy: () =>
+              Promise.resolve([
+                { documentId: "ret-1", lineIndex: 0, quantity: "1.500" },
+              ]),
+          }),
+        }),
+      });
+
+    const body = await (await GET(makeRequest(), makeParams())).json();
+
+    expect(body.lines[0].returnedQuantity).toBe("1.500");
+    expect(body.returnedDocumentId).toBeNull();
   });
 
   it("ritorna lines con i campi corretti", async () => {
@@ -173,6 +231,7 @@ describe("GET /api/v1/receipts/[id]", () => {
       quantity: "2.000",
       grossUnitPrice: "1.50",
       vatCode: "22",
+      returnedQuantity: "0.000",
     });
   });
 

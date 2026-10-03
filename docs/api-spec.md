@@ -7,7 +7,8 @@ i DTO applicativi sul payload AdE.
 
 > **Non è la documentazione dell'API REST pubblica per sviluppatori.** L'API HTTP
 > esposta agli integratori (`POST /api/v1/receipts`, `GET /api/v1/receipts`,
-> `GET /api/v1/receipts/{id}`, `POST /api/v1/receipts/{id}/void`) è documentata
+> `GET /api/v1/receipts/{id}`, `POST /api/v1/receipts/{id}/void`,
+> `POST /api/v1/receipts/{id}/return`) è documentata
 > nella pagina pubblica **`/help/api`** (`src/app/(marketing)/help/api/page.tsx`)
 > e nel prodotto/architettura in **`DEVELOPER.md`**. I nomi campo del corpo HTTP
 > pubblico (`grossUnitPrice`, `paymentMethod`) **differiscono** da quelli del DTO

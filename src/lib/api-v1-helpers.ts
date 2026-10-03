@@ -134,6 +134,11 @@ const SERVICE_CODE_TO_V1: Record<string, V1ErrorCode> = {
   VOID_PENDING_IN_PROGRESS: "VOID_PENDING_IN_PROGRESS",
   VOID_ALREADY_TARGETED: "VOID_ALREADY_TARGETED",
   ALREADY_RETURNED: "ALREADY_RETURNED",
+  RETURN_PENDING_IN_PROGRESS: "RETURN_PENDING_IN_PROGRESS",
+  RETURN_NOT_ALLOWED: "RETURN_NOT_ALLOWED",
+  RETURN_INVALID_QUANTITIES: "RETURN_INVALID_QUANTITIES",
+  RETURN_STATE_CHANGED: "RETURN_STATE_CHANGED",
+  RETURN_SYNC_FAILED: "RETURN_SYNC_FAILED",
   VOID_SYNC_FAILED: "VOID_SYNC_FAILED",
   IDEMPOTENCY_PAYLOAD_MISMATCH: "IDEMPOTENCY_PAYLOAD_MISMATCH",
   ADE_REAUTH_REQUIRED: "ADE_REAUTH_REQUIRED",
@@ -265,12 +270,19 @@ export const LIST_MAX_LIMIT = 100;
 // ma viene *ridotto* a LIST_MAX_LIMIT nel return (soft cap convenzionale). Solo
 // i valori malformati (non interi, < 1) sono rifiutati con 400.
 /**
- * I `kind` del contratto `/api/v1/receipts` (DEVELOPER.md). Il reso
- * (`RETURN`, migrazione 0042) non ne fa parte finché non è documentato lì:
- * un valore nuovo dell'enum in risposta romperebbe un consumer che lo valida
- * in modo stretto. Elenco e dettaglio filtrano su questa costante.
+ * I `kind` del contratto `/api/v1/receipts` (DEVELOPER.md): quelli che il
+ * dettaglio serve e che il parametro `kind` dell'elenco accetta.
  */
-export const V1_DOCUMENT_KINDS = ["SALE", "VOID"] as const;
+export const V1_DOCUMENT_KINDS = ["SALE", "VOID", "RETURN"] as const;
+
+/**
+ * I `kind` dell'elenco **senza** il parametro `kind`: quelli di prima del
+ * reso. Un `RETURN` in un elenco che finora conteneva solo `SALE` e `VOID`
+ * romperebbe un consumer che valida l'enum in modo stretto, e un breaking
+ * change sulla v1 non si fa in place (regola 28). I resi si leggono con
+ * `kind=RETURN` o per id.
+ */
+export const V1_DEFAULT_LIST_KINDS = ["SALE", "VOID"] as const;
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
@@ -286,7 +298,7 @@ const listQuerySchema = z.object({
 const LIST_QUERY_ERROR: Record<string, string> = {
   page: "Il parametro 'page' deve essere un intero maggiore o uguale a 1.",
   limit: "Il parametro 'limit' deve essere un intero maggiore o uguale a 1.",
-  kind: "Il parametro 'kind' deve essere 'SALE' o 'VOID'.",
+  kind: "Il parametro 'kind' deve essere 'SALE', 'VOID' o 'RETURN'.",
   status: `Il parametro 'status' deve essere uno fra ${LIST_STATUS_VALUES.join(", ")}.`,
 };
 
@@ -311,7 +323,7 @@ export function parseListPagination(
       data: {
         page: number;
         limit: number;
-        kind: "SALE" | "VOID" | null;
+        kind: (typeof V1_DOCUMENT_KINDS)[number] | null;
         status: ListStatus | null;
       };
     } {

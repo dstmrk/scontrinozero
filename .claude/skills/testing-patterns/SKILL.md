@@ -162,32 +162,33 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 `src/lib/rate-limit.ts`: `AUTH_15_MIN` e `HOURLY` — usa le costanti, non i
 magic number):
 
-| Bucket                           | Chiamante                          | Soglia   |
-| -------------------------------- | ---------------------------------- | -------- |
-| `emit:<userId>`                  | `emitReceipt`                      | 120/ora  |
-| `void:<userId>`                  | `voidReceipt`                      | 10/ora   |
-| `return:<userId>`                | `returnReceipt`                    | 20/ora   |
-| `analytics:<userId>`             | analytics dashboard                | 60/ora   |
-| `csv:<userId>`                   | `GET /api/export/receipts`         | 10/ora   |
-| `pdf-auth:<userId>`              | PDF autenticato                    | 60/ora   |
-| `pdf:<ip>`                       | PDF pubblico `/r/[documentId]/pdf` | 60/ora   |
-| `receipt-page:<ip>`              | pagina pubblica `/r/[documentId]`  | 60/ora   |
-| `checkout:<userId>`              | `POST /api/stripe/checkout`        | 10/ora   |
-| `portal:<userId>`                | `GET\|POST /api/stripe/portal`     | 10/ora   |
-| `updateProfile:<userId>`         | `updateProfile`                    | 10/ora   |
-| `updateBusiness:<userId>`        | `updateBusiness`                   | 10/ora   |
-| `csp-report:<ip>`                | `POST /api/csp-report`             | 60/min   |
-| `<action>:<ip>`                  | auth actions (login/register/…)    | 5/15min  |
-| `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)   | 30/15min |
-| `verify-ade:<userId>`            | `verifyAdeCredentials`             | 5/15min  |
-| `save-ade:<userId>`              | `saveAdeCredentials`               | 10/15min |
-| `change-ade-pw:<userId>`         | `changeAdePassword`                | 5/15min  |
-| `changePassword:<userId>`        | `changePassword` (profilo)         | 5/15min  |
-| `completePasswordReset:<userId>` | `completePasswordReset`            | 5/15min  |
-| `deleteAccount:<userId>`         | `deleteAccount`                    | 5/15min  |
-| `api:emit:<apiKeyId>`            | `POST /api/v1/receipts`            | 120/ora  |
-| `api:list:<apiKeyId>`            | `GET /api/v1/receipts`             | 60/ora   |
-| `api:void:<apiKeyId>`            | `POST /api/v1/receipts/[id]/void`  | 20/ora   |
+| Bucket                           | Chiamante                           | Soglia   |
+| -------------------------------- | ----------------------------------- | -------- |
+| `emit:<userId>`                  | `emitReceipt`                       | 120/ora  |
+| `void:<userId>`                  | `voidReceipt`                       | 10/ora   |
+| `return:<userId>`                | `returnReceipt`                     | 20/ora   |
+| `analytics:<userId>`             | analytics dashboard                 | 60/ora   |
+| `csv:<userId>`                   | `GET /api/export/receipts`          | 10/ora   |
+| `pdf-auth:<userId>`              | PDF autenticato                     | 60/ora   |
+| `pdf:<ip>`                       | PDF pubblico `/r/[documentId]/pdf`  | 60/ora   |
+| `receipt-page:<ip>`              | pagina pubblica `/r/[documentId]`   | 60/ora   |
+| `checkout:<userId>`              | `POST /api/stripe/checkout`         | 10/ora   |
+| `portal:<userId>`                | `GET\|POST /api/stripe/portal`      | 10/ora   |
+| `updateProfile:<userId>`         | `updateProfile`                     | 10/ora   |
+| `updateBusiness:<userId>`        | `updateBusiness`                    | 10/ora   |
+| `csp-report:<ip>`                | `POST /api/csp-report`              | 60/min   |
+| `<action>:<ip>`                  | auth actions (login/register/…)     | 5/15min  |
+| `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)    | 30/15min |
+| `verify-ade:<userId>`            | `verifyAdeCredentials`              | 5/15min  |
+| `save-ade:<userId>`              | `saveAdeCredentials`                | 10/15min |
+| `change-ade-pw:<userId>`         | `changeAdePassword`                 | 5/15min  |
+| `changePassword:<userId>`        | `changePassword` (profilo)          | 5/15min  |
+| `completePasswordReset:<userId>` | `completePasswordReset`             | 5/15min  |
+| `deleteAccount:<userId>`         | `deleteAccount`                     | 5/15min  |
+| `api:emit:<apiKeyId>`            | `POST /api/v1/receipts`             | 120/ora  |
+| `api:list:<apiKeyId>`            | `GET /api/v1/receipts`              | 60/ora   |
+| `api:void:<apiKeyId>`            | `POST /api/v1/receipts/[id]/void`   | 20/ora   |
+| `api:return:<apiKeyId>`          | `POST /api/v1/receipts/[id]/return` | 20/ora   |
 
 Note che non si deducono dai numeri:
 

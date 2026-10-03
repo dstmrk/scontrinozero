@@ -155,6 +155,7 @@ describe("V1_ERROR_CATALOG", () => {
         "DB_TIMEOUT",
         "PENDING_IN_PROGRESS",
         "RATE_LIMIT_EXCEEDED",
+        "RETURN_PENDING_IN_PROGRESS",
         "VOID_PENDING_IN_PROGRESS",
       ].sort(),
     );
@@ -178,6 +179,9 @@ describe("V1_ERROR_CATALOG", () => {
       "ADE_PASSWORD_EXPIRED",
       "PAYLOAD_TOO_LARGE",
       "ADE_REJECTED",
+      "RETURN_NOT_ALLOWED",
+      "RETURN_INVALID_QUANTITIES",
+      "RETURN_STATE_CHANGED",
     ] as const) {
       expect(isRetryableV1Error(code)).toBe(false);
     }

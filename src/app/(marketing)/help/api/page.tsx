@@ -242,7 +242,7 @@ export default function ApiDocsPage() {
                   Recupera lo stato di uno scontrino
                 </td>
               </tr>
-              <tr>
+              <tr className="border-b">
                 <td className="py-2 pr-6 font-mono text-xs font-bold text-green-700 dark:text-green-400">
                   POST
                 </td>
@@ -250,6 +250,17 @@ export default function ApiDocsPage() {
                   /v1/receipts/{"{id}"}/void
                 </td>
                 <td className="py-2 text-xs">Annulla uno scontrino</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-6 font-mono text-xs font-bold text-green-700 dark:text-green-400">
+                  POST
+                </td>
+                <td className="py-2 pr-6 font-mono text-xs">
+                  /v1/receipts/{"{id}"}/return
+                </td>
+                <td className="py-2 text-xs">
+                  Rende uno o più articoli (documento di reso)
+                </td>
               </tr>
             </tbody>
           </table>
@@ -480,9 +491,9 @@ export default function ApiDocsPage() {
                 ],
                 [
                   "kind",
-                  "SALE | VOID",
+                  "SALE | VOID | RETURN",
                   "No",
-                  "Filtra per tipo documento (default: entrambi)",
+                  "Filtra per tipo documento. Senza parametro restituisce vendite e annulli (SALE e VOID): i resi si elencano solo con kind=RETURN.",
                 ],
                 [
                   "status",
@@ -602,19 +613,22 @@ export default function ApiDocsPage() {
   "payments": null,
   "lotteryCode": "ABCD1234",
   "voidedDocumentId": null,
+  "returnedDocumentId": null,
   "total": "18.50",
   "lines": [
     {
       "description": "Pizza Margherita",
       "quantity": "2.000",
       "grossUnitPrice": "8.00",
-      "vatCode": "10"
+      "vatCode": "10",
+      "returnedQuantity": "1.000"
     },
     {
       "description": "Acqua naturale",
       "quantity": "1.000",
       "grossUnitPrice": "2.50",
-      "vatCode": "10"
+      "vatCode": "10",
+      "returnedQuantity": "0.000"
     }
   ]
 }`}</code>
@@ -633,7 +647,7 @@ export default function ApiDocsPage() {
             </thead>
             <tbody>
               {[
-                ["kind", "SALE (vendita) o VOID (annullo)."],
+                ["kind", "SALE (vendita), VOID (annullo) o RETURN (reso)."],
                 [
                   "status",
                   "ACCEPTED, VOID_ACCEPTED, REJECTED, ERROR o PENDING.",
@@ -644,7 +658,7 @@ export default function ApiDocsPage() {
                 ],
                 [
                   "payments",
-                  "Ripartizione dell'incassato fra più metodi. Oggi sempre null: l'emissione con pagamento ripartito non è ancora disponibile, e il campo esiste perché un client scritto adesso continui a funzionare quando lo sarà.",
+                  "Ripartizione dell'incassato fra più metodi (pagamento misto), con gli importi in euro come stringhe a 2 decimali. null sui documenti pagati con un metodo solo: lì vale paymentMethod.",
                 ],
                 [
                   "lotteryCode",
@@ -653,6 +667,10 @@ export default function ApiDocsPage() {
                 [
                   "voidedDocumentId",
                   "Presente solo per documenti VOID: UUID del SALE che è stato annullato.",
+                ],
+                [
+                  "returnedDocumentId",
+                  "Presente solo per documenti RETURN: UUID del SALE reso.",
                 ],
                 [
                   "total",
@@ -665,6 +683,10 @@ export default function ApiDocsPage() {
                 [
                   "lines[].grossUnitPrice",
                   'Stringa con 2 decimali fissi (es. "8.00"), in euro.',
+                ],
+                [
+                  "lines[].returnedQuantity",
+                  'Su un SALE, i pezzi della riga già resi con ScontrinoZero, stringa con 3 decimali (es. "1.000"); "0.000" sulle righe mai rese e sui documenti VOID e RETURN. I resi fatti dal portale dell\'Agenzia qui non compaiono, ma il reso li conta comunque.',
                 ],
               ].map(([field, desc]) => (
                 <tr key={field} className="border-b last:border-0">
@@ -737,6 +759,98 @@ export default function ApiDocsPage() {
   "adeProgressive": "DCW2026/5111-2189"
 }`}</code>
         </pre>
+
+        {/* ─── POST /v1/receipts/{id}/return ─── */}
+        <h3 className="mt-10 text-base font-semibold">
+          <span className="mr-2 font-mono text-green-700 dark:text-green-400">
+            POST
+          </span>
+          {"/v1/receipts/{id}/return"}
+        </h3>
+        <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+          Emette il documento commerciale di reso per uno o più articoli di uno
+          scontrino (SALE) emesso con ScontrinoZero, e lo trasmette
+          all&apos;Agenzia delle Entrate. Il reso è irreversibile, può essere
+          parziale e si può ripetere finché restano pezzi da rendere. Uno
+          scontrino con almeno un reso non si può più annullare.
+        </p>
+
+        <p className="mt-4 text-sm font-medium">Corpo della richiesta</p>
+        <div className="text-muted-foreground mt-2 overflow-x-auto text-sm">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4 text-left text-xs font-semibold tracking-wide uppercase">
+                  Campo
+                </th>
+                <th className="py-2 pr-4 text-left text-xs font-semibold tracking-wide uppercase">
+                  Tipo
+                </th>
+                <th className="py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                  Descrizione
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="py-2 pr-4 font-mono text-xs">idempotencyKey</td>
+                <td className="py-2 pr-4 text-xs">string (UUID v4)</td>
+                <td className="py-2 text-xs">
+                  Chiave di idempotenza del reso: una nuova per ogni reso
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">quantities</td>
+                <td className="py-2 pr-4 text-xs">number[]</td>
+                <td className="py-2 text-xs">
+                  Pezzi da rendere per ogni riga, nello stesso ordine di{" "}
+                  <code className="bg-muted rounded px-1 font-mono">lines</code>{" "}
+                  in GET /v1/receipts/{"{id}"}; 0 per le righe che non rendi.
+                  Massimo 2 decimali, e mai oltre la differenza fra{" "}
+                  <code className="bg-muted rounded px-1 font-mono">
+                    quantity
+                  </code>{" "}
+                  e{" "}
+                  <code className="bg-muted rounded px-1 font-mono">
+                    returnedQuantity
+                  </code>{" "}
+                  della riga.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-4 text-sm font-medium">Esempio</p>
+        <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>{String.raw`curl -X POST https://api.scontrinozero.it/v1/receipts/a1b2c3d4-e5f6-7890-abcd-ef1234567890/return \
+  -H "Authorization: Bearer szk_live_XXXX" \
+  -H "Content-Type: application/json" \
+  -d '{"idempotencyKey": "550e8400-e29b-41d4-a716-446655440002", "quantities": [1, 0]}'`}</code>
+        </pre>
+
+        <p className="mt-5 text-sm font-medium">
+          {"Risposta — "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            200 OK
+          </code>
+        </p>
+        <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>{`{
+  "returnDocumentId": "e5f6a7b8-c9d0-1234-ef01-234567890123",
+  "adeTransactionId": "151085591",
+  "adeProgressive": "DCW2026/5111-2190"
+}`}</code>
+        </pre>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Il reso si legge poi con GET /v1/receipts/{"{returnDocumentId}"}:{" "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">kind</code>{" "}
+          vale RETURN,{" "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">total</code>{" "}
+          è l&apos;importo reso (positivo) e{" "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">lines</code>{" "}
+          sono i pezzi resi, con la loro quota di sconto di riga.
+        </p>
 
         {/* ─── Codici IVA ─── */}
         <h2 id="codici-iva" className="mt-12 text-xl font-semibold">
@@ -842,9 +956,15 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 </td>
                 <td className="py-2 text-xs">60 richieste / ora</td>
               </tr>
-              <tr>
+              <tr className="border-b">
                 <td className="py-2 pr-6 font-mono text-xs">
                   POST /v1/receipts/{"{id}"}/void
+                </td>
+                <td className="py-2 text-xs">20 richieste / ora</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-6 font-mono text-xs">
+                  POST /v1/receipts/{"{id}"}/return
                 </td>
                 <td className="py-2 text-xs">20 richieste / ora</td>
               </tr>
@@ -941,7 +1061,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "400",
                   "INVALID_BODY · VALIDATION_ERROR · INVALID_QUERY_PARAM · INVALID_ID",
-                  "Richiesta non valida: corpo assente o non JSON, campo fuori schema (mancante, tipo errato, UUID non valido), oppure un parametro di query malformato — from/to mancanti o non in formato YYYY-MM-DD, intervallo oltre 31 giorni, page o limit non interi o minori di 1, kind diverso da SALE/VOID. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
+                  "Richiesta non valida: corpo assente o non JSON, campo fuori schema (mancante, tipo errato, UUID non valido), oppure un parametro di query malformato — from/to mancanti o non in formato YYYY-MM-DD, intervallo oltre 31 giorni, page o limit non interi o minori di 1, kind diverso da SALE, VOID o RETURN. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
                 ],
                 [
                   "401",
@@ -961,11 +1081,11 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "404",
                   "NOT_FOUND",
-                  "Scontrino non trovato: l'ID non esiste o appartiene a un altro esercente. Vale per GET /v1/receipts/{id} e per l'annullamento.",
+                  "Scontrino non trovato: l'ID non esiste o appartiene a un altro esercente. Vale per GET /v1/receipts/{id}, per l'annullamento e per il reso.",
                 ],
                 [
                   "409",
-                  "PENDING_IN_PROGRESS · VOID_PENDING_IN_PROGRESS",
+                  "PENDING_IN_PROGRESS · VOID_PENDING_IN_PROGRESS · RETURN_PENDING_IN_PROGRESS",
                   "Una richiesta con la stessa idempotencyKey è ancora in corso. È temporaneo: attendi i secondi indicati in Retry-After e ripeti la richiesta identica.",
                 ],
                 [
@@ -975,18 +1095,28 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 ],
                 [
                   "409",
+                  "ALREADY_RETURNED · RETURN_NOT_ALLOWED · RETURN_STATE_CHANGED",
+                  "Correzione non ammessa nello stato attuale. ALREADY_RETURNED: lo scontrino ha già un reso, quindi non si annulla più. RETURN_NOT_ALLOWED: lo scontrino non si può rendere (è annullato, anche dal portale, o ha un annullo in corso). RETURN_STATE_CHANGED: un reso precedente rimasto in sospeso risulta registrato e il residuo è cambiato: rileggi lo scontrino e rifai il reso con una chiave nuova.",
+                ],
+                [
+                  "409",
                   "ADE_REAUTH_REQUIRED · ADE_PASSWORD_EXPIRED",
                   "Serve un intervento dell'esercente nell'app web ScontrinoZero: la sessione con l'Agenzia delle Entrate (CIE) è scaduta e va rinnovata, oppure la password Fisconline è scaduta e va aggiornata. Il retry automatico è inutile finché non lo fa.",
                 ],
                 [
                   "413",
                   "PAYLOAD_TOO_LARGE",
-                  "Corpo della richiesta oltre il limite: 32 KB in emissione, 8 KB in annullamento.",
+                  "Corpo della richiesta oltre il limite: 32 KB in emissione, 8 KB in annullamento e reso.",
                 ],
                 [
                   "422",
                   "ADE_REJECTED",
                   "L'Agenzia delle Entrate ha rifiutato il documento nel merito, o mancano dati fiscali. Lo scontrino non è stato registrato e ripetere la stessa richiesta fallirebbe di nuovo: va corretto il contenuto.",
+                ],
+                [
+                  "422",
+                  "RETURN_INVALID_QUANTITIES",
+                  "Le quantità del reso non tornano con lo scontrino: numero di valori diverso dalle righe, oppure oltre i pezzi ancora rendibili (contando anche i resi fatti dal portale dell'Agenzia). Rileggi lo scontrino con GET /v1/receipts/{id} e ricalcola. Valori negativi, con più di 2 decimali o tutti a zero sono invece un 400 VALIDATION_ERROR.",
                 ],
                 [
                   "429",
@@ -995,8 +1125,8 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 ],
                 [
                   "500",
-                  "VOID_SYNC_FAILED · INTERNAL_ERROR",
-                  "Errore interno. VOID_SYNC_FAILED è il caso specifico in cui l'annullo è stato registrato sull'AdE ma la nostra sincronizzazione è fallita: scrivici citando il requestId.",
+                  "VOID_SYNC_FAILED · RETURN_SYNC_FAILED · INTERNAL_ERROR",
+                  "Errore interno. VOID_SYNC_FAILED e RETURN_SYNC_FAILED sono i casi in cui l'annullo o il reso è stato registrato sull'AdE ma la nostra sincronizzazione è fallita: scrivici citando il requestId.",
                 ],
                 [
                   "503",

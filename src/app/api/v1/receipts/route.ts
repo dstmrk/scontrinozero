@@ -35,7 +35,7 @@ import {
   parseListPagination,
   serviceErrorResponse,
   ADE_REAUTH_REQUIRED_MESSAGE,
-  V1_DOCUMENT_KINDS,
+  V1_DEFAULT_LIST_KINDS,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
@@ -295,14 +295,14 @@ export async function GET(request: Request): Promise<Response> {
   conditions.push(
     kind
       ? eq(commercialDocuments.kind, kind)
-      : inArray(commercialDocuments.kind, [...V1_DOCUMENT_KINDS]),
+      : inArray(commercialDocuments.kind, [...V1_DEFAULT_LIST_KINDS]),
   );
 
   let queryResult: {
     total: number;
     docs: Array<{
       id: string;
-      // Il tipo della colonna; la WHERE tiene fuori ciò che non è V1_DOCUMENT_KINDS.
+      // Il tipo della colonna: senza `kind` la WHERE tiene fuori i resi.
       kind: "SALE" | "VOID" | "RETURN";
       status: string;
       idempotencyKey: string;
