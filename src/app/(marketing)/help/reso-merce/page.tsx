@@ -12,6 +12,7 @@ import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("reso-merce");
 
@@ -126,6 +127,20 @@ export default function ResoMercePage() {
             cliente la ricevuta: link, QR code o stampa termica.
           </li>
         </ol>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/reso-pannello.png"
+            alt="Finestra Fai un reso di ScontrinoZero: per ogni riga dello scontrino i pezzi venduti, quelli già resi e il campo dei pezzi da rendere, con il totale del reso e il pulsante Conferma reso"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Scegli i pezzi da rendere riga per riga: il totale del reso si
+            aggiorna mentre scrivi.
+          </figcaption>
+        </figure>
 
         {/* ─── Resi parziali ─── */}
         <h2 className="mt-10 text-xl font-semibold">
@@ -186,6 +201,20 @@ export default function ResoMercePage() {
             stornerebbe di nuovo anche la parte già resa.
           </li>
         </ul>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/storico-reso.png"
+            alt="Storico di ScontrinoZero con la riga del reso a -15,00 euro e badge Reso, e sotto la vendita da 40,00 euro con i badge Emesso e Reso parziale"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Nello Storico il reso è una riga in negativo; la vendita porta il
+            badge «Reso parziale».
+          </figcaption>
+        </figure>
 
         {/* ─── Rimborso ─── */}
         <h2 className="mt-10 text-xl font-semibold">
