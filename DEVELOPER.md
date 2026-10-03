@@ -124,12 +124,13 @@ con Stripe standard (no Metered Billing). Raggiunto il limite: `429` con invito 
 Autenticazione: `Authorization: Bearer szk_live_XXXX` (business key)
 Base URL: `https://api.scontrinozero.it/v1` (stesso container, Cloudflare Tunnel hostname separato)
 
-| Metodo | Path                     | Descrizione                                                                        |
-| ------ | ------------------------ | ---------------------------------------------------------------------------------- |
-| `POST` | `/v1/receipts`           | Emetti scontrino (SALE)                                                            |
-| `GET`  | `/v1/receipts`           | Lista paginata per intervallo di date (`from`/`to`/`page`/`limit`/`kind`/`status`) |
-| `POST` | `/v1/receipts/{id}/void` | Annulla scontrino                                                                  |
-| `GET`  | `/v1/receipts/{id}`      | Stato/dettaglio scontrino / idempotency check                                      |
+| Metodo | Path                       | Descrizione                                                                        |
+| ------ | -------------------------- | ---------------------------------------------------------------------------------- |
+| `POST` | `/v1/receipts`             | Emetti scontrino (SALE)                                                            |
+| `GET`  | `/v1/receipts`             | Lista paginata per intervallo di date (`from`/`to`/`page`/`limit`/`kind`/`status`) |
+| `POST` | `/v1/receipts/{id}/void`   | Annulla scontrino                                                                  |
+| `POST` | `/v1/receipts/{id}/return` | Reso merce: rende uno o più pezzi di un SALE                                       |
+| `GET`  | `/v1/receipts/{id}`        | Stato/dettaglio scontrino / idempotency check                                      |
 
 Post-MVP: `GET /v1/receipts/{id}/pdf`
 
@@ -264,6 +265,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
   "payments": null,
   "lotteryCode": "ABCD1234",
   "voidedDocumentId": null,
+  "returnedDocumentId": null,
   "total": "16.00",
   "globalDiscount": "0.40",
   "lines": [
@@ -272,13 +274,16 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
       "quantity": "2.000",
       "grossUnitPrice": "8.00",
       "lineDiscount": "1.50",
-      "vatCode": "10"
+      "vatCode": "10",
+      "returnedQuantity": "1.000"
     }
   ]
 }
 ```
 
 > `voidedDocumentId` è valorizzato solo per documenti `kind: "VOID"` e contiene l'UUID del SALE annullato.
+> `returnedDocumentId` è valorizzato solo per documenti `kind: "RETURN"` e contiene l'UUID del SALE reso. Campo additivo.
+> `lines[].returnedQuantity` (additivo): su un SALE, i pezzi della riga già resi con ScontrinoZero, stringa a 3 decimali come `quantity`; `"0.000"` sulle righe mai rese e su VOID e RETURN. I resi fatti dal portale AdE non compaiono qui, ma `POST /return` li conta: il residuo vero lo conosce solo l'AdE.
 > `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici), ed è `null` sui documenti che non lo portano.
 > `payments` è la ripartizione dell'incassato fra più metodi, `[{ "type": "PC", "amount": "0.50" }, …]` con gli importi in euro come stringhe a 2 decimali, e `null` sui documenti pagati con un metodo solo. Su un documento ripartito `paymentMethod` è `null`: trattarlo come "più metodi, leggi `payments`", non come "metodo sconosciuto". Gli importi sommano all'**incassato** (`total − globalDiscount`), non a `total`.
 > `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti). Lo sconto a pagare **non** lo squalifica: non è un mezzo di pagamento.
@@ -295,6 +300,40 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
   "adeProgressive": "DCW2026/5111-2611"
 }
 ```
+
+**Reso — `POST /v1/receipts/{id}/return`:**
+
+```bash
+curl -X POST https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-446655440000/return \
+  -H "Authorization: Bearer szk_live_XXXX" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idempotencyKey": "550e8400-e29b-41d4-a716-446655440002",
+    "quantities": [1]
+  }'
+```
+
+`quantities[i]` sono i pezzi resi adesso della riga `i` di `lines` in
+`GET /v1/receipts/{id}` (stesso ordine), `0` per le righe non rese: un valore
+per ogni riga, al massimo 2 decimali (limite del portale AdE), mai oltre
+`quantity − returnedQuantity`. Il SALE deve essere `ACCEPTED` e non annullato.
+Un SALE può avere più resi; con anche un solo reso non si annulla più
+(`409 ALREADY_RETURNED` su `/void`). Un reso non si annulla.
+
+```json
+{
+  "returnDocumentId": "uuid",
+  "adeTransactionId": "151086013",
+  "adeProgressive": "DCW2026/5111-2612"
+}
+```
+
+Il reso si legge con `GET /v1/receipts/{returnDocumentId}`: `kind: "RETURN"`,
+`total` è l'importo reso (positivo, il segno sta nel `kind`), `lines` sono i
+pezzi resi con la loro quota di sconto di riga, `returnedDocumentId` il SALE.
+In `GET /v1/receipts` i resi compaiono **solo con `kind=RETURN`**: senza il
+parametro l'elenco restituisce `SALE` e `VOID` come ha sempre fatto, perché un
+valore nuovo nell'enum romperebbe un client che lo valida in modo stretto.
 
 **Errori standard:**
 
@@ -324,7 +363,8 @@ Tutte le risposte d'errore hanno esattamente questo envelope, su ogni endpoint
   in una segnalazione: ci permette di ritrovare la richiesta nei log.
 - **`documentId`** — **opzionale**: la chiave c'è solo quando l'errore riguarda
   una riga che abbiamo già scritto e il cui esito è ancora **aperto**, cioè
-  `PENDING_IN_PROGRESS`, `VOID_PENDING_IN_PROGRESS`, e `ADE_UNAVAILABLE` o
+  `PENDING_IN_PROGRESS`, `VOID_PENDING_IN_PROGRESS`,
+  `RETURN_PENDING_IN_PROGRESS`, e `ADE_UNAVAILABLE` o
   `DB_TIMEOUT` sollevati dopo che la riga esiste. Su quell'id puoi chiamare
   `GET /v1/receipts/{id}` e leggere come va a finire. È assente sugli errori a
   esito definitivo (`ADE_REJECTED`, `ALREADY_VOIDED`, …) e su quelli che
@@ -339,31 +379,36 @@ Header rilevanti: `X-Request-Id` su ogni risposta; `Retry-After` (secondi) sui
 soli errori ritentabili. Entrambi sono in `Access-Control-Expose-Headers`,
 quindi leggibili anche da un client browser cross-origin.
 
-| Status | `code`                                             | Ritentabile                | Significato                                                                                                                                                                         |
-| ------ | -------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `400`  | `INVALID_BODY`                                     | no                         | Corpo assente o non JSON                                                                                                                                                            |
-| `400`  | `VALIDATION_ERROR`                                 | no                         | Corpo JSON valido ma fuori schema (campo mancante, tipo errato, UUID non valido)                                                                                                    |
-| `400`  | `INVALID_QUERY_PARAM`                              | no                         | Parametro di query malformato: `from`/`to` mancanti o non `YYYY-MM-DD`, intervallo > 31 giorni, `page`/`limit` non interi o `< 1`, `kind` ≠ `SALE`/`VOID`, `status` fuori dall'enum |
-| `400`  | `INVALID_ID`                                       | no                         | UUID nel path non valido                                                                                                                                                            |
-| `401`  | `UNAUTHORIZED`                                     | no                         | API key mancante, non valida, revocata o scaduta                                                                                                                                    |
-| `402`  | `PLAN_UPGRADE_REQUIRED`                            | no                         | Il piano attivo non include l'accesso API (upgrade a Pro/Developer)                                                                                                                 |
-| `403`  | `BUSINESS_KEY_REQUIRED`                            | no                         | Serve una business key `szk_live_`; usata una management key                                                                                                                        |
-| `404`  | `NOT_FOUND`                                        | no                         | Scontrino inesistente o di un altro esercente. Vale per `GET /v1/receipts/{id}` e per l'annullo                                                                                     |
-| `409`  | `PENDING_IN_PROGRESS` · `VOID_PENDING_IN_PROGRESS` | **sì** (`Retry-After: 2`)  | Una richiesta con la stessa `idempotencyKey` è ancora in corso                                                                                                                      |
-| `409`  | `ALREADY_REJECTED`                                 | no                         | La key identifica un documento rifiutato dall'AdE: serve una key nuova                                                                                                              |
-| `409`  | `ALREADY_VOIDED`                                   | no                         | La key identifica uno scontrino già annullato: serve una key nuova                                                                                                                  |
-| `409`  | `VOID_ALREADY_TARGETED`                            | no                         | Un'altra correzione — annullo o reso fatto dall'app web — è già in corso sullo stesso SALE                                                                                          |
-| `409`  | `ALREADY_RETURNED`                                 | no                         | Lo scontrino ha già un reso registrato sull'AdE (anche dal portale): annullarlo stornerebbe il corrispettivo due volte. Nessuna trasmissione è partita                              |
-| `409`  | `IDEMPOTENCY_PAYLOAD_MISMATCH`                     | no                         | Key riusata con un payload diverso **o** fra emissione e annullo: usa una key nuova                                                                                                 |
-| `409`  | `ADE_REAUTH_REQUIRED`                              | no (azione umana)          | Sessione AdE (CIE) scaduta: va rinnovata **dall'app web ScontrinoZero**. Nessun retry automatico è utile                                                                            |
-| `409`  | `ADE_PASSWORD_EXPIRED`                             | no (azione umana)          | Password Fisconline scaduta: va aggiornata **dall'app web ScontrinoZero**                                                                                                           |
-| `413`  | `PAYLOAD_TOO_LARGE`                                | no                         | Corpo oltre il limite dell'endpoint (32 KB su emissione, 8 KB su annullo)                                                                                                           |
-| `422`  | `ADE_REJECTED`                                     | no                         | L'AdE ha rifiutato il documento nel merito, o mancano dati fiscali. Il documento **non** è stato registrato: correggilo                                                             |
-| `429`  | `RATE_LIMIT_EXCEEDED`                              | **sì** (`Retry-After`)     | Rate limit superato                                                                                                                                                                 |
-| `500`  | `VOID_SYNC_FAILED`                                 | no (richiede intervento)   | Annullo registrato su AdE ma sync DB fallita                                                                                                                                        |
-| `500`  | `INTERNAL_ERROR`                                   | no                         | Fallimento inatteso lato nostro                                                                                                                                                     |
-| `503`  | `DB_TIMEOUT`                                       | **sì** (`Retry-After: 5`)  | Servizio temporaneamente sovraccarico                                                                                                                                               |
-| `503`  | `ADE_UNAVAILABLE`                                  | **sì** (`Retry-After: 10`) | L'AdE non ha risposto (rete, 5xx, timeout SPID): esito della trasmissione **ignoto**                                                                                                |
+| Status | `code`                                             | Ritentabile                | Significato                                                                                                                                                                                  |
+| ------ | -------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | `INVALID_BODY`                                     | no                         | Corpo assente o non JSON                                                                                                                                                                     |
+| `400`  | `VALIDATION_ERROR`                                 | no                         | Corpo JSON valido ma fuori schema (campo mancante, tipo errato, UUID non valido)                                                                                                             |
+| `400`  | `INVALID_QUERY_PARAM`                              | no                         | Parametro di query malformato: `from`/`to` mancanti o non `YYYY-MM-DD`, intervallo > 31 giorni, `page`/`limit` non interi o `< 1`, `kind` ≠ `SALE`/`VOID`/`RETURN`, `status` fuori dall'enum |
+| `400`  | `INVALID_ID`                                       | no                         | UUID nel path non valido                                                                                                                                                                     |
+| `401`  | `UNAUTHORIZED`                                     | no                         | API key mancante, non valida, revocata o scaduta                                                                                                                                             |
+| `402`  | `PLAN_UPGRADE_REQUIRED`                            | no                         | Il piano attivo non include l'accesso API (upgrade a Pro/Developer)                                                                                                                          |
+| `403`  | `BUSINESS_KEY_REQUIRED`                            | no                         | Serve una business key `szk_live_`; usata una management key                                                                                                                                 |
+| `404`  | `NOT_FOUND`                                        | no                         | Scontrino inesistente o di un altro esercente. Vale per `GET /v1/receipts/{id}`, per l'annullo e per il reso                                                                                 |
+| `409`  | `PENDING_IN_PROGRESS` · `VOID_PENDING_IN_PROGRESS` | **sì** (`Retry-After: 2`)  | Una richiesta con la stessa `idempotencyKey` è ancora in corso                                                                                                                               |
+| `409`  | `RETURN_PENDING_IN_PROGRESS`                       | **sì** (`Retry-After: 2`)  | Un reso su questo SALE è in corso, con questa key o con un'altra: ritenta identica, poi rileggi il residuo                                                                                   |
+| `409`  | `RETURN_NOT_ALLOWED`                               | no                         | Il SALE non si può rendere: annullato (anche dal portale AdE), annullo in corso, o non accettato. Nessuna trasmissione                                                                       |
+| `409`  | `RETURN_STATE_CHANGED`                             | no                         | Un reso precedente rimasto in sospeso risulta registrato sull'AdE: il residuo è cambiato. Rileggi il SALE e rifai il reso **con una key nuova**                                              |
+| `409`  | `ALREADY_REJECTED`                                 | no                         | La key identifica un documento rifiutato dall'AdE: serve una key nuova                                                                                                                       |
+| `409`  | `ALREADY_VOIDED`                                   | no                         | La key identifica uno scontrino già annullato: serve una key nuova                                                                                                                           |
+| `409`  | `VOID_ALREADY_TARGETED`                            | no                         | Un'altra correzione — annullo o reso fatto dall'app web — è già in corso sullo stesso SALE                                                                                                   |
+| `409`  | `ALREADY_RETURNED`                                 | no                         | Lo scontrino ha già un reso registrato sull'AdE (anche dal portale): annullarlo stornerebbe il corrispettivo due volte. Nessuna trasmissione è partita                                       |
+| `409`  | `IDEMPOTENCY_PAYLOAD_MISMATCH`                     | no                         | Key riusata con un payload diverso **o** fra emissione e annullo: usa una key nuova                                                                                                          |
+| `409`  | `ADE_REAUTH_REQUIRED`                              | no (azione umana)          | Sessione AdE (CIE) scaduta: va rinnovata **dall'app web ScontrinoZero**. Nessun retry automatico è utile                                                                                     |
+| `409`  | `ADE_PASSWORD_EXPIRED`                             | no (azione umana)          | Password Fisconline scaduta: va aggiornata **dall'app web ScontrinoZero**                                                                                                                    |
+| `413`  | `PAYLOAD_TOO_LARGE`                                | no                         | Corpo oltre il limite dell'endpoint (32 KB su emissione, 8 KB su annullo e reso)                                                                                                             |
+| `422`  | `ADE_REJECTED`                                     | no                         | L'AdE ha rifiutato il documento nel merito, o mancano dati fiscali. Il documento **non** è stato registrato: correggilo                                                                      |
+| `422`  | `RETURN_INVALID_QUANTITIES`                        | no                         | `quantities` non trasmissibile: numero di valori diverso dalle righe, negativi, più di 2 decimali, tutti a zero, o oltre il residuo letto dall'AdE (che conta i resi dal portale)            |
+| `429`  | `RATE_LIMIT_EXCEEDED`                              | **sì** (`Retry-After`)     | Rate limit superato                                                                                                                                                                          |
+| `500`  | `VOID_SYNC_FAILED`                                 | no (richiede intervento)   | Annullo registrato su AdE ma sync DB fallita                                                                                                                                                 |
+| `500`  | `RETURN_SYNC_FAILED`                               | no (richiede intervento)   | Reso registrato su AdE ma sync DB fallita: `documentId` indica la riga del reso                                                                                                              |
+| `500`  | `INTERNAL_ERROR`                                   | no                         | Fallimento inatteso lato nostro                                                                                                                                                              |
+| `503`  | `DB_TIMEOUT`                                       | **sì** (`Retry-After: 5`)  | Servizio temporaneamente sovraccarico                                                                                                                                                        |
+| `503`  | `ADE_UNAVAILABLE`                                  | **sì** (`Retry-After: 10`) | L'AdE non ha risposto (rete, 5xx, timeout SPID): esito della trasmissione **ignoto**                                                                                                         |
 
 > ⚠️ **Ritenta sempre con la stessa `idempotencyKey`.** Vale per tutti i codici
 > ritentabili, ma è critico su `ADE_UNAVAILABLE`: lì l'esito della trasmissione
@@ -430,10 +475,10 @@ Per adeguare un client esistente:
   che più cambia il comportamento;
 - salva il `requestId` nei tuoi log: dimezza i tempi di una segnalazione.
 
-> ⚠️ **La idempotency key deve essere unica per operazione.** Emissione e
-> annullo non condividono mai la stessa `idempotencyKey`: riusarla tra le due
-> operazioni ritorna `409 IDEMPOTENCY_PAYLOAD_MISMATCH`. Genera una key nuova
-> per ogni transazione (emit e void inclusi).
+> ⚠️ **La idempotency key deve essere unica per operazione.** Emissione,
+> annullo e reso non condividono mai la stessa `idempotencyKey`: riusarla fra
+> due operazioni ritorna `409 IDEMPOTENCY_PAYLOAD_MISMATCH`. Genera una key
+> nuova per ogni transazione, e per ogni reso dello stesso SALE.
 
 ### Partner Management API (Tier 2 — Fase B)
 
@@ -542,11 +587,12 @@ WHERE b.profile_id = $developer_profile_id
 
 ### Rate Limits API
 
-| Key pattern           | Endpoint                      | Limite  | Finestra |
-| --------------------- | ----------------------------- | ------- | -------- |
-| `api:emit:{apiKeyId}` | `POST /v1/receipts`           | 120/ora | 1h       |
-| `api:list:{apiKeyId}` | `GET /v1/receipts`            | 60/ora  | 1h       |
-| `api:void:{apiKeyId}` | `POST /v1/receipts/{id}/void` | 20/ora  | 1h       |
+| Key pattern             | Endpoint                        | Limite  | Finestra |
+| ----------------------- | ------------------------------- | ------- | -------- |
+| `api:emit:{apiKeyId}`   | `POST /v1/receipts`             | 120/ora | 1h       |
+| `api:list:{apiKeyId}`   | `GET /v1/receipts`              | 60/ora  | 1h       |
+| `api:void:{apiKeyId}`   | `POST /v1/receipts/{id}/void`   | 20/ora  | 1h       |
+| `api:return:{apiKeyId}` | `POST /v1/receipts/{id}/return` | 20/ora  | 1h       |
 
 `GET /v1/receipts/{id}` (lettura singola indicizzata) non ha rate limiter
 dedicato. L'emissione è **allineata alla cassa** (`emit:{userId}`, 120/ora): lo

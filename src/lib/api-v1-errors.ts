@@ -16,7 +16,8 @@
  * - `documentId` — **opzionale**, presente solo quando l'errore riguarda un
  *              documento già persistito il cui esito è ancora **aperto**:
  *              `ADE_UNAVAILABLE`, `DB_TIMEOUT` dopo l'INSERT,
- *              `PENDING_IN_PROGRESS` e `VOID_PENDING_IN_PROGRESS`. Serve a non
+ *              `PENDING_IN_PROGRESS`, `VOID_PENDING_IN_PROGRESS` e
+ *              `RETURN_PENDING_IN_PROGRESS`. Serve a non
  *              lasciare orfana una riga `PENDING` quando il client smette di
  *              ritentare: con l'id può seguirla su `GET /v1/receipts/{id}`.
  *              Sugli errori a esito definitivo la chiave non viene
@@ -94,6 +95,22 @@ export const V1_ERROR_CATALOG = {
   PENDING_IN_PROGRESS: { status: 409, retryable: true, retryAfter: 2 },
   /** Annullo con la stessa key ancora in corso: ritenta fra poco. */
   VOID_PENDING_IN_PROGRESS: { status: 409, retryable: true, retryAfter: 2 },
+  /**
+   * Un reso su questo SALE è in corso (questa key o un'altra): ritenta fra
+   * poco con la stessa key, poi rileggi il dettaglio per il residuo.
+   */
+  RETURN_PENDING_IN_PROGRESS: { status: 409, retryable: true, retryAfter: 2 },
+  /**
+   * Il SALE non si può rendere: annullato (anche dal portale AdE), annullo in
+   * corso, o non è una vendita accettata. Nessuna trasmissione.
+   */
+  RETURN_NOT_ALLOWED: { status: 409, retryable: false },
+  /**
+   * Un reso precedente rimasto in sospeso è risultato registrato sull'AdE: il
+   * residuo è cambiato. La richiesta va **rifatta** sulle quantità aggiornate,
+   * con una key nuova, non ritentata identica.
+   */
+  RETURN_STATE_CHANGED: { status: 409, retryable: false },
   /** La key identifica un documento già rifiutato: serve una key nuova. */
   ALREADY_REJECTED: { status: 409, retryable: false },
   /** La key identifica uno scontrino già annullato: serve una key nuova. */
@@ -123,6 +140,12 @@ export const V1_ERROR_CATALOG = {
    * nuovo: va corretto il contenuto (o le credenziali) prima.
    */
   ADE_REJECTED: { status: 422, retryable: false },
+  /**
+   * Quantità del reso non trasmissibili: numero di righe diverso dal SALE,
+   * negative, più di due decimali, tutte a zero, o oltre il residuo letto
+   * dall'AdE in questo momento (che conta anche i resi fatti dal portale).
+   */
+  RETURN_INVALID_QUANTITIES: { status: 422, retryable: false },
 
   // ── 429 ───────────────────────────────────────────────────────────────────
   /** Rate limit superato. `Retry-After` è calcolato sulla finestra scorrevole. */
@@ -131,6 +154,8 @@ export const V1_ERROR_CATALOG = {
   // ── 500 ───────────────────────────────────────────────────────────────────
   /** Annullo registrato su AdE ma sync DB fallita: serve intervento manuale. */
   VOID_SYNC_FAILED: { status: 500, retryable: false },
+  /** Reso registrato su AdE ma sync DB fallita: serve intervento manuale. */
+  RETURN_SYNC_FAILED: { status: 500, retryable: false },
   /** Fallimento inatteso lato nostro. */
   INTERNAL_ERROR: { status: 500, retryable: false },
 

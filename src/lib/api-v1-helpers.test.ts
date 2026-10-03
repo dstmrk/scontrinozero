@@ -223,6 +223,22 @@ describe("checkRateLimitApi", () => {
 });
 
 describe("serviceErrorResponse", () => {
+  // I codici del reso (HAR.md #19) arrivano dal servizio così come sono: un
+  // codice non mappato diventerebbe ADE_REJECTED e il client tratterebbe un
+  // reso in volo come un rifiuto definitivo.
+  it.each([
+    ["RETURN_PENDING_IN_PROGRESS", 409, "2"],
+    ["RETURN_NOT_ALLOWED", 409, null],
+    ["RETURN_STATE_CHANGED", 409, null],
+    ["RETURN_INVALID_QUANTITIES", 422, null],
+    ["RETURN_SYNC_FAILED", 500, null],
+  ])("mappa %s a %i", async (code, status, retryAfter) => {
+    const res = serviceErrorResponse({ error: "reso", code }, REQUEST_ID);
+    expect(res.status).toBe(status);
+    expect(res.headers.get("Retry-After")).toBe(retryAfter);
+    expect(await res.json()).toMatchObject({ code });
+  });
+
   it("maps a known code with a Retry-After (DB_TIMEOUT → 503)", async () => {
     const res = serviceErrorResponse(
       { error: "overloaded", code: "DB_TIMEOUT" },

@@ -24,6 +24,7 @@ import {
 } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import { parsePublicRequest } from "@/lib/receipts/public-request";
+import { fetchReturnedByLine } from "@/lib/receipts/returned-quantities";
 import { isValidUuid } from "@/lib/uuid";
 import {
   STORICO_PAGE_SIZE,
@@ -130,9 +131,6 @@ type ReceiptDocRow = Pick<
   returnOfAdeRegisteredAt: Date | null;
 };
 
-/** Pezzi già resi per vendita e per `lineIndex`. */
-type ReturnedByLine = Map<string, Map<number, number>>;
-
 /** Compone la riga DB + le sue righe articolo nella forma esposta al client. */
 function toReceiptListItem(
   doc: ReceiptDocRow,
@@ -182,50 +180,6 @@ function toReceiptListItem(
       returnedQuantity: String(returned?.get(l.lineIndex) ?? 0),
     })),
   };
-}
-
-/**
- * Pezzi già resi per ogni riga delle vendite indicate, dai resi accettati.
- *
- * Una query sui resi e una sulle loro righe, invece di un JOIN per pagina:
- * le righe del reso portano il `lineIndex` della vendita
- * (`src/lib/receipts/return-lines.ts`), quindi la somma si fa per chiave.
- * Le quantità si sommano in centesimi interi, come il servizio di reso.
- */
-async function fetchReturnedByLine(
-  saleIds: readonly string[],
-): Promise<ReturnedByLine> {
-  const byLine: ReturnedByLine = new Map();
-  if (saleIds.length === 0) return byLine;
-
-  const returns = await getDb()
-    .select({
-      id: commercialDocuments.id,
-      saleId: commercialDocuments.returnedDocumentId,
-    })
-    .from(commercialDocuments)
-    .where(
-      and(
-        inArray(commercialDocuments.returnedDocumentId, [...saleIds]),
-        eq(commercialDocuments.kind, "RETURN"),
-        eq(commercialDocuments.status, "ACCEPTED"),
-      ),
-    );
-  if (returns.length === 0) return byLine;
-
-  const saleOf = new Map(returns.map((r) => [r.id, r.saleId]));
-  const lines = await fetchLinesByDocIds(returns.map((r) => r.id));
-  for (const line of lines) {
-    const saleId = saleOf.get(line.documentId);
-    if (!saleId) continue;
-    const perLine = byLine.get(saleId) ?? new Map<number, number>();
-    const cents =
-      Math.round((perLine.get(line.lineIndex) ?? 0) * 100) +
-      Math.round(Number(line.quantity) * 100);
-    perLine.set(line.lineIndex, cents / 100);
-    byLine.set(saleId, perLine);
-  }
-  return byLine;
 }
 
 /** Righe DB + righe articolo + già-reso → elementi dello storico. */

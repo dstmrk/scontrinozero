@@ -604,12 +604,32 @@ describe("GET /api/v1/receipts (list)", () => {
       expect(res.status).toBe(200);
     });
 
-    it("returns all kinds when kind param is omitted", async () => {
+    // Il contratto di chi non passa `kind` non cambia: vendite e annulli. Un
+    // RETURN in quell'elenco romperebbe un consumer che valida l'enum in modo
+    // stretto (regola 28, breaking change solo su un path nuovo).
+    it("senza kind elenca vendite e annulli, non i resi", async () => {
       setupDbMocksEmpty();
+      const { inArray } = await import("drizzle-orm");
       const { GET } = await import("@/app/api/v1/receipts/route");
       const res = await GET(makeRequest({ from: VALID_FROM, to: VALID_TO }));
 
       expect(res.status).toBe(200);
+      // Seconda chiamata a `inArray`: dopo quella sugli stati, quella sui kind.
+      expect(vi.mocked(inArray).mock.calls[1]?.[1]).toEqual(["SALE", "VOID"]);
+    });
+
+    it("kind=RETURN elenca i resi", async () => {
+      setupDbMocksEmpty();
+      const { eq } = await import("drizzle-orm");
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(
+        makeRequest({ from: VALID_FROM, to: VALID_TO, kind: "RETURN" }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(
+        vi.mocked(eq).mock.calls.some(([, value]) => value === "RETURN"),
+      ).toBe(true);
     });
   });
 

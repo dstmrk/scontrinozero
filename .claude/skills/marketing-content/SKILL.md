@@ -57,7 +57,7 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   Due vincoli da non contraddire nel copy: un reso **non si annulla** (l'AdE
   non lo consente) e una vendita con un reso **non si annulla più**. Il
   documento di reso **non** è un "DCO di importo negativo": cita lo scontrino
-  originale e storna i pezzi resi. Il reso dalla Developer API non c'è ancora.
+  originale e storna i pezzi resi. Dalla Developer API c'è `POST /v1/receipts/{id}/return` (stessi vincoli).
 
 Se lo stato di una feature cambia (spedita, rimossa dalla roadmap), questo
 elenco e la tabella Pricing in `CLAUDE.md` vanno aggiornati nello stesso PR.

@@ -114,8 +114,10 @@ quantità per riga con tetto = venduti − già resi, anteprima dell'importo con
 `buildReturnLines`) → `returnReceipt` (`src/server/return-actions.ts`: auth,
 rate limit `return:<userId>`, zod, ownership) →
 `src/lib/services/return-service.ts`. A reso registrato il pannello rilegge il
-RETURN per la stampa termica e lo storico rilegge la vendita (già-reso). La
-Developer API v1 non espone ancora il reso.
+RETURN per la stampa termica e lo storico rilegge la vendita (già-reso).
+Dalla Developer API: `POST /api/v1/receipts/{id}/return` (stesso servizio,
+`apiKeyId` sulla riga); il dettaglio v1 porta `returnedQuantity` per riga da
+`src/lib/receipts/returned-quantities.ts`, lo stesso conteggio dello storico.
 
 1. Riga `commercial_documents` con `kind = 'RETURN'` e `returned_document_id`
    verso la vendita (migrazione 0042). La vendita resta `ACCEPTED`: una
@@ -140,8 +142,9 @@ Developer API v1 non espone ancora il reso.
    richiesta e fallita prima della POST si cancella.
 5. Superfici: il RETURN accettato si stampa (PDF, termica, ricevuta
    pubblica) col layout AdE del reso — `emesso per RESO`, documento di
-   riferimento, righe proprie, nessun pagamento. La Developer API v1 resta su
-   `SALE`/`VOID` (`V1_DOCUMENT_KINDS`). L'analytics sottrae i resi nel giorno
+   riferimento, righe proprie, nessun pagamento. L'elenco v1 senza `kind` resta su
+   `SALE`/`VOID` (`V1_DEFAULT_LIST_KINDS`, regola 28): i resi si leggono con
+   `kind=RETURN` o per id. L'analytics sottrae i resi nel giorno
    del reso: ricavi, serie temporale e prodotti sono netti, scontrini emessi e
    scontrino medio restano sulle vendite, i metodi di pagamento pure (il
    rimborso non ha un metodo noto). Storico ed export CSV leggono

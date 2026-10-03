@@ -20,6 +20,7 @@ import {
   V1_DOCUMENT_KINDS,
 } from "@/lib/api-v1-helpers";
 import { calcDocTotal } from "@/lib/receipts/document-lines";
+import { fetchReturnedByLine } from "@/lib/receipts/returned-quantities";
 
 // Single-doc read: 2 indexed SELECT, atteso < 50ms p99. 3s di budget cattura
 // solo gli stalli reali (DB sovraccarico, lock attesi) senza falsi positivi.
@@ -61,6 +62,7 @@ export async function GET(
           createdAt: commercialDocuments.createdAt,
           lotteryCode: commercialDocuments.lotteryCode,
           voidedDocumentId: commercialDocuments.voidedDocumentId,
+          returnedDocumentId: commercialDocuments.returnedDocumentId,
           publicRequest: commercialDocuments.publicRequest,
         })
         .from(commercialDocuments)
@@ -68,7 +70,6 @@ export async function GET(
           and(
             eq(commercialDocuments.id, id),
             eq(commercialDocuments.businessId, auth.businessId),
-            // Un reso non è (ancora) nel contratto v1: 404 come un id altrui.
             inArray(commercialDocuments.kind, [...V1_DOCUMENT_KINDS]),
           ),
         )
@@ -82,7 +83,15 @@ export async function GET(
         .where(eq(commercialDocumentLines.documentId, doc.id))
         .orderBy(asc(commercialDocumentLines.lineIndex));
 
-      return { doc, lines };
+      // Pezzi già resi da ScontrinoZero, solo su una vendita: sono ciò che il
+      // client sottrae per costruire `quantities` di un reso.
+      const returned =
+        doc.kind === "SALE"
+          ? ((await fetchReturnedByLine([doc.id], tx)).get(doc.id) ??
+            new Map<number, number>())
+          : new Map<number, number>();
+
+      return { doc, lines, returned };
     });
   } catch (err) {
     if (isStatementTimeoutError(err)) {
@@ -118,7 +127,7 @@ export async function GET(
     return v1Error("NOT_FOUND", "Documento non trovato.", requestId);
   }
 
-  const { doc, lines } = result;
+  const { doc, lines, returned } = result;
 
   const total = calcDocTotal(lines);
 
@@ -147,6 +156,7 @@ export async function GET(
       payments: v1Payments(payments),
       lotteryCode: doc.lotteryCode,
       voidedDocumentId: doc.voidedDocumentId,
+      returnedDocumentId: doc.returnedDocumentId,
       total: total.toFixed(2),
       // Sconto a pagare: NON riduce `total`, che resta il corrispettivo
       // (HAR.md voce #3b). L'incassato e' `total - globalDiscount`.
@@ -157,6 +167,9 @@ export async function GET(
         grossUnitPrice: l.grossUnitPrice,
         lineDiscount: l.lineDiscount,
         vatCode: l.vatCode,
+        // Stessa precisione di `quantity`. Additivo: "0.000" su resi,
+        // annulli e righe mai rese.
+        returnedQuantity: (returned.get(l.lineIndex) ?? 0).toFixed(3),
       })),
     },
     requestId,
