@@ -155,6 +155,21 @@ chiamate esterne): a quel punto la route si sposta fuori dalla dot-directory
 `next.config.ts`, dove già vivono quelli di `/v1/:path*`. L'analisi Sonar
 vale l'indirezione solo da quel momento in poi.
 
+## audit-ci: advisory `braces` dev-only, senza patch
+
+`audit-ci.json` allowlista `GHSA-vfj7-8cjw-p6xm` (high, CWE-674: stack
+exhaustion su pattern di espansione annidati in profondità), segnalato dall'audit dal
+2026-10-03. Il range vulnerabile è `<=3.0.3`, cioè anche l'ultima release:
+non c'è una versione da installare né da forzare con un override. `braces`
+entra solo come dipendenza di sviluppo (`shadcn`, `eslint-config-next`,
+`ts-morph` → `fast-glob` → `micromatch` → `braces`); `npm audit --omit=dev`
+sulle dipendenze di runtime è pulito, quindi non arriva nel container.
+L'attacco richiede di far espandere a `braces` un pattern scelto
+dall'attaccante: nella toolchain i pattern sono i nostri (glob di config e di
+CLI). Superficie ≈ 0. **Riaprire:** quando esce `braces` > 3.0.3 (o
+`micromatch` smette di dipenderne) → aggiornare il lockfile e togliere
+l'allowlist; subito, se `braces` compare fra le dipendenze di runtime.
+
 ## audit-ci: advisory `esbuild` dev-only
 
 `audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (dev-server SSRF).
