@@ -152,12 +152,13 @@ export function validateReturnQuantities(
     return "NOTHING_TO_RETURN";
   }
 
-  // `!(q <= residuo)` e non `q > residuo`: un residuo illeggibile (NaN) fa
-  // fallire il confronto e il reso viene rifiutato, non trasmesso.
+  // Un residuo illeggibile (NaN) va rifiutato in modo esplicito: `q > NaN` è
+  // falso, e da solo lascerebbe trasmettere il reso.
   const returnable = getReturnableQuantities(doc);
-  const exceeds = quantities.some(
-    (q, i) => !(toHundredths(q) <= toHundredths(returnable[i]!)),
-  );
+  const exceeds = quantities.some((q, i) => {
+    const limit = toHundredths(returnable[i]!);
+    return Number.isNaN(limit) || toHundredths(q) > limit;
+  });
   return exceeds ? "EXCEEDS_RETURNABLE" : null;
 }
 
