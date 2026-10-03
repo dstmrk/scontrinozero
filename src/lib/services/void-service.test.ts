@@ -911,6 +911,85 @@ describe("voidReceiptForBusiness", () => {
     expect(mockGetDocument).not.toHaveBeenCalled();
   });
 
+  // Un annullo ERROR ripreso con la stessa key ritrasmetteva restando ERROR,
+  // cioè fuori sia dall'indice dei VOID (0012: PENDING, VOID_ACCEPTED) sia da
+  // quello delle correzioni in volo (0042: PENDING). Un reso o un altro
+  // annullo concorrente potevano partire insieme: doppio storno.
+  it("annullo ERROR stale: il claim lo riapre PENDING prima di ritrasmettere", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "ERROR",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(mockUpdateSet.mock.calls[0]![0]).toEqual({
+      updatedAt: expect.any(Date),
+      status: "PENDING",
+    });
+    expect(mockSubmitVoid).toHaveBeenCalledTimes(1);
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
+  });
+
+  it("riapertura bloccata da un reso in volo → VOID_ALREADY_TARGETED, niente AdE", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "ERROR",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ])
+      .mockResolvedValueOnce([{ id: "return-pending" }]); // reso PENDING
+    mockClaimReturning.mockRejectedValueOnce(
+      Object.assign(new Error("duplicate key"), { code: "23505" }),
+    );
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("VOID_ALREADY_TARGETED");
+    expect(result.error).toMatch(/reso/i);
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
+  it("un errore DB qualunque sul claim non viene inghiottito", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "ERROR",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    mockClaimReturning.mockRejectedValueOnce(new Error("boom"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await expect(voidReceiptForBusiness(VALID_INPUT)).rejects.toThrow("boom");
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
   it("P1.3: void recovery stale che perde il claim ritorna VOID_PENDING_IN_PROGRESS senza ri-sottomettere", async () => {
     mockReturning.mockResolvedValue([]); // INSERT conflict
     mockSelectLimit

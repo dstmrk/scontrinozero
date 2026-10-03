@@ -547,12 +547,15 @@ l'**istante** della POST (`submittedAt`), e la ricerca si centra lì: la
 finestra è ±1 giorno, e una riga che ritrasmette giorni dopo la sua nascita
 cercata intorno a `createdAt` non troverebbe la POST da riconciliare.
 
-Un claim di recovery sul reso **riapre** la riga a `PENDING`
-(`claimStaleDocument(..., { reopen: true })`). L'indice di correzione copre
-solo `PENDING`: ritrasmettere da una riga `ERROR` partirebbe fuori
-dall'indice, in parallelo a un annullo. Annullo e vendita non riaprono:
-l'annullo ha lo stesso buco sull'indice dei VOID (0012), la vendita non ha
-un indice da cui uscire.
+Un claim di recovery su annullo e reso **riapre** la riga a `PENDING`
+(`claimStaleDocument(..., { reopen: true })`). Gli indici che serializzano le
+correzioni di una vendita (0012 per i VOID, 0042 per entrambi) escludono
+`ERROR`: ritrasmettere da una riga `ERROR` partirebbe fuori da tutti e due,
+in parallelo a un'altra correzione — e l'AdE accetta il doppio storno
+(#19f). Se un'altra correzione è già in volo la riapertura viola l'indice
+(23505) e la richiesta si ferma prima della sessione AdE. La vendita non
+riapre: non ha un indice da cui uscire. Regola generale: **uno stato che un
+indice parziale esclude non è uno stato da cui si può trasmettere.**
 
 ### Il reso si fida delle righe che abbiamo trasmesso noi, e non sempre può
 

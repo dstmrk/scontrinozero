@@ -199,6 +199,13 @@ documento con la fonte di verità via
 finalize-only (nessun duplicato fiscale), altrimenti re-submit; lookup
 ambiguo o fallito → resta pending (fail-safe).
 
+Su annullo e reso il claim della riga stale la riporta anche a `PENDING`
+(`claimStaleDocument(..., { reopen: true })`): gli indici che serializzano le
+correzioni di una vendita (0012 per i VOID, 0042 per annullo e reso)
+escludono `ERROR`, e una ritrasmissione da una riga `ERROR` partirebbe in
+parallelo a un'altra correzione. Se un'altra correzione è già in volo, la
+riapertura viola l'indice e la richiesta si ferma senza toccare l'AdE.
+
 Il match porta anche `registeredAt` (il `data` del documento AdE, wall-clock
 italiano, parsato da `parseAdeResultDate`): la finalizzazione lo scrive in
 `ade_registered_at` via `adeRegisteredAtPatchFromDate`

@@ -22,6 +22,7 @@ import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { hasAnyReturn } from "@/lib/ade/return-mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
+import { isUniqueConstraintViolation } from "@/lib/db-errors";
 import { saleHasAcceptedReturn } from "@/lib/receipts/returned-quantities";
 import {
   retryOnStatementTimeout,
@@ -245,28 +246,37 @@ async function resolveVoidConflict(
   }
 
   // Case B: different idempotencyKey, same SALE → race condition blocked.
-  // L'indice "una correzione in volo per vendita" (migrazione 0042) fa
-  // scattare il conflitto anche per un RESO PENDING: il messaggio deve dire
-  // quale delle due correzioni è in corso.
+  return {
+    kind: "done",
+    result: await otherCorrectionInFlight(db, voidedDocumentId),
+  };
+}
+
+/**
+ * Un'altra correzione occupa la vendita: un annullo (indice 0012) o un reso
+ * (indice "una correzione in volo per vendita", migrazione 0042). Il messaggio
+ * dice quale delle due è in corso.
+ */
+async function otherCorrectionInFlight(
+  db: ReturnType<typeof getDb>,
+  saleDocumentId: string,
+): Promise<VoidReceiptResult> {
   const [returnInFlight] = await db
     .select({ id: commercialDocuments.id })
     .from(commercialDocuments)
     .where(
       and(
-        eq(commercialDocuments.returnedDocumentId, voidedDocumentId),
+        eq(commercialDocuments.returnedDocumentId, saleDocumentId),
         eq(commercialDocuments.status, "PENDING"),
       ),
     )
     .limit(1);
 
   return {
-    kind: "done",
-    result: {
-      error: returnInFlight
-        ? "Su questo scontrino è in corso un reso: riprova quando è concluso."
-        : "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
-      code: "VOID_ALREADY_TARGETED",
-    },
+    error: returnInFlight
+      ? "Su questo scontrino è in corso un reso: riprova quando è concluso."
+      : "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
+    code: "VOID_ALREADY_TARGETED",
   };
 }
 
@@ -714,21 +724,13 @@ async function insertOrResolveVoid(
       return { kind: "done", result: finalize };
     }
 
-    // P1.3: claim CAS su updated_at per serializzare due recovery concorrenti.
-    // Solo il primo retry vince e riesegue submitVoid; gli altri ricevono
-    // VOID_PENDING_IN_PROGRESS senza ri-sottomettere (evita il doppio annullo
-    // su AdE da retry concorrenti oltre la soglia stale).
-    const claimed = await claimStaleDocument(
+    const notClaimed = await claimVoidForRecovery(
       db,
       conflict.voidDocumentId,
       conflict.existingUpdatedAt,
+      input.documentId,
     );
-    if (!claimed) {
-      return {
-        kind: "done",
-        result: voidPendingInProgress(conflict.voidDocumentId),
-      };
-    }
+    if (notClaimed) return { kind: "done", result: notClaimed };
 
     // Recovery path SENZA adeTransactionId noto: il caller (voidReceiptForBusiness)
     // esegue il lookup AdE pre-retry via searchDocuments nella stessa sessione,
@@ -750,6 +752,39 @@ async function insertOrResolveVoid(
     }
     throw err;
   }
+}
+
+/**
+ * Prende in carico una riga VOID stale prima di ritrasmetterla. Ritorna
+ * `null` se il claim è vinto, altrimenti l'esito da restituire al client.
+ *
+ * P1.3: claim CAS su updated_at per serializzare due recovery concorrenti.
+ * Solo il primo retry vince e riesegue submitVoid; gli altri ricevono
+ * VOID_PENDING_IN_PROGRESS senza ri-sottomettere (evita il doppio annullo su
+ * AdE da retry concorrenti oltre la soglia stale).
+ *
+ * `reopen`: una riga ERROR torna PENDING nello stesso UPDATE, prima della
+ * nuova POST. Da ERROR ritrasmetterebbe fuori sia dall'indice dei VOID (0012)
+ * sia da quello delle correzioni in volo (0042), in parallelo a un altro
+ * annullo o a un reso: doppio storno. Se uno dei due è già in volo la
+ * riapertura viola l'indice, e la risposta è quella del Case B.
+ */
+async function claimVoidForRecovery(
+  db: ReturnType<typeof getDb>,
+  voidDocumentId: string,
+  observedUpdatedAt: Date,
+  saleDocumentId: string,
+): Promise<VoidReceiptResult | null> {
+  let claimed: boolean;
+  try {
+    claimed = await claimStaleDocument(db, voidDocumentId, observedUpdatedAt, {
+      reopen: true,
+    });
+  } catch (err) {
+    if (!isUniqueConstraintViolation(err)) throw err;
+    return otherCorrectionInFlight(db, saleDocumentId);
+  }
+  return claimed ? null : voidPendingInProgress(voidDocumentId);
 }
 
 /**

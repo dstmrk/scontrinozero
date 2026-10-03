@@ -207,6 +207,27 @@ delega il rilevamento a due sentinelle in `runSubmitSale`
 l'assunzione sui totali va rivista, e il campione da chiedere è un rifiuto AdE
 su riga a quantità frazionaria con aliquota IVA.
 
+## Reso bloccato sulle vendite non riproporzionabili (PR #1020)
+
+`isReturnComputable` (`src/lib/ade/return-mapper.ts`) rifiuta il reso
+(`RETURN_NOT_ALLOWED`) sulle righe dove le formule del portale (`HAR.md`
+#19b) stornerebbero un importo diverso dal venduto: le vendite emesse fino
+alla v1.7.0 (19/03–20/08/2026), il cui mapper trasmetteva `prezzoUnitario`
+di riga, e quelle della Developer API con quantità a tre decimali. Il rifiuto
+vale solo sulle righe rese; le righe da un pezzo senza sconto della v1.7.0
+passano, perché lì le formule coincidono.
+
+Non c'è un percorso alternativo, né dal servizio né in UI: l'esercente vede il
+rifiuto e l'invito a scrivere all'assistenza. Accettato dall'owner il
+03/10/2026: la base utenti è quasi tutta di B&B e finora nessun esercente ha
+avuto bisogno di un reso. Calcolare il reso in proporzione sull'imponibile di
+riga è possibile, ma è una formula mai misurata sul portale applicata a un
+documento irreversibile.
+
+**Riaprire:** quando un esercente chiede il reso di una di quelle vendite. Il
+segnale nei log è il warn `Return: sale lines not computable with the portal
+formulas` (`saleDocumentId`, `businessId`), fuori da Sentry per regola 20.
+
 ## `flagIdentificativiModificati` diverge dal portale (PR #849)
 
 `src/lib/ade/mapper.ts` manda `flagIdentificativiModificati: true` (e

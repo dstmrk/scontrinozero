@@ -193,12 +193,13 @@ function toDateOrNull(value: unknown): Date | null {
  * in postgres-js) e il default `NOW()` ha precisione al microsecondo mentre la
  * JS Date è al millisecondo (stesso pattern di `verifyAdeCredentials`).
  *
- * `reopen` riporta una riga `ERROR` a `PENDING` nello stesso UPDATE. Serve al
- * reso: l'indice "una correzione in volo per vendita" (migrazione 0042) copre
- * solo `PENDING`, e una ritrasmissione da una riga `ERROR` partirebbe fuori
- * dall'indice, in parallelo a un annullo o a un altro reso. Se un'altra
- * correzione è già in volo l'UPDATE viola l'indice e lancia (23505): il
- * chiamante lo gestisce come "in corso".
+ * `reopen` riporta una riga `ERROR` a `PENDING` nello stesso UPDATE. Serve ad
+ * annullo e reso: gli indici che li serializzano sulla vendita (0012 per i
+ * VOID, 0042 "una correzione in volo per vendita") escludono `ERROR`, e una
+ * ritrasmissione da una riga `ERROR` partirebbe fuori da entrambi, in
+ * parallelo a un'altra correzione. Se un'altra correzione è già in volo
+ * l'UPDATE viola l'indice e lancia (23505): lo gestisce il chiamante. La
+ * vendita non lo usa: non ha un indice da cui uscire.
  */
 export async function claimStaleDocument(
   db: ReturnType<typeof getDb>,
