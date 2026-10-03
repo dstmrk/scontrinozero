@@ -179,6 +179,16 @@ rimuovere il wildcard.
 
 ## Gitleaks: allowlist per forma, fingerprint solo come ultima spiaggia
 
+**UUID di esempio nei doc API.** Anche un `"idempotencyKey": "<uuid>"` scatta
+`generic-api-key` se la UUID ha entropia alta (`7c9e6679-7425-…`,
+`d4e5f6a7-b8c9-…`, PR #1017). Negli esempi usa UUID a bassa entropia come
+quelle già presenti (`550e8400-e29b-41d4-a716-44665544000N`). Verifica in
+locale con lo stesso binario della CI (gitleaks 8.24.3, release GitHub):
+`gitleaks git --log-opts="origin/main..HEAD" --config .gitleaks.toml`. La
+CI scansiona **ogni commit** della PR: correggere in un commit successivo non
+basta, il commit con la UUID va riscritto (sul tuo branch: squash e
+`--force-with-lease`, tanto il merge è in squash).
+
 I placeholder di chiavi API negli esempi curl (`szk_live_XXXX`,
 `Authorization: Bearer …`) triggerano `curl-auth-header` e `generic-api-key`.
 Sono falsi positivi, ma **non si chiudono con un fingerprint**.
