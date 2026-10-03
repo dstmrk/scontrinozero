@@ -326,6 +326,32 @@ describe("voidReceiptForBusiness", () => {
     expect(mockUpdateSet).toHaveBeenCalledWith({ status: "ERROR" });
   });
 
+  // Difesa in profondità: la guardia sul dettaglio AdE dipende da un campo
+  // che leggiamo noi; un reso già accettato nel nostro DB basta a fermare
+  // l'annullo prima ancora di aprire la sessione (canale API compreso).
+  it("rifiuta prima dell'AdE una vendita con un reso già accettato nel DB", async () => {
+    mockSelectLimit.mockResolvedValue([
+      { ...FAKE_SALE_DOC, hasAcceptedReturn: true },
+    ]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ALREADY_RETURNED");
+    expect(result.error).toMatch(/reso/i);
+    expect(mockFetchAdePrerequisites).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
+  it("legge i resi accettati nella stessa SELECT della vendita", async () => {
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(mockSelect.mock.calls[0]![0]).toHaveProperty("hasAcceptedReturn");
+  });
+
   it("conflitto con un reso in volo sulla stessa vendita → messaggio sul reso", async () => {
     mockReturning.mockResolvedValue([]); // INSERT VOID saltato dall'indice
     mockSelectLimit

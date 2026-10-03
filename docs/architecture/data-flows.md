@@ -125,17 +125,27 @@ Dalla Developer API: `POST /api/v1/receipts/{id}/return` (stesso servizio,
    `reso` di riga nel dettaglio GET), che vede anche i resi fatti dal portale.
 2. Guardie nostre, perché l'AdE non le ha (#19f): niente reso di una vendita
    annullata (DB, più flag `annulli` della riga V per l'annullo dal portale);
-   niente annullo di una vendita con un reso (`hasAnyReturn` in
-   `src/lib/services/void-service.ts`, sul dettaglio già letto). L'indice
+   niente annullo di una vendita con un reso, letto due volte — nel DB prima
+   di aprire la sessione (`saleHasAcceptedReturn` in
+   `src/lib/receipts/returned-quantities.ts`, colonna della SELECT della
+   vendita) e sul dettaglio AdE (`hasAnyReturn`, che vede anche i resi dal
+   portale e su un cumulativo illeggibile blocca). L'indice
    `idx_commercial_documents_correction_in_flight` ammette **una sola
    correzione PENDING per vendita**, annullo o reso.
-3. In sessione: ricerca V (annullata?) → `getDocument` → validazione delle
-   quantità sul residuo → `mapReturnToAdePayload`
+3. In sessione: ricerca V (annullata?) → `getDocument` → righe AdE uguali a
+   quelle salvate (quantità e aliquota per indice) → validazione delle
+   quantità sul residuo → righe **riproporzionabili** (`isReturnComputable`:
+   le vendite emesse fino alla v1.7.0 e quelle API a tre decimali non lo sono,
+   e il reso si rifiuta) → `mapReturnToAdePayload`
    (`src/lib/ade/return-mapper.ts`) e righe del reso
    (`src/lib/receipts/return-lines.ts`, sconto ripartito in modo telescopico)
-   → importo atteso e righe scritti **prima** della POST → `submitReturn`.
+   → importo atteso, istante e righe scritti **prima** della POST →
+   `submitReturn`.
 4. Recovery: come l'annullo, pull-based sulla stessa key, con
-   `reconcileReturnDocument` (`resi` + importo a 8 decimali). In più, una riga
+   `reconcileReturnDocument` (`resi` + importo a 8 decimali) in una finestra
+   centrata sull'**ultima POST** (`submittedAt`), non sulla nascita della
+   riga. Il claim riporta la riga a `PENDING`, così una ritrasmissione da una
+   riga `ERROR` resta dentro l'indice di correzione. In più, una riga
    PENDING stale di **un'altra** key non blocca per sempre: la si riconcilia,
    e se è registrata la richiesta nuova va rifatta (`RETURN_STATE_CHANGED`),
    se è assente si chiude ERROR e la nuova procede. Una riga nata in questa

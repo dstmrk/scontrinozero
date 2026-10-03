@@ -39,14 +39,17 @@ import {
   isTransientAdeError,
 } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
+import { toAdeAmount } from "@/lib/ade/mapper";
 import {
   getReturnedQuantities,
+  isReturnComputable,
   mapReturnToAdePayload,
   validateReturnQuantities,
   type ReturnQuantitiesError,
 } from "@/lib/ade/return-mapper";
-import type { AdeResponse } from "@/lib/ade/types";
+import type { AdeDocumentDetail, AdeResponse } from "@/lib/ade/types";
 import { isStatementTimeoutError } from "@/lib/api-errors";
+import { isUniqueConstraintViolation } from "@/lib/db-errors";
 import {
   retryOnStatementTimeout,
   withStatementTimeout,
@@ -84,11 +87,17 @@ const FLOW = "return-receipt";
  * l'`ammontareComplessivo` trasmesso, scritto **prima** della POST: è la
  * chiave con cui la riconciliazione distingue il nostro reso dagli altri resi
  * della stessa vendita (voce #19e). Assente = la POST non è mai partita.
+ *
+ * `submittedAt` è l'istante dell'ultima POST, scritto con l'importo: la
+ * ricerca di riconciliazione copre ±1 giorno, e una riga può ritrasmettere
+ * giorni dopo la sua nascita. Cercare intorno a `createdAt` perderebbe la
+ * POST da riconciliare e ne aprirebbe una seconda.
  */
 type ReturnPublicRequest = {
   documentId: string;
   quantities: number[];
   adeAmount?: string;
+  submittedAt?: string;
 };
 
 type SaleRef = {
@@ -109,7 +118,8 @@ type ReturnContext = {
 /** Una riga RETURN esistente, presa in carico per riconciliarla. */
 type ClaimedRow = {
   rowId: string;
-  createdAt: Date;
+  /** Centro della finestra di ricerca: l'ultima POST, o la nascita della riga. */
+  searchAround: Date;
   expectedAmount: string | null;
 };
 
@@ -171,6 +181,19 @@ function readExpectedAmount(publicRequest: unknown): string | null {
   const amount = (publicRequest as Partial<ReturnPublicRequest> | null)
     ?.adeAmount;
   return typeof amount === "string" ? amount : null;
+}
+
+/**
+ * L'istante dell'ultima POST, o `null` se manca o non si legge. In quel caso
+ * si cerca intorno alla nascita della riga: una ricerca in più, mai una POST
+ * alla cieca.
+ */
+function readSubmittedAt(publicRequest: unknown): Date | null {
+  const at = (publicRequest as Partial<ReturnPublicRequest> | null)
+    ?.submittedAt;
+  if (typeof at !== "string") return null;
+  const parsed = new Date(at);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +375,11 @@ const existingRowColumns = {
  * Prende in carico una riga stale con il CAS su `updated_at`: il primo
  * tentativo vince, ogni tentativo concorrente riceve "in corso" e NON
  * ritrasmette (doppio reso irreversibile).
+ *
+ * Il claim riporta la riga a `PENDING` (`reopen`): da qui può partire una
+ * POST, e deve partire dentro l'indice "una correzione in volo per vendita".
+ * Se un'altra correzione è già in volo sulla stessa vendita l'indice rifiuta
+ * la riapertura: "in corso", senza toccare l'AdE.
  */
 async function claimStale(
   row: ExistingRow,
@@ -360,7 +388,15 @@ async function claimStale(
   if (!isStaleUpdatedAt(row.updatedAt)) {
     return { kind: "done", result: pendingInProgress(row.id) };
   }
-  const claimed = await claimStaleDocument(getDb(), row.id, row.updatedAt);
+  let claimed: boolean;
+  try {
+    claimed = await claimStaleDocument(getDb(), row.id, row.updatedAt, {
+      reopen: true,
+    });
+  } catch (err) {
+    if (!isUniqueConstraintViolation(err)) throw err;
+    return { kind: "done", result: pendingInProgress() };
+  }
   if (!claimed) return { kind: "done", result: pendingInProgress(row.id) };
   logger.warn(
     { returnDocumentId: row.id, status: row.status, mode: kind },
@@ -369,7 +405,7 @@ async function claimStale(
   return {
     kind,
     rowId: row.id,
-    createdAt: row.createdAt,
+    searchAround: readSubmittedAt(row.publicRequest) ?? row.createdAt,
     expectedAmount: readExpectedAmount(row.publicRequest),
   };
 }
@@ -571,7 +607,7 @@ async function reconcilePendingReturn(
   let result;
   try {
     const list = await client.searchDocuments({
-      ...buildAdeSearchWindow(claim.createdAt),
+      ...buildAdeSearchWindow(claim.searchAround),
       tipoOperazione: "R",
     });
     const claimedIdtrx = await findClaimedTransactionIds(getDb(), {
@@ -694,6 +730,7 @@ async function persistBeforeSubmit(
     documentId: ctx.sale.id,
     quantities: ctx.input.quantities,
     adeAmount,
+    submittedAt: new Date().toISOString(),
   };
   await withStatementTimeout(3000, async (tx) => {
     await tx
@@ -766,6 +803,43 @@ async function processReturnResponse(
   };
 }
 
+/** Aliquote uguali: le nature per codice, le percentuali per valore. */
+function sameVatCode(ade: string, ours: string): boolean {
+  if (ade === ours) return true;
+  const a = Number(ade);
+  return Number.isFinite(a) && ade.trim() !== "" && a === Number(ours);
+}
+
+/**
+ * Le righe del dettaglio AdE sono quelle della vendita salvata, nello stesso
+ * ordine? Le quantità del reso arrivano allineate per indice alle NOSTRE righe
+ * (dialog e Developer API leggono il DB), mentre mapper e residuo le applicano
+ * per indice alle righe dell'AdE: con un ordine diverso il reso stornerebbe un
+ * prodotto diverso da quello scelto.
+ *
+ * Si confrontano quantità e aliquota, che il mapper di vendita trasmette da
+ * sempre così come stanno in DB. Non la descrizione, che l'AdE potrebbe
+ * normalizzare, né il prezzo, che fino alla v1.7.0 viaggiava moltiplicato per
+ * la quantità (HAR.md #11).
+ */
+function adeLinesMatchSale(
+  doc: AdeDocumentDetail,
+  saleLines: readonly SaleLineRow[],
+): boolean {
+  const adeLines = doc.documentoCommerciale.elementiContabili;
+  return (
+    adeLines.length === saleLines.length &&
+    adeLines.every((el, i) => {
+      const line = saleLines[i]!;
+      return (
+        toAdeAmount(Number(el.quantita)) ===
+          toAdeAmount(Number(line.quantity)) &&
+        sameVatCode(el.aliquotaIVA, line.vatCode)
+      );
+    })
+  );
+}
+
 /** La vendita risulta annullata sull'AdE (anche dal portale, voce #19f)? */
 async function isVoidedOnAde(
   client: AdeClient,
@@ -794,10 +868,7 @@ async function submitReturnFlow(
   }
 
   const originalDoc = await client.getDocument(ctx.sale.adeTransactionId);
-  if (
-    originalDoc.documentoCommerciale.elementiContabili.length !==
-    ctx.saleLines.length
-  ) {
+  if (!adeLinesMatchSale(originalDoc, ctx.saleLines)) {
     logger.warn(
       {
         saleDocumentId: ctx.sale.id,
@@ -816,6 +887,20 @@ async function submitReturnFlow(
   if (invalid) {
     await releaseBeforeSubmit(attempt);
     return invalidQuantities(invalid);
+  }
+
+  if (!isReturnComputable(originalDoc, ctx.input.quantities)) {
+    // Vendita emessa fino alla v1.7.0, o via API con quantità a tre decimali:
+    // le formule del portale stornerebbero un altro importo. Non è un errore
+    // dell'utente né un guasto: warn, senza Sentry (regola 20).
+    logger.warn(
+      { saleDocumentId: ctx.sale.id, businessId: ctx.input.businessId },
+      "Return: sale lines not computable with the portal formulas",
+    );
+    await releaseBeforeSubmit(attempt);
+    return notAllowed(
+      "Questo scontrino è stato emesso con un formato degli importi da cui il reso non si calcola con esattezza: per non trasmettere un importo sbagliato all'AdE il reso è bloccato. Scrivi all'assistenza.",
+    );
   }
 
   const payload = mapReturnToAdePayload({

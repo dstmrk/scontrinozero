@@ -62,6 +62,19 @@ it("chiama signIn senza errori", async () => {
 });
 ```
 
+### Un `expect` dentro un mock non asserisce niente se il codice lo cattura
+
+Il lint conta l'`expect`, non dove sta. Messo dentro un `mockImplementation`
+("al momento della POST l'importo è già scritto"), un fallimento diventa
+un'eccezione **della dipendenza mockata**: il service la cattura come un
+errore AdE qualunque, e se il test non guarda il risultato resta verde. Era
+il caso di `return-service.test.ts` sull'importo scritto prima della POST:
+verde anche togliendo il campo che doveva verificare.
+
+Pattern: nel mock **cattura** lo stato (`setsAtSubmit = updateSets()`),
+asserisci **fuori**, dopo l'`await`. Prova del nove: rompi il codice e guarda
+il test diventare rosso.
+
 ---
 
 ## `vi.mock` di classi: usare `function` o `class`, mai arrow function

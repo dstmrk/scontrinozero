@@ -519,9 +519,12 @@ coordina**: ha accettato l'annullo di una vendita già resa per intero,
 stornando il corrispettivo due volte (#19f). Non c'è un rifiuto su cui
 contare, quindi ogni regola fra le due correzioni sta nel nostro codice:
 
-- **niente annullo dopo un reso**: `hasAnyReturn` sul dettaglio GET che
-  l'annullo legge comunque prima della POST — vede anche i resi fatti dal
-  portale, che il DB non conosce;
+- **niente annullo dopo un reso**, letto due volte: nel DB, come colonna
+  della SELECT della vendita (`saleHasAcceptedReturn`), prima di aprire la
+  sessione; e con `hasAnyReturn` sul dettaglio GET che l'annullo legge
+  comunque prima della POST, che vede anche i resi fatti dal portale. Su un
+  cumulativo illeggibile `hasAnyReturn` blocca: una guardia contro un
+  documento irreversibile non si apre per un campo che non sa leggere;
 - **niente reso dopo un annullo**: stato della vendita nel DB, più il flag
   `annulli` della riga V per l'annullo fatto dal portale;
 - **una sola correzione in volo per vendita**: indice unique
@@ -539,7 +542,44 @@ avere **più** resi, quindi `resi === progressivo` non basta come chiave (al
 contrario di `annulli`). Serve l'importo, a **8 decimali** — due resi di
 terzi diversi differiscono meno di un centesimo (#19c) — e per averlo
 l'importo trasmesso si persiste **prima** della POST. Una riga senza importo
-persistito non ha mai trasmesso: niente da cercare.
+persistito non ha mai trasmesso: niente da cercare. Con l'importo si scrive
+l'**istante** della POST (`submittedAt`), e la ricerca si centra lì: la
+finestra è ±1 giorno, e una riga che ritrasmette giorni dopo la sua nascita
+cercata intorno a `createdAt` non troverebbe la POST da riconciliare.
+
+Un claim di recovery sul reso **riapre** la riga a `PENDING`
+(`claimStaleDocument(..., { reopen: true })`). L'indice di correzione copre
+solo `PENDING`: ritrasmettere da una riga `ERROR` partirebbe fuori
+dall'indice, in parallelo a un annullo. Annullo e vendita non riaprono:
+l'annullo ha lo stesso buco sull'indice dei VOID (0012), la vendita non ha
+un indice da cui uscire.
+
+### Il reso si fida delle righe che abbiamo trasmesso noi, e non sempre può
+
+Le formule del reso (#19b) partono da `prezzoUnitario` e `scontoUnitario`
+della vendita. Reggono solo se la riga rispetta le identità del mapper di
+oggi — `prezzoUnitario × quantita ≈ imponibile` e
+`imponibile − scontoUnitario ≈ imponibileNetto` — e **non** le rispettano:
+
+- le vendite emesse fino alla **v1.7.0** (19/03–20/08/2026): quel mapper
+  mandava `prezzoLordo` e `prezzoUnitario` di **riga** e `scontoUnitario`
+  lordo per pezzo (`HAR.md` #11). Il reso di 1 pezzo su 2 stornerebbe il
+  doppio, e l'AdE non lo rifiuterebbe;
+- le vendite della Developer API con quantità a **tre decimali**: l'AdE riceve
+  `quantita` arrotondata a due (0,125 → 0,13), gli importi restano sulla
+  quantità vera.
+
+`isReturnComputable` (`src/lib/ade/return-mapper.ts`) le riconosce con una
+tolleranza di mezzo centesimo e il reso si rifiuta (`RETURN_NOT_ALLOWED`); il
+mapper lancia se ci arriva lo stesso. Lezione che vale oltre il reso: **un
+flusso che rilegge dall'AdE un documento nostro eredita ogni bug che il
+mapper aveva quando l'ha emesso.** Prima di derivare importi da un documento
+storico, chiediti con quale versione del mapper è nato.
+
+Stessa famiglia: le quantità del reso arrivano allineate per indice alle
+righe del **DB**, il mapper le applica a quelle dell'**AdE**. Il servizio
+confronta per indice quantità e aliquota prima di trasmettere — non il
+prezzo, che fino alla v1.7.0 viaggiava moltiplicato per la quantità.
 
 ## Recovery stale-pending: riconciliazione pre-retry (implementata)
 

@@ -8,7 +8,7 @@
  * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
  * commercial_documents per tracciare le emissioni via Developer API.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, getTableColumns } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
@@ -22,6 +22,7 @@ import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { hasAnyReturn } from "@/lib/ade/return-mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
+import { saleHasAcceptedReturn } from "@/lib/receipts/returned-quantities";
 import {
   retryOnStatementTimeout,
   withStatementTimeout,
@@ -493,7 +494,20 @@ async function processVoidAdeResponse(args: {
  * @param input    Dati dell'annullo (documentId + idempotencyKey + businessId)
  * @param apiKeyId UUID della API key usata, o null/undefined per UI session
  */
-type SaleDoc = typeof commercialDocuments.$inferSelect;
+type SaleDoc = typeof commercialDocuments.$inferSelect & {
+  hasAcceptedReturn: boolean;
+};
+
+/**
+ * Annullare una vendita resa storna il corrispettivo due volte, e l'AdE lo
+ * accetta (HAR.md #19f). Stesso esito per le due guardie che lo impediscono:
+ * il reso accettato nel nostro DB e il cumulativo `reso` del dettaglio AdE.
+ */
+const alreadyReturnedResult: VoidReceiptResult = {
+  error:
+    "Lo scontrino ha già un reso: non si può annullare. Per stornare il resto, emetti un reso dei prodotti rimasti.",
+  code: "ALREADY_RETURNED",
+};
 
 type PrepareVoidOutcome =
   | { kind: "done"; result: VoidReceiptResult }
@@ -532,7 +546,13 @@ async function prepareVoidDocument(
   try {
     saleDoc = (
       await db
-        .select()
+        .select({
+          ...getTableColumns(commercialDocuments),
+          // Nella stessa SELECT, non in una query a parte: è la guardia che
+          // non dipende da un campo dell'AdE letto da noi, e vale anche per
+          // la Developer API, che non passa dal dialog dello storico.
+          hasAcceptedReturn: saleHasAcceptedReturn(),
+        })
         .from(commercialDocuments)
         .where(
           and(
@@ -601,6 +621,10 @@ async function prepareVoidDocument(
       kind: "done",
       result: { error: "Dati AdE mancanti per l'annullo." },
     };
+  }
+
+  if (saleDoc.hasAcceptedReturn) {
+    return { kind: "done", result: alreadyReturnedResult };
   }
 
   const prerequisites = await fetchAdePrerequisites(input.businessId);
@@ -861,11 +885,7 @@ export async function voidReceiptForBusiness(
             { voidDocumentId },
             "Failed to mark VOID as ERROR after returned-sale refusal",
           );
-          return {
-            error:
-              "Lo scontrino ha già un reso: non si può annullare. Per stornare il resto, emetti un reso dei prodotti rimasti.",
-            code: "ALREADY_RETURNED",
-          };
+          return alreadyReturnedResult;
         }
 
         const voidReq: VoidRequest = {

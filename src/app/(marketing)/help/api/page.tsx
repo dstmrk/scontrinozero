@@ -1096,7 +1096,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "409",
                   "ALREADY_RETURNED · RETURN_NOT_ALLOWED · RETURN_STATE_CHANGED",
-                  "Correzione non ammessa nello stato attuale. ALREADY_RETURNED: lo scontrino ha già un reso, quindi non si annulla più. RETURN_NOT_ALLOWED: lo scontrino non si può rendere (è annullato, anche dal portale, o ha un annullo in corso). RETURN_STATE_CHANGED: un reso precedente rimasto in sospeso risulta registrato e il residuo è cambiato: rileggi lo scontrino e rifai il reso con una chiave nuova.",
+                  "Correzione non ammessa nello stato attuale. ALREADY_RETURNED: lo scontrino ha già un reso, quindi non si annulla più. RETURN_NOT_ALLOWED: lo scontrino non si può rendere (è annullato, anche dal portale, ha un annullo in corso, oppure ha importi da cui il reso non si calcola con esattezza: scontrini emessi fino al 20 agosto 2026 o con quantità a tre decimali). RETURN_STATE_CHANGED: un reso precedente rimasto in sospeso risulta registrato e il residuo è cambiato: rileggi lo scontrino e rifai il reso con una chiave nuova.",
                 ],
                 [
                   "409",
