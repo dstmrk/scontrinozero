@@ -439,6 +439,15 @@ scaduto» e non trasmette nulla. Dal 2026-10-03 l'utente di test di dev
 (progetto Supabase `scontrinozero-test`) ha `plan = 'unlimited'`, deciso con
 l'utente proprio per non incappare di nuovo nel blocco.
 
+**Le catture non dicono se un layout ci sta.** Nelle catture su dev il testo
+esce in un font di ripiego (Arial e un mono di sistema), non in Nunito Sans e
+Geist Mono, che sono più larghi: la tabella dello Storico ci stava nello
+screenshot e a 390 px reali sforava di 30 px. Per una questione di
+larghezza misura una replica statica con i font veri: markup copiato dal
+componente, `@tailwindcss/browser@4` e i `.woff2` di Google Fonts scaricati
+in locale, Chromium a 390×N, e confronta `scrollWidth` con `clientWidth` del
+contenitore `overflow-x-auto` (2026-10-03, badge «Reso parziale»).
+
 ⚠️ Il carrello della cassa è **stato client-side**: build + scatto devono stare
 in una sola `run_code` (Gotcha 1). Per popolarlo senza pilotare il tastierino
 due volte, sfrutta il prefill da URL di `cassa-client.tsx`

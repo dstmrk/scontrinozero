@@ -483,6 +483,42 @@ describe("StoricoClient — resi", () => {
     expect(within(row).getByText("Reso parziale")).toBeInTheDocument();
   });
 
+  it("il badge di reso non va a capo e si impila allo stato senza rientro", () => {
+    renderRows([
+      {
+        ...ACCEPTED_ROW,
+        lines: [{ ...ACCEPTED_ROW.lines[0], returnedQuantity: "1" }],
+      },
+    ]);
+
+    // Su mobile la colonna Stato è stretta: senza `whitespace-nowrap`
+    // "Reso parziale" si spezzava in due righe dentro il badge. Quando il
+    // badge scende sotto "Emesso", è il `gap` del contenitore a separarli:
+    // un margine sinistro lo lascerebbe rientrato.
+    const badge = within(rowOf("5111-2188")).getByText("Reso parziale");
+    expect(badge).toHaveClass("whitespace-nowrap");
+    expect(badge).not.toHaveClass("ml-1");
+    expect(badge.parentElement).toHaveClass("flex", "flex-wrap", "gap-1");
+  });
+
+  it("su mobile la tabella si compatta: padding ridotto, niente colonna ›", () => {
+    renderRows([ACCEPTED_ROW]);
+
+    // A 390px, con Nunito Sans, cinque colonne con px-3 superano i 356px
+    // utili e la tabella scorre di lato. Sotto `sm` il padding scende a px-2
+    // e la colonna › sparisce: la riga resta cliccabile per intero.
+    const row = rowOf("5111-2188");
+    const cells = within(row).getAllByRole("cell");
+    for (const cell of cells) {
+      expect(cell).toHaveClass("px-2", "sm:px-3");
+    }
+    expect(cells.at(-1)).toHaveClass("hidden", "sm:table-cell");
+    expect(screen.getByRole("columnheader", { name: "Dettaglio" })).toHaveClass(
+      "hidden",
+      "sm:table-cell",
+    );
+  });
+
   it("una vendita resa del tutto lo dichiara accanto allo stato", () => {
     renderRows([
       {
