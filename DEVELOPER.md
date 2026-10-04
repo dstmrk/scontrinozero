@@ -320,6 +320,13 @@ per ogni riga, al massimo 2 decimali (limite del portale AdE), mai oltre
 Un SALE può avere più resi; con anche un solo reso non si annulla più
 (`409 ALREADY_RETURNED` su `/void`). Un reso non si annulla.
 
+Alcuni SALE non si possono rendere da qui e rispondono
+`409 RETURN_NOT_ALLOWED`: quelli emessi fino al 20/08/2026, che l'AdE ha
+registrato con il prezzo unitario di riga, e quelli con una quantità a tre
+decimali, che l'AdE ha ricevuto arrotondata a due. Su quelle righe il reso
+calcolato dal portale stornerebbe un importo diverso dal venduto; il blocco
+vale solo sulle righe rese, non sull'intero scontrino.
+
 Gli errori su `quantities` hanno due status, che dicono cosa fare: ciò che
 si vede dal solo corpo (valori negativi, più di 2 decimali, tutti a zero) è
 `400 VALIDATION_ERROR`, da correggere nel client; ciò che dipende dallo
@@ -397,7 +404,7 @@ quindi leggibili anche da un client browser cross-origin.
 | `404`  | `NOT_FOUND`                                        | no                         | Scontrino inesistente o di un altro esercente. Vale per `GET /v1/receipts/{id}`, per l'annullo e per il reso                                                                                 |
 | `409`  | `PENDING_IN_PROGRESS` · `VOID_PENDING_IN_PROGRESS` | **sì** (`Retry-After: 2`)  | Una richiesta con la stessa `idempotencyKey` è ancora in corso                                                                                                                               |
 | `409`  | `RETURN_PENDING_IN_PROGRESS`                       | **sì** (`Retry-After: 2`)  | Un reso su questo SALE è in corso, con questa key o con un'altra: ritenta identica, poi rileggi il residuo                                                                                   |
-| `409`  | `RETURN_NOT_ALLOWED`                               | no                         | Il SALE non si può rendere: annullato (anche dal portale AdE), annullo in corso, o non accettato. Nessuna trasmissione                                                                       |
+| `409`  | `RETURN_NOT_ALLOWED`                               | no                         | Il SALE non si può rendere: annullato (anche dal portale), annullo in corso, non accettato, righe AdE diverse, importi non riproporzionabili. Nessuna trasmissione                           |
 | `409`  | `RETURN_STATE_CHANGED`                             | no                         | Un reso precedente rimasto in sospeso risulta registrato sull'AdE: il residuo è cambiato. Rileggi il SALE e rifai il reso **con una key nuova**                                              |
 | `409`  | `ALREADY_REJECTED`                                 | no                         | La key identifica un documento rifiutato dall'AdE: serve una key nuova                                                                                                                       |
 | `409`  | `ALREADY_VOIDED`                                   | no                         | La key identifica uno scontrino già annullato: serve una key nuova                                                                                                                           |

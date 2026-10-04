@@ -291,21 +291,28 @@ describe("returnReceiptForBusiness — percorso normale", () => {
     });
   });
 
-  it("scrive importo atteso e righe del reso PRIMA della POST", async () => {
+  it("scrive importo atteso, istante e righe del reso PRIMA della POST", async () => {
+    // Le `set` scritte fino all'istante della POST. L'asserzione sta fuori
+    // dal mock: un `expect` che fallisse qui dentro diventerebbe un errore
+    // della POST, inghiottito dal service.
+    let setsAtSubmit: Record<string, unknown>[] = [];
     mockSubmitReturn.mockImplementation(async () => {
-      // Al momento della POST l'importo è già persistito: è la chiave della
-      // riconciliazione se la risposta si perde.
-      expect(updateSets()).toContainEqual({
-        publicRequest: {
-          documentId: "sale-1",
-          quantities: [1, 1],
-          adeAmount: "0.04500000",
-        },
-      });
+      setsAtSubmit = updateSets();
       return ADE_OK;
     });
 
     await run();
+
+    // Importo e istante sono la chiave e la finestra della riconciliazione
+    // se la risposta si perde.
+    expect(setsAtSubmit).toContainEqual({
+      publicRequest: {
+        documentId: "sale-1",
+        quantities: [1, 1],
+        adeAmount: "0.04500000",
+        submittedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      },
+    });
 
     const lines = mockInsertValues.mock.calls[1]![0];
     expect(lines).toEqual([
@@ -464,6 +471,72 @@ describe("returnReceiptForBusiness — guardie lette dall'AdE", () => {
 
     expect(result.code).toBe("RETURN_NOT_ALLOWED");
     expect(mockSubmitReturn).not.toHaveBeenCalled();
+  });
+
+  it("righe AdE in un altro ordine → rifiuto: il reso andrebbe sul prodotto sbagliato", async () => {
+    // Le quantità arrivano allineate alle righe del DB; il mapper le applica
+    // per indice alle righe dell'AdE.
+    const doc = detail(serie1Reso1.before);
+    doc.documentoCommerciale.elementiContabili.reverse();
+    mockGetDocument.mockResolvedValue(doc);
+
+    const result = await run({ ...INPUT, quantities: [1, 0] });
+
+    expect(result.code).toBe("RETURN_NOT_ALLOWED");
+    expect(result.error).toMatch(/non corrisponde/);
+    expect(mockSubmitReturn).not.toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("stessa quantità ma aliquota diversa → rifiuto", async () => {
+    const doc = detail(serie1Reso1.before);
+    doc.documentoCommerciale.elementiContabili[1]!.aliquotaIVA = "22";
+    mockGetDocument.mockResolvedValue(doc);
+
+    expect((await run()).code).toBe("RETURN_NOT_ALLOWED");
+    expect(mockSubmitReturn).not.toHaveBeenCalled();
+  });
+
+  it("stessa aliquota scritta diversa ('22.00' contro '22') non è una divergenza", async () => {
+    const doc = detail(serie1Reso1.before);
+    doc.documentoCommerciale.elementiContabili[0]!.aliquotaIVA = "22.00";
+    mockGetDocument.mockResolvedValue(doc);
+
+    expect((await run({ ...INPUT, quantities: [0, 1] })).returnDocumentId).toBe(
+      "return-new",
+    );
+  });
+
+  it("vendita emessa con il mapper ≤ v1.7.0 (prezzoUnitario di riga) → rifiuto, niente POST", async () => {
+    const doc = detail(serie1Reso1.before);
+    // 2 pezzi: prezzoUnitario trasmesso come imponibile della riga intera.
+    doc.documentoCommerciale.elementiContabili[0]!.prezzoUnitario =
+      "0.04918033";
+    mockGetDocument.mockResolvedValue(doc);
+    const { logger } = await import("@/lib/logger");
+
+    const result = await run({ ...INPUT, quantities: [1, 0] });
+
+    expect(result.code).toBe("RETURN_NOT_ALLOWED");
+    expect(result.error).toMatch(/importo sbagliato/);
+    expect(mockSubmitReturn).not.toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ saleDocumentId: "sale-1" }),
+      "Return: sale lines not computable with the portal formulas",
+    );
+  });
+
+  it("la riga legacy non resa adesso non blocca il reso delle altre", async () => {
+    const doc = detail(serie1Reso1.before);
+    doc.documentoCommerciale.elementiContabili[0]!.prezzoUnitario =
+      "0.04918033";
+    mockGetDocument.mockResolvedValue(doc);
+
+    const result = await run({ ...INPUT, quantities: [0, 1] });
+
+    expect(result.returnDocumentId).toBe("return-new");
+    expect(mockSubmitReturn).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -720,6 +793,88 @@ describe("returnReceiptForBusiness — idempotenza sulla stessa key", () => {
       expect.objectContaining({ tipoOperazione: "V" }),
     );
     expect(mockSubmitReturn).toHaveBeenCalledTimes(1);
+  });
+
+  it("riga ERROR stale: il claim la riapre PENDING, così rientra nell'indice di correzione", async () => {
+    // Ritrasmettere da una riga ERROR la lascerebbe fuori dall'indice "una
+    // correzione in volo per vendita": un annullo o un altro reso
+    // concorrente potrebbero partire insieme a questa POST.
+    mockLimitResults = [[SALE_DOC], [existingReturn({ status: "ERROR" })]];
+
+    await run();
+
+    expect(updateSets()[0]).toEqual({
+      updatedAt: expect.any(Date),
+      status: "PENDING",
+    });
+    expect(mockSubmitReturn).toHaveBeenCalledTimes(1);
+  });
+
+  it("riapertura bloccata da un'altra correzione in volo → in corso, niente AdE", async () => {
+    mockLimitResults = [[SALE_DOC], [existingReturn({ status: "ERROR" })]];
+    mockClaimReturning.mockRejectedValue(
+      Object.assign(new Error("duplicate key"), { code: "23505" }),
+    );
+
+    const result = await run();
+
+    expect(result.code).toBe("RETURN_PENDING_IN_PROGRESS");
+    expect(mockSearchDocuments).not.toHaveBeenCalled();
+    expect(mockSubmitReturn).not.toHaveBeenCalled();
+  });
+
+  it("un errore DB qualunque sul claim non viene inghiottito", async () => {
+    mockLimitResults = [[SALE_DOC], [existingReturn()]];
+    mockClaimReturning.mockRejectedValue(new Error("boom"));
+
+    await expect(run()).rejects.toThrow("boom");
+  });
+
+  it("la riconciliazione cerca intorno all'ultima POST, non alla nascita della riga", async () => {
+    // Una riga può ritrasmettere giorni dopo la creazione: cercare intorno a
+    // `createdAt` perderebbe proprio la POST da riconciliare.
+    const createdAt = new Date("2026-09-01T08:00:00Z");
+    const submittedAt = "2026-09-20T15:30:00.000Z";
+    mockLimitResults = [
+      [SALE_DOC],
+      [
+        existingReturn({
+          createdAt,
+          publicRequest: { adeAmount: "0.04500000", submittedAt },
+        }),
+      ],
+    ];
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 0,
+      elencoRisultati: [],
+    });
+
+    await run();
+
+    expect(mockSearchDocuments.mock.calls[0]![0]).toEqual({
+      dataDal: "09/19/2026",
+      dataInvioAl: "09/21/2026",
+      tipoOperazione: "R",
+    });
+  });
+
+  it("senza istante della POST cerca intorno alla nascita della riga, mai alla cieca", async () => {
+    const createdAt = new Date("2026-09-01T08:00:00Z");
+    mockLimitResults = [
+      [SALE_DOC],
+      [existingReturn({ createdAt, publicRequest: { adeAmount: "0.045" } })],
+    ];
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 0,
+      elencoRisultati: [],
+    });
+
+    await run();
+
+    expect(mockSearchDocuments.mock.calls[0]![0]).toMatchObject({
+      dataDal: "08/31/2026",
+      dataInvioAl: "09/02/2026",
+    });
   });
 
   it("ricerca di riconciliazione fallita → in corso, niente POST (fail-safe)", async () => {
