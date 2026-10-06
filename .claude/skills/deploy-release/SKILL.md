@@ -136,6 +136,28 @@ al momento dell'analisi e non si poteva distinguere "drain rotto" da
 "rilasciato 40 minuti fa". Integrazione in CI rimandata: oggi è uno script
 da eseguire manualmente dopo `docker compose up -d`.
 
+**Leggi anche i log del primo boot.** Le probe non vedono ciò che una libreria
+degrada a `console.warn`. In v1.9.0 (`@sentry/nextjs` 11) due righe
+`[Sentry] ...` dopo `Ready` nascondevano un filtro span morto e un loader
+mancante nella standalone. `docker compose logs <servizio> | grep -i warn` fa
+parte dello smoke.
+
+## Standalone: i file caricati per path non vengono tracciati
+
+Il file tracing di Next segue `require`/`import` statici. Un file che una
+libreria carica **per path a runtime** (loader passato a `Module.register()`,
+font letti con `fs`, worker) arriva nella standalone solo in parte, o non
+arriva. Sintomo tipico: funziona con `next dev` e nel container dev, fallisce
+solo nell'immagine Docker. Caso reale: il loader ESM di
+`@sentry/server-runtime-injection` (span postgres via diagnostics channel)
+veniva copiato senza i suoi import `./vendored/...`. Il fix è
+`outputFileTracingIncludes` in `next.config.ts`, e il gate è uno script
+incatenato a `npm run build` che carica l'artefatto dalla standalone
+(`scripts/check-sentry-runtime-injection.mjs`). Asserire sul sorgente non
+basta: il problema esiste solo nell'output del build. Per riprodurlo in locale:
+`next build`, poi `node .next/standalone/server.js` con un `SENTRY_DSN`
+finto.
+
 ## L'edge Cloudflare può scavalcare la config dell'app
 
 Stessa famiglia del "baked vs runtime": quello che leggi nel sorgente non è

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ErrorEvent,
-  Event as SentryEvent,
-  EventHint,
-} from "@sentry/nextjs";
+import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 import {
   clientBeforeSend,
   isBenignFormDataParseError,
@@ -14,8 +10,8 @@ import {
   isForeignHostEvent,
   isInAppBrowserBridgeError,
   isInjectedEvalCspViolation,
-  isNextClientComponentLoadingTransaction,
   isReactStreamingDomError,
+  NEXT_CLIENT_COMPONENT_LOADING_SPAN,
 } from "./sentry-filters";
 
 /**
@@ -844,39 +840,41 @@ describe("clientBeforeSend", () => {
   });
 });
 
-/** Evento di tipo transaction: `beforeSendTransaction` riceve questa forma. */
-function makeTransactionEvent(transaction: string | undefined) {
-  return {
-    type: "transaction",
-    transaction,
-    contexts: { trace: { op: "function.nextjs" } },
-  } as SentryEvent;
-}
-
-describe("isNextClientComponentLoadingTransaction", () => {
-  it("riconosce la transaction NextNodeServer.clientComponentLoading", () => {
-    const event = makeTransactionEvent("NextNodeServer.clientComponentLoading");
-
-    expect(isNextClientComponentLoadingTransaction(event)).toBe(true);
+describe("NEXT_CLIENT_COMPONENT_LOADING_SPAN", () => {
+  it("riconosce lo span NextNodeServer.clientComponentLoading", () => {
+    expect(
+      NEXT_CLIENT_COMPONENT_LOADING_SPAN.test(
+        "NextNodeServer.clientComponentLoading",
+      ),
+    ).toBe(true);
   });
 
-  it("lascia passare una transaction di pagina reale", () => {
-    const event = makeTransactionEvent("GET /login");
-
-    expect(isNextClientComponentLoadingTransaction(event)).toBe(false);
+  it("lascia passare lo span di una pagina reale", () => {
+    expect(NEXT_CLIENT_COMPONENT_LOADING_SPAN.test("GET /login")).toBe(false);
   });
 
-  it("lascia passare una transaction senza nome", () => {
-    const event = makeTransactionEvent(undefined);
-
-    expect(isNextClientComponentLoadingTransaction(event)).toBe(false);
+  it("lascia passare uno span senza nome", () => {
+    expect(NEXT_CLIENT_COMPONENT_LOADING_SPAN.test("")).toBe(false);
   });
 
   it("non matcha per sottostringa: il confronto e' esatto", () => {
-    const event = makeTransactionEvent(
-      "GET /NextNodeServer.clientComponentLoading",
-    );
+    expect(
+      NEXT_CLIENT_COMPONENT_LOADING_SPAN.test(
+        "GET /NextNodeServer.clientComponentLoading",
+      ),
+    ).toBe(false);
+    expect(
+      NEXT_CLIENT_COMPONENT_LOADING_SPAN.test(
+        "NextNodeServer.clientComponentLoading.extra",
+      ),
+    ).toBe(false);
+  });
 
-    expect(isNextClientComponentLoadingTransaction(event)).toBe(false);
+  it("non matcha un carattere qualsiasi al posto del punto", () => {
+    expect(
+      NEXT_CLIENT_COMPONENT_LOADING_SPAN.test(
+        "NextNodeServerXclientComponentLoading",
+      ),
+    ).toBe(false);
   });
 });

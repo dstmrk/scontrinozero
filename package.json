@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run build:sw",
+    "build": "next build && node scripts/check-sentry-runtime-injection.mjs && npm run build:sw",
     "build:sw": "serwist build serwist.config.mjs && node scripts/check-service-worker.mjs",
     "start": "next start",
     "lint": "eslint",

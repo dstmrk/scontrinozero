@@ -1,8 +1,4 @@
-import type {
-  ErrorEvent,
-  Event as SentryEvent,
-  EventHint,
-} from "@sentry/nextjs";
+import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 
 /**
  * Messaggio lanciato da Next.js/undici quando un POST con body non-FormData
@@ -395,47 +391,39 @@ export function clientBeforeSend(
 }
 
 /**
- * Nome della transaction che Next.js emette per il caricamento dei moduli
- * client component lato server. `NextNodeServer` è la classe del server Node
- * di Next (`next/dist/server/next-server`), non del runtime edge: per questo
- * il filtro vive solo in `sentry.server.config.ts` e non ha un gemello in
- * `sentry.edge.config.ts`, dove la transaction non può nascere.
- */
-const CLIENT_COMPONENT_LOADING_TRANSACTION =
-  "NextNodeServer.clientComponentLoading";
-
-/**
- * True se l'evento è la transaction `NextNodeServer.clientComponentLoading`.
+ * Span root che Next.js emette per il caricamento dei moduli client component
+ * lato server, da passare a `ignoreSpans` in `sentry.server.config.ts`.
+ * `NextNodeServer` è la classe del server Node di Next
+ * (`next/dist/server/next-server`), non del runtime edge: per questo il
+ * filtro vive solo nella config server e non ha un gemello in
+ * `sentry.edge.config.ts`, dove lo span non può nascere.
  *
- * **Perché la scartiamo: la durata non misura la richiesta a cui è
- * agganciata.** Su 7 giorni di produzione: 730 occorrenze, p95 723 s, massimo
+ * **Perché lo scartiamo: la durata non misura la richiesta a cui è
+ * agganciato.** Su 7 giorni di produzione: 730 occorrenze, p95 723 s, massimo
  * 33 minuti, 65 ore di durata sommata — il 99,8% della durata totale del
  * progetto, contro gli 8,4 minuti del secondo classificato (`middleware GET`).
  * Nell'export Explore del 19 settembre è uno span **root**, e nella stessa
- * trace la transaction vera è un `GET /login` da 25 ms mentre questa dichiara
+ * trace la transaction vera è un `GET /login` da 25 ms mentre questo dichiara
  * 502 s. Il meccanismo esatto non è noto — gli start impliciti sono sparsi,
  * quindi non è "dal boot del server" — ma lo scarto con la richiesta ospite
- * basta a qualificarla come artefatto dell'instrumentation, non come latenza
+ * basta a qualificarlo come artefatto dell'instrumentation, non come latenza
  * vista da un utente.
  *
- * **Cosa costa non filtrarla:** il grafico "p95 for Top Spans" della digest
+ * **Cosa costa non filtrarlo:** il grafico "p95 for Top Spans" della digest
  * settimanale e la classifica per durata totale diventano il grafico di questo
  * artefatto, e una regressione vera su una route reale — che vive due ordini
  * di grandezza più in basso — resta invisibile.
  *
- * Confronto **esatto** e non per sottostringa, stessa disciplina di
- * `isOwnHostname`: scartiamo solo ciò che riconosciamo positivamente.
+ * **RegExp ancorata e non stringa:** in `ignoreSpans` una stringa matcha per
+ * sottostringa, e noi scartiamo solo ciò che riconosciamo positivamente
+ * (stessa disciplina di `isOwnHostname`). È la forma che `@sentry/nextjs`
+ * stesso usa per la root span gemella `NextServer.getRequestHandler`.
  *
- * Tipizzato su `Event` e non su `TransactionEvent` perché `@sentry/nextjs`
- * ri-esporta il primo e non il secondo; `transaction` sta comunque sulla base,
- * e il callback resta assegnabile a `beforeSendTransaction` (il parametro è
- * controvariante, e `TransactionEvent extends Event`).
+ * Prima di `@sentry/nextjs` 11 il filtro stava in `beforeSendTransaction`, che
+ * con il default `traceLifecycle: 'stream'` non viene più invocato.
  */
-export function isNextClientComponentLoadingTransaction(
-  event: SentryEvent,
-): boolean {
-  return event.transaction === CLIENT_COMPONENT_LOADING_TRANSACTION;
-}
+export const NEXT_CLIENT_COMPONENT_LOADING_SPAN =
+  /^NextNodeServer\.clientComponentLoading$/;
 
 /**
  * True se l'evento è il benigno `TypeError: Failed to parse body as FormData`
