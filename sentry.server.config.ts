@@ -3,7 +3,7 @@ import {
   isBenignFormDataParseError,
   isBenignServerActionNotFound,
   isForeignHostEvent,
-  isNextClientComponentLoadingTransaction,
+  NEXT_CLIENT_COMPONENT_LOADING_SPAN,
 } from "@/lib/sentry-filters";
 import { getAppRelease } from "@/lib/version";
 
@@ -55,15 +55,12 @@ Sentry.init({
     }
     return event;
   },
-  beforeSendTransaction(event) {
-    // Artefatto dell'instrumentation Next.js: durata scollegata dalla
-    // richiesta ospite (7 giorni: p95 723 s, max 33 min, 65 ore sommate — il
-    // 99,8% della durata totale del progetto). Senza questo filtro il grafico
-    // p95 della digest settimanale misura solo lui, e una regressione vera su
-    // una route reale resta due ordini di grandezza piu' in basso, invisibile.
-    if (isNextClientComponentLoadingTransaction(event)) {
-      return null;
-    }
-    return event;
-  },
+  // Artefatto dell'instrumentation Next.js: durata scollegata dalla richiesta
+  // ospite (7 giorni: p95 723 s, max 33 min, 65 ore sommate — il 99,8% della
+  // durata totale del progetto). Senza questo filtro il grafico p95 della
+  // digest settimanale misura solo lui, e una regressione vera su una route
+  // reale resta due ordini di grandezza piu' in basso, invisibile.
+  // `ignoreSpans` e non `beforeSendTransaction`: da @sentry/nextjs 11, con il
+  // default `traceLifecycle: 'stream'`, il secondo non viene piu' chiamato.
+  ignoreSpans: [NEXT_CLIENT_COMPONENT_LOADING_SPAN],
 });

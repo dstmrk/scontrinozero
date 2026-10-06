@@ -412,30 +412,33 @@ con quella della transaction ospite nella stessa trace.** Se sono separate da
 ordini di grandezza, il colpevole è lo strumento.
 
 **Dove va il filtro, e perché non in `beforeSend`.** `beforeSend` vede solo gli
-ErrorEvent; una transaction passa da **`beforeSendTransaction`**, che va
-aggiunto accanto nello stesso `Sentry.init`. Il predicato sta in
-`src/lib/sentry-filters.ts` come tutti gli altri (`sonar.sources=src`: in root
-resta configurazione pura), e si tipizza su `TransactionEvent`, non `ErrorEvent`.
+ErrorEvent; uno span si scarta con **`ignoreSpans`** nello stesso
+`Sentry.init`. Il pattern sta in `src/lib/sentry-filters.ts` come tutti gli
+altri predicati (`sonar.sources=src`: in root resta configurazione pura).
 
 ```typescript
-beforeSendTransaction(event) {
-  if (isNextClientComponentLoadingTransaction(event)) {
-    return null;
-  }
-  return event;
-}
+ignoreSpans: [NEXT_CLIENT_COMPONENT_LOADING_SPAN], // /^NextNodeServer\.clientComponentLoading$/
 ```
 
-Due dettagli:
+Tre dettagli:
 
+- **`beforeSendTransaction` è morto da `@sentry/nextjs` 11.** Il default è
+  `traceLifecycle: 'stream'`, e lì `beforeSendTransaction` e
+  `ignoreTransactions` non vengono **mai** chiamati: l'unico segnale è un
+  `console.warn` all'avvio del container. In v1.9.0 il filtro di questo caso
+  di studio era codice morto per questo motivo. `beforeSendSpan` non lo
+  sostituisce: può modificare uno span, non scartarlo (restituire `null` è
+  vietato). Dopo un major del SDK, leggi i warning `[Sentry]` del primo boot:
+  sono il solo posto dove un'opzione ignorata si dichiara.
+- **RegExp ancorata, mai stringa.** In `ignoreSpans` una stringa matcha per
+  **sottostringa**: `"NextNodeServer.clientComponentLoading"` scarterebbe
+  anche `GET /NextNodeServer.clientComponentLoading`. È la forma che
+  `@sentry/nextjs` stesso usa per la root span gemella
+  `/^NextServer\.getRequestHandler$/`.
 - **Solo `sentry.server.config.ts`, non l'edge.** `NextNodeServer` è la classe
   del server Node di Next (`next/dist/server/next-server`); il runtime edge usa
   `NextWebServer` e quella transaction non la emette. Un gemello in
   `sentry.edge.config.ts` sarebbe codice per un caso impossibile (regola 28).
-- **`ignoreSpans` è l'altra strada, e qui è peggiore.** È l'API nativa del SDK
-  v10 e accetta stringa, regex o oggetto, ma agisce all'**apertura** dello span:
-  su uno span root preferisci `beforeSendTransaction`, che decide a transaction
-  chiusa e non tocca le trace vicine.
 
 **Il commento cita le misure, non un ID.** La convenzione "ogni guard cita
 l'issue Sentry" (sezione sotto) qui non si applica: una transaction non genera

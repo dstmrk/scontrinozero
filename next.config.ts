@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
   // Marking pdfkit as an external package preserves the original Node.js module
   // resolution and keeps __dirname pointing to the actual node_modules location.
   serverExternalPackages: ["pdfkit"],
+  // Loader ESM con cui Sentry 11 registra gli span dei diagnostics channel
+  // (postgres compreso) via `Module.register()` su Node < 24.13. È caricato
+  // per path a runtime, quindi il file tracing copia `hook.js` ma non i suoi
+  // import `./vendored/...`: senza questa riga il loader fallisce e Sentry
+  // degrada a un warning nei log del container (v1.9.0). Il gate è
+  // scripts/check-sentry-runtime-injection.mjs, incatenato a `npm run build`.
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/@sentry/server-runtime-injection/build/esm/**"],
+  },
   // `@point-of-sale/webbluetooth-receipt-printer@2` dichiara negli `exports`
   // la SOLA condition "browser". Il bundle client la risolve, ma il pass
   // "Client Component SSR" — che pre-renderizza i client component in Node —
