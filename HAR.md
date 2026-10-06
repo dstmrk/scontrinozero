@@ -1620,6 +1620,35 @@ Su una riga `V`, `resi: "R"` è il **flag** "ha almeno un reso"; su una riga
 con lo stesso `resi`: per riconciliare un reso in sospeso non basta il
 progressivo, serve anche l'importo.
 
+**L'importo in lista ha piena precisione, e `data` è l'istante del reso.**
+Lista letta dall'owner sul portale il 06/10/2026, stessa P.IVA, con le righe
+della seconda serie (voce #19c):
+
+```json
+{ "idtrx": "248003680", "numeroProgressivo": "DCW2026/4803-2145",
+  "data": "02/10/2026 16:40:44", "tipoOperazione": "R",
+  "resi": "DCW2026/4803-1413", "ammontareComplessivo": 0.01333333 },
+{ "idtrx": "248003292", "numeroProgressivo": "DCW2026/4803-1757",
+  "data": "02/10/2026 16:39:54", "tipoOperazione": "R",
+  "resi": "DCW2026/4803-1413", "ammontareComplessivo": 0.00666667 },
+{ "idtrx": "248002948", "numeroProgressivo": "DCW2026/4803-1413",
+  "data": "02/10/2026 16:39:09", "tipoOperazione": "V",
+  "resi": "R", "ammontareComplessivo": 0.02 }
+```
+
+- I due resi in terzi tornano con gli 8 decimali trasmessi, nessun
+  arrotondamento al centesimo né ai tre decimali. Il confronto a 8 decimali
+  di `reconcileReturnDocument` è quello giusto. Conta perché metà dei resi con
+  IVA esce dal centesimo di 1e-8 anche con prezzi al centesimo (`4 × 0,01` al
+  22% reso per intero vale `0.03999999`): una lista arrotondata li avrebbe
+  dati per assenti in riconciliazione.
+- `data` è l'istante di registrazione del **reso**, non quello della vendita:
+  vendita alle 16:39:09, resi alle 16:39:54 e 16:40:44. Coincide al secondo
+  con il footer "Documento N. … del …" dei PDF di tutti e tre i documenti,
+  forniti dall'owner, e sulla prima serie con quello del reso
+  `DCW2026/4801-8782` (`16:15:16`, voce #19g). È il comportamento già misurato
+  sugli annulli (voce #16b).
+
 ### 19f. Il portale NON impedisce l'annullo di una vendita resa
 
 `annullo.har` annulla la vendita della prima serie **dopo** che i due resi
@@ -1688,8 +1717,3 @@ controllo dell'interfaccia, presumibilmente legato all'abbinamento POS-cassa
   della voce #19b stornano un multiplo dell'importo. Non sappiamo cosa faccia
   il portale su quei documenti né se l'AdE rifiuti un reso più grande della
   vendita. Lo impediamo noi (`isReturnComputable`).
-- **L'`ammontareComplessivo` della lista di ricerca oltre i tre decimali.** La
-  voce #19e mostra `0.045` e `0.025`, cioè nessun arrotondamento al
-  centesimo; un reso in terzi (`0.00666667`) in lista non è catturato. La
-  riconciliazione confronta a 8 decimali: se la lista arrotondasse, un reso
-  registrato risulterebbe assente e verrebbe ritrasmesso.

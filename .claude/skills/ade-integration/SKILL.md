@@ -540,7 +540,8 @@ non la sua storia.
 Il reso aggiunge anche un'asimmetria sulla riconciliazione: una vendita può
 avere **più** resi, quindi `resi === progressivo` non basta come chiave (al
 contrario di `annulli`). Serve l'importo, a **8 decimali** — due resi di
-terzi diversi differiscono meno di un centesimo (#19c) — e per averlo
+terzi diversi differiscono meno di un centesimo (#19c), e la lista di ricerca
+li restituisce a piena precisione (#19e, misurato) — e per averlo
 l'importo trasmesso si persiste **prima** della POST. Una riga senza importo
 persistito non ha mai trasmesso: niente da cercare. Con l'importo si scrive
 l'**istante** della POST (`submittedAt`), e la ricerca si centra lì: la
