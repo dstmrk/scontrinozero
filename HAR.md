@@ -1643,10 +1643,11 @@ della seconda serie (voce #19c):
   22% reso per intero vale `0.03999999`): una lista arrotondata li avrebbe
   dati per assenti in riconciliazione.
 - `data` è l'istante di registrazione del **reso**, non quello della vendita:
-  vendita alle 16:39:09, resi alle 16:39:54 e 16:40:44. Sulla prima serie il
-  reso `DCW2026/4801-8782` ha in lista `16:15:16`, lo stesso orario del
-  footer del suo PDF (voce #19g). È il comportamento già misurato sugli
-  annulli (voce #16b).
+  vendita alle 16:39:09, resi alle 16:39:54 e 16:40:44. Coincide al secondo
+  con il footer "Documento N. … del …" dei PDF di tutti e tre i documenti,
+  forniti dall'owner, e sulla prima serie con quello del reso
+  `DCW2026/4801-8782` (`16:15:16`, voce #19g). È il comportamento già misurato
+  sugli annulli (voce #16b).
 
 ### 19f. Il portale NON impedisce l'annullo di una vendita resa
 
