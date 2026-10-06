@@ -63,10 +63,14 @@ ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
 # dei consumer (`next.config.ts` allowedOrigin, getTrustedAppUrl) — un
 # `?? default` non scatta su present-but-empty `""` → CORS origin vuoto +
 # 503 su checkout/portal Stripe (Sentry SCONTRINOZERO-F). (CLAUDE.md regola 18.)
+#
+# Stessa regola per i tre hostname: senza default l'ENV bakava "" e il build
+# prod loggava `critical` "Malformed trusted hostname env var", mentre i
+# consumer con `??` (reset password) ricevevano "" inlineato nel bundle.
 ARG NEXT_PUBLIC_APP_URL=https://app.scontrinozero.it
-ARG NEXT_PUBLIC_APP_HOSTNAME
-ARG NEXT_PUBLIC_MARKETING_HOSTNAME
-ARG NEXT_PUBLIC_API_HOSTNAME
+ARG NEXT_PUBLIC_APP_HOSTNAME=app.scontrinozero.it
+ARG NEXT_PUBLIC_MARKETING_HOSTNAME=scontrinozero.it
+ARG NEXT_PUBLIC_API_HOSTNAME=api.scontrinozero.it
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_APP_HOSTNAME=$NEXT_PUBLIC_APP_HOSTNAME
 ENV NEXT_PUBLIC_MARKETING_HOSTNAME=$NEXT_PUBLIC_MARKETING_HOSTNAME

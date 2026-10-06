@@ -64,6 +64,16 @@ nel `Dockerfile` bakare un default reale nell'`ARG`/`ENV` o **non** esportarla
 affatto quando assente, altrimenti prod/sandbox bakano una stringa vuota
 (CORS origin / reporting endpoint vuoti — PR #560).
 
+Il `""` bakato non resta nel builder: Next inlinea ogni `NEXT_PUBLIC_*`
+letta in forma statica (`process.env.NEXT_PUBLIC_X`) **anche nel bundle
+server**, e l'ENV del runtime non lo sovrascrive. Verificato sul chunk di
+`auth-actions`: `process.env.APP_HOSTNAME??""??"app.scontrinozero.it"`, cioè
+link di reset password `https:///callback` in prod. Per questo tutti gli
+`ARG` d'identità nel `Dockerfile` hanno un default prod reale; il sintomo
+visibile era un `critical` "Malformed trusted hostname env var" nel log del
+job Deploy. Lato codice, un consumer di env d'identità usa un helper
+empty-safe (`pickHostnameEnv`, `parseTrustedHostnameEnv`), mai `??`.
+
 E `next.config.ts` **non** può importare moduli con alias `@/`: la
 transpilation del config non li risolve e `next build` fallisce _prima_ di
 generare le route — usare import relativi (PR #536).
