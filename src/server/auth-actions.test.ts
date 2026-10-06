@@ -2062,6 +2062,71 @@ describe("auth-actions", () => {
       });
     });
 
+    // Il Dockerfile prod bakava `NEXT_PUBLIC_APP_HOSTNAME=""` e Next lo
+    // inlinea nel bundle server: un `?? default` non scatta su "" e il link
+    // diventava `https:///callback` (regola 18, present-but-empty).
+    it.each([
+      {
+        name: "APP_HOSTNAME unset, baked hostname empty",
+        app: undefined,
+        baked: "",
+      },
+      { name: "both present but empty", app: "", baked: "" },
+      { name: "baked hostname whitespace only", app: undefined, baked: "  " },
+    ])(
+      "falls back to the default app hostname when $name",
+      async ({ app, baked }) => {
+        vi.stubEnv("APP_HOSTNAME", app);
+        vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", baked);
+        const { resetPassword } = await import("./auth-actions");
+
+        try {
+          await resetPassword(
+            formData({
+              email: "test@example.com",
+              captchaToken: "valid-token",
+            }),
+          );
+        } catch {
+          // redirect expected
+        }
+
+        expect(mockGenerateLink).toHaveBeenCalledWith(
+          expect.objectContaining({
+            options: {
+              redirectTo:
+                "https://app.scontrinozero.it/callback?redirect=%2Freset-password%2Fupdate",
+            },
+          }),
+        );
+      },
+    );
+
+    it("uses the APP_HOSTNAME runtime override, normalised, for the reset link", async () => {
+      vi.stubEnv("APP_HOSTNAME", " Sandbox.ScontrinoZero.it ");
+      mockFetch.mockResolvedValue(
+        captchaResponse("reset-password", "sandbox.scontrinozero.it"),
+      );
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
+      } catch {
+        // redirect expected
+      }
+
+      expect(mockGenerateLink).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: {
+            redirectTo:
+              "https://sandbox.scontrinozero.it/callback?redirect=%2Freset-password%2Fupdate",
+          },
+        }),
+      );
+    });
+
     it("sends PasswordResetEmail with the action_link on success", async () => {
       const { resetPassword } = await import("./auth-actions");
 

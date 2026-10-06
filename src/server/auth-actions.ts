@@ -860,10 +860,13 @@ export async function resetPassword(
   const rateLimited = checkRateLimit(ip, "resetPassword");
   if (rateLimited) return rateLimited;
 
+  // Empty-safe (regola 18): Next inlinea nel bundle server il valore bakato,
+  // anche "" — con un `??` il link diventava `https:///callback`.
   const appHostname =
-    process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
-    "app.scontrinozero.it";
+    pickHostnameEnv(
+      process.env.APP_HOSTNAME, // runtime override (sandbox, self-hosted)
+      process.env.NEXT_PUBLIC_APP_HOSTNAME, // baked at build time
+    ) ?? "app.scontrinozero.it";
 
   const supabaseAdmin = createAdminSupabaseClient();
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
