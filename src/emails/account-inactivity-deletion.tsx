@@ -10,9 +10,12 @@ import {
 } from "@react-email/components";
 import { emailStyles } from "./styles";
 import { CONTACT_EMAIL } from "@/lib/contact";
+import { formatEmailDate } from "./format-date";
 
 type AccountInactivityDeletionEmailProps = Readonly<{
   email: string;
+  /** Ultimo accesso, visita o scontrino prima della cancellazione. */
+  lastActivityAt: Date;
 }>;
 
 /**
@@ -22,6 +25,7 @@ type AccountInactivityDeletionEmailProps = Readonly<{
  */
 export function AccountInactivityDeletionEmail({
   email,
+  lastActivityAt,
 }: AccountInactivityDeletionEmailProps) {
   return (
     <Html lang="it">
@@ -33,9 +37,9 @@ export function AccountInactivityDeletionEmail({
             <Text style={emailStyles.text}>
               L&apos;account associato all&apos;indirizzo{" "}
               <strong>{email}</strong> è stato eliminato per inattività
-              prolungata (oltre 12 mesi senza accessi né scontrini), in
-              applicazione del principio di minimizzazione dei dati previsto dal
-              GDPR.
+              prolungata (nessun accesso né scontrino dal{" "}
+              {formatEmailDate(lastActivityAt)}), in applicazione del principio
+              di minimizzazione dei dati previsto dal GDPR.
             </Text>
             <Text style={emailStyles.text}>
               I tuoi dati personali (profilo, credenziali, scontrini) sono stati

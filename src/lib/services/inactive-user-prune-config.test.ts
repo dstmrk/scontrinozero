@@ -61,6 +61,29 @@ describe("readPruneConfig", () => {
     expect(config.warnBeforeDays).toBeLessThan(config.deleteAfterDays);
   });
 
+  it.each([
+    { del: "90", warn: "89" },
+    { del: "90", warn: "90" },
+    { del: "90", warn: "500" },
+    { del: "365", warn: "364" },
+  ])(
+    "con lo sweep acceso il preavviso arriva dopo almeno un giorno di inattività ($del/$warn)",
+    ({ del, warn }) => {
+      // shouldResetWarning (inactive-user-prune.ts) azzera i preavvisi con meno
+      // di un giorno di inattività alle spalle: regge solo finché nessuna
+      // config abilitata può emetterne uno.
+      const config = readPruneConfig({
+        INACTIVE_USER_PRUNE_ENABLED: "true",
+        INACTIVE_USER_DELETE_AFTER_DAYS: del,
+        INACTIVE_USER_WARN_BEFORE_DAYS: warn,
+      });
+      expect(config.enabled).toBe(true);
+      expect(
+        config.deleteAfterDays - config.warnBeforeDays,
+      ).toBeGreaterThanOrEqual(1);
+    },
+  );
+
   it("clampa warnBeforeDays a minimo 1 quando deleteAfterDays è 1", () => {
     const config = readPruneConfig({
       INACTIVE_USER_DELETE_AFTER_DAYS: "1",
