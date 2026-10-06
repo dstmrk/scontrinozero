@@ -151,6 +151,28 @@ describe("sendEmail reply-to", () => {
     );
   });
 
+  it("passa idempotencyKey come opzione di richiesta quando presente", async () => {
+    await sendEmail({
+      to: "user@example.com",
+      subject: "S",
+      react: fakeReact,
+      idempotencyKey: "inactivity-warning/u1/2026-10-06",
+    });
+
+    expect(mockResendSend.mock.calls[0][0]).not.toHaveProperty(
+      "idempotencyKey",
+    );
+    expect(mockResendSend.mock.calls[0][1]).toEqual({
+      idempotencyKey: "inactivity-warning/u1/2026-10-06",
+    });
+  });
+
+  it("non passa opzioni di richiesta senza idempotencyKey", async () => {
+    await sendEmail({ to: "user@example.com", subject: "S", react: fakeReact });
+
+    expect(mockResendSend.mock.calls[0]).toHaveLength(1);
+  });
+
   it("omits replyTo entirely when REPLY_TO_EMAIL is unset", async () => {
     delete process.env.REPLY_TO_EMAIL;
 

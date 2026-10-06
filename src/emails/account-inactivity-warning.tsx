@@ -12,11 +12,14 @@ import {
 } from "@react-email/components";
 import { emailStyles } from "./styles";
 import { CONTACT_EMAIL } from "@/lib/contact";
+import { formatEmailDate } from "./format-date";
 
 type AccountInactivityWarningEmailProps = Readonly<{
   firstName: string;
   deletionDate: Date;
   loginUrl: string;
+  /** Ultimo accesso, visita o scontrino: la base del conteggio. */
+  lastActivityAt: Date;
 }>;
 
 /**
@@ -28,12 +31,9 @@ export function AccountInactivityWarningEmail({
   firstName,
   deletionDate,
   loginUrl,
+  lastActivityAt,
 }: AccountInactivityWarningEmailProps) {
-  const formattedDate = deletionDate.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedDate = formatEmailDate(deletionDate);
   const greeting = firstName ? `Ciao ${firstName}, ` : "Ciao, ";
 
   return (
@@ -56,9 +56,9 @@ export function AccountInactivityWarningEmail({
             </Heading>
             <Text style={emailStyles.text}>
               {greeting}non registriamo attività sul tuo account ScontrinoZero
-              da oltre 12 mesi. Per rispetto del principio di minimizzazione dei
-              dati (GDPR), gli account inattivi vengono eliminati insieme ai
-              dati collegati.
+              dal <strong>{formatEmailDate(lastActivityAt)}</strong>. Per
+              rispetto del principio di minimizzazione dei dati (GDPR), gli
+              account inattivi vengono eliminati insieme ai dati collegati.
             </Text>
             <Text style={emailStyles.text}>
               Se non intervieni, il tuo account verrà eliminato definitivamente

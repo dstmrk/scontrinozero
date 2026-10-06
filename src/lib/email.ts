@@ -5,6 +5,13 @@ export type SendEmailOptions = {
   to: string;
   subject: string;
   react: ReactElement;
+  /**
+   * Inoltrata a Resend come header `Idempotency-Key`: due invii con la stessa
+   * chiave entro 24h producono una sola email. Serve dove il chiamante può
+   * ripetere l'invio senza sapere se il precedente è arrivato (il timeout
+   * qui sotto non annulla la richiesta in volo).
+   */
+  idempotencyKey?: string;
 };
 
 // Module-level singleton: il client Resend è stateless lato app, niente
@@ -83,14 +90,18 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   // deve ereditare il nostro indirizzo di supporto.
   const replyTo = process.env.REPLY_TO_EMAIL?.trim();
 
+  const payload = {
+    from,
+    to: options.to,
+    subject: options.subject,
+    react: options.react,
+    ...(replyTo ? { replyTo } : {}),
+  };
+  const resend = getResendClient();
   const { error } = await withTimeout(
-    getResendClient().emails.send({
-      from,
-      to: options.to,
-      subject: options.subject,
-      react: options.react,
-      ...(replyTo ? { replyTo } : {}),
-    }),
+    options.idempotencyKey
+      ? resend.emails.send(payload, { idempotencyKey: options.idempotencyKey })
+      : resend.emails.send(payload),
     SEND_EMAIL_TIMEOUT_MS,
     "sendEmail",
   );

@@ -96,6 +96,38 @@ function toDate(value: Date | string | null): Date | null {
   return value instanceof Date ? value : new Date(value);
 }
 
+/**
+ * Un preavviso pendente si azzera solo per fatti scritti nel DB: piano
+ * protetto, oppure un preavviso che nessuna config valida avrebbe emesso,
+ * cioè con meno di un giorno di inattività alle spalle. Mai in base alle
+ * soglie del container che sta girando.
+ *
+ * ⚠️ Dev e sandbox condividono lo stesso DB con soglie diverse. Con un reset
+ * "attività rientrata nella MIA finestra di preavviso", sandbox (365/30)
+ * azzerava ogni preavviso emesso da dev (90/1), dev lo rimandava allo sweep
+ * successivo e l'utente riceveva email ripetute con date sempre nuove senza
+ * mai essere cancellato. La stessa regola rende innocuo anche un cambio di
+ * soglia: il preavviso resta, e il delete ricontrolla `deleteCutoff` con la
+ * soglia corrente prima di agire.
+ *
+ * Perché un giorno e non `lastActivity > warningSentAt`: lo snapshot dei
+ * candidati precede l'invio, quindi un login durante lo sweep cade appena
+ * PRIMA del flag. Senza margine quel preavviso resterebbe valido per sempre
+ * e, dopo un futuro anno di inattività, l'utente verrebbe cancellato senza un
+ * preavviso nuovo. Un giorno è il minimo di `deleteAfterDays − warnBeforeDays`
+ * garantito dal clamp di `readPruneConfig`: un'attività entro un giorno dal
+ * preavviso lo rende ingiustificato per qualunque ambiente.
+ */
+function shouldResetWarning(
+  warningSentAt: Date | null,
+  lastActivity: Date,
+  protectedNow: boolean,
+): boolean {
+  if (warningSentAt === null) return false;
+  if (protectedNow) return true;
+  return lastActivity.getTime() > warningSentAt.getTime() - MS_PER_DAY;
+}
+
 async function setWarningSentAt(
   authUserId: string,
   value: Date | null,
@@ -125,9 +157,10 @@ async function setWarningSentAt(
  * sessione persistente in sola lettura risulterebbe inattivo). Il floor a
  * `created_at` evita di cancellare un iscritto recente senza attività.
  *
- * RESET — se un utente preavvisato torna attivo (attività rientrata nella
- * finestra di warn) o diventa protetto (es. si abbona), il flag viene azzerato,
- * così una futura inattività riparte con un preavviso completo.
+ * RESET — se un utente preavvisato torna attivo dopo il preavviso (o meno di
+ * un giorno prima, mentre lo sweep girava) o diventa protetto (es. si abbona),
+ * il flag viene azzerato, così una futura inattività riparte con un preavviso
+ * completo (`shouldResetWarning`).
  *
  * Esclusi (`isProtectedFromPrune`): `unlimited` e abbonati a pagamento attivi.
  *
@@ -272,10 +305,9 @@ async function processCandidate(
   const planExpiresAt = toDate(row.plan_expires_at);
   const warningSentAt = toDate(row.inactivity_warning_sent_at);
   const protectedNow = isProtectedFromPrune(row.plan, planExpiresAt, ctx.nowMs);
-  const inactivePastWarn = lastActivity < ctx.warnCutoff;
 
-  // RESET: preavvisato ma non più eleggibile (tornato attivo o protetto).
-  if (warningSentAt && (!inactivePastWarn || protectedNow)) {
+  // RESET: preavvisato ma tornato attivo, o protetto (`shouldResetWarning`).
+  if (shouldResetWarning(warningSentAt, lastActivity, protectedNow)) {
     await setWarningSentAt(row.auth_user_id, null);
     return "reset";
   }
@@ -292,8 +324,8 @@ async function processCandidate(
   }
 
   // WARN: inattivo oltre la soglia di preavviso, nessun avviso pendente.
-  if (inactivePastWarn && !warningSentAt) {
-    await warnCandidate(row, ctx);
+  if (lastActivity < ctx.warnCutoff && !warningSentAt) {
+    await warnCandidate(row, lastActivity, ctx);
     return "warned";
   }
 
@@ -365,9 +397,10 @@ async function deleteCandidate(
   ctx: PruneContext,
 ): Promise<PruneAction> {
   const fresh = await reReadCandidate(row.auth_user_id);
-  if (!fresh) return "none";
+  const lastActivity = fresh ? toDate(fresh.last_activity_at) : null;
+  if (!fresh || !lastActivity) return "none";
 
-  const verdict = deleteVerdict(fresh, ctx);
+  const verdict = deleteVerdict(fresh, lastActivity, ctx);
   if (verdict !== "deleted") {
     logger.warn(
       { authUserId: row.auth_user_id, verdict },
@@ -387,6 +420,7 @@ async function deleteCandidate(
     subject: "Il tuo account ScontrinoZero è stato eliminato",
     react: createElement(AccountInactivityDeletionEmail, {
       email: row.email,
+      lastActivityAt: lastActivity,
     }),
   }).catch((err) =>
     logger.warn(
@@ -404,19 +438,21 @@ async function deleteCandidate(
  * pendente, `deleted` se le tre condizioni del delete reggono ancora, `none`
  * altrimenti.
  */
-function deleteVerdict(row: CandidateRow, ctx: PruneContext): PruneAction {
-  const lastActivity = toDate(row.last_activity_at);
-  if (!lastActivity) return "none";
-
+function deleteVerdict(
+  row: CandidateRow,
+  lastActivity: Date,
+  ctx: PruneContext,
+): PruneAction {
   const warningSentAt = toDate(row.inactivity_warning_sent_at);
   const protectedNow = isProtectedFromPrune(
     row.plan,
     toDate(row.plan_expires_at),
     ctx.nowMs,
   );
-  const inactivePastWarn = lastActivity < ctx.warnCutoff;
 
-  if (warningSentAt && (!inactivePastWarn || protectedNow)) return "reset";
+  if (shouldResetWarning(warningSentAt, lastActivity, protectedNow)) {
+    return "reset";
+  }
   if (protectedNow) return "none";
   if (
     lastActivity < ctx.deleteCutoff &&
@@ -428,9 +464,19 @@ function deleteVerdict(row: CandidateRow, ctx: PruneContext): PruneAction {
   return "none";
 }
 
-/** Invia l'email di preavviso e registra il timestamp di invio. */
+/**
+ * Invia l'email di preavviso e registra il timestamp di invio.
+ *
+ * L'ordine invio → flag è voluto: se il flag venisse scritto prima e l'invio
+ * fallisse, l'utente verrebbe cancellato senza aver mai ricevuto il preavviso.
+ * Il caso opposto — Resend consegna ma `sendEmail` va in timeout, il flag non
+ * viene scritto e lo sweep successivo ripete l'invio — lo copre la
+ * `idempotencyKey` per utente e giorno UTC: un nuovo sweep nello stesso giorno
+ * (un altro deploy) non consegna un duplicato.
+ */
 async function warnCandidate(
   row: CandidateRow,
+  lastActivity: Date,
   ctx: PruneContext,
 ): Promise<void> {
   const deletionDate = new Date(ctx.nowMs + ctx.warnBeforeDays * MS_PER_DAY);
@@ -442,7 +488,9 @@ async function warnCandidate(
       firstName: row.first_name ?? "",
       deletionDate,
       loginUrl: ctx.loginUrl,
+      lastActivityAt: lastActivity,
     }),
+    idempotencyKey: `inactivity-warning/${row.auth_user_id}/${ctx.now.toISOString().slice(0, 10)}`,
   });
   await setWarningSentAt(row.auth_user_id, ctx.now);
 }

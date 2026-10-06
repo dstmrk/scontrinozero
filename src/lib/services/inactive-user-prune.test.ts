@@ -605,6 +605,190 @@ describe("pruneInactiveUsers", () => {
     });
   });
 
+  describe("reset indipendente dalla config (due ambienti sullo stesso DB)", () => {
+    // Dev (90/1) e sandbox (default 365/30) condividono il DB. Con la regola
+    // di reset relativa alla finestra di preavviso del container, sandbox
+    // azzerava ogni preavviso di dev, dev lo rimandava al deploy successivo
+    // e l'utente riceveva email ripetute con date sempre nuove, senza mai
+    // essere cancellato. Il reset ora dipende solo da fatti nel DB:
+    // attività dopo il preavviso (o entro il giorno prima), oppure piano
+    // protetto.
+    const DEV_CONFIG: PruneConfig = {
+      enabled: true,
+      deleteAfterDays: 90,
+      warnBeforeDays: 1,
+      warnings: [],
+    };
+
+    const devWarnedRow = (overrides: Record<string, unknown> = {}) =>
+      deleteRow({
+        inactivity_warning_sent_at: daysAgo(0.5),
+        last_activity_at: daysAgo(91),
+        ...overrides,
+      });
+
+    it("NON azzera un preavviso emesso da un'istanza con soglie più basse", async () => {
+      mockExecute.mockResolvedValueOnce([devWarnedRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result).toEqual({ warned: 0, deleted: 0, reset: 0 });
+      expect(mockSet).not.toHaveBeenCalled();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("l'istanza con soglie più basse cancella dopo la sua grazia", async () => {
+      const row = devWarnedRow({ inactivity_warning_sent_at: daysAgo(1.5) });
+      mockExecute.mockResolvedValueOnce([row]).mockResolvedValueOnce([row]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, DEV_CONFIG);
+
+      expect(result.deleted).toBe(1);
+      expect(mockPurgeUserById).toHaveBeenCalledWith("d1");
+    });
+
+    it("azzera se l'utente è tornato attivo dopo il preavviso", async () => {
+      mockExecute.mockResolvedValueOnce([
+        devWarnedRow({ last_activity_at: daysAgo(0.1) }),
+      ]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, DEV_CONFIG);
+
+      expect(result.reset).toBe(1);
+      expect(mockSet).toHaveBeenCalledWith({ inactivityWarningSentAt: null });
+    });
+
+    it("azzera se l'utente è entrato mentre lo sweep lo preavvisava", async () => {
+      // Lo snapshot precede l'invio: un login durante lo sweep cade appena
+      // PRIMA del flag. Senza margine il preavviso resterebbe valido per
+      // sempre e un futuro anno di inattività porterebbe al purge senza un
+      // preavviso nuovo.
+      const sentAt = daysAgo(0.5);
+      mockExecute.mockResolvedValueOnce([
+        devWarnedRow({
+          inactivity_warning_sent_at: sentAt,
+          last_activity_at: new Date(sentAt.getTime() - 60_000),
+        }),
+      ]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result.reset).toBe(1);
+      expect(mockSet).toHaveBeenCalledWith({ inactivityWarningSentAt: null });
+    });
+
+    it("un'attività esattamente un giorno prima del preavviso non lo azzera", async () => {
+      // Un giorno è il minimo di deleteAfterDays − warnBeforeDays (clamp di
+      // readPruneConfig): a quella distanza il preavviso è legittimo per
+      // qualche config valida, quindi resta.
+      const sentAt = daysAgo(0.5);
+      mockExecute.mockResolvedValueOnce([
+        devWarnedRow({
+          inactivity_warning_sent_at: sentAt,
+          last_activity_at: new Date(sentAt.getTime() - 86_400_000),
+        }),
+      ]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result.reset).toBe(0);
+      expect(mockSet).not.toHaveBeenCalled();
+    });
+
+    it("alla ri-lettura pre-purge vale la stessa regola: attività precedente al preavviso non azzera", async () => {
+      // Ri-lettura con un'attività più recente dello snapshot ma ancora
+      // precedente al preavviso: niente reset, e il purge salta perché
+      // l'utente non è più oltre la soglia di cancellazione.
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        .mockResolvedValueOnce([deleteRow({ last_activity_at: daysAgo(40) })]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result).toEqual({ warned: 0, deleted: 0, reset: 0 });
+      expect(mockSet).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("email di preavviso", () => {
+    it("invia con una idempotencyKey per utente e giorno", async () => {
+      // Resend può aver consegnato anche quando sendEmail va in timeout e il
+      // flag non viene scritto: lo sweep successivo dello stesso giorno (un
+      // altro deploy) riusa la chiave e Resend non consegna un duplicato.
+      mockExecute.mockResolvedValueOnce([warnRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "inactivity-warning/w1/2026-07-01",
+        }),
+      );
+    });
+
+    it("la chiave cambia il giorno dopo", async () => {
+      mockExecute.mockResolvedValueOnce([warnRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      await pruneInactiveUsers(new Date("2026-07-02T10:00:00.000Z"), CONFIG);
+
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "inactivity-warning/w1/2026-07-02",
+        }),
+      );
+    });
+
+    it("passa all'email la data dell'ultima attività", async () => {
+      mockExecute.mockResolvedValueOnce([warnRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          react: expect.objectContaining({
+            props: expect.objectContaining({ lastActivityAt: daysAgo(340) }),
+          }),
+        }),
+      );
+    });
+
+    it("non scrive il flag se l'invio fallisce", async () => {
+      mockExecute.mockResolvedValueOnce([warnRow()]);
+      mockSendEmail.mockRejectedValueOnce(new Error("sendEmail timed out"));
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result.warned).toBe(0);
+      expect(mockSet).not.toHaveBeenCalled();
+    });
+  });
+
+  it("passa all'email di conferma cancellazione la data dell'ultima attività", async () => {
+    mockExecute.mockResolvedValue([deleteRow()]);
+
+    const { pruneInactiveUsers } = await import("./inactive-user-prune");
+    await pruneInactiveUsers(NOW, CONFIG);
+
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        react: expect.objectContaining({
+          props: expect.objectContaining({ lastActivityAt: daysAgo(400) }),
+        }),
+      }),
+    );
+  });
+
   it("usa l'URL di login di fallback se getTrustedAppUrl lancia", async () => {
     mockGetTrustedAppUrl.mockImplementation(() => {
       throw new Error("identity env non pronta");
