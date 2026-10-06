@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import { parseTrustedHostnameEnv } from "./src/lib/hostname-env";
 import { buildSecurityHeaders } from "./src/lib/security-headers";
 
