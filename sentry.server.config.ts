@@ -31,7 +31,8 @@ Sentry.init({
   // (ip, codiceFiscale, token, cookie, ...) restano censurati anche qui.
   // `error.levels` e' lasciato vuoto (default): gli errori restano catturati
   // come Issue dall'hook in logger.ts, evitando una doppia cattura.
-  enableLogs: true,
+  // Da @sentry/nextjs 11 non c'e' piu' `enableLogs`: i log partono quando
+  // un'integrazione li emette, quindi il drain lo accende pinoIntegration.
   integrations: [
     Sentry.pinoIntegration({
       log: { levels: ["info", "warn", "error", "fatal"] },

@@ -452,7 +452,7 @@ Senza questo log la causa del rifiuto resta invisibile in produzione.
 
 ## Sentry Logs (pino integration): è una DENYLIST, non un'allowlist
 
-Il drain `pino → Sentry Logs` (`Sentry.pinoIntegration()` + `enableLogs: true`
+Il drain `pino → Sentry Logs` (`Sentry.pinoIntegration()`, che da `@sentry/nextjs` 11 basta da sola: `enableLogs` non esiste più,
 in `sentry.server.config.ts`) inoltra a Sentry **ogni campo non redatto** del
 log. È l'**opposto** del path-eccezioni: `sanitizeForTelemetry` (`src/lib/logger.ts`)
 è una **allowlist** (solo `SAFE_KEYS` escono, `ip` raw escluso a favore di
