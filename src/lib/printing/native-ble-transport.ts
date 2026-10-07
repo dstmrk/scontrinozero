@@ -233,12 +233,15 @@ export class NativeBleReceiptPrinter {
     const call = requireCall(this.#bridge);
     const method = device.withResponse ? "write" : "writeWithoutResponse";
     for (let offset = 0; offset < data.length; offset += NATIVE_CHUNK_SIZE) {
-      await call(method, {
+      // I chunk vanno scritti in ordine, uno alla volta: in parallelo la
+      // stampante riceverebbe i byte mescolati.
+      const chunk = {
         deviceId: device.id,
         service: device.service,
         characteristic: device.characteristic,
         value: toHex(data.subarray(offset, offset + NATIVE_CHUNK_SIZE)),
-      });
+      };
+      await call(method, chunk); // NOSONAR — scrittura sequenziale per design
     }
   }
 
