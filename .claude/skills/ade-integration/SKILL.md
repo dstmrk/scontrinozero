@@ -158,8 +158,12 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
 - **Nessuna credenziale in memoria**: su 401 in emissione niente re-login,
   `AdeSessionExpiredError` come per CIE. `adoptSession` azzera anche
   credenziali e sessione di un login precedente sullo stesso client.
-- Il probe end-to-end è `scripts/adopt-session-probe.ts` (lettura di
-  default, `--emit` per €0,01 emesso e annullato).
+- **L'emissione chiede solo i cookie.** Misurato con
+  `scripts/adopt-session-probe.ts --emit`: vendita e annullo da €0,01
+  accettati con la sola sessione adottata, senza `x-appl` né `setUserChoice`
+  da rifare. Lo script resta il probe da rilanciare se l'AdE cambia
+  qualcosa nel login (lettura di default, `--emit` per emettere e
+  annullare).
 
 ---
 
