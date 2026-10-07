@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { verifyAdeCredentials } from "@/server/onboarding-actions";
 import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
 import { UtenzaPicker } from "@/components/ade/utenza-picker";
+import { SpidConnectButton } from "@/components/ade/spid-connect-button";
 import type { AdeLoginMethod, AdeUtenzaCandidate } from "@/lib/ade/types";
 
 type VerifyState =
@@ -145,7 +146,23 @@ export function AdeCredentialsSection({
     });
   }
 
+  function handleSpidConnected() {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+    }
+    setHasEverVerified(true);
+    setStoredVerifyState({ status: "success" });
+    router.refresh();
+    dismissTimerRef.current = setTimeout(() => {
+      setStoredVerifyState({ status: "idle" });
+      dismissTimerRef.current = null;
+    }, SUCCESS_DISMISS_MS);
+  }
+
   const isCie = loginMethod === "cie";
+  // Una sessione SPID non si verifica dal server: il server non ha segreti
+  // SPID, solo i cookie che l'app gli passa. Il rinnovo è il pulsante SPID.
+  const isSpid = loginMethod === "spid";
   const credentialsRejected =
     verifyState.status === "error" && !!verifyState.credentialsRejected;
 
@@ -190,7 +207,7 @@ export function AdeCredentialsSection({
               <Badge variant="secondary">Non verificate</Badge>
             )}
           </div>
-          {!credentialsRejected && (
+          {!credentialsRejected && !isSpid && (
             <Button
               size="sm"
               variant="outline"
@@ -206,6 +223,21 @@ export function AdeCredentialsSection({
             </Button>
           )}
         </div>
+
+        {businessId && (
+          <SpidConnectButton
+            businessId={businessId}
+            label={isSpid ? "Ricollega con SPID" : "Collega con SPID"}
+            onConnected={handleSpidConnected}
+          />
+        )}
+
+        {isSpid && (
+          <p className="text-muted-foreground text-xs">
+            La connessione SPID si rinnova dall&apos;app ScontrinoZero, con un
+            nuovo accesso SPID.
+          </p>
+        )}
 
         {isCie && (
           <p className="text-muted-foreground text-xs">

@@ -26,6 +26,7 @@ describe("PwaInstallPrompt", () => {
     setUserAgent(ORIGINAL_UA);
     localStorage.clear();
     resetInstallPromptStoreForTests();
+    delete (window as { Capacitor?: unknown }).Capacitor;
   });
 
   it("non renderizza nulla su browser non-iOS senza evento install", () => {
@@ -77,6 +78,18 @@ describe("PwaInstallPrompt", () => {
     // fatta l'installazione.
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("non mostra il banner iOS dentro l'app nativa (issue #1003)", () => {
+    // Nel guscio Capacitor la UA è quella di iPhone ma «Aggiungi alla Home»
+    // non ha senso: l'app è già installata.
+    setUserAgent(IOS_UA);
+    (window as { Capacitor?: unknown }).Capacitor = {
+      isNativePlatform: () => true,
+    };
+    const { container } = render(<PwaInstallPrompt />);
+
+    expect(container.firstChild).toBeNull();
   });
 
   it("non mostra il banner iOS se l'utente ha già fatto dismiss", () => {

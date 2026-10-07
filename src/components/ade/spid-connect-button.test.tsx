@@ -1,0 +1,123 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { SpidConnectButton } from "./spid-connect-button";
+
+const mockConnectAdeWithSpid = vi.fn();
+vi.mock("@/server/onboarding-actions", () => ({
+  connectAdeWithSpid: (id: string, header: string) =>
+    mockConnectAdeWithSpid(id, header),
+}));
+
+const mockIsNativeShell = vi.fn();
+vi.mock("@/lib/native/native-shell", () => ({
+  isNativeShell: () => mockIsNativeShell(),
+  getCapacitorBridge: () => ({ isNativePlatform: () => true }),
+}));
+
+const mockCapture = vi.fn();
+vi.mock("@/lib/native/spid-capture", () => ({
+  captureSpidCookieHeader: () => mockCapture(),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockIsNativeShell.mockReturnValue(true);
+  mockCapture.mockResolvedValue("JSESSIONID=abc");
+  mockConnectAdeWithSpid.mockResolvedValue({ businessId: "biz-1" });
+});
+
+describe("SpidConnectButton", () => {
+  it("fuori dall'app nativa non rende niente", () => {
+    mockIsNativeShell.mockReturnValue(false);
+
+    const { container } = render(<SpidConnectButton businessId="biz-1" />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("nell'app mostra il pulsante con l'etichetta data", () => {
+    render(<SpidConnectButton businessId="biz-1" label="Ricollega con SPID" />);
+
+    expect(
+      screen.getByRole("button", { name: "Ricollega con SPID" }),
+    ).toBeInTheDocument();
+  });
+
+  it("cattura i cookie, li passa a connectAdeWithSpid e avvisa il chiamante", async () => {
+    const onConnected = vi.fn();
+    render(<SpidConnectButton businessId="biz-7" onConnected={onConnected} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+
+    await waitFor(() => {
+      expect(onConnected).toHaveBeenCalledWith({ businessId: "biz-1" });
+    });
+    expect(mockConnectAdeWithSpid).toHaveBeenCalledWith(
+      "biz-7",
+      "JSESSIONID=abc",
+    );
+  });
+
+  it("browser chiuso prima del DCO: nessuna chiamata, nessun errore", async () => {
+    mockCapture.mockResolvedValue(null);
+    const onConnected = vi.fn();
+    render(<SpidConnectButton businessId="biz-1" onConnected={onConnected} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Collega con SPID" }),
+      ).toBeEnabled();
+    });
+    expect(mockConnectAdeWithSpid).not.toHaveBeenCalled();
+    expect(onConnected).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("un errore del server compare sotto il pulsante e non chiama onConnected", async () => {
+    mockConnectAdeWithSpid.mockResolvedValue({
+      error: "Sessione SPID non valida.",
+    });
+    const onConnected = vi.fn();
+    render(<SpidConnectButton businessId="biz-1" onConnected={onConnected} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Sessione SPID non valida.",
+    );
+    expect(onConnected).not.toHaveBeenCalled();
+  });
+
+  it("un errore del plugin diventa un messaggio, non un crash", async () => {
+    mockCapture.mockRejectedValue(new Error("plugin assente"));
+    render(<SpidConnectButton businessId="biz-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /aggiorna l'app/i,
+    );
+  });
+
+  it("durante il collegamento il pulsante è disabilitato", async () => {
+    let release: (v: string) => void = () => {};
+    mockCapture.mockReturnValue(
+      new Promise<string>((r) => {
+        release = r;
+      }),
+    );
+    render(<SpidConnectButton businessId="biz-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+
+    expect(
+      await screen.findByRole("button", { name: /in corso/i }),
+    ).toBeDisabled();
+    release("JSESSIONID=abc");
+    await waitFor(() => {
+      expect(mockConnectAdeWithSpid).toHaveBeenCalled();
+    });
+  });
+});

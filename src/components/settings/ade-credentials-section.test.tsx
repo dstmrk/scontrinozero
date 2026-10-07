@@ -21,6 +21,19 @@ vi.mock("@/server/onboarding-actions", () => ({
     mockVerifyAdeCredentials(id, utenzaPiva),
 }));
 
+// Il pulsante SPID ha i suoi test: qui conta solo che compaia, con quale
+// etichetta, e cosa succede quando segnala un collegamento riuscito.
+// Come il componente reale, rende qualcosa solo "nell'app nativa".
+let spidOnConnected: (() => void) | undefined;
+let inNativeShell = false;
+vi.mock("@/components/ade/spid-connect-button", () => ({
+  SpidConnectButton: (props: { label?: string; onConnected?: () => void }) => {
+    spidOnConnected = props.onConnected;
+    if (!inNativeShell) return null;
+    return <button type="button">{props.label ?? "Collega con SPID"}</button>;
+  },
+}));
+
 const mockRouterRefresh = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRouterRefresh }),
@@ -1172,5 +1185,82 @@ describe("AdeCredentialsSection — un solo candidato", () => {
     expect(
       await screen.findByText(/non potrai più cambiarla/i),
     ).toBeInTheDocument();
+  });
+
+  describe("SPID", () => {
+    beforeEach(() => {
+      inNativeShell = true;
+    });
+    afterEach(() => {
+      inNativeShell = false;
+    });
+
+    it("su un accesso Fisconline offre il collegamento SPID accanto alla verifica", () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Collega con SPID" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Verifica connessione/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("su un accesso SPID niente «Verifica»: il rinnovo passa dall'app", () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          loginMethod="spid"
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Ricollega con SPID" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Verifica connessione/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/si rinnova dall'app ScontrinoZero/i),
+      ).toBeInTheDocument();
+    });
+
+    it("un collegamento SPID riuscito segna verificato e aggiorna la pagina", async () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+        />,
+      );
+
+      act(() => spidOnConnected?.());
+
+      expect(await screen.findByText("Verificate")).toBeInTheDocument();
+      expect(screen.getByText("Connessione verificata.")).toBeInTheDocument();
+      expect(mockRouterRefresh).toHaveBeenCalled();
+    });
+
+    it("senza businessId il pulsante SPID non compare", () => {
+      render(
+        <AdeCredentialsSection
+          businessId={null}
+          hasCredentials={true}
+          verifiedAt={null}
+        />,
+      );
+
+      expect(
+        screen.queryByRole("button", { name: /SPID/ }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

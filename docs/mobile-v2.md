@@ -308,10 +308,18 @@ quando la slice arriva.
    visto sul simulatore iOS il 24 settembre 2026.
 2. **Punto E** (punto 5) — chiuso: entrambi i gradini superati, la slice 3
    adotta la sessione sul server.
-3. **Cattura del cookie**: InAppBrowser sul portale AdE, login SPID
-   dell'utente, il plugin restituisce i cookie, POST al server, `AdeClient`
-   adottato nello store interattivo, uno scontrino emesso. Un artefatto, un
-   criterio di accettazione.
+3. **Cattura del cookie**, in due metà:
+   - **3a, server** — fatta (#1036): `connectAdeWithSpid` adotta i cookie
+     in un `AdeClient` e lo deposita nello store interattivo.
+   - **3b, app** — scritta, da accettare sul device: il plugin
+     `@capgo/capacitor-inappbrowser` apre il portale AdE, l'utente fa il
+     login SPID e apre Documento commerciale online; a quell'URL l'app legge
+     i cookie di `ivaservizi`, chiude la webview e li passa a
+     `connectAdeWithSpid`. Il bottone «Collega con SPID» compare solo nel
+     guscio nativo (`isNativeShell()`), nel passo credenziali
+     dell'onboarding e nelle impostazioni AdE. Criterio di accettazione:
+     dall'app su sandbox, collegamento SPID e uno scontrino emesso. Il banner
+     di rinnovo resta CIE-only: diventa SPID-aware in una slice a parte.
 4. **Stampa BLE nativa** dietro il type alias `Transport` (punto 3).
 
 ---

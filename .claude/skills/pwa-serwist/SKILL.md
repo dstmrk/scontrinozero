@@ -211,6 +211,10 @@ sua UA (`CriOS`) passa da `isIos()`; e linka la guida in una nuova scheda,
 così la scheda dell'app resta aperta sul dominio da cui va fatta
 l'installazione. Quando esce un iOS nuovo, rileggi i passaggi di entrambi.
 
+Dentro l'app nativa (guscio Capacitor in `mobile/`) la UA è quella di iPhone
+ma l'app è già installata: il banner iOS controlla anche `isNativeShell()`
+(`src/lib/native/native-shell.ts`) e lì non compare.
+
 ## Asset PWA esclusi dal `proxy.ts` matcher
 
 `/sw.js` e `/manifest.webmanifest` **devono** stare nel negative-lookahead del

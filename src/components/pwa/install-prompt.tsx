@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { safeLocalStorage } from "@/lib/safe-storage";
+import { isNativeShell } from "@/lib/native/native-shell";
 import {
   clearDeferredPrompt,
   getDeferredPrompt,
@@ -51,7 +52,7 @@ export function PwaInstallPrompt() {
   const [showIos, setShowIos] = useState<boolean>(() => {
     if (globalThis.window === undefined) return false;
     if (safeLocalStorage.getItem(DISMISSED_KEY)) return false;
-    return isIos() && !isInStandalone();
+    return isIos() && !isInStandalone() && !isNativeShell();
   });
 
   const [dismissed, setDismissed] = useState<boolean>(() => {
