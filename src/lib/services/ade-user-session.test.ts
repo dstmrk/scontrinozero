@@ -91,7 +91,7 @@ describe("resolveAdeUserSession", () => {
     });
   });
 
-  it("CIE senza sessione interattiva → cie-reauth, senza messaggio", async () => {
+  it("CIE senza sessione interattiva → reauth col metodo, senza messaggio", async () => {
     // Il testo lo scrive il chiamante: verifica dello scontrino in sospeso e
     // ricerca nello storico lo raccontano in due modi diversi.
     mockFetchAdePrerequisites.mockResolvedValue({
@@ -102,7 +102,7 @@ describe("resolveAdeUserSession", () => {
 
     const result = await resolveAdeUserSession("biz-1");
 
-    expect(result).toEqual({ ok: false, reason: "cie-reauth" });
+    expect(result).toEqual({ ok: false, reason: "reauth", method: "cie" });
   });
 
   it("CIE senza sessione non costruisce i params", async () => {
@@ -117,7 +117,9 @@ describe("resolveAdeUserSession", () => {
     expect(mockToAdeSessionParams).not.toHaveBeenCalled();
   });
 
-  it("SPID senza sessione adottata → stesso rinnovo di CIE, col metodo spid", async () => {
+  it("SPID senza sessione adottata → reauth col metodo spid", async () => {
+    // Il metodo arriva fino al banner: a un utente SPID va chiesto un nuovo
+    // accesso SPID, non la notifica CIE.
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "spid",
       cedentePrestatore: CEDENTE,
@@ -126,7 +128,7 @@ describe("resolveAdeUserSession", () => {
 
     const result = await resolveAdeUserSession("biz-1");
 
-    expect(result).toEqual({ ok: false, reason: "cie-reauth" });
+    expect(result).toEqual({ ok: false, reason: "reauth", method: "spid" });
     expect(mockIsInteractiveSessionMissing).toHaveBeenCalledWith(
       "biz-1",
       "spid",

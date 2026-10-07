@@ -84,7 +84,11 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    va chiamato **prima** dell'INSERT del PENDING in emissione/annullo: senza, un
    business da ri-collegare si ritrova un documento PENDING bloccato dallo
    stale-gate dei 30 min anche dopo aver rinnovato. Esito user-facing:
-   `{ reauthRequired: true }` → "Ricollegati" in UI, **409** sulla Developer API.
+   `{ reauthRequired: method }` (`"cie"` o `"spid"`, dal pre-check o da
+   `AdeReauthRequiredError.method`) → `AdeReauthBanner` in UI, **409** sulla
+   Developer API. Il metodo serve al banner: a un utente SPID va chiesto un
+   nuovo login SPID dall'app (`SpidConnectButton`), non la notifica CIE, e
+   nel browser non c'è niente da premere, solo il rimando all'app.
 2. **Il TTL dello store NON è la scadenza della sessione AdE.** `DEFAULT_TTL_MS`
    (6h) e `DEFAULT_MAX_ENTRIES` (100, LRU per-business) sono un cap di memoria:
    la scadenza vera la dichiara AdE → `AdeSessionExpiredError` → tradotto in
@@ -721,9 +725,9 @@ vivono in un'altra area di Fatture&Corrispettivi. Chiamare la feature
 onesto è "documenti commerciali".
 
 **L'ingresso è uno solo:** `resolveAdeUserSession` in
-`src/lib/services/ade-user-session.ts`. Prerequisiti + pre-check CIE +
+`src/lib/services/ade-user-session.ts`. Prerequisiti + pre-check CIE/SPID +
 `toAdeSessionParams`, senza effetti collaterali, e ritorna una **condizione**
-(`cie-reauth`, `unavailable`) non una frase: il messaggio lo scrive la
+(`reauth` col metodo, `unavailable`) non una frase: il messaggio lo scrive la
 superficie, perché "rifai l'accesso per verificare lo scontrino" e "ricollegati
 per cercare" non sono la stessa cosa. Emit e void restano fuori: hanno bisogno
 anche di `cedentePrestatore` e rispondono con il loro tipo.

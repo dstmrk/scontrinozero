@@ -24,13 +24,14 @@ import { z, type ZodType } from "zod/v4";
 import type { V1ErrorCode } from "@/lib/api-v1-errors";
 
 /**
- * Messaggio del 409 quando la sessione AdE interattiva (CIE) è scaduta: va
- * rinnovata dall'app web (secondo fattore umano), il retry automatico via API
- * è inutile finché l'utente non si ricollega. Condiviso da POST /v1/receipts e
+ * Messaggio del 409 quando la sessione AdE interattiva (CIE o SPID) è
+ * scaduta: va rinnovata da ScontrinoZero con un gesto umano (notifica CIE, o
+ * accesso SPID dall'app), il retry automatico via API è inutile finché
+ * l'utente non si ricollega. Non nomina il metodo: il codice è lo stesso. Condiviso da POST /v1/receipts e
  * POST /v1/receipts/{id}/void per evitare la duplicazione del body inline.
  */
 export const ADE_REAUTH_REQUIRED_MESSAGE =
-  "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.";
+  "Sessione AdE scaduta: ricollegati da ScontrinoZero (impostazioni AdE) prima di riprovare.";
 
 /** Messaggio del 503 quando l'AdE non risponde: retry con la STESSA key. */
 export const ADE_UNAVAILABLE_MESSAGE =

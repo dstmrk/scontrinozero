@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CieReauthBanner } from "./cie-reauth-banner";
+import { AdeReauthBanner } from "./ade-reauth-banner";
 
 // --- Mocks ---
 
@@ -9,18 +9,46 @@ vi.mock("@/server/onboarding-actions", () => ({
   verifyAdeCredentials: (id: string) => mockVerifyAdeCredentials(id),
 }));
 
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
+// Il pulsante vero apre l'InAppBrowser: qui basta sapere che c'è e che, a
+// collegamento riuscito, richiama `onConnected`.
+vi.mock("@/components/ade/spid-connect-button", () => ({
+  SpidConnectButton: (props: {
+    businessId: string;
+    label?: string;
+    onConnected?: () => void;
+  }) => (
+    <button
+      type="button"
+      data-business={props.businessId}
+      onClick={() => props.onConnected?.()}
+    >
+      {props.label}
+    </button>
+  ),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockNative = false;
   mockVerifyAdeCredentials.mockResolvedValue({ businessId: "biz-1" });
 });
 
 // --- Tests ---
 
-describe("CieReauthBanner", () => {
+describe("AdeReauthBanner", () => {
   describe("stato idle", () => {
     it("mostra il messaggio di sessione scaduta", () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       expect(screen.getByText(/Sessione CIE scaduta/i)).toBeInTheDocument();
@@ -28,7 +56,11 @@ describe("CieReauthBanner", () => {
 
     it("mostra il pulsante 'Ricollega'", () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       expect(
@@ -38,7 +70,11 @@ describe("CieReauthBanner", () => {
 
     it("offre un link di fallback alle impostazioni", () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       expect(
@@ -48,7 +84,11 @@ describe("CieReauthBanner", () => {
 
     it("chiama verifyAdeCredentials con il businessId al click su 'Ricollega'", async () => {
       render(
-        <CieReauthBanner businessId="biz-42" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-42"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -69,7 +109,11 @@ describe("CieReauthBanner", () => {
       );
 
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -90,7 +134,11 @@ describe("CieReauthBanner", () => {
       );
 
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -108,7 +156,11 @@ describe("CieReauthBanner", () => {
   describe("stato success", () => {
     it("mostra il messaggio con l'actionLabel dopo il ricollegamento", async () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -121,7 +173,11 @@ describe("CieReauthBanner", () => {
 
     it("usa l'actionLabel dell'annullo quando passato", async () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Annulla scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Annulla scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -134,7 +190,8 @@ describe("CieReauthBanner", () => {
     it("invoca onReconnected dopo il ricollegamento riuscito", async () => {
       const onReconnected = vi.fn();
       render(
-        <CieReauthBanner
+        <AdeReauthBanner
+          method="cie"
           businessId="biz-1"
           actionLabel="Emetti scontrino"
           onReconnected={onReconnected}
@@ -150,7 +207,11 @@ describe("CieReauthBanner", () => {
 
     it("il pulsante 'OK' chiude il banner di successo tornando a idle", async () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -175,7 +236,11 @@ describe("CieReauthBanner", () => {
       });
 
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -191,7 +256,11 @@ describe("CieReauthBanner", () => {
       mockVerifyAdeCredentials.mockResolvedValue({ error: "Errore." });
 
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -208,7 +277,11 @@ describe("CieReauthBanner", () => {
       mockVerifyAdeCredentials.mockResolvedValueOnce({ businessId: "biz-1" });
 
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -231,7 +304,11 @@ describe("CieReauthBanner", () => {
       mockVerifyAdeCredentials.mockResolvedValueOnce({ businessId: "biz-1" });
 
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
@@ -253,7 +330,8 @@ describe("CieReauthBanner", () => {
       const onReconnected = vi.fn();
 
       render(
-        <CieReauthBanner
+        <AdeReauthBanner
+          method="cie"
           businessId="biz-1"
           actionLabel="Emetti scontrino"
           onReconnected={onReconnected}
@@ -272,7 +350,11 @@ describe("CieReauthBanner", () => {
   describe("dark mode", () => {
     it("il banner idle porta varianti dark:", () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       const banner = screen.getByText(/Sessione CIE scaduta/i).closest("div");
@@ -281,13 +363,77 @@ describe("CieReauthBanner", () => {
 
     it("il banner di successo porta varianti dark:", async () => {
       render(
-        <CieReauthBanner businessId="biz-1" actionLabel="Emetti scontrino" />,
+        <AdeReauthBanner
+          method="cie"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
 
       const banner = await screen.findByText(/Ricollegato/i);
       expect(banner.closest("output")?.className).toMatch(/dark:/);
+    });
+  });
+
+  describe("SPID", () => {
+    it("nell'app chiede un nuovo accesso SPID, non la notifica CIE", () => {
+      mockNative = true;
+      render(
+        <AdeReauthBanner
+          method="spid"
+          businessId="biz-7"
+          actionLabel="Emetti scontrino"
+        />,
+      );
+
+      expect(screen.getByText(/Sessione SPID scaduta/i)).toBeInTheDocument();
+      expect(screen.queryByText(/CIE/)).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Ricollega con SPID" }),
+      ).toHaveAttribute("data-business", "biz-7");
+    });
+
+    it("nell'app, collegamento riuscito → successo e onReconnected", () => {
+      mockNative = true;
+      const onReconnected = vi.fn();
+      render(
+        <AdeReauthBanner
+          method="spid"
+          businessId="biz-1"
+          actionLabel="Annulla scontrino"
+          onReconnected={onReconnected}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Ricollega con SPID" }),
+      );
+
+      expect(
+        screen.getByText("Ricollegato! Premi di nuovo «Annulla scontrino»."),
+      ).toBeInTheDocument();
+      expect(onReconnected).toHaveBeenCalledOnce();
+      expect(mockVerifyAdeCredentials).not.toHaveBeenCalled();
+    });
+
+    it("nel browser rimanda all'app, senza pulsanti che lì non funzionano", () => {
+      render(
+        <AdeReauthBanner
+          method="spid"
+          businessId="biz-1"
+          actionLabel="Emetti scontrino"
+        />,
+      );
+
+      expect(
+        screen.getByText(
+          "Sessione SPID scaduta: ricollegati con SPID dall'app ScontrinoZero, poi riprova.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
   });
 });

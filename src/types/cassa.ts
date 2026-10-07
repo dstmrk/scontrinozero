@@ -3,6 +3,7 @@
  */
 
 import type { PaymentInput } from "@/lib/receipts/payment-input";
+import type { InteractiveMethod } from "@/lib/ade/types";
 
 /** Aliquote IVA supportate nell'UI cassa */
 export type VatCode =
@@ -209,9 +210,9 @@ export type SubmitReceiptResult = {
   adeRegisteredAt?: string;
   passwordExpired?: boolean;
   /**
-   * La sessione AdE interattiva (CIE) è assente/scaduta: l'utente deve
-   * ri-collegarsi (approvare la notifica sull'app) prima di riprovare. Nessun
-   * documento fiscale è stato trasmesso.
+   * La sessione AdE interattiva è assente/scaduta: l'utente deve
+   * ri-collegarsi col metodo indicato (notifica CIE, o accesso SPID dall'app)
+   * prima di riprovare. Nessun documento fiscale è stato trasmesso.
    */
-  reauthRequired?: boolean;
+  reauthRequired?: InteractiveMethod;
 };

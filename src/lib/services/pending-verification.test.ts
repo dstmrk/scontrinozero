@@ -365,8 +365,25 @@ describe("verifyPendingSale", () => {
       documentId: DOC,
     });
 
-    expect(result).toMatchObject({ reauthRequired: true });
+    expect(result).toMatchObject({ reauthRequired: "cie" });
+    expect((result as { error: string }).error).toContain("CIE");
     expect(mockWithAdeSession).not.toHaveBeenCalled();
+  });
+
+  it("a un utente SPID chiede un nuovo accesso SPID dall'app, non la CIE", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({ method: "spid" });
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
+
+    const result = await verifyPendingSale({
+      businessId: BIZ,
+      documentId: DOC,
+    });
+
+    expect(result).toEqual({
+      error:
+        "Sessione SPID scaduta: ricollegati con SPID dall'app ScontrinoZero per verificare lo scontrino.",
+      reauthRequired: "spid",
+    });
   });
 
   it("non rivendica la riga se la sessione AdE non si risolve", async () => {

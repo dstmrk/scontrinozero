@@ -27,7 +27,7 @@ import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { withAdeSession, type WithAdeSessionParams } from "@/lib/ade";
 import { logAdeFailure } from "@/lib/ade/log-failure";
-import type { AdeDocumentSummary } from "@/lib/ade/types";
+import type { AdeDocumentSummary, InteractiveMethod } from "@/lib/ade/types";
 import { logger } from "@/lib/logger";
 import {
   calcLineTotalCents,
@@ -77,9 +77,15 @@ export type VerifyPendingSaleResult =
   | { outcome: "in-progress" }
   /** Qualcun altro l'ha già chiusa: alla UI basta ricaricare. */
   | { outcome: "settled" }
-  | { error: string; reauthRequired?: true };
+  | { error: string; reauthRequired?: InteractiveMethod };
 
 const IN_PROGRESS: VerifyPendingSaleResult = { outcome: "in-progress" };
+
+/** Il rinnovo si chiede col metodo dell'esercente: SPID passa solo dall'app. */
+const REAUTH_MESSAGE: Record<InteractiveMethod, string> = {
+  cie: "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
+  spid: "Sessione SPID scaduta: ricollegati con SPID dall'app ScontrinoZero per verificare lo scontrino.",
+};
 
 const NOT_FOUND_ERROR = "Scontrino non trovato. Ricarica la pagina e riprova.";
 /**
@@ -259,12 +265,11 @@ async function resolveAdeSession(
 > {
   const session = await resolveAdeUserSession(businessId);
   if (session.ok) return { params: session.params };
-  if (session.reason === "cie-reauth") {
+  if (session.reason === "reauth") {
     return {
       done: {
-        error:
-          "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
-        reauthRequired: true,
+        error: REAUTH_MESSAGE[session.method],
+        reauthRequired: session.method,
       },
     };
   }

@@ -7,6 +7,8 @@
  * `@capacitor/core`: il bridge basta, e il bundle web resta quello della PWA.
  */
 
+import { useSyncExternalStore } from "react";
+
 /** Il sottoinsieme del bridge Capacitor che la web app usa. */
 export interface CapacitorBridge {
   isNativePlatform?: () => boolean;
@@ -36,4 +38,15 @@ export function isNativeShell(): boolean {
   } catch {
     return false;
   }
+}
+
+const noopSubscribe = () => () => {};
+
+/**
+ * `isNativeShell()` per i componenti. Lo snapshot server è `false`, così l'HTML
+ * del server e il primo render del client coincidono; il bridge non cambia
+ * durante la vita della pagina, quindi niente da sottoscrivere.
+ */
+export function useIsNativeShell(): boolean {
+  return useSyncExternalStore(noopSubscribe, isNativeShell, () => false);
 }

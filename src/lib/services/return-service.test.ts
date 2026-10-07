@@ -411,7 +411,7 @@ describe("returnReceiptForBusiness — rifiuti prima dell'AdE", () => {
     });
     mockIsInteractiveSessionMissing.mockReturnValue(true);
 
-    expect(await run()).toEqual({ reauthRequired: true });
+    expect(await run()).toEqual({ reauthRequired: "cie" });
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
@@ -584,14 +584,31 @@ describe("returnReceiptForBusiness — esiti della POST", () => {
   it("401 CIE sulla POST → ERROR e reauthRequired", async () => {
     mockSubmitReturn.mockRejectedValue(new AdeReauthRequiredError("cie"));
 
-    expect(await run()).toEqual({ reauthRequired: true });
+    expect(await run()).toEqual({ reauthRequired: "cie" });
     expect(updateSets()).toContainEqual({ status: "ERROR" });
+  });
+
+  it("SPID senza sessione → reauthRequired col metodo spid", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "spid",
+      cedentePrestatore: CEDENTE,
+    });
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
+
+    expect(await run()).toEqual({ reauthRequired: "spid" });
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("401 SPID sulla POST → il metodo viene dall'errore", async () => {
+    mockSubmitReturn.mockRejectedValue(new AdeReauthRequiredError("spid"));
+
+    expect(await run()).toEqual({ reauthRequired: "spid" });
   });
 
   it("sessione scaduta prima della POST → riga ritirata e reauthRequired", async () => {
     mockSearchDocuments.mockRejectedValue(new AdeReauthRequiredError("cie"));
 
-    expect(await run()).toEqual({ reauthRequired: true });
+    expect(await run()).toEqual({ reauthRequired: "cie" });
     expect(mockDelete).toHaveBeenCalledTimes(1);
     expect(mockSubmitReturn).not.toHaveBeenCalled();
   });

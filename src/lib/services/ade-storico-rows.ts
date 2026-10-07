@@ -16,6 +16,7 @@
 import { getDb } from "@/db";
 import { withAdeSession } from "@/lib/ade";
 import { logAdeFailure } from "@/lib/ade/log-failure";
+import type { InteractiveMethod } from "@/lib/ade/types";
 import type { AdeReceiptListItem } from "@/types/storico";
 import { fetchAdeSaleRows, type AdeSearchRange } from "./ade-document-search";
 import { findClaimedTransactionIds } from "./ade-recovery";
@@ -24,8 +25,11 @@ import { resolveAdeUserSession } from "./ade-user-session";
 export const ADE_UNREACHABLE =
   "Agenzia delle Entrate non raggiungibile: l'elenco mostra solo i documenti emessi da ScontrinoZero.";
 
-export const ADE_CIE_REAUTH =
-  "Sessione CIE scaduta: ricollegati all'Agenzia delle Entrate per cercare anche i documenti emessi altrove.";
+/** Il rinnovo si chiede col metodo dell'esercente: SPID passa solo dall'app. */
+const ADE_REAUTH: Record<InteractiveMethod, string> = {
+  cie: "Sessione CIE scaduta: ricollegati all'Agenzia delle Entrate per cercare anche i documenti emessi altrove.",
+  spid: "Sessione SPID scaduta: ricollegati con SPID dall'app ScontrinoZero per cercare anche i documenti emessi altrove.",
+};
 
 export type ForeignAdeRows =
   | { rows: AdeReceiptListItem[]; truncated: boolean }
@@ -66,8 +70,8 @@ export async function fetchForeignAdeRows(
 ): Promise<ForeignAdeRows> {
   const session = await resolveAdeUserSession(params.businessId);
   if (!session.ok) {
-    if (session.reason === "cie-reauth") {
-      return { adeError: ADE_CIE_REAUTH, adeReauthRequired: true };
+    if (session.reason === "reauth") {
+      return { adeError: ADE_REAUTH[session.method], adeReauthRequired: true };
     }
     return { adeError: session.error };
   }

@@ -10,7 +10,7 @@ vi.mock("@/server/onboarding-actions", () => ({
 
 const mockIsNativeShell = vi.fn();
 vi.mock("@/lib/native/native-shell", () => ({
-  isNativeShell: () => mockIsNativeShell(),
+  useIsNativeShell: () => mockIsNativeShell(),
   getCapacitorBridge: () => ({ isNativePlatform: () => true }),
 }));
 

@@ -248,7 +248,7 @@ describe("VoidReceiptDialog — banner reauth CIE (PR #710)", () => {
   }
 
   it("mostra il banner reauth quando la server action ritorna reauthRequired", async () => {
-    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: true });
+    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: "cie" });
 
     const banner = await openReauthBanner();
 
@@ -256,7 +256,7 @@ describe("VoidReceiptDialog — banner reauth CIE (PR #710)", () => {
   });
 
   it("il banner reauth resta leggibile in dark mode (varianti dark:)", async () => {
-    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: true });
+    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: "cie" });
 
     const banner = await openReauthBanner();
 
@@ -270,7 +270,7 @@ describe("VoidReceiptDialog — banner reauth CIE (PR #710)", () => {
   });
 
   it("il bottone 'Ricollega' avvia il ricollegamento inline dalla stessa view", async () => {
-    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: true });
+    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: "cie" });
 
     await openReauthBanner();
 

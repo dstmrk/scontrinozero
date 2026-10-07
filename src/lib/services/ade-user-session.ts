@@ -3,7 +3,7 @@
  *
  * Estratto da `pending-verification.ts` (PR #904, slice 2) quando la
  * ricerca dei documenti su AdE (v1.8.0) è diventata il secondo chiamante dello
- * stesso identico gesto: leggere i prerequisiti, scartare subito una CIE senza
+ * stesso identico gesto: leggere i prerequisiti, scartare subito una CIE o SPID senza
  * sessione interattiva viva, tradurre in `WithAdeSessionParams`.
  *
  * **Perché NON copre anche emit/void.** `receipt-service` e `void-service`
@@ -14,7 +14,7 @@
  * Qui stanno i due chiamanti che condividono un contratto *identico* — quelli
  * che leggono da AdE senza trasmettere niente.
  *
- * **Perché l'esito non porta il messaggio.** `cie-reauth` è una condizione, non
+ * **Perché l'esito non porta il messaggio.** `reauth` è una condizione, non
  * una frase: la verifica di uno scontrino in sospeso e la ricerca nello storico
  * la raccontano all'esercente in due modi diversi, e un messaggio unico qui
  * dentro sarebbe sbagliato per almeno uno dei due. Il testo lo scrive il
@@ -24,6 +24,7 @@ import {
   isInteractiveSessionMissing,
   type WithAdeSessionParams,
 } from "@/lib/ade";
+import type { InteractiveMethod } from "@/lib/ade/types";
 import { fetchAdePrerequisites, toAdeSessionParams } from "@/lib/server-auth";
 
 export type AdeUserSession =
@@ -35,8 +36,11 @@ export type AdeUserSession =
    * che è l'unico a sapere quale dei tre casi è.
    */
   | { ok: false; reason: "unavailable"; error: string }
-  /** CIE senza sessione interattiva viva: serve un nuovo accesso umano. */
-  | { ok: false; reason: "cie-reauth" };
+  /**
+   * CIE o SPID senza sessione interattiva viva: serve un nuovo accesso umano,
+   * con lo stesso metodo (il chiamante lo nomina nel messaggio).
+   */
+  | { ok: false; reason: "reauth"; method: InteractiveMethod };
 
 /**
  * **Nessun effetto collaterale**, deliberatamente: i chiamanti la mettono prima
@@ -54,7 +58,7 @@ export async function resolveAdeUserSession(
     (prerequisites.method === "cie" || prerequisites.method === "spid") &&
     isInteractiveSessionMissing(businessId, prerequisites.method)
   ) {
-    return { ok: false, reason: "cie-reauth" };
+    return { ok: false, reason: "reauth", method: prerequisites.method };
   }
   return { ok: true, params: toAdeSessionParams(businessId, prerequisites) };
 }

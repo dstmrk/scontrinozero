@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ReceiptQrCode } from "@/components/receipts/receipt-qr-code";
-import { CieReauthBanner } from "@/components/ade/cie-reauth-banner";
+import { AdeReauthBanner } from "@/components/ade/ade-reauth-banner";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 import { voidReceipt } from "@/server/void-actions";
@@ -230,7 +230,8 @@ export function VoidReceiptDialog({
 
             {/* CIE: sessione scaduta → ricollegarsi inline prima di ritentare l'annullo. */}
             {mutation.data?.reauthRequired && (
-              <CieReauthBanner
+              <AdeReauthBanner
+                method={mutation.data.reauthRequired}
                 businessId={businessId}
                 actionLabel="Annulla scontrino"
                 onDismiss={() => mutation.reset()}

@@ -294,11 +294,41 @@ describe("emitReceiptForBusiness", () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
-    expect(result.reauthRequired).toBe(true);
+    expect(result.reauthRequired).toBe("cie");
     expect(result.documentId).toBeUndefined();
     // Nessun documento fiscale inserito né trasmesso.
     expect(mockDocumentInsertValues).not.toHaveBeenCalled();
     expect(mockSubmitSale).not.toHaveBeenCalled();
+  });
+
+  it("SPID senza sessione adottata → reauthRequired col metodo spid", async () => {
+    // Il metodo arriva al banner, che a un utente SPID chiede un nuovo accesso
+    // SPID dall'app invece della notifica CIE.
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "spid",
+      cedentePrestatore: { built: true },
+    });
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe("spid");
+    expect(mockDocumentInsertValues).not.toHaveBeenCalled();
+  });
+
+  it("SPID: sessione scaduta in-flight → il metodo viene dall'errore", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "spid",
+      cedentePrestatore: { built: true },
+    });
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
+    mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("spid"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe("spid");
   });
 
   it("PR #707 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga marcata ERROR", async () => {
@@ -312,7 +342,7 @@ describe("emitReceiptForBusiness", () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
-    expect(result.reauthRequired).toBe(true);
+    expect(result.reauthRequired).toBe("cie");
     // submitSale tentato ma AdE ha rifiutato la sessione (401). A differenza dei
     // transient (esito ignoto → PENDING obbligatorio, PR #668), qui il 401
     // garantisce che il documento NON è registrato: marchiamo ERROR così la riga
@@ -336,7 +366,7 @@ describe("emitReceiptForBusiness", () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
-    expect(result.reauthRequired).toBe(true);
+    expect(result.reauthRequired).toBe("cie");
     const { logger } = await import("@/lib/logger");
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ documentId: expect.any(String) }),

@@ -257,7 +257,7 @@ describe("POST /api/v1/receipts/[id]/return", () => {
   });
 
   it("409 ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
-    mockReturnReceiptForBusiness.mockResolvedValue({ reauthRequired: true });
+    mockReturnReceiptForBusiness.mockResolvedValue({ reauthRequired: "cie" });
 
     const res = await POST(makeRequest(), makeParams());
 

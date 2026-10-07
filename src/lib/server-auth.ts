@@ -11,7 +11,7 @@ import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
 import type { WithAdeSessionParams } from "@/lib/ade";
-import type { InteractiveMethod } from "@/lib/ade/interactive-session-store";
+import type { InteractiveMethod } from "@/lib/ade/types";
 export type { User } from "@supabase/supabase-js";
 
 export type BusinessOwnershipError = { error: string };

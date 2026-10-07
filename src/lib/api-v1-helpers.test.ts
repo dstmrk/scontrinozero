@@ -327,6 +327,12 @@ describe("serviceErrorResponse", () => {
     });
   });
 
+  it("il messaggio di ADE_REAUTH_REQUIRED vale per CIE e SPID", () => {
+    // SPID si rinnova solo dall'app nativa: "CIE" e "app web" mandavano
+    // l'integratore SPID nel posto sbagliato.
+    expect(ADE_REAUTH_REQUIRED_MESSAGE).not.toMatch(/CIE|app web/);
+  });
+
   it("maps ADE_UNAVAILABLE to a retryable 503 with Retry-After", async () => {
     const res = serviceErrorResponse(
       { error: "AdE non raggiungibile", code: "ADE_UNAVAILABLE" },

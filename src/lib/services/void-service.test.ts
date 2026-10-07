@@ -392,10 +392,38 @@ describe("voidReceiptForBusiness", () => {
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
-    expect(result.reauthRequired).toBe(true);
+    expect(result.reauthRequired).toBe("cie");
     // Early-check: nessun insert VOID né submitVoid.
     expect(mockInsertValues).not.toHaveBeenCalled();
     expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
+  it("SPID senza sessione adottata → reauthRequired col metodo spid", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "spid",
+      cedentePrestatore: { built: true },
+    });
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe("spid");
+    expect(mockInsertValues).not.toHaveBeenCalled();
+  });
+
+  it("SPID: sessione scaduta in-flight → il metodo viene dall'errore", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "spid",
+      cedentePrestatore: { built: true },
+    });
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
+    mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("spid"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe("spid");
   });
 
   it("PR #707 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga VOID marcata ERROR", async () => {
@@ -409,7 +437,7 @@ describe("voidReceiptForBusiness", () => {
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
-    expect(result.reauthRequired).toBe(true);
+    expect(result.reauthRequired).toBe("cie");
     // submitVoid tentato ma AdE ha rifiutato la sessione (401 = annullo NON
     // registrato). L'index unique parziale su voided_document_id esclude ERROR
     // (migration 0012) e il SALE resta ACCEPTED → un retry re-inserisce una nuova
@@ -432,7 +460,7 @@ describe("voidReceiptForBusiness", () => {
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
-    expect(result.reauthRequired).toBe(true);
+    expect(result.reauthRequired).toBe("cie");
     const { logger } = await import("@/lib/logger");
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ voidDocumentId: expect.any(String) }),

@@ -1101,7 +1101,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "409",
                   "ADE_REAUTH_REQUIRED · ADE_PASSWORD_EXPIRED",
-                  "Serve un intervento dell'esercente nell'app web ScontrinoZero: la sessione con l'Agenzia delle Entrate (CIE) è scaduta e va rinnovata, oppure la password Fisconline è scaduta e va aggiornata. Il retry automatico è inutile finché non lo fa.",
+                  "Serve un intervento dell'esercente in ScontrinoZero: la sessione con l'Agenzia delle Entrate (CIE o SPID) è scaduta e va rinnovata, oppure la password Fisconline è scaduta e va aggiornata. Il retry automatico è inutile finché non lo fa.",
                 ],
                 [
                   "413",

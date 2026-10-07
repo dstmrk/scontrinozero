@@ -456,13 +456,31 @@ describe("searchReceiptsIncludingAde — degrado (regola 19)", () => {
     );
     mockResolveAdeUserSession.mockResolvedValue({
       ok: false,
-      reason: "cie-reauth",
+      reason: "reauth",
+      method: "cie",
     });
 
     const result = await searchReceiptsIncludingAde(BIZ, RANGE);
 
     expect(result.adeReauthRequired).toBe(true);
+    expect(result.adeError).toContain("Sessione CIE scaduta");
     expect(result.items).toHaveLength(1);
+  });
+
+  it("SPID senza sessione → l'avviso nomina SPID e l'app", async () => {
+    mockWhereResults.push([], []);
+    mockResolveAdeUserSession.mockResolvedValue({
+      ok: false,
+      reason: "reauth",
+      method: "spid",
+    });
+
+    const result = await searchReceiptsIncludingAde(BIZ, RANGE);
+
+    expect(result.adeReauthRequired).toBe(true);
+    expect(result.adeError).toBe(
+      "Sessione SPID scaduta: ricollegati con SPID dall'app ScontrinoZero per cercare anche i documenti emessi altrove.",
+    );
   });
 
   it("credenziali AdE assenti → il messaggio dei prerequisiti, non un errore generico", async () => {

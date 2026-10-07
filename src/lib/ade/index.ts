@@ -8,10 +8,8 @@ import type { AdeClient } from "./client";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
 import { adeSessionCache, type AdeLoginInputs } from "./session-cache";
-import {
-  adeInteractiveSessionStore,
-  type InteractiveMethod,
-} from "./interactive-session-store";
+import { adeInteractiveSessionStore } from "./interactive-session-store";
+import type { InteractiveMethod } from "./types";
 import { logger } from "@/lib/logger";
 
 export type AdeMode = "mock" | "real";

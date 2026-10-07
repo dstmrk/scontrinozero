@@ -43,7 +43,7 @@ const PICKER_NOT_REACHABLE: Readonly<Record<string, string>> = {
   // `wasAlreadyOnboarded` e risponde `pivaMismatch` **senza** scelte: offrire
   // il picker sarebbe un vicolo cieco al contrario, perché
   // `applyUtenzaSelection` rifiuta ogni scelta su un business già collegato.
-  [path.join("components", "ade", "cie-reauth-banner.tsx")]:
+  [path.join("components", "ade", "ade-reauth-banner.tsx")]:
     "solo business già onboardati: il ramo wasAlreadyOnboarded non offre scelte",
 };
 
