@@ -2,9 +2,22 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { getBluetoothPrintSupport } from "./support";
 
+const mockIsNativeShell = vi.fn(() => false);
+vi.mock("@/lib/native/native-shell", () => ({
+  isNativeShell: () => mockIsNativeShell(),
+  getCapacitorBridge: () => ({ isNativePlatform: () => true }),
+}));
+
+const mockNativeSupport = vi.fn();
+vi.mock("./native-ble-transport", () => ({
+  getNativeBleSupport: (_bridge: unknown, activate: boolean) =>
+    mockNativeSupport(activate),
+}));
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  mockIsNativeShell.mockReturnValue(false);
 });
 
 /**
@@ -79,6 +92,39 @@ describe("getBluetoothPrintSupport", () => {
     vi.stubGlobal("navigator", undefined);
     await expect(getBluetoothPrintSupport()).resolves.toEqual({
       status: "unsupported-browser",
+    });
+  });
+});
+
+describe("getBluetoothPrintSupport nell'app nativa", () => {
+  it("usa il plugin BLE e ignora navigator.bluetooth, che lì non c'è", async () => {
+    mockIsNativeShell.mockReturnValue(true);
+    mockNativeSupport.mockResolvedValue("supported");
+    stubNavigator({ userAgent: "Mozilla/5.0 (Linux; Android 14; wv)" });
+
+    await expect(getBluetoothPrintSupport()).resolves.toEqual({
+      status: "supported",
+    });
+    // Di default non attiva il plugin: niente richiesta di permesso.
+    expect(mockNativeSupport).toHaveBeenCalledWith(false);
+  });
+
+  it("con activate passa la richiesta al plugin", async () => {
+    mockIsNativeShell.mockReturnValue(true);
+    mockNativeSupport.mockResolvedValue("adapter-off");
+
+    await expect(getBluetoothPrintSupport({ activate: true })).resolves.toEqual(
+      { status: "adapter-off" },
+    );
+    expect(mockNativeSupport).toHaveBeenCalledWith(true);
+  });
+
+  it("plugin non disponibile o permesso negato → native-unavailable", async () => {
+    mockIsNativeShell.mockReturnValue(true);
+    mockNativeSupport.mockResolvedValue("unavailable");
+
+    await expect(getBluetoothPrintSupport()).resolves.toEqual({
+      status: "native-unavailable",
     });
   });
 });

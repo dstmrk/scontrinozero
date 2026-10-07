@@ -14,6 +14,18 @@ const config: CapacitorConfig = {
     url: resolveServerUrl(process.env.MOBILE_TARGET),
     cleartext: false,
   },
+  plugins: {
+    // Il selettore nativo delle stampanti (slice 4): i testi di default sono
+    // in inglese.
+    BluetoothLe: {
+      displayStrings: {
+        scanning: "Ricerca stampanti…",
+        cancel: "Annulla",
+        availableDevices: "Stampanti trovate",
+        noDeviceFound: "Nessuna stampante trovata",
+      },
+    },
+  },
 };
 
 export default config;

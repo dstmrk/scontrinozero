@@ -59,13 +59,20 @@ fallimento di emissione.
 
 1. Rilevazione supporto: `src/lib/printing/support.ts` distingue
    supportato / adattatore spento / webview in-app / browser senza Web Bluetooth
-   (iOS, Firefox). Guida la copy, non solo l'abilitazione del bottone.
+   (iOS, Firefox) / app nativa senza BLE (permesso negato). Guida la copy, non
+   solo l'abilitazione del bottone. Nell'app il BLE passa dal plugin, e il
+   plugin si attiva solo con `activate` (gesto «Collega»): su iOS la prima
+   attivazione chiede il permesso.
 2. Connessione: `src/lib/printing/bluetooth-printer.ts`, singleton di modulo con
    `subscribe`/`getSnapshot` per `useSyncExternalStore` (stessa forma di
    `src/lib/pwa/install-prompt-store.ts`). È un singleton perché
    `navigator.bluetooth.getDevices()` — la riconnessione silenziosa — è dietro
    flag su Chrome: la connessione GATT va tenuta viva per la sessione, così si
-   accoppia una volta all'apertura e non a ogni scontrino.
+   accoppia una volta all'apertura e non a ogni scontrino. Il trasporto lo
+   sceglie `getTransport`: Web Bluetooth nel browser,
+   `src/lib/printing/native-ble-transport.ts` (plugin
+   `@capacitor-community/bluetooth-le` via bridge) nell'app, dove la
+   riconnessione per id funziona.
 3. Profilo stampante normalizzato alla connessione da
    `src/lib/printing/printer-profile.ts`: il trasporto emette nomi di
    `codepageMapping`/`language` che l'encoder non accetta più (`default`,

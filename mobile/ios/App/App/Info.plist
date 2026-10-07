@@ -22,6 +22,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>ScontrinoZero usa il Bluetooth per collegarsi alla stampante termica e stampare gli scontrini.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

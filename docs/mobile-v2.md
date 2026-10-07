@@ -322,7 +322,14 @@ quando la slice arriva.
    - **Rinnovo SPID** — scritto: `reauthRequired` porta il metodo, e
      `AdeReauthBanner` a un utente SPID chiede «Ricollega con SPID»
      nell'app o rimanda all'app dal browser.
-4. **Stampa BLE nativa** dietro il type alias `Transport` (punto 3).
+4. **Stampa BLE nativa** dietro il type alias `Transport` (punto 3) —
+   scritta, da accettare sul device: plugin
+   `@capacitor-community/bluetooth-le`, chiamato via bridge da
+   `src/lib/printing/native-ble-transport.ts`; `Transport` è diventato
+   un'interfaccia con due implementazioni. Il simulatore iOS non ha
+   Bluetooth: serve un iPhone vero. Criterio di accettazione: dall'app,
+   collegare una stampante ESC/POS BLE, stampare uno scontrino, e
+   ritrovarla collegata alla riapertura dell'app.
 
 ---
 

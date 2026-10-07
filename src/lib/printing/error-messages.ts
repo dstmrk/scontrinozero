@@ -10,6 +10,10 @@
 import type { PrintErrorCode } from "./bluetooth-printer";
 import type { BluetoothPrintSupport } from "./support";
 
+/** Nell'app: permesso negato, o una build senza il plugin BLE. */
+const NATIVE_UNAVAILABLE =
+  "L'app non può usare il Bluetooth: concedi il permesso Bluetooth a ScontrinoZero nelle impostazioni del telefono, o aggiorna l'app. Intanto puoi stampare il PDF.";
+
 /** Messaggio azionabile per un fallimento di stampa o accoppiamento. */
 export function printErrorMessage(code: PrintErrorCode): string {
   switch (code) {
@@ -31,6 +35,8 @@ export function printErrorMessage(code: PrintErrorCode): string {
       // (le "cat printer" da etichette): senza dire quale standard serve,
       // l'utente riprova all'infinito con lo stesso dispositivo.
       return "Questa stampante non è compatibile: serve una stampante termica ESC/POS. Con questa puoi comunque stampare il PDF.";
+    case "native-unavailable":
+      return NATIVE_UNAVAILABLE;
   }
 }
 
@@ -46,5 +52,7 @@ export function printSupportMessage(support: BluetoothPrintSupport): string {
       return "Stai usando il browser interno di un'altra app. Apri ScontrinoZero in Chrome per collegare una stampante Bluetooth.";
     case "unsupported-browser":
       return "La stampa Bluetooth diretta funziona su Chrome, Edge e Samsung Internet per Android. Qui puoi comunque stampare il PDF su qualsiasi stampante.";
+    case "native-unavailable":
+      return NATIVE_UNAVAILABLE;
   }
 }
