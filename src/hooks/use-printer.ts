@@ -74,8 +74,9 @@ export function usePrinter(): UsePrinterResult {
     void getBluetoothPrintSupport().then((result) => {
       if (active) setSupport(result);
     });
-    // Tentativo di riconnessione silenziosa: nel caso normale è un no-op
-    // (getDevices è dietro flag su Chrome) e non lancia mai.
+    // Tentativo di riconnessione silenziosa: nel browser è di solito un no-op
+    // (getDevices è dietro flag su Chrome), nell'app ritrova la stampante.
+    // Non lancia mai.
     void tryReconnectPrinter();
     return () => {
       active = false;

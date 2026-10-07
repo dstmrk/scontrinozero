@@ -124,6 +124,64 @@ vi.mock("@point-of-sale/webbluetooth-receipt-printer", () => {
   return { default: MockWebBluetoothReceiptPrinter };
 });
 
+/**
+ * Il guscio nativo e il suo trasporto BLE: spenti di default, così i test
+ * sopra esercitano il percorso Web Bluetooth di sempre.
+ */
+const mockNative = {
+  inShell: false,
+  support: "supported" as "supported" | "adapter-off" | "unavailable",
+  supportCalls: [] as boolean[],
+  instances: 0,
+  reconnectIds: [] as string[],
+};
+
+vi.mock("@/lib/native/native-shell", () => ({
+  isNativeShell: () => mockNative.inShell,
+  getCapacitorBridge: () => ({}),
+}));
+
+vi.mock("./native-ble-transport", () => {
+  class MockNativeBleReceiptPrinter {
+    private readonly listeners: Record<string, ((arg?: unknown) => void)[]> =
+      {};
+
+    constructor() {
+      mockNative.instances += 1;
+    }
+
+    addEventListener(event: string, cb: (arg?: unknown) => void) {
+      (this.listeners[event] ??= []).push(cb);
+    }
+
+    async connect() {
+      for (const cb of this.listeners.connected ?? []) {
+        cb({ ...mockTransport.device, name: "Stampante nativa" });
+      }
+    }
+
+    async reconnect({ id }: { id: string }) {
+      mockNative.reconnectIds.push(id);
+      for (const cb of this.listeners.connected ?? []) {
+        cb({ ...mockTransport.device, name: "Stampante nativa" });
+      }
+    }
+
+    async disconnect() {}
+
+    async print(data: Uint8Array) {
+      mockTransport.printed.push(data);
+    }
+  }
+  return {
+    NativeBleReceiptPrinter: MockNativeBleReceiptPrinter,
+    getNativeBleSupport: async (_bridge: unknown, activate: boolean) => {
+      mockNative.supportCalls.push(activate);
+      return mockNative.support;
+    },
+  };
+});
+
 import {
   connectPrinter,
   disconnectPrinter,
@@ -161,6 +219,11 @@ beforeEach(() => {
   // `device` è condiviso fra i test: il profilo va riportato a una stampante
   // ESC/POS ordinaria, altrimenti un test sul profilo `meow` sporca i seguenti.
   mockTransport.device.language = "esc-pos";
+  mockNative.inShell = false;
+  mockNative.support = "supported";
+  mockNative.supportCalls = [];
+  mockNative.instances = 0;
+  mockNative.reconnectIds = [];
   stubBluetoothAvailable();
 });
 
@@ -589,5 +652,67 @@ describe("tryReconnectPrinter", () => {
     resetPrinterStoreForTests();
     await tryReconnectPrinter();
     expect(getPrinterSnapshot().deviceName).toBe("Munbyn ITPP047");
+  });
+});
+
+describe("nell'app nativa", () => {
+  beforeEach(() => {
+    mockNative.inShell = true;
+    // Nel guscio non c'è Web Bluetooth: se lo store lo usasse, fallirebbe.
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (iPhone)" });
+  });
+
+  it("collega col trasporto BLE nativo, attivando il plugin al gesto", async () => {
+    await connectPrinter();
+
+    expect(getPrinterSnapshot()).toMatchObject({
+      status: "connected",
+      deviceName: "Stampante nativa",
+    });
+    expect(mockNative.instances).toBe(1);
+    expect(mockTransport.instances).toHaveLength(0);
+    expect(mockNative.supportCalls).toEqual([true]);
+  });
+
+  it("stampa attraverso il trasporto nativo", async () => {
+    await connectPrinter();
+    await printBytes(new Uint8Array([1, 2, 3]));
+
+    expect(mockTransport.printed).toEqual([new Uint8Array([1, 2, 3])]);
+  });
+
+  it("permesso negato → native-unavailable, senza aprire il selettore", async () => {
+    mockNative.support = "unavailable";
+
+    await expect(connectPrinter()).rejects.toMatchObject({
+      code: "native-unavailable",
+    });
+    expect(mockNative.instances).toBe(0);
+    expect(getPrinterSnapshot().status).toBe("idle");
+  });
+
+  it("Bluetooth spento → adapter-off, come nel browser", async () => {
+    mockNative.support = "adapter-off";
+
+    await expect(connectPrinter()).rejects.toMatchObject({
+      code: "adapter-off",
+    });
+  });
+
+  it("riconnette in silenzio la stampante già scelta", async () => {
+    writeLastPrinter({ id: "dev-1", name: "Stampante nativa" });
+
+    await tryReconnectPrinter();
+
+    expect(mockNative.reconnectIds).toEqual(["dev-1"]);
+    expect(getPrinterSnapshot().status).toBe("connected");
+  });
+
+  it("senza una stampante già scelta non tocca il plugin", async () => {
+    // Niente richiesta di permesso a chi una stampante non l'ha mai collegata.
+    await tryReconnectPrinter();
+
+    expect(mockNative.supportCalls).toEqual([]);
+    expect(mockNative.instances).toBe(0);
   });
 });

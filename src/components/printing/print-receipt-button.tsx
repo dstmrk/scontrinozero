@@ -40,11 +40,16 @@ interface PrintReceiptButtonProps {
  *  1. stampante collegata → stampa diretta ESC/POS;
  *  2. Web Bluetooth disponibile ma nessuna stampante → scelta fra collegarne
  *     una e stampare il PDF;
- *  3. Web Bluetooth assente (iOS, Firefox, webview) → apre direttamente il PDF.
+ *  3. Bluetooth assente (Safari su iPhone, Firefox, webview in-app) → apre
+ *     direttamente il PDF.
+ *
+ * Nell'app nativa, iPhone compreso, il Bluetooth c'è: lo porta il plugin BLE
+ * (`native-ble-transport.ts`), e il bottone segue i punti 1 e 2.
  *
  * L'etichetta è sempre e solo "Stampa": la parola "Bluetooth" compare
- * unicamente dove è azionabile, così su iPhone non si promette una feature che
- * lì non esiste (regola 8) e nessun utente resta senza modo di stampare.
+ * unicamente dove è azionabile, così nel Safari di iPhone non si promette una
+ * feature che lì non esiste (regola 8) e nessun utente resta senza modo di
+ * stampare.
  */
 export function PrintReceiptButton({
   receipt,

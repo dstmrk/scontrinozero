@@ -10,6 +10,7 @@ const ALL_ERROR_CODES: PrintErrorCode[] = [
   "not-connected",
   "unreachable",
   "incompatible-printer",
+  "native-unavailable",
 ];
 
 describe("printErrorMessage", () => {
@@ -62,12 +63,25 @@ describe("printSupportMessage", () => {
     );
   });
 
+  it("nell'app senza Bluetooth manda al permesso, non a Chrome", () => {
+    // Nell'app «usa Chrome su Android» è un consiglio sbagliato: il guasto è
+    // il permesso Bluetooth negato, o una build dell'app senza il plugin.
+    for (const message of [
+      printSupportMessage({ status: "native-unavailable" }),
+      printErrorMessage("native-unavailable"),
+    ]) {
+      expect(message).toContain("permesso Bluetooth");
+      expect(message).not.toContain("Chrome");
+    }
+  });
+
   it("copre ogni stato di supporto", () => {
     const states: BluetoothPrintSupport[] = [
       { status: "supported" },
       { status: "adapter-off" },
       { status: "in-app-webview" },
       { status: "unsupported-browser" },
+      { status: "native-unavailable" },
     ];
     const undefinedMessages = states.filter(
       (s) => typeof printSupportMessage(s) !== "string",

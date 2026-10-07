@@ -20,6 +20,8 @@
  * che la UI può tradurre in un messaggio azionabile.
  */
 
+import { isNativeShell } from "@/lib/native/native-shell";
+import { NativeBleReceiptPrinter } from "./native-ble-transport";
 import { getBluetoothPrintSupport } from "./support";
 import {
   clearLastPrinter,
@@ -54,7 +56,9 @@ export type PrintErrorCode =
   /** La scrittura GATT è fallita: stampante spenta, fuori portata o occupata. */
   | "unreachable"
   /** Il dispositivo scelto non parla ESC/POS: accoppiamento rifiutato. */
-  | "incompatible-printer";
+  | "incompatible-printer"
+  /** App nativa: permesso Bluetooth negato o plugin BLE assente. */
+  | "native-unavailable";
 
 export class PrinterError extends Error {
   readonly code: PrintErrorCode;
@@ -76,9 +80,26 @@ export interface PrinterSnapshot {
   readonly codepageMapping?: string;
 }
 
-type Transport = import("@point-of-sale/webbluetooth-receipt-printer").default;
 type ConnectedDevice =
   import("@point-of-sale/webbluetooth-receipt-printer").ConnectedPrinterDevice;
+
+/**
+ * Ciò che lo store chiede a un trasporto. Due implementazioni: Web Bluetooth
+ * nel browser (`@point-of-sale/webbluetooth-receipt-printer`) e il plugin BLE
+ * nativo nell'app (`native-ble-transport.ts`). Le sceglie `getTransport`, unico
+ * punto di istanziazione.
+ */
+interface Transport {
+  connect(): Promise<void>;
+  reconnect(lastUsedDevice: { id: string }): Promise<void>;
+  disconnect(): Promise<void>;
+  print(data: Uint8Array): Promise<void>;
+  addEventListener(
+    event: "connected",
+    listener: (device: ConnectedDevice) => void,
+  ): void;
+  addEventListener(event: "disconnected", listener: () => void): void;
+}
 
 const IDLE_SNAPSHOT: PrinterSnapshot = {
   status: "idle",
@@ -165,14 +186,20 @@ function onConnected(device: ConnectedDevice): void {
 }
 
 /**
- * Istanzia il trasporto una sola volta. L'`import()` è dinamico così i ~2 KB
- * della libreria (e i ~21 KB gz dell'encoder) restano fuori dal bundle
- * iniziale: chi non stampa non li scarica.
+ * Il trasporto giusto per dove gira la pagina. L'`import()` della libreria web
+ * è dinamico così i suoi ~2 KB (e i ~21 KB gz dell'encoder) restano fuori dal
+ * bundle iniziale: chi non stampa non li scarica.
  */
+async function loadTransport(): Promise<Transport> {
+  if (isNativeShell()) return new NativeBleReceiptPrinter();
+  const mod = await import("@point-of-sale/webbluetooth-receipt-printer");
+  return new mod.default();
+}
+
+/** Istanzia il trasporto una sola volta. */
 async function getTransport(): Promise<Transport> {
-  transportReady ??= import("@point-of-sale/webbluetooth-receipt-printer")
-    .then((mod) => {
-      const instance = new mod.default();
+  transportReady ??= loadTransport()
+    .then((instance) => {
       // `isCurrent` scarta gli eventi di un'istanza già invalidata (vedi
       // `printBytes`): un `disconnected` in ritardo dal trasporto vecchio non
       // deve marcare offline la connessione nuova.
@@ -220,9 +247,13 @@ function flushTransportEvents(): Promise<void> {
 }
 
 async function assertBluetoothUsable(): Promise<void> {
-  const support = await getBluetoothPrintSupport();
+  // È un gesto dell'utente: nell'app qui può partire la richiesta di permesso.
+  const support = await getBluetoothPrintSupport({ activate: true });
   if (support.status === "adapter-off") {
     throw new PrinterError("adapter-off", "Bluetooth spento");
+  }
+  if (support.status === "native-unavailable") {
+    throw new PrinterError("native-unavailable", "BLE nativo non disponibile");
   }
   if (support.status !== "supported") {
     throw new PrinterError("unsupported", "Web Bluetooth non disponibile");
@@ -287,9 +318,10 @@ export async function connectPrinter(): Promise<void> {
 /**
  * Tenta la riconnessione silenziosa a una stampante già autorizzata.
  *
- * Nel caso normale è un **no-op**: il trasporto esce subito se
- * `navigator.bluetooth.getDevices` non esiste (flag Chrome). Non lancia mai —
- * girando al mount, un errore qui sarebbe rumore in UI, non un'informazione.
+ * Nel browser è di solito un **no-op**: il trasporto esce subito se
+ * `navigator.bluetooth.getDevices` non esiste (flag Chrome). Nell'app invece
+ * funziona: il plugin ritrova la stampante per id. Non lancia mai — girando al
+ * mount, un errore qui sarebbe rumore in UI, non un'informazione.
  */
 export async function tryReconnectPrinter(): Promise<void> {
   hydrateLastPrinter();
@@ -299,7 +331,9 @@ export async function tryReconnectPrinter(): Promise<void> {
   const last = readLastPrinter();
   if (!last) return;
 
-  const support = await getBluetoothPrintSupport();
+  // C'è una stampante già scelta, quindi il permesso è già stato dato:
+  // attivare il plugin non mostra richieste.
+  const support = await getBluetoothPrintSupport({ activate: true });
   if (support.status !== "supported") return;
 
   try {
