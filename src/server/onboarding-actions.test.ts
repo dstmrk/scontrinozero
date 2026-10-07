@@ -116,6 +116,7 @@ vi.mock("@/lib/crypto", () => ({
 
 const mockLogin = vi.fn();
 const mockLoginCie = vi.fn();
+const mockAdoptSession = vi.fn();
 const mockLogout = vi.fn();
 const mockGetFiscalData = vi.fn();
 const mockChangePasswordFisconline = vi.fn().mockResolvedValue(undefined);
@@ -124,6 +125,7 @@ vi.mock("@/lib/ade", () => ({
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     loginCie: mockLoginCie,
+    adoptSession: mockAdoptSession,
     logout: mockLogout,
     getFiscalData: mockGetFiscalData,
     changePasswordFisconline: mockChangePasswordFisconline,
@@ -2896,6 +2898,159 @@ describe("onboarding-actions", () => {
         const compiled = await compiledOutcomeWrite();
         expect(RECORDED_VERIFY_OUTCOMES).toContain(compiled.params[0]);
       });
+    });
+  });
+
+  describe("connectAdeWithSpid", () => {
+    const BIZ = "11111111-1111-4111-8111-111111111111";
+    const COOKIES = "JSESSIONID=abc; LtpaToken2=xyz";
+    const SPID_ROW = queuedCredRow({
+      loginMethod: "spid",
+      encryptedCodiceFiscale: null,
+      encryptedPassword: null,
+      encryptedPin: null,
+    });
+
+    beforeEach(() => {
+      mockLimit.mockResolvedValue([{ fiscalCode: null }]);
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+    });
+
+    it("degrada a 'Non autenticato.' senza sessione", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockAdoptSession).not.toHaveBeenCalled();
+    });
+
+    it("respinge un businessId non UUID prima di toccare il DB", async () => {
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid("non-uuid", COOKIES);
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["vuoto", "   "],
+      ["oltre 16 KB", "a=" + "x".repeat(16 * 1024)],
+    ])(
+      "respinge un header cookie %s senza scrivere né chiamare l'AdE",
+      async (_label, header) => {
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+        const result = await connectAdeWithSpid(BIZ, header);
+
+        expect(result.error).toMatch(/SPID/);
+        expect(mockInsert).not.toHaveBeenCalled();
+        expect(mockAdoptSession).not.toHaveBeenCalled();
+      },
+    );
+
+    it("respinge un header che non è una stringa (input arbitrario da client)", async () => {
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid(BIZ, 42 as unknown as string);
+
+      expect(result.error).toMatch(/SPID/);
+      expect(mockAdoptSession).not.toHaveBeenCalled();
+    });
+
+    it("rispetta il rate limit della verifica", async () => {
+      mockRateLimiterCheck.mockReturnValue({ success: false, remaining: 0 });
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(result.error).toBeDefined();
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockAdoptSession).not.toHaveBeenCalled();
+    });
+
+    it("su un business non suo non scrive niente", async () => {
+      mockLimit.mockResolvedValueOnce([]);
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(result.error).toBeDefined();
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockAdoptSession).not.toHaveBeenCalled();
+    });
+
+    it("salva una riga spid senza segreti, adotta la sessione e completa la verifica", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: BIZ }]);
+      mockLimit.mockResolvedValueOnce([SPID_ROW]);
+      mockAdoptSession.mockResolvedValue({});
+
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+      const result = await connectAdeWithSpid(BIZ, `  ${COOKIES}\n`);
+
+      expect(result.error).toBeUndefined();
+      expect(mockInsertValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: BIZ,
+          loginMethod: "spid",
+          encryptedCodiceFiscale: null,
+          encryptedUsername: null,
+          encryptedPassword: null,
+          encryptedPin: null,
+        }),
+      );
+      expect(mockOnConflictDoUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          set: expect.objectContaining({
+            loginMethod: "spid",
+            verifiedAt: null,
+          }),
+        }),
+      );
+      expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES);
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockLoginCie).not.toHaveBeenCalled();
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ verifiedAt: expect.any(Date) }),
+      );
+    });
+
+    it("una sessione rifiutata dall'AdE non tocca le credenziali già salvate", async () => {
+      // Un utente Fisconline operativo che prova SPID con cookie scaduti deve
+      // poter continuare a emettere: niente upsert, niente invalidazione.
+      mockLimit.mockResolvedValueOnce([{ id: BIZ }]);
+      const { AdeSessionExpiredError } = await import("@/lib/ade/errors");
+      mockAdoptSession.mockRejectedValue(new AdeSessionExpiredError());
+
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+      const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(result.error).toMatch(/SPID/);
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockUpdateSet).not.toHaveBeenCalledWith(
+        expect.objectContaining({ verifiedAt: expect.any(Date) }),
+      );
+    });
+
+    it("adotta la sessione una volta sola: la verifica riusa lo stesso client", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: BIZ }]);
+      mockLimit.mockResolvedValueOnce([SPID_ROW]);
+      mockAdoptSession.mockResolvedValue({});
+
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+      await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(mockAdoptSession).toHaveBeenCalledTimes(1);
+      expect(mockGetFiscalData).toHaveBeenCalledTimes(1);
     });
   });
 

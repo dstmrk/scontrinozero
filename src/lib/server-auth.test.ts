@@ -323,6 +323,23 @@ describe("server-auth", () => {
       expect(result.utenzaPiva).toBeUndefined();
     });
 
+    it.each(["cie", "spid"] as const)(
+      "una riga %s non porta credenziali: la sessione è nello store",
+      async (loginMethod) => {
+        mockLimit.mockResolvedValueOnce([
+          { cred: { ...FAKE_CRED, loginMethod }, business: FAKE_BUSINESS },
+        ]);
+
+        const { fetchAdePrerequisites } = await import("./server-auth");
+        const result = await fetchAdePrerequisites("biz-789");
+
+        expect(result).toEqual({
+          method: loginMethod,
+          cedentePrestatore: { built: "cedente" },
+        });
+      },
+    );
+
     it("returns error when credentials are not found", async () => {
       mockLimit.mockResolvedValueOnce([]);
 
@@ -391,16 +408,19 @@ describe("server-auth", () => {
       expect(params).toMatchObject({ utenzaPiva: "07790350966" });
     });
 
-    it("maps cie prerequisites to session params without credentials", async () => {
-      const { toAdeSessionParams } = await import("./server-auth");
+    it.each(["cie", "spid"] as const)(
+      "maps %s prerequisites to session params without credentials",
+      async (method) => {
+        const { toAdeSessionParams } = await import("./server-auth");
 
-      const params = toAdeSessionParams("biz-789", {
-        method: "cie",
-        cedentePrestatore: CEDENTE,
-      });
+        const params = toAdeSessionParams("biz-789", {
+          method,
+          cedentePrestatore: CEDENTE,
+        });
 
-      expect(params).toEqual({ businessId: "biz-789", method: "cie" });
-      expect(params).not.toHaveProperty("credentials");
-    });
+        expect(params).toEqual({ businessId: "biz-789", method });
+        expect(params).not.toHaveProperty("credentials");
+      },
+    );
   });
 });

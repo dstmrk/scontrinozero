@@ -28,16 +28,16 @@ describe("AdeInteractiveSessionStore", () => {
   });
 
   it("run without a stored session throws AdeReauthRequiredError", async () => {
-    await expect(store.run("biz-1", async () => "x")).rejects.toBeInstanceOf(
-      AdeReauthRequiredError,
-    );
+    await expect(
+      store.run("biz-1", "cie", async () => "x"),
+    ).rejects.toBeInstanceOf(AdeReauthRequiredError);
   });
 
   it("set + run executes fn with the stored client", async () => {
     const client = fakeClient();
     store.set("biz-1", client);
 
-    const result = await store.run("biz-1", async (c) => {
+    const result = await store.run("biz-1", "cie", async (c) => {
       expect(c).toBe(client);
       return "done";
     });
@@ -51,7 +51,7 @@ describe("AdeInteractiveSessionStore", () => {
     store.set("biz-1", client);
 
     await expect(
-      store.run("biz-1", async () => {
+      store.run("biz-1", "cie", async () => {
         throw new AdeSessionExpiredError();
       }),
     ).rejects.toBeInstanceOf(AdeReauthRequiredError);
@@ -65,7 +65,7 @@ describe("AdeInteractiveSessionStore", () => {
     store.set("biz-1", fakeClient());
 
     await expect(
-      store.run("biz-1", async () => {
+      store.run("biz-1", "cie", async () => {
         throw new Error("submit boom");
       }),
     ).rejects.toThrow("submit boom");
@@ -81,9 +81,9 @@ describe("AdeInteractiveSessionStore", () => {
 
     now += 1001;
     expect(store.has("biz-1")).toBe(false);
-    await expect(store.run("biz-1", async () => "x")).rejects.toBeInstanceOf(
-      AdeReauthRequiredError,
-    );
+    await expect(
+      store.run("biz-1", "cie", async () => "x"),
+    ).rejects.toBeInstanceOf(AdeReauthRequiredError);
   });
 
   it("set replaces a previous session (logs out the old client)", () => {
@@ -110,16 +110,34 @@ describe("AdeInteractiveSessionStore", () => {
     store.set("biz-1", fakeClient());
     const order: string[] = [];
 
-    const p1 = store.run("biz-1", async () => {
+    const p1 = store.run("biz-1", "cie", async () => {
       order.push("start-1");
       await new Promise((r) => setTimeout(r, 10));
       order.push("end-1");
     });
-    const p2 = store.run("biz-1", async () => {
+    const p2 = store.run("biz-1", "cie", async () => {
       order.push("start-2");
     });
 
     await Promise.all([p1, p2]);
     expect(order).toEqual(["start-1", "end-1", "start-2"]);
+  });
+  it.each(["cie", "spid"] as const)(
+    "senza sessione l'errore di rinnovo porta il metodo %s",
+    async (method) => {
+      await expect(
+        store.run("biz-1", method, async () => "x"),
+      ).rejects.toMatchObject({ method });
+    },
+  );
+
+  it("su 401 l'errore di rinnovo porta il metodo della sessione adottata", async () => {
+    store.set("biz-1", fakeClient());
+
+    await expect(
+      store.run("biz-1", "spid", async () => {
+        throw new AdeSessionExpiredError();
+      }),
+    ).rejects.toMatchObject({ method: "spid" });
   });
 });

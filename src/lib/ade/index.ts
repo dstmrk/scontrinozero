@@ -8,7 +8,10 @@ import type { AdeClient } from "./client";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
 import { adeSessionCache, type AdeLoginInputs } from "./session-cache";
-import { adeInteractiveSessionStore } from "./interactive-session-store";
+import {
+  adeInteractiveSessionStore,
+  type InteractiveMethod,
+} from "./interactive-session-store";
 import { logger } from "@/lib/logger";
 
 export type AdeMode = "mock" | "real";
@@ -68,24 +71,26 @@ export function createAdeClient(mode: AdeMode): AdeClient {
  *  - `fisconline`: il server ha gli input del login (credenziali + utenza
  *    scelta) e può ri-loggarsi in silenzio → sessione riusata/creata da
  *    `adeSessionCache`.
- *  - `cie`: sessione stabilita interattivamente (push), non ri-creabile in
+ *  - `cie` / `spid`: sessione stabilita interattivamente (push CIE, o login
+ *    SPID nella webview dell'app adottato dai cookie), non ri-creabile in
  *    silenzio → riusata dallo store interattivo; se assente/scaduta →
- *    `AdeReauthRequiredError`.
+ *    `AdeReauthRequiredError` col metodo.
  */
 export type WithAdeSessionParams =
   | ({ businessId: string; method: "fisconline" } & AdeLoginInputs)
-  | { businessId: string; method: "cie" };
+  | { businessId: string; method: InteractiveMethod };
 
 /**
  * Esegue `fn` con un client AdE autenticato per `businessId` (PR #624).
  *
  * - `ADE_MODE=real`, Fisconline: riusa la sessione via `adeSessionCache` (un solo
  *   login per più operazioni ravvicinate, serializzate per-business). Invariato.
- * - `ADE_MODE=real`, CIE: riusa la sessione depositata nello store interattivo;
- *   se assente/scaduta solleva `AdeReauthRequiredError`. Nessun login qui (il
- *   secondo fattore è umano).
- * - `ADE_MODE=mock`: nessuna cache. login/loginCie + logout per-operazione, così
- *   in dev/sandbox anche CIE dà un OK immediato senza sessione depositata.
+ * - `ADE_MODE=real`, CIE e SPID: riusa la sessione depositata nello store
+ *   interattivo; se assente/scaduta solleva `AdeReauthRequiredError`. Nessun
+ *   login qui (il secondo fattore è umano).
+ * - `ADE_MODE=mock`: nessuna cache. Login (o adozione finta, per SPID) +
+ *   logout per-operazione, così in dev/sandbox anche i metodi interattivi danno
+ *   un OK immediato senza sessione depositata.
  */
 export async function withAdeSession<T>(
   params: WithAdeSessionParams,
@@ -95,10 +100,12 @@ export async function withAdeSession<T>(
 
   if (mode === "mock") {
     const client = createAdeClient("mock");
-    if (params.method === "cie") {
+    if (params.method === "fisconline") {
+      await client.login(params.credentials, params.utenzaPiva);
+    } else if (params.method === "cie") {
       await client.loginCie({ username: "mock", password: "mock" });
     } else {
-      await client.login(params.credentials, params.utenzaPiva);
+      await client.adoptSession("mock=1");
     }
     try {
       return await fn(client);
@@ -109,8 +116,8 @@ export async function withAdeSession<T>(
     }
   }
 
-  if (params.method === "cie") {
-    return adeInteractiveSessionStore.run(params.businessId, fn);
+  if (params.method !== "fisconline") {
+    return adeInteractiveSessionStore.run(params.businessId, params.method, fn);
   }
 
   return adeSessionCache.run(
@@ -121,11 +128,17 @@ export async function withAdeSession<T>(
 }
 
 /**
- * True se un business CIE non ha (più) una sessione interattiva viva e va
- * chiesto il rinnovo. Usato da emit/void per ritornare `reauthRequired` PRIMA
- * di inserire il documento PENDING (evita un documento bloccato dallo stale-gate
- * dopo un rinnovo). Solo in `ADE_MODE=real`: in mock CIE dà sempre OK.
+ * True se un business a metodo interattivo (CIE, SPID) non ha (più) una
+ * sessione viva e va chiesto il rinnovo. Usato da emit/void/reso per ritornare
+ * `reauthRequired` PRIMA di inserire il documento PENDING (evita un documento
+ * bloccato dallo stale-gate dopo un rinnovo). Fisconline non passa di qui: si
+ * ri-logga da solo. In `ADE_MODE=mock` non manca mai, il mock dà sempre OK. Il
+ * metodo non cambia l'esito, che dipende solo dallo store: c'è per obbligare
+ * il chiamante a escludere Fisconline prima di chiederlo.
  */
-export function isCieSessionMissing(businessId: string): boolean {
+export function isInteractiveSessionMissing(
+  businessId: string,
+  _method: InteractiveMethod,
+): boolean {
   return getAdeMode() === "real" && !adeInteractiveSessionStore.has(businessId);
 }

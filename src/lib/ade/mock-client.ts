@@ -186,6 +186,18 @@ export class MockAdeClient implements AdeClient {
     });
   }
 
+  /**
+   * Sessione SPID adottata: in mock i cookie non si verificano. P.IVA fittizia
+   * come per CIE, così il primo collegamento passa l'identity guard.
+   */
+  adoptSession(_cookieHeader: string): Promise<AdeSession> {
+    return this.startSession({
+      pAuth: `mock_p_auth_spid_${Date.now()}`,
+      partitaIva: "00000000000",
+      createdAt: Date.now(),
+    });
+  }
+
   submitSale(payload: AdePayload): Promise<AdeResponse> {
     return this.whenLoggedIn(() => {
       const response = this.mockSubmit();

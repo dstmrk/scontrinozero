@@ -10,7 +10,7 @@ const {
   mockFetchLinesByDocIds,
   mockFinalizeSaleOnly,
   mockFetchAdePrerequisites,
-  mockIsCieSessionMissing,
+  mockIsInteractiveSessionMissing,
   mockWithAdeSession,
   mockSearchDocuments,
   mockLoggerWarn,
@@ -24,7 +24,7 @@ const {
   mockFetchLinesByDocIds: vi.fn(),
   mockFinalizeSaleOnly: vi.fn(),
   mockFetchAdePrerequisites: vi.fn(),
-  mockIsCieSessionMissing: vi.fn(),
+  mockIsInteractiveSessionMissing: vi.fn(),
   mockWithAdeSession: vi.fn(),
   mockSearchDocuments: vi.fn(),
   mockLoggerWarn: vi.fn(),
@@ -92,7 +92,7 @@ vi.mock("@/lib/server-auth", () => ({
 
 vi.mock("@/lib/ade", () => ({
   withAdeSession: mockWithAdeSession,
-  isCieSessionMissing: mockIsCieSessionMissing,
+  isInteractiveSessionMissing: mockIsInteractiveSessionMissing,
 }));
 
 vi.mock("@/lib/ade/log-failure", () => ({ logAdeFailure: mockLogAdeFailure }));
@@ -166,7 +166,7 @@ describe("verifyPendingSale", () => {
     mockClaimStaleDocument.mockResolvedValue(true);
     mockFindClaimedTransactionIds.mockResolvedValue(new Set());
     mockFetchAdePrerequisites.mockResolvedValue({ method: "fisconline" });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockUpdateWhere.mockResolvedValue(undefined);
     mockFinalizeSaleOnly.mockResolvedValue({
       documentId: DOC,
@@ -358,7 +358,7 @@ describe("verifyPendingSale", () => {
 
   it("chiede il rinnovo CIE invece di fallire in modo opaco", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({ method: "cie" });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const result = await verifyPendingSale({
       businessId: BIZ,
@@ -384,7 +384,7 @@ describe("verifyPendingSale", () => {
 
   it("non rivendica la riga se la sessione CIE è scaduta", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({ method: "cie" });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     await verifyPendingSale({ businessId: BIZ, documentId: DOC });
 
@@ -487,7 +487,7 @@ describe("confirmPendingSaleCandidate", () => {
     mockClaimStaleDocument.mockResolvedValue(true);
     mockFindClaimedTransactionIds.mockResolvedValue(new Set());
     mockFetchAdePrerequisites.mockResolvedValue({ method: "fisconline" });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockFinalizeSaleOnly.mockResolvedValue({
       documentId: DOC,
       adeTransactionId: "IDTRX-2",

@@ -93,7 +93,7 @@ const OUTCOME_LABELS: Record<RecordedVerifyOutcome, string> = {
   utenza_not_available: "Utenza non più disponibile",
   utenza_locked: "P.IVA già collegata",
   no_partita_iva: "Utenza senza P.IVA",
-  reauth_required: "Ricollegamento CIE richiesto",
+  reauth_required: "Ricollegamento richiesto (CIE o SPID)",
   piva_mismatch: "P.IVA diversa da quella registrata",
   piva_conflict: "P.IVA già su un altro account",
   identity_unconfirmed: "Identità non confermata",

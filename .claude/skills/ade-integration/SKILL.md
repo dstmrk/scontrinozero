@@ -1,6 +1,6 @@
 ---
 name: ade-integration
-description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/lib/ade/ or the emit/void/recovery orchestration in src/lib/services/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, working on the CIE login branch (loginCie federated SAML flow, push polling, the interactive session store in src/lib/ade/interactive-session-store.ts, isCieSessionMissing pre-check and the reauthRequired outcome), reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca.har, etc. — local-only, gitignored), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, tuning the stale-pending recovery (getStalePendingThresholdMs, reconcileSaleDocument/reconcileVoidDocument in src/lib/services/ade-recovery.ts), or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
+description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/lib/ade/ or the emit/void/recovery orchestration in src/lib/services/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, working on the CIE login branch (loginCie federated SAML flow, push polling, the interactive session store in src/lib/ade/interactive-session-store.ts shared by CIE and adopted SPID sessions, isInteractiveSessionMissing pre-check and the reauthRequired outcome), reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca.har, etc. — local-only, gitignored), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, tuning the stale-pending recovery (getStalePendingThresholdMs, reconcileSaleDocument/reconcileVoidDocument in src/lib/services/ade-recovery.ts), or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
 ---
 
 # ade-integration — Integrazione Agenzia delle Entrate, mock, debug
@@ -79,7 +79,8 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
 
 **Regole quando tocchi il ramo CIE:**
 
-1. **Pre-check prima di scrivere il documento.** `isCieSessionMissing(businessId)`
+1. **Pre-check prima di scrivere il documento.** `isInteractiveSessionMissing(businessId, method)`
+   (CIE e SPID; il chiamante esclude Fisconline, che si ri-logga da solo)
    va chiamato **prima** dell'INSERT del PENDING in emissione/annullo: senza, un
    business da ri-collegare si ritrova un documento PENDING bloccato dallo
    stale-gate dei 30 min anche dopo aver rinnovato. Esito user-facing:
@@ -141,7 +142,7 @@ di 7 s tra un poll e l'altro superano il keep-alive dei server IdP.
 
 ---
 
-### Sessione adottata (SPID via webview, v2.0 — non ancora cablata)
+### Sessione adottata (SPID via webview, v2.0 — lato server cablato)
 
 Un terzo modo di avere un client autenticato: non fare login, ma **adottare**
 i cookie di una sessione aperta altrove. È il contratto dell'app nativa
@@ -156,6 +157,17 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
 - **Il redirect su `dati/fiscali` non si segue** (`followRedirects: false`):
   cookie non validi portano al login, che seguito risponderebbe 200 con HTML.
   401 o 3xx → `AdeSessionExpiredError`.
+- **Il collegamento passa da `connectAdeWithSpid`** (`src/server/onboarding-actions.ts`):
+  riga `ade_credentials` con `login_method = 'spid'` e nessun segreto, poi la
+  stessa verifica di Fisconline e CIE (`verifyStoredCredentials`) con
+  `adoptSession` al posto del login, identity guard compreso. La sessione
+  finisce nello store interattivo come CIE. **Si adotta prima di scrivere**:
+  `adoptSession` gira su un client nuovo prima dell'upsert, e quello stesso
+  client passa alla verifica. Un upsert prima dell'adozione cancellerebbe le
+  credenziali Fisconline di chi già emette, appena prova SPID con cookie
+  scaduti. `verifyAdeCredentials` su una riga
+  `spid` senza cookie non ha niente da adottare: risponde di ricollegarsi
+  dall'app.
 - **Nessuna credenziale in memoria**: su 401 in emissione niente re-login,
   `AdeSessionExpiredError` come per CIE. `adoptSession` azzera anche
   credenziali e sessione di un login precedente sullo stesso client.

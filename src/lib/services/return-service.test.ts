@@ -96,9 +96,10 @@ const mockAdeClient = {
   submitReturn: mockSubmitReturn,
   searchDocuments: mockSearchDocuments,
 };
-const mockIsCieSessionMissing = vi.fn();
+const mockIsInteractiveSessionMissing = vi.fn();
 vi.mock("@/lib/ade", () => ({
-  isCieSessionMissing: (...args: unknown[]) => mockIsCieSessionMissing(...args),
+  isInteractiveSessionMissing: (...args: unknown[]) =>
+    mockIsInteractiveSessionMissing(...args),
   withAdeSession: async (
     _params: unknown,
     fn: (client: typeof mockAdeClient) => unknown,
@@ -248,7 +249,7 @@ beforeEach(() => {
     method: "fisconline",
     cedentePrestatore: CEDENTE,
   });
-  mockIsCieSessionMissing.mockReturnValue(false);
+  mockIsInteractiveSessionMissing.mockReturnValue(false);
   mockInsertReturning.mockResolvedValue([{ id: "return-new" }]);
   mockClaimReturning.mockResolvedValue([{ id: "claimed" }]);
   mockSearchDocuments.mockResolvedValue({
@@ -408,7 +409,7 @@ describe("returnReceiptForBusiness — rifiuti prima dell'AdE", () => {
       method: "cie",
       cedentePrestatore: CEDENTE,
     });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     expect(await run()).toEqual({ reauthRequired: true });
     expect(mockInsert).not.toHaveBeenCalled();

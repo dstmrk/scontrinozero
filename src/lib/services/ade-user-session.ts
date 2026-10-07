@@ -20,7 +20,10 @@
  * dentro sarebbe sbagliato per almeno uno dei due. Il testo lo scrive il
  * chiamante; questo modulo dice solo cosa è successo.
  */
-import { isCieSessionMissing, type WithAdeSessionParams } from "@/lib/ade";
+import {
+  isInteractiveSessionMissing,
+  type WithAdeSessionParams,
+} from "@/lib/ade";
 import { fetchAdePrerequisites, toAdeSessionParams } from "@/lib/server-auth";
 
 export type AdeUserSession =
@@ -47,7 +50,10 @@ export async function resolveAdeUserSession(
   if ("error" in prerequisites) {
     return { ok: false, reason: "unavailable", error: prerequisites.error };
   }
-  if (prerequisites.method === "cie" && isCieSessionMissing(businessId)) {
+  if (
+    (prerequisites.method === "cie" || prerequisites.method === "spid") &&
+    isInteractiveSessionMissing(businessId, prerequisites.method)
+  ) {
     return { ok: false, reason: "cie-reauth" };
   }
   return { ok: true, params: toAdeSessionParams(businessId, prerequisites) };

@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { getAdeMode, createAdeClient, withAdeSession } from "./index";
+import {
+  getAdeMode,
+  createAdeClient,
+  isInteractiveSessionMissing,
+  withAdeSession,
+} from "./index";
+import { adeInteractiveSessionStore } from "./interactive-session-store";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
 import { adeSessionCache } from "./session-cache";
@@ -232,5 +238,76 @@ describe("withAdeSession (mock mode)", () => {
     );
 
     expect(partitaIva).toBe("07790350966");
+  });
+});
+
+describe("withAdeSession (metodi interattivi)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it.each(["cie", "spid"] as const)(
+    "real mode: %s passa dallo store interattivo col suo metodo",
+    async (method) => {
+      vi.stubEnv("ADE_MODE", "real");
+      const runSpy = vi
+        .spyOn(adeInteractiveSessionStore, "run")
+        .mockResolvedValue("from-store" as never);
+      const fn = vi.fn();
+
+      const result = await withAdeSession({ businessId: "biz-1", method }, fn);
+
+      expect(result).toBe("from-store");
+      expect(runSpy).toHaveBeenCalledWith("biz-1", method, fn);
+    },
+  );
+
+  it("mock mode: spid adotta una sessione finta e la chiude a fine operazione", async () => {
+    vi.stubEnv("ADE_MODE", "mock");
+    const adoptSpy = vi.spyOn(MockAdeClient.prototype, "adoptSession");
+    const logoutSpy = vi
+      .spyOn(MockAdeClient.prototype, "logout")
+      .mockResolvedValue();
+
+    const result = await withAdeSession(
+      { businessId: "biz-1", method: "spid" },
+      () => Promise.resolve("ok"),
+    );
+
+    expect(result).toBe("ok");
+    expect(adoptSpy).toHaveBeenCalledOnce();
+    expect(logoutSpy).toHaveBeenCalled();
+  });
+});
+
+describe("isInteractiveSessionMissing", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it.each(["cie", "spid"] as const)(
+    "real mode, %s senza sessione nello store: manca",
+    (method) => {
+      vi.stubEnv("ADE_MODE", "real");
+      vi.spyOn(adeInteractiveSessionStore, "has").mockReturnValue(false);
+
+      expect(isInteractiveSessionMissing("biz-1", method)).toBe(true);
+    },
+  );
+
+  it("real mode, sessione presente: non manca", () => {
+    vi.stubEnv("ADE_MODE", "real");
+    vi.spyOn(adeInteractiveSessionStore, "has").mockReturnValue(true);
+
+    expect(isInteractiveSessionMissing("biz-1", "spid")).toBe(false);
+  });
+
+  it("mock mode: non manca mai, il mock dà sempre OK", () => {
+    vi.stubEnv("ADE_MODE", "mock");
+    vi.spyOn(adeInteractiveSessionStore, "has").mockReturnValue(false);
+
+    expect(isInteractiveSessionMissing("biz-1", "cie")).toBe(false);
   });
 });

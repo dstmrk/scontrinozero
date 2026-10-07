@@ -1036,14 +1036,16 @@ async function attemptAdeLoginForVerification(
  * `{ error }` se la riga credenziali è incompleta per il metodo.
  *
  * Fisconline: CF+password+PIN cifrati. CIE: username(email)+password cifrati.
- * SPID: non verificabile qui — non memorizza segreti, il login è sempre
- * interattivo (Fase 4, dietro flag).
+ * SPID: nessun segreto salvato; il "login" è l'adozione dei cookie della
+ * webview dell'app nativa, già fatta da `connectAdeWithSpid` sul client che
+ * arriva qui (`spidAdopted`). Senza, non c'è niente da verificare.
  */
 function buildVerificationLogin(
   adeClient: ReturnType<typeof createAdeClient>,
   cred: typeof adeCredentials.$inferSelect,
   keys: Map<number, Buffer>,
   utenzaPiva: string | undefined,
+  spidAdopted: boolean,
 ):
   | {
       doLogin: () => Promise<unknown>;
@@ -1067,10 +1069,19 @@ function buildVerificationLogin(
   }
 
   if (cred.loginMethod === "spid") {
-    // Guardia difensiva: la migrazione 0027 ammette 'spid' nel CHECK, ma la PWA
-    // non lo crea (saveAdeCredentials lo rifiuta). Se una riga esistesse
-    // comunque, degrada con un messaggio chiaro invece di tentare un login.
-    return { error: "L'accesso con SPID non è disponibile." };
+    // Senza cookie (es. "Verifica" premuto dalla PWA) non c'è niente da
+    // adottare: il server non ha segreti SPID per rifare il login.
+    if (!spidAdopted) {
+      return { error: SPID_RECONNECT_FROM_APP };
+    }
+    return {
+      // Sessione già adottata sullo stesso client: niente da rifare.
+      doLogin: () => Promise.resolve(),
+      flow: "onboarding-verify-spid",
+      defaultMessage:
+        "Sessione SPID non valida o scaduta. Accedi di nuovo con SPID dall'app.",
+      method: "spid",
+    };
   }
 
   // fisconline (default)
@@ -1151,9 +1162,9 @@ async function claimAndSendOnboardingNotifications(
 
 /**
  * Recupera i dati fiscali dopo il login di verifica (best-effort) e chiude la
- * sessione secondo il metodo: per CIE (real) deposita il client nello store
- * interattivo — la sessione non è ri-creabile in silenzio (secondo fattore
- * umano) — così emit/void la riusano; altrimenti logout. Estratto da
+ * sessione secondo il metodo: per CIE e SPID (real) deposita il client nello
+ * store interattivo — la sessione non è ri-creabile in silenzio (secondo
+ * fattore umano) — così emit/void la riusano; altrimenti logout. Estratto da
  * verifyAdeCredentials per contenerne la Cognitive Complexity (SonarCloud).
  */
 async function fetchFiscalDataAndCloseSession(
@@ -1167,7 +1178,8 @@ async function fetchFiscalDataAndCloseSession(
     logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
     return null;
   } finally {
-    if (loginMethod === "cie" && getAdeMode() === "real") {
+    const interactive = loginMethod === "cie" || loginMethod === "spid";
+    if (interactive && getAdeMode() === "real") {
       adeInteractiveSessionStore.set(businessId, adeClient);
     } else {
       await adeClient
@@ -1175,6 +1187,111 @@ async function fetchFiscalDataAndCloseSession(
         .catch((err) => logger.warn({ err }, "AdE logout failed"));
     }
   }
+}
+
+/**
+ * Tetto all'header Cookie di una sessione SPID adottata. Quello reale del
+ * portale (docs/mobile-v2.md punto 5) sta in pochi KB: 16 KB lasciano margine
+ * senza accettare un payload arbitrario (regola 9).
+ */
+const SPID_COOKIE_MAX_BYTES = 16 * 1024;
+
+const SPID_RECONNECT_FROM_APP =
+  "La connessione SPID si rinnova solo dall'app ScontrinoZero: aprila e accedi con SPID.";
+
+/**
+ * Collega (o ricollega) l'AdE con una sessione SPID aperta nella webview
+ * dell'app nativa (docs/mobile-v2.md punto 5). L'app legge i cookie del
+ * portale e li passa qui; il server non vede mai credenziali SPID.
+ *
+ * Salva una riga credenziali `spid` senza segreti, poi la verifica con la
+ * stessa pipeline di Fisconline e CIE: adozione dei cookie al posto del login,
+ * identity guard sulla P.IVA, finalizzazione, sessione depositata nello store
+ * interattivo. La scelta dell'utenza di lavoro l'ha già fatta l'utente nel
+ * portale, dentro la webview.
+ */
+export async function connectAdeWithSpid(
+  businessId: string,
+  cookieHeader: string,
+): Promise<OnboardingActionResult> {
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "connectAdeWithSpid");
+  }
+
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
+  }
+
+  const header = typeof cookieHeader === "string" ? cookieHeader.trim() : "";
+  if (!header || Buffer.byteLength(header, "utf8") > SPID_COOKIE_MAX_BYTES) {
+    logger.warn(
+      { businessId, errorClass: "spid_cookie_invalid" },
+      "connectAdeWithSpid: header cookie vuoto o troppo grande",
+    );
+    return { error: "Sessione SPID non valida. Accedi di nuovo con SPID." };
+  }
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
+  // Stesso limiter e stessa chiave della verifica: collegare con SPID È una
+  // verifica, e i due percorsi non devono sommare i tentativi.
+  const rateLimitResult = verifyAdeLimiter.check(`verify-ade:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "connectAdeWithSpid rate limit exceeded");
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
+  // Adozione PRIMA di scrivere: se i cookie non valgono, le credenziali già
+  // salvate (es. Fisconline operativo) restano intatte. Lo stesso client,
+  // già autenticato, passa poi alla verifica: una sola chiamata all'AdE.
+  const adeClient = createAdeClient(getAdeMode());
+  const adoptionError = await attemptAdeLoginForVerification(
+    () => adeClient.adoptSession(header),
+    businessId,
+    {
+      flow: "onboarding-verify-spid",
+      defaultMessage:
+        "Sessione SPID non valida o scaduta. Accedi di nuovo con SPID dall'app.",
+      method: "spid",
+      wasAlreadyOnboarded: false,
+    },
+  );
+  const db = getDb();
+  if (adoptionError) {
+    await recordVerifyOutcome(db, businessId, adoptionError.outcome);
+    return adoptionError.result;
+  }
+
+  const values: AdeCredentialValues = {
+    loginMethod: "spid",
+    encryptedCodiceFiscale: null,
+    encryptedUsername: null,
+    encryptedPassword: null,
+    encryptedPin: null,
+    spidProvider: null,
+    keyVersion: getKeyVersion(),
+  };
+  await db
+    .insert(adeCredentials)
+    .values({ businessId, ...values })
+    .onConflictDoUpdate({
+      target: adeCredentials.businessId,
+      set: { ...values, verifiedAt: null },
+    });
+
+  await adeSessionCache.invalidate(businessId);
+  await adeInteractiveSessionStore.invalidate(businessId);
+
+  return verifyStoredCredentials({
+    user,
+    businessId,
+    utenzaPiva: undefined,
+    adoptedSpidClient: adeClient,
+  });
 }
 
 export async function verifyAdeCredentials(
@@ -1209,6 +1326,23 @@ export async function verifyAdeCredentials(
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
+  return verifyStoredCredentials({ user, businessId, utenzaPiva });
+}
+
+/**
+ * Verifica contro l'AdE la riga credenziali già salvata del business: login
+ * (o adozione della sessione SPID), identity guard, finalizzazione, esito
+ * registrato. Comune a `verifyAdeCredentials` e `connectAdeWithSpid`, che
+ * fanno prima i propri controlli d'accesso.
+ */
+async function verifyStoredCredentials(params: {
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  businessId: string;
+  utenzaPiva: string | undefined;
+  /** Client con la sessione SPID già adottata (solo `connectAdeWithSpid`). */
+  adoptedSpidClient?: ReturnType<typeof createAdeClient>;
+}): Promise<OnboardingActionResult> {
+  const { user, businessId, utenzaPiva, adoptedSpidClient } = params;
   const db = getDb();
 
   const [cred] = await db
@@ -1249,6 +1383,7 @@ export async function verifyAdeCredentials(
     requestedUtenzaPiva: utenzaPiva,
     businessSnapshot,
     wasAlreadyOnboarded,
+    adoptedSpidClient,
   });
 
   // Un solo punto di scrittura, dopo ogni ramo d'uscita. Spargere la chiamata
@@ -1283,6 +1418,8 @@ async function runAdeVerification(params: {
   businessSnapshot:
     { fiscalCode: string | null; vatNumber: string | null } | undefined;
   wasAlreadyOnboarded: boolean;
+  /** Client con la sessione SPID già adottata (solo `connectAdeWithSpid`). */
+  adoptedSpidClient?: ReturnType<typeof createAdeClient>;
 }): Promise<VerifyStep> {
   const {
     db,
@@ -1292,6 +1429,7 @@ async function runAdeVerification(params: {
     requestedUtenzaPiva,
     businessSnapshot,
     wasAlreadyOnboarded,
+    adoptedSpidClient,
   } = params;
 
   // Scelta dell'utenza di lavoro (HAR.md #18), applicata prima del login.
@@ -1316,18 +1454,20 @@ async function runAdeVerification(params: {
   // essere ancora cifrata con la chiave precedente.
   const keys = getEncryptionKeys();
 
-  const adeClient = createAdeClient(getAdeMode());
+  const adeClient = adoptedSpidClient ?? createAdeClient(getAdeMode());
 
-  // Login method-aware (Fisconline / CIE). La coda post-login (getFiscalData,
-  // identity guard, finalize, notifiche) è identica per tutti i metodi.
+  // Login method-aware (Fisconline / CIE / adozione SPID). La coda post-login
+  // (getFiscalData, identity guard, finalize, notifiche) è identica per tutti.
   const loginPlan = buildVerificationLogin(
     adeClient,
     cred,
     keys,
     effectiveUtenzaPiva ?? undefined,
+    adoptedSpidClient !== undefined,
   );
   if ("error" in loginPlan) {
-    // Riga incompleta per il metodo salvato, o `spid` — che la PWA non crea.
+    // Riga incompleta per il metodo salvato, o `spid` verificato senza una
+    // sessione da adottare (il rinnovo SPID passa solo dall'app nativa).
     // È un vicolo cieco silenzioso: senza questa riga chi ci finisce sarebbe
     // indistinguibile da chi non ha mai premuto Verifica.
     return {

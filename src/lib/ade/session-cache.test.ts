@@ -38,6 +38,7 @@ function makeFakeClient(): CachedAdeClient {
   return {
     login: vi.fn().mockResolvedValue(SESSION),
     loginCie: vi.fn().mockResolvedValue(SESSION),
+    adoptSession: vi.fn().mockResolvedValue(SESSION),
     submitSale: vi.fn(),
     submitVoid: vi.fn(),
     submitReturn: vi.fn(),

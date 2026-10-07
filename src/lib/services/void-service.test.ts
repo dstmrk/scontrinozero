@@ -102,10 +102,11 @@ const mockAdeClient = {
 // withAdeSession (PR #624) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitVoid restano valide.
-const mockIsCieSessionMissing = vi.fn().mockReturnValue(false);
+const mockIsInteractiveSessionMissing = vi.fn().mockReturnValue(false);
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
-  isCieSessionMissing: (...args: unknown[]) => mockIsCieSessionMissing(...args),
+  isInteractiveSessionMissing: (...args: unknown[]) =>
+    mockIsInteractiveSessionMissing(...args),
   withAdeSession: async (
     params: { credentials: unknown },
     fn: (client: typeof mockAdeClient) => unknown,
@@ -210,7 +211,7 @@ describe("voidReceiptForBusiness", () => {
     process.env.ADE_MODE = "mock";
 
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
 
     // select: first call returns saleDoc, subsequent calls return idempotency results
     mockSelect.mockReturnValue({ from: mockSelectFrom });
@@ -386,7 +387,7 @@ describe("voidReceiptForBusiness", () => {
       method: "cie",
       cedentePrestatore: { built: true },
     });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
@@ -402,7 +403,7 @@ describe("voidReceiptForBusiness", () => {
       method: "cie",
       cedentePrestatore: { built: true },
     });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("cie"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
@@ -424,7 +425,7 @@ describe("voidReceiptForBusiness", () => {
       method: "cie",
       cedentePrestatore: { built: true },
     });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("cie"));
     mockUpdateWhere.mockRejectedValueOnce(new Error("db down"));
 

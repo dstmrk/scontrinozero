@@ -30,10 +30,11 @@
    `withAdeSession` + `src/lib/ade/session-cache.ts` (cache in-process con TTL/LRU
    e lock per-business), invalidata su cambio credenziali. Evita di ripetere il
    login (~10 round-trip, latenza dominante) a ogni emissione.
-5. **Ramo CIE** (login method `cie`): la sessione interattiva vive in
+5. **Ramo interattivo** (login method `cie` o `spid`): la sessione vive in
    `src/lib/ade/interactive-session-store.ts` e **non è rinnovabile in
-   silenzio** (serve la conferma push dell'utente). Il service fa il pre-check
-   `isCieSessionMissing` **prima** di inserire il documento: se manca/scaduta
+   silenzio** (push CIE, o login SPID nella webview dell'app nativa adottato
+   da `connectAdeWithSpid`). Il service fa il pre-check
+   `isInteractiveSessionMissing` **prima** di inserire il documento: se manca/scaduta
    ritorna `{ reauthRequired: true }` senza trasmettere nulla — la UI mostra
    "Ricollegati" (`src/components/cassa/cassa-client.tsx`), la Developer API
    risponde 409. Lo stesso esito arriva da `AdeReauthRequiredError` a metà
@@ -102,7 +103,7 @@ RESO`, blocco `Documento di riferimento`, nessun pagamento): i lettori
 Analogo all'emissione: `src/server/void-actions.ts` →
 `src/lib/services/void-service.ts` → client AdE; logging con
 `flow: "void-receipt"` via `src/lib/ade/log-failure.ts`. Vale lo stesso ramo
-CIE dell'emissione (pre-check `isCieSessionMissing` → `reauthRequired`,
+interattivo dell'emissione (pre-check `isInteractiveSessionMissing` → `reauthRequired`,
 dialog "Ricollegati" in `src/components/storico/void-receipt-dialog.tsx`).
 
 ## Reso merce (return)

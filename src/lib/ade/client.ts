@@ -59,6 +59,13 @@ export interface AdeClient {
     utenzaPiva?: string,
   ): Promise<AdeSession>;
 
+  /**
+   * Adotta una sessione del portale aperta altrove — il login SPID nella
+   * webview dell'app nativa (docs/mobile-v2.md punto 5) — dai suoi cookie.
+   * Nessuna credenziale resta in memoria: su 401 niente re-login.
+   */
+  adoptSession(cookieHeader: string): Promise<AdeSession>;
+
   /** Invia un documento commerciale di vendita */
   submitSale(payload: AdePayload): Promise<AdeResponse>;
 
