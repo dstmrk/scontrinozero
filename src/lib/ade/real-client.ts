@@ -8,7 +8,7 @@
  * Flow verified against HAR capture: login_ade_fisconline.har
  */
 
-import type { AdeClient, AdeSession } from "./client";
+import type { AdeAdoptedSession, AdeClient, AdeSession } from "./client";
 import type {
   AdeCedentePrestatore,
   AdeDocumentDetail,
@@ -1645,10 +1645,12 @@ export class RealAdeClient implements AdeClient {
    * credenziale resta in memoria: su 401 le operazioni lanciano
    * `AdeSessionExpiredError` senza tentare un re-login, come per CIE.
    *
-   * La P.IVA si legge da `dati/fiscali`, che fa anche da verifica. Il redirect
-   * non si segue: un portale che manda al login risponderebbe 200 con HTML.
+   * La P.IVA si legge da `dati/fiscali`, che fa anche da verifica: i dati
+   * letti tornano al chiamante, che li usa per l'identity guard senza rifare
+   * la GET (issue #1040). Il redirect non si segue: un portale che manda al
+   * login risponderebbe 200 con HTML.
    */
-  async adoptSession(cookieHeader: string): Promise<AdeSession> {
+  async adoptSession(cookieHeader: string): Promise<AdeAdoptedSession> {
     this.session = null;
     this.credentials = null;
     this.utenzaPiva = undefined;
@@ -1677,16 +1679,17 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    const data = await this.parseJsonBody<{
-      identificativiFiscali?: { partitaIva?: string };
-    }>(response, endpoint);
-    const partitaIva = data?.identificativiFiscali?.partitaIva;
+    const fiscalData = await this.parseJsonBody<AdeCedentePrestatore>(
+      response,
+      endpoint,
+    );
+    const partitaIva = fiscalData?.identificativiFiscali?.partitaIva;
     if (!partitaIva) {
       throw new AdeNoPartitaIvaError("dati/fiscali");
     }
 
     this.session = { pAuth: "", partitaIva, createdAt: Date.now() };
-    return this.session;
+    return { ...this.session, fiscalData };
   }
 
   async submitSale(payload: AdePayload): Promise<AdeResponse> {

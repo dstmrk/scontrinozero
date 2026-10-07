@@ -36,7 +36,12 @@ import {
   classifyAdeLoginFailure,
   type RecordedVerifyOutcome,
 } from "@/lib/ade/verify-outcome";
-import type { AdeLoginMethod, AdeUtenzaCandidate } from "@/lib/ade/types";
+import type { AdeAdoptedSession } from "@/lib/ade/client";
+import type {
+  AdeCedentePrestatore,
+  AdeLoginMethod,
+  AdeUtenzaCandidate,
+} from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -535,15 +540,17 @@ export async function saveAdeCredentials(
  * Ritorna l'errore da propagare (chiamante NON entra nella transazione, così
  * verifiedAt resta null e l'identità non viene toccata) oppure `null` se la
  * verifica può procedere. Il primo onboarding (`wasAlreadyOnboarded` false)
- * passa sempre.
+ * passa sempre. Gira anche in `connectAdeWithSpid`, prima di scrivere la riga
+ * `spid` (issue #1040).
  */
 function checkAdeIdentityGuard(
   wasAlreadyOnboarded: boolean,
   businessId: string,
-  snapshot: { fiscalCode: string | null; vatNumber: string | null } | undefined,
+  snapshot: BusinessIdentity | undefined,
   fiscalData: {
     identificativiFiscali: { partitaIva: string; codiceFiscale: string };
   } | null,
+  loginMethod: string,
 ): VerifyStep | null {
   if (!wasAlreadyOnboarded) return null;
 
@@ -580,17 +587,46 @@ function checkAdeIdentityGuard(
   // Input utente prevedibile (credenziali di un'altra P.IVA): warn, non error →
   // niente issue Sentry (regola 20).
   logger.warn(
-    { businessId, errorClass: "ade_piva_mismatch" },
+    { businessId, loginMethod, errorClass: "ade_piva_mismatch" },
     "verifyAdeCredentials: credenziali associate a una P.IVA diversa da quella registrata",
   );
   return {
-    result: {
-      error:
-        "Queste credenziali Fisconline appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.",
-      pivaMismatch: true,
-    },
+    result: { error: pivaMismatchMessage(loginMethod), pivaMismatch: true },
     outcome: "piva_mismatch",
   };
+}
+
+/**
+ * Il messaggio del mismatch nomina il metodo usato. Con SPID l'utenza la
+ * sceglie l'utente nel portale, quindi la causa probabile è un'utenza sbagliata
+ * e il rimedio è sceglierne un'altra. Il testo Fisconline è citato alla
+ * lettera in `/help/errori-ade`.
+ */
+function pivaMismatchMessage(loginMethod: string): string {
+  if (loginMethod === "spid") {
+    return "L'utenza scelta con SPID è intestata a una partita IVA diversa da quella registrata sul tuo account. Se hai più utenze, ricollegati e scegli quella giusta nel portale; per gestire un'altra partita IVA è necessario un account separato.";
+  }
+  const credentials =
+    loginMethod === "cie" ? "credenziali CIE" : "credenziali Fisconline";
+  return `Queste ${credentials} appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.`;
+}
+
+/** P.IVA e codice fiscale registrati: l'identità contro cui gira il guard. */
+type BusinessIdentity = { fiscalCode: string | null; vatNumber: string | null };
+
+async function readBusinessIdentity(
+  db: ReturnType<typeof getDb>,
+  businessId: string,
+): Promise<BusinessIdentity | undefined> {
+  const [identity] = await db
+    .select({
+      fiscalCode: businesses.fiscalCode,
+      vatNumber: businesses.vatNumber,
+    })
+    .from(businesses)
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+  return identity;
 }
 
 /**
@@ -934,6 +970,13 @@ async function recordVerifyOutcome(
   }
 }
 
+/** Contesto di una verifica: per il logging e il messaggio all'utente. */
+type VerifyFlow = {
+  flow: string;
+  defaultMessage: string;
+  method: AdeLoginMethod;
+};
+
 /**
  * Esegue il login AdE per la verifica credenziali e traduce gli errori in un
  * `VerifyStep` — la risposta pronta per il client, più l'esito da registrare
@@ -944,90 +987,98 @@ async function recordVerifyOutcome(
 async function attemptAdeLoginForVerification(
   doLogin: () => Promise<unknown>,
   businessId: string,
-  opts: {
-    flow: string;
-    defaultMessage: string;
-    method: AdeLoginMethod;
-    wasAlreadyOnboarded: boolean;
-  },
+  opts: VerifyFlow & { wasAlreadyOnboarded: boolean },
 ): Promise<VerifyStep | null> {
   try {
     await doLogin();
     return null;
   } catch (err) {
-    if (err instanceof AdePasswordExpiredError) {
-      logger.warn({ businessId }, "AdE password scaduta durante verifica");
-      return {
-        result: {
-          error: "La password Fisconline è scaduta.",
-          passwordExpired: true,
-        },
-        outcome: "password_expired",
-      };
-    }
-    logAdeFailure(
-      err,
-      { businessId, flow: opts.flow },
-      {
-        transient: "AdE credential verification: transient failure",
-        failure: "AdE credential verification failed",
-      },
-    );
-    // Più partite IVA disponibili: la lista risale alla UI, che la trasforma nel
-    // picker (HAR.md #18, issue #984).
-    //
-    // Su un business già collegato il picker NON si offre: `applyUtenzaSelection`
-    // rifiuta ogni scelta, quindi mostrarlo sarebbe un vicolo cieco — l'utente
-    // sceglie e riceve "non può essere cambiata". Se un business onboardato
-    // arriva qui, la P.IVA a cui era legato non è più raggiungibile da queste
-    // credenziali, che è la stessa sostanza di AdeUtenzaNotAvailableError.
-    if (err instanceof AdeUtenzaSelectionRequiredError) {
-      if (opts.wasAlreadyOnboarded) {
-        return {
-          result: {
-            error:
-              "La partita IVA collegata a questo account non risulta più raggiungibile con queste credenziali. Verifica le abilitazioni sul portale Agenzia delle Entrate.",
-            pivaMismatch: true,
-          },
-          // NON `utenza_selection_required`: qui il picker non viene offerto, e
-          // la sostanza è che le P.IVA di queste credenziali non comprendono
-          // più quella collegata — cioè AdeUtenzaNotAvailableError.
-          outcome: "utenza_not_available",
-        };
-      }
-      return {
-        result: {
-          error: getUserFacingAdeErrorMessage(
-            err,
-            opts.defaultMessage,
-            opts.method,
-          ).message,
-          utenzaChoices: err.candidates.map(
-            ({ piva, denominazione, provenienza }) => ({
-              piva,
-              denominazione,
-              provenienza,
-            }),
-          ),
-        },
-        outcome: "utenza_selection_required",
-      };
-    }
-    const userFacing = getUserFacingAdeErrorMessage(
-      err,
-      opts.defaultMessage,
-      opts.method,
-    );
-    const outcome = classifyAdeLoginFailure(err);
+    return verificationErrorStep(err, businessId, opts);
+  }
+}
+
+/**
+ * Traduce l'errore di un login (o di un'adozione SPID) di verifica nel
+ * `VerifyStep` da restituire e registrare. Separata dal `try` perché
+ * `connectAdeWithSpid` ha bisogno di ciò che l'adozione restituisce.
+ */
+function verificationErrorStep(
+  err: unknown,
+  businessId: string,
+  opts: VerifyFlow & { wasAlreadyOnboarded: boolean },
+): VerifyStep {
+  if (err instanceof AdePasswordExpiredError) {
+    logger.warn({ businessId }, "AdE password scaduta durante verifica");
     return {
       result: {
-        error: userFacing.message,
-        ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
-        ...(outcome === "auth_error" ? { credentialsRejected: true } : {}),
+        error: "La password Fisconline è scaduta.",
+        passwordExpired: true,
       },
-      outcome,
+      outcome: "password_expired",
     };
   }
+  logAdeFailure(
+    err,
+    { businessId, flow: opts.flow },
+    {
+      transient: "AdE credential verification: transient failure",
+      failure: "AdE credential verification failed",
+    },
+  );
+  // Più partite IVA disponibili: la lista risale alla UI, che la trasforma nel
+  // picker (HAR.md #18, issue #984).
+  //
+  // Su un business già collegato il picker NON si offre: `applyUtenzaSelection`
+  // rifiuta ogni scelta, quindi mostrarlo sarebbe un vicolo cieco — l'utente
+  // sceglie e riceve "non può essere cambiata". Se un business onboardato
+  // arriva qui, la P.IVA a cui era legato non è più raggiungibile da queste
+  // credenziali, che è la stessa sostanza di AdeUtenzaNotAvailableError.
+  if (err instanceof AdeUtenzaSelectionRequiredError) {
+    if (opts.wasAlreadyOnboarded) {
+      return {
+        result: {
+          error:
+            "La partita IVA collegata a questo account non risulta più raggiungibile con queste credenziali. Verifica le abilitazioni sul portale Agenzia delle Entrate.",
+          pivaMismatch: true,
+        },
+        // NON `utenza_selection_required`: qui il picker non viene offerto, e
+        // la sostanza è che le P.IVA di queste credenziali non comprendono
+        // più quella collegata — cioè AdeUtenzaNotAvailableError.
+        outcome: "utenza_not_available",
+      };
+    }
+    return {
+      result: {
+        error: getUserFacingAdeErrorMessage(
+          err,
+          opts.defaultMessage,
+          opts.method,
+        ).message,
+        utenzaChoices: err.candidates.map(
+          ({ piva, denominazione, provenienza }) => ({
+            piva,
+            denominazione,
+            provenienza,
+          }),
+        ),
+      },
+      outcome: "utenza_selection_required",
+    };
+  }
+  const userFacing = getUserFacingAdeErrorMessage(
+    err,
+    opts.defaultMessage,
+    opts.method,
+  );
+  const outcome = classifyAdeLoginFailure(err);
+  return {
+    result: {
+      error: userFacing.message,
+      ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+      ...(outcome === "auth_error" ? { credentialsRejected: true } : {}),
+    },
+    outcome,
+  };
 }
 
 /**
@@ -1046,14 +1097,7 @@ function buildVerificationLogin(
   keys: Map<number, Buffer>,
   utenzaPiva: string | undefined,
   spidAdopted: boolean,
-):
-  | {
-      doLogin: () => Promise<unknown>;
-      flow: string;
-      defaultMessage: string;
-      method: AdeLoginMethod;
-    }
-  | { error: string } {
+): (VerifyFlow & { doLogin: () => Promise<unknown> }) | { error: string } {
   if (cred.loginMethod === "cie") {
     if (cred.encryptedUsername === null || cred.encryptedPassword === null) {
       return { error: "Credenziali CIE incomplete." };
@@ -1074,14 +1118,8 @@ function buildVerificationLogin(
     if (!spidAdopted) {
       return { error: SPID_RECONNECT_FROM_APP };
     }
-    return {
-      // Sessione già adottata sullo stesso client: niente da rifare.
-      doLogin: () => Promise.resolve(),
-      flow: "onboarding-verify-spid",
-      defaultMessage:
-        "Sessione SPID non valida o scaduta. Accedi di nuovo con SPID dall'app.",
-      method: "spid",
-    };
+    // Sessione già adottata sullo stesso client: niente da rifare.
+    return { doLogin: () => Promise.resolve(), ...SPID_VERIFY_FLOW };
   }
 
   // fisconline (default)
@@ -1161,31 +1199,20 @@ async function claimAndSendOnboardingNotifications(
 }
 
 /**
- * Recupera i dati fiscali dopo il login di verifica (best-effort) e chiude la
- * sessione secondo il metodo: per CIE e SPID (real) deposita il client nello
- * store interattivo — la sessione non è ri-creabile in silenzio (secondo
- * fattore umano) — così emit/void la riusano; altrimenti logout. Estratto da
- * verifyAdeCredentials per contenerne la Cognitive Complexity (SonarCloud).
+ * Dati fiscali dopo il login di verifica, best-effort: la verifica riesce
+ * anche se l'AdE non li restituisce, e P.IVA/CF si completano a un giro
+ * successivo. Estratto da verifyAdeCredentials per contenerne la Cognitive
+ * Complexity (SonarCloud).
  */
-async function fetchFiscalDataAndCloseSession(
+async function fetchFiscalData(
   adeClient: ReturnType<typeof createAdeClient>,
   businessId: string,
-  loginMethod: string,
-): Promise<Awaited<ReturnType<typeof adeClient.getFiscalData>> | null> {
+): Promise<AdeCedentePrestatore | null> {
   try {
     return await adeClient.getFiscalData();
   } catch (err) {
     logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
     return null;
-  } finally {
-    const interactive = loginMethod === "cie" || loginMethod === "spid";
-    if (interactive && getAdeMode() === "real") {
-      adeInteractiveSessionStore.set(businessId, adeClient);
-    } else {
-      await adeClient
-        .logout()
-        .catch((err) => logger.warn({ err }, "AdE logout failed"));
-    }
   }
 }
 
@@ -1198,6 +1225,20 @@ const SPID_COOKIE_MAX_BYTES = 16 * 1024;
 
 const SPID_RECONNECT_FROM_APP =
   "La connessione SPID si rinnova solo dall'app ScontrinoZero: aprila e accedi con SPID.";
+
+/** Client con la sessione SPID adottata e i dati fiscali letti nell'adozione. */
+type AdoptedSpid = {
+  client: ReturnType<typeof createAdeClient>;
+  fiscalData: AdeCedentePrestatore;
+};
+
+/** La verifica SPID, all'adozione e nella pipeline. */
+const SPID_VERIFY_FLOW: VerifyFlow = {
+  flow: "onboarding-verify-spid",
+  defaultMessage:
+    "Sessione SPID non valida o scaduta. Accedi di nuovo con SPID dall'app.",
+  method: "spid",
+};
 
 /**
  * Collega (o ricollega) l'AdE con una sessione SPID aperta nella webview
@@ -1245,25 +1286,37 @@ export async function connectAdeWithSpid(
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
-  // Adozione PRIMA di scrivere: se i cookie non valgono, le credenziali già
-  // salvate (es. Fisconline operativo) restano intatte. Lo stesso client,
-  // già autenticato, passa poi alla verifica: una sola chiamata all'AdE.
-  const adeClient = createAdeClient(getAdeMode());
-  const adoptionError = await attemptAdeLoginForVerification(
-    () => adeClient.adoptSession(header),
-    businessId,
-    {
-      flow: "onboarding-verify-spid",
-      defaultMessage:
-        "Sessione SPID non valida o scaduta. Accedi di nuovo con SPID dall'app.",
-      method: "spid",
-      wasAlreadyOnboarded: false,
-    },
-  );
+  // Adozione e identità PRIMA di scrivere: la riga `spid` sostituisce le
+  // credenziali salvate (es. Fisconline di chi già emette), quindi si scrive
+  // solo con cookie validi e un'utenza della P.IVA registrata. Con SPID
+  // l'utenza la sceglie l'utente nel portale: chi ne ha più d'una può
+  // sceglierne una di un'altra P.IVA (issue #1040). Lo stesso client, con i
+  // dati fiscali già letti, passa poi alla verifica: una sola GET all'AdE.
   const db = getDb();
-  if (adoptionError) {
-    await recordVerifyOutcome(db, businessId, adoptionError.outcome);
-    return adoptionError.result;
+  const adeClient = createAdeClient(getAdeMode());
+  let adopted: AdeAdoptedSession;
+  try {
+    adopted = await adeClient.adoptSession(header);
+  } catch (err) {
+    const step = verificationErrorStep(err, businessId, {
+      ...SPID_VERIFY_FLOW,
+      wasAlreadyOnboarded: false,
+    });
+    await recordVerifyOutcome(db, businessId, step.outcome);
+    return step.result;
+  }
+
+  const identity = await readBusinessIdentity(db, businessId);
+  const identityError = checkAdeIdentityGuard(
+    Boolean(identity?.fiscalCode),
+    businessId,
+    identity,
+    adopted.fiscalData,
+    "spid",
+  );
+  if (identityError) {
+    await recordVerifyOutcome(db, businessId, identityError.outcome);
+    return identityError.result;
   }
 
   const values: AdeCredentialValues = {
@@ -1290,7 +1343,7 @@ export async function connectAdeWithSpid(
     user,
     businessId,
     utenzaPiva: undefined,
-    adoptedSpidClient: adeClient,
+    adoptedSpid: { client: adeClient, fiscalData: adopted.fiscalData },
   });
 }
 
@@ -1339,10 +1392,9 @@ async function verifyStoredCredentials(params: {
   user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   businessId: string;
   utenzaPiva: string | undefined;
-  /** Client con la sessione SPID già adottata (solo `connectAdeWithSpid`). */
-  adoptedSpidClient?: ReturnType<typeof createAdeClient>;
+  adoptedSpid?: AdoptedSpid;
 }): Promise<OnboardingActionResult> {
-  const { user, businessId, utenzaPiva, adoptedSpidClient } = params;
+  const { user, businessId, utenzaPiva, adoptedSpid } = params;
   const db = getDb();
 
   const [cred] = await db
@@ -1365,14 +1417,7 @@ async function verifyStoredCredentials(params: {
   // delle email di onboarding NON dipende più da fiscalCode: vive sui flag
   // durabili welcome_email_sent_at / operator_notified_at reclamati a valle
   // (migration 0023).
-  const [businessSnapshot] = await db
-    .select({
-      fiscalCode: businesses.fiscalCode,
-      vatNumber: businesses.vatNumber,
-    })
-    .from(businesses)
-    .where(eq(businesses.id, businessId))
-    .limit(1);
+  const businessSnapshot = await readBusinessIdentity(db, businessId);
   const wasAlreadyOnboarded = Boolean(businessSnapshot?.fiscalCode);
 
   const { result, outcome } = await runAdeVerification({
@@ -1383,7 +1428,7 @@ async function verifyStoredCredentials(params: {
     requestedUtenzaPiva: utenzaPiva,
     businessSnapshot,
     wasAlreadyOnboarded,
-    adoptedSpidClient,
+    adoptedSpid,
   });
 
   // Un solo punto di scrittura, dopo ogni ramo d'uscita. Spargere la chiamata
@@ -1415,11 +1460,9 @@ async function runAdeVerification(params: {
   user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   cred: typeof adeCredentials.$inferSelect;
   requestedUtenzaPiva: string | undefined;
-  businessSnapshot:
-    { fiscalCode: string | null; vatNumber: string | null } | undefined;
+  businessSnapshot: BusinessIdentity | undefined;
   wasAlreadyOnboarded: boolean;
-  /** Client con la sessione SPID già adottata (solo `connectAdeWithSpid`). */
-  adoptedSpidClient?: ReturnType<typeof createAdeClient>;
+  adoptedSpid?: AdoptedSpid;
 }): Promise<VerifyStep> {
   const {
     db,
@@ -1429,7 +1472,7 @@ async function runAdeVerification(params: {
     requestedUtenzaPiva,
     businessSnapshot,
     wasAlreadyOnboarded,
-    adoptedSpidClient,
+    adoptedSpid,
   } = params;
 
   // Scelta dell'utenza di lavoro (HAR.md #18), applicata prima del login.
@@ -1454,16 +1497,16 @@ async function runAdeVerification(params: {
   // essere ancora cifrata con la chiave precedente.
   const keys = getEncryptionKeys();
 
-  const adeClient = adoptedSpidClient ?? createAdeClient(getAdeMode());
+  const adeClient = adoptedSpid?.client ?? createAdeClient(getAdeMode());
 
   // Login method-aware (Fisconline / CIE / adozione SPID). La coda post-login
-  // (getFiscalData, identity guard, finalize, notifiche) è identica per tutti.
+  // (dati fiscali, identity guard, finalize, notifiche) è identica per tutti.
   const loginPlan = buildVerificationLogin(
     adeClient,
     cred,
     keys,
     effectiveUtenzaPiva ?? undefined,
-    adoptedSpidClient !== undefined,
+    adoptedSpid !== undefined,
   );
   if ("error" in loginPlan) {
     // Riga incompleta per il metodo salvato, o `spid` verificato senza una
@@ -1488,15 +1531,68 @@ async function runAdeVerification(params: {
   );
   if (loginError) return loginError;
 
-  // Fetch fiscal data from AdE while the session is still active. Best-effort:
-  // verification still succeeds (verifiedAt set) even if AdE doesn't return it;
-  // P.IVA/CF are then filled on a later run. Per CIE la sessione resta viva
-  // (depositata nello store) invece del logout — vedi helper.
-  const fiscalData = await fetchFiscalDataAndCloseSession(
-    adeClient,
+  // Dati fiscali per identity guard e finalizzazione: quelli che l'adozione
+  // SPID ha già letto, altrimenti una GET con la sessione appena aperta.
+  const fiscalData = adoptedSpid
+    ? adoptedSpid.fiscalData
+    : await fetchFiscalData(adeClient, businessId);
+
+  // CIE e SPID (real) tengono la sessione: non si ricrea in silenzio (secondo
+  // fattore umano), quindi emit/void la riusano dallo store interattivo. Ci
+  // entra solo a verifica riuscita (issue #1040): con un'identità diversa o un
+  // salvataggio fallito lo store terrebbe una sessione che non deve usare.
+  // Fisconline (e il mock): logout subito, come prima.
+  const keepsSession =
+    (cred.loginMethod === "cie" || cred.loginMethod === "spid") &&
+    getAdeMode() === "real";
+  if (!keepsSession) {
+    await adeClient
+      .logout()
+      .catch((err) => logger.warn({ err }, "AdE logout failed"));
+  }
+
+  const step = await finalizeVerifiedIdentity({
+    db,
     businessId,
-    cred.loginMethod,
-  );
+    user,
+    loginMethod: cred.loginMethod,
+    credentialVersion,
+    businessSnapshot,
+    wasAlreadyOnboarded,
+    fiscalData,
+  });
+  if (keepsSession && step.outcome === "success") {
+    adeInteractiveSessionStore.set(businessId, adeClient);
+  }
+  return step;
+}
+
+/**
+ * Dopo un login (o un'adozione) riuscito: identity guard, finalizzazione
+ * atomica, notifiche di onboarding. Estratta da `runAdeVerification` per
+ * tenerne la Cognitive Complexity sotto la soglia SonarCloud, e perché chi la
+ * chiama decide della sessione in base all'esito.
+ */
+async function finalizeVerifiedIdentity(params: {
+  db: ReturnType<typeof getDb>;
+  businessId: string;
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  loginMethod: string;
+  credentialVersion: Date;
+  businessSnapshot: BusinessIdentity | undefined;
+  wasAlreadyOnboarded: boolean;
+  fiscalData: AdeCedentePrestatore | null;
+}): Promise<VerifyStep> {
+  const {
+    db,
+    businessId,
+    user,
+    loginMethod,
+    credentialVersion,
+    businessSnapshot,
+    wasAlreadyOnboarded,
+    fiscalData,
+  } = params;
 
   // Identity guard: blocca il cambio credenziali verso una P.IVA diversa su un
   // business già onboardato (logica in checkAdeIdentityGuard). Eseguito PRIMA
@@ -1507,6 +1603,7 @@ async function runAdeVerification(params: {
     businessId,
     businessSnapshot,
     fiscalData,
+    loginMethod,
   );
   if (identityError) return identityError;
 

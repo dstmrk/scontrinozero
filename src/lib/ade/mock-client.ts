@@ -7,8 +7,9 @@
  * Reference: docs/api-spec.md sez. 12
  */
 
-import type { AdeClient, AdeSession } from "./client";
+import type { AdeAdoptedSession, AdeClient, AdeSession } from "./client";
 import type {
+  AdeCedentePrestatore,
   AdeDocumentDetail,
   AdeDocumentList,
   AdePayload,
@@ -125,6 +126,21 @@ function applyReturn(payload: AdePayload): boolean {
   return true;
 }
 
+/** Dati fiscali fittizi della P.IVA di sessione (`dati/fiscali` in mock). */
+function mockCedente(session: AdeSession): AdeCedentePrestatore {
+  return buildCedenteFromBusiness({
+    vatNumber: session.partitaIva,
+    fiscalCode: "RSSMRA80A01H501A",
+    businessName: "",
+    address: "VIA ROMA",
+    streetNumber: "1",
+    city: "ROMA",
+    province: "RM",
+    zipCode: "00100",
+    preferredVatCode: "22",
+  });
+}
+
 export class MockAdeClient implements AdeClient {
   private session: AdeSession | null = null;
 
@@ -188,14 +204,16 @@ export class MockAdeClient implements AdeClient {
 
   /**
    * Sessione SPID adottata: in mock i cookie non si verificano. P.IVA fittizia
-   * come per CIE, così il primo collegamento passa l'identity guard.
+   * come per CIE, così il primo collegamento passa l'identity guard. Come il
+   * client reale, restituisce i dati fiscali letti nell'adozione.
    */
-  adoptSession(_cookieHeader: string): Promise<AdeSession> {
-    return this.startSession({
+  async adoptSession(_cookieHeader: string): Promise<AdeAdoptedSession> {
+    const session = await this.startSession({
       pAuth: `mock_p_auth_spid_${Date.now()}`,
       partitaIva: "00000000000",
       createdAt: Date.now(),
     });
+    return { ...session, fiscalData: mockCedente(session) };
   }
 
   submitSale(payload: AdePayload): Promise<AdeResponse> {
@@ -253,19 +271,7 @@ export class MockAdeClient implements AdeClient {
   }
 
   getFiscalData() {
-    return this.whenLoggedIn((session) =>
-      buildCedenteFromBusiness({
-        vatNumber: session.partitaIva,
-        fiscalCode: "RSSMRA80A01H501A",
-        businessName: "",
-        address: "VIA ROMA",
-        streetNumber: "1",
-        city: "ROMA",
-        province: "RM",
-        zipCode: "00100",
-        preferredVatCode: "22",
-      }),
-    );
+    return this.whenLoggedIn(mockCedente);
   }
 
   getProducts(): Promise<AdeProduct[]> {

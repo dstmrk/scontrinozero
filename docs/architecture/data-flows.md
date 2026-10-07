@@ -181,15 +181,20 @@ Dalla Developer API: `POST /api/v1/receipts/{id}/return` (stesso servizio,
 ## Onboarding AdE (collegamento credenziali)
 
 1. Wizard `src/app/onboarding` → `src/server/onboarding-actions.ts` —
-   **method-aware** (`loginMethod: "fisconline" | "cie"`) in
-   `saveAdeCredentials`/`verifyAdeCredentials`.
+   **method-aware** (`loginMethod: "fisconline" | "cie" | "spid"`) in
+   `saveAdeCredentials`/`verifyAdeCredentials`, e `connectAdeWithSpid` per
+   SPID dall'app nativa.
 2. Verifica credenziali contro AdE; le credenziali sono cifrate AES-256-GCM
    con `src/lib/crypto.ts` e salvate in `src/db/schema/ade-credentials.ts`.
    **Ramo CIE**: login federato via SAML IdP (`loginCie` in
    `src/lib/ade/real-client.ts`, credenziali "livello 2" dell'app CIE ID),
    conferma via **notifica push** con finestra di polling (vedi
-   `docs/architecture/config-manifest.md`), poi la sessione è depositata
-   nello store interattivo per il riuso in emissione/annullo.
+   `docs/architecture/config-manifest.md`). **Ramo SPID**: `connectAdeWithSpid`
+   adotta i cookie della webview, confronta i dati fiscali letti
+   nell'adozione con la P.IVA registrata e solo allora scrive la riga `spid`
+   (issue #1040). Per CIE e SPID la sessione entra nello store interattivo
+   solo a verifica riuscita (identity guard e salvataggio), per il riuso in
+   emissione/annullo.
 3. Logging con `flow: "onboarding-verify"` in `src/lib/ade/log-failure.ts`.
 4. Anti-frode trial: al primo claim della P.IVA si registra il suo HMAC
    (`src/lib/piva-hash.ts`) in `src/db/schema/trial-vat-ledger.ts` (registro che

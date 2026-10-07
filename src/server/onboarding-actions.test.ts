@@ -120,8 +120,11 @@ const mockAdoptSession = vi.fn();
 const mockLogout = vi.fn();
 const mockGetFiscalData = vi.fn();
 const mockChangePasswordFisconline = vi.fn().mockResolvedValue(undefined);
+// "real" solo nei test del deposito nella sessione interattiva: il client
+// resta comunque il mock qui sotto.
+const mockGetAdeMode = vi.fn();
 vi.mock("@/lib/ade", () => ({
-  getAdeMode: () => "mock",
+  getAdeMode: () => mockGetAdeMode(),
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     loginCie: mockLoginCie,
@@ -197,6 +200,7 @@ describe("onboarding-actions", () => {
       .mockReset()
       .mockResolvedValue([{ id: "ledger-row-id" }]);
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+    mockGetAdeMode.mockReturnValue("mock");
     mockRateLimiterCheck.mockReset().mockReturnValue({
       success: true,
       remaining: 4,
@@ -2904,23 +2908,53 @@ describe("onboarding-actions", () => {
   describe("connectAdeWithSpid", () => {
     const BIZ = "11111111-1111-4111-8111-111111111111";
     const COOKIES = "JSESSIONID=abc; LtpaToken2=xyz";
+    const REGISTERED_VAT = "12345678901";
+    const REGISTERED_CF = "RSSMRA80A01H501U";
     const SPID_ROW = queuedCredRow({
       loginMethod: "spid",
       encryptedCodiceFiscale: null,
       encryptedPassword: null,
       encryptedPin: null,
     });
+    const NOT_ONBOARDED = { fiscalCode: null, vatNumber: null };
+    const ONBOARDED = { fiscalCode: REGISTERED_CF, vatNumber: REGISTERED_VAT };
+
+    /** Sessione adottata con i dati fiscali di `dati/fiscali`. */
+    function adopted(
+      partitaIva = REGISTERED_VAT,
+      codiceFiscale = REGISTERED_CF,
+    ) {
+      return {
+        pAuth: "",
+        partitaIva,
+        createdAt: 0,
+        fiscalData: {
+          identificativiFiscali: {
+            codicePaese: "IT",
+            partitaIva,
+            codiceFiscale,
+          },
+        },
+      };
+    }
+
+    /**
+     * Coda delle SELECT `.limit()`: ownership, identità del business letta
+     * prima di scrivere, poi riga credenziali e identità lette dalla verifica.
+     */
+    function queueReads(identity: Record<string, unknown>) {
+      mockLimit
+        .mockResolvedValueOnce([{ id: BIZ }])
+        .mockResolvedValueOnce([identity])
+        .mockResolvedValueOnce([SPID_ROW])
+        .mockResolvedValueOnce([identity]);
+    }
 
     beforeEach(() => {
-      mockLimit.mockResolvedValue([{ fiscalCode: null }]);
+      mockLimit.mockResolvedValue([NOT_ONBOARDED]);
       mockLogout.mockResolvedValue(undefined);
-      mockGetFiscalData.mockResolvedValue({
-        identificativiFiscali: {
-          codicePaese: "IT",
-          partitaIva: "12345678901",
-          codiceFiscale: "RSSMRA80A01H501U",
-        },
-      });
+      mockAdoptSession.mockReset().mockResolvedValue(adopted());
+      mockGetFiscalData.mockReset();
     });
 
     it("degrada a 'Non autenticato.' senza sessione", async () => {
@@ -2990,9 +3024,7 @@ describe("onboarding-actions", () => {
     });
 
     it("salva una riga spid senza segreti, adotta la sessione e completa la verifica", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: BIZ }]);
-      mockLimit.mockResolvedValueOnce([SPID_ROW]);
-      mockAdoptSession.mockResolvedValue({});
+      queueReads(NOT_ONBOARDED);
 
       const { connectAdeWithSpid } = await import("./onboarding-actions");
       const result = await connectAdeWithSpid(BIZ, `  ${COOKIES}\n`);
@@ -3041,16 +3073,211 @@ describe("onboarding-actions", () => {
       );
     });
 
-    it("adotta la sessione una volta sola: la verifica riusa lo stesso client", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: BIZ }]);
-      mockLimit.mockResolvedValueOnce([SPID_ROW]);
-      mockAdoptSession.mockResolvedValue({});
+    it("i dati fiscali vengono dall'adozione: nessuna seconda GET dati/fiscali", async () => {
+      queueReads(NOT_ONBOARDED);
 
       const { connectAdeWithSpid } = await import("./onboarding-actions");
       await connectAdeWithSpid(BIZ, COOKIES);
 
       expect(mockAdoptSession).toHaveBeenCalledTimes(1);
-      expect(mockGetFiscalData).toHaveBeenCalledTimes(1);
+      expect(mockGetFiscalData).not.toHaveBeenCalled();
+    });
+
+    describe("su un business già operativo (issue #1040)", () => {
+      it("un'utenza SPID con un'altra P.IVA non tocca credenziali, cache e store", async () => {
+        // Chi ha più utenze sceglie quella sbagliata nel portale: le sue
+        // credenziali Fisconline devono restare quelle con cui emette.
+        const { adeSessionCache } = await import("@/lib/ade/session-cache");
+        const { adeInteractiveSessionStore } =
+          await import("@/lib/ade/interactive-session-store");
+        const invalidateCache = vi.spyOn(adeSessionCache, "invalidate");
+        const invalidateStore = vi.spyOn(
+          adeInteractiveSessionStore,
+          "invalidate",
+        );
+        const storeSet = vi.spyOn(adeInteractiveSessionStore, "set");
+        mockGetAdeMode.mockReturnValue("real");
+        mockLimit
+          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([ONBOARDED]);
+        mockAdoptSession.mockResolvedValue(adopted("99999999999"));
+
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+        const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+        expect(result.pivaMismatch).toBe(true);
+        expect(result.error).toMatch(/SPID/);
+        expect(mockInsert).not.toHaveBeenCalled();
+        expect(mockTransaction).not.toHaveBeenCalled();
+        expect(invalidateCache).not.toHaveBeenCalled();
+        expect(invalidateStore).not.toHaveBeenCalled();
+        expect(storeSet).not.toHaveBeenCalled();
+        // L'esito si registra comunque, sulla riga esistente.
+        const { PgDialect } = await import("drizzle-orm/pg-core");
+        const dialect = new PgDialect();
+        const outcomeWrite = mockExecute.mock.calls
+          .map((call) => dialect.sqlToQuery(call[0]))
+          .find((q) => q.sql.includes("ade_credentials"));
+        expect(outcomeWrite?.params).toContain("piva_mismatch");
+        invalidateCache.mockRestore();
+        invalidateStore.mockRestore();
+        storeSet.mockRestore();
+      });
+
+      it("senza P.IVA registrata confronta il codice fiscale, sempre prima di scrivere", async () => {
+        mockLimit
+          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([
+            { fiscalCode: REGISTERED_CF, vatNumber: null },
+          ]);
+        mockAdoptSession.mockResolvedValue(
+          adopted(REGISTERED_VAT, "VRDLGI85M01H501Z"),
+        );
+
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+        const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+        expect(result.pivaMismatch).toBe(true);
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("con la stessa P.IVA passa a SPID e resta verificato", async () => {
+        queueReads(ONBOARDED);
+
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+        const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+        expect(result.error).toBeUndefined();
+        expect(result.pivaMismatch).toBeUndefined();
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.objectContaining({ loginMethod: "spid" }),
+        );
+        expect(mockUpdateSet).toHaveBeenCalledWith(
+          expect.objectContaining({ verifiedAt: expect.any(Date) }),
+        );
+      });
+    });
+
+    describe("sessione nello store interattivo (ADE_MODE=real)", () => {
+      it("entra nello store a verifica riuscita, senza logout", async () => {
+        const { adeInteractiveSessionStore } =
+          await import("@/lib/ade/interactive-session-store");
+        const storeSet = vi
+          .spyOn(adeInteractiveSessionStore, "set")
+          .mockImplementation(() => {});
+        mockGetAdeMode.mockReturnValue("real");
+        queueReads(NOT_ONBOARDED);
+
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+        const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+        expect(result.error).toBeUndefined();
+        expect(storeSet).toHaveBeenCalledTimes(1);
+        expect(storeSet).toHaveBeenCalledWith(
+          BIZ,
+          expect.objectContaining({ adoptSession: mockAdoptSession }),
+        );
+        expect(mockLogout).not.toHaveBeenCalled();
+        storeSet.mockRestore();
+      });
+
+      it("non entra nello store se il salvataggio finale fallisce", async () => {
+        const { adeInteractiveSessionStore } =
+          await import("@/lib/ade/interactive-session-store");
+        const storeSet = vi
+          .spyOn(adeInteractiveSessionStore, "set")
+          .mockImplementation(() => {});
+        mockGetAdeMode.mockReturnValue("real");
+        queueReads(NOT_ONBOARDED);
+        mockTransaction.mockRejectedValueOnce(new Error("db down"));
+
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+        const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+        expect(result.error).toMatch(/salvataggio è fallito/);
+        expect(storeSet).not.toHaveBeenCalled();
+        storeSet.mockRestore();
+      });
+    });
+  });
+
+  describe("verifica CIE: sessione nello store interattivo (ADE_MODE=real)", () => {
+    const BIZ = "11111111-1111-4111-8111-111111111111";
+    const CIE_ROW = {
+      businessId: BIZ,
+      loginMethod: "cie",
+      encryptedCodiceFiscale: null,
+      encryptedUsername: "enc-email",
+      encryptedPassword: "enc-pw",
+      encryptedPin: null,
+      keyVersion: 1,
+      updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+      utenzaPiva: null,
+    };
+
+    function fiscal(partitaIva: string) {
+      return {
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva,
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      };
+    }
+
+    beforeEach(() => {
+      // Letture successive (finalizzazione): come nel blocco verifyAdeCredentials.
+      mockLimit.mockResolvedValue([{ fiscalCode: null }]);
+      mockGetAdeMode.mockReturnValue("real");
+      mockLoginCie.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+    });
+
+    it("a verifica riuscita la sessione entra nello store, senza logout", async () => {
+      const { adeInteractiveSessionStore } =
+        await import("@/lib/ade/interactive-session-store");
+      const storeSet = vi
+        .spyOn(adeInteractiveSessionStore, "set")
+        .mockImplementation(() => {});
+      mockLimit
+        .mockResolvedValueOnce([{ id: BIZ }])
+        .mockResolvedValueOnce([CIE_ROW])
+        .mockResolvedValueOnce([{ fiscalCode: null, vatNumber: null }]);
+      mockGetFiscalData.mockResolvedValue(fiscal("12345678901"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(BIZ);
+
+      expect(result.error).toBeUndefined();
+      expect(storeSet).toHaveBeenCalledTimes(1);
+      expect(mockLogout).not.toHaveBeenCalled();
+      storeSet.mockRestore();
+    });
+
+    it("con un'altra P.IVA la sessione non entra nello store e il messaggio nomina la CIE", async () => {
+      // Prima il deposito avveniva prima del guard: lo store teneva una
+      // sessione intestata a un'altra P.IVA.
+      const { adeInteractiveSessionStore } =
+        await import("@/lib/ade/interactive-session-store");
+      const storeSet = vi
+        .spyOn(adeInteractiveSessionStore, "set")
+        .mockImplementation(() => {});
+      mockLimit
+        .mockResolvedValueOnce([{ id: BIZ }])
+        .mockResolvedValueOnce([CIE_ROW])
+        .mockResolvedValueOnce([
+          { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+        ]);
+      mockGetFiscalData.mockResolvedValue(fiscal("99999999999"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(BIZ);
+
+      expect(result.pivaMismatch).toBe(true);
+      expect(result.error).toMatch(/CIE/);
+      expect(result.error).not.toMatch(/Fisconline/);
+      expect(storeSet).not.toHaveBeenCalled();
+      storeSet.mockRestore();
     });
   });
 

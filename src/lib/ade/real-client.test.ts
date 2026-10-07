@@ -2417,6 +2417,25 @@ describe("RealAdeClient", () => {
       expect(init.redirect).toBe("manual");
     });
 
+    it("restituisce i dati fiscali letti: la verifica non rifà la GET", async () => {
+      const body = {
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+        altriDatiIdentificativi: { denominazione: "Bar Rossi" },
+        multiAttivita: [],
+        multiSede: [],
+      };
+      fetchMock.mockResolvedValueOnce(mockResponse({ body }));
+
+      const { fiscalData } = await client.adoptSession(COOKIES);
+
+      expect(fiscalData).toEqual(body);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it("dopo l'adozione emette con gli stessi cookie, senza login", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
       await client.adoptSession(COOKIES);
