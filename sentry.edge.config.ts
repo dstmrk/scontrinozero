@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 import {
   isBenignFormDataParseError,
   isForeignHostEvent,
+  SENTRY_DATA_COLLECTION,
 } from "@/lib/sentry-filters";
 import { getAppRelease } from "@/lib/version";
 
@@ -13,6 +14,8 @@ Sentry.init({
   release: getAppRelease(),
   tracesSampleRate: 0.1,
   enabled: !!process.env.SENTRY_DSN,
+  // Stessa impostazione del server: nessun body HTTP negli eventi.
+  dataCollection: SENTRY_DATA_COLLECTION,
   beforeSend(event, hint) {
     // Istanza self-hosted che riporta nel nostro progetto: qui gira il
     // middleware (`src/proxy.ts`), quindi senza questo filtro i suoi errori di
