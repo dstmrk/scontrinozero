@@ -37,6 +37,7 @@ import {
   verifyAdeCredentials,
 } from "@/server/onboarding-actions";
 import { UtenzaPicker } from "@/components/ade/utenza-picker";
+import { SpidConnectButton } from "@/components/ade/spid-connect-button";
 import type { AdeUtenzaCandidate } from "@/lib/ade/types";
 import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
@@ -242,6 +243,20 @@ export function OnboardingForm({
     });
   }
 
+  /**
+   * Collegamento SPID dall'app nativa: credenziali salvate e verificate in un
+   * colpo solo, quindi si salta il passo di verifica.
+   */
+  function handleSpidConnected(result: { trialAlreadyUsed?: boolean }) {
+    resetVerifyState();
+    if (result.trialAlreadyUsed) {
+      setStep(2);
+      setTrialAlreadyUsed(true);
+      return;
+    }
+    router.push("/dashboard");
+  }
+
   function handleSkipVerify() {
     router.push("/dashboard");
   }
@@ -362,6 +377,15 @@ export function OnboardingForm({
                 </Button>
               </form>
             </Form>
+          )}
+
+          {step === 1 && businessId && (
+            <div className="mb-4">
+              <SpidConnectButton
+                businessId={businessId}
+                onConnected={handleSpidConnected}
+              />
+            </div>
           )}
 
           {step === 1 && method === "fisconline" && (

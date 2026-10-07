@@ -177,6 +177,15 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
   da rifare. Lo script resta il probe da rilanciare se l'AdE cambia
   qualcosa nel login (lettura di default, `--emit` per emettere e
   annullare).
+- **La cattura sta in `src/lib/native/spid-capture.ts`**, nel bundle web:
+  l'app è un guscio su `server.url`, quindi il codice che parla al plugin
+  InAppBrowser arriva dal server e usa il bridge `window.Capacitor`
+  (`nativePromise`/`addListener` sul plugin `CapgoInAppBrowser`), senza
+  `@capacitor/core` fra le dipendenze web. Il segnale di login riuscito è
+  l'arrivo della webview su Documento commerciale online: è lì che si leggono
+  i cookie di `ivaservizi` (`includeHttpOnly`). URL di partenza e prefisso
+  vanno verificati sul device: se l'AdE li sposta, è la prima cosa da
+  guardare.
 
 ---
 
