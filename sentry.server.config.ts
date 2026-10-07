@@ -25,8 +25,9 @@ Sentry.init({
   release: getAppRelease(),
   tracesSampleRate: 0.1,
   enabled: !!process.env.SENTRY_DSN,
-  // Niente body delle richieste negli eventi: per una server action sono gli
-  // argomenti in chiaro, credenziali comprese (vedi la costante).
+  // Né body delle richieste né IP del client negli eventi: per una server
+  // action il body sono gli argomenti in chiaro, credenziali comprese (vedi
+  // la costante).
   dataCollection: SENTRY_DATA_COLLECTION,
   // Log drain: drena i pino logs (info e superiori) verso Sentry Logs, cosi'
   // gli errori non-eccezione e il flusso applicativo sono interrogabili senza

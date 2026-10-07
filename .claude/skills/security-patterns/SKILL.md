@@ -480,7 +480,7 @@ Per la **validazione end-to-end del drain** dopo un rollout di telemetria
 (sentinella, query Sentry) → skill `sentry-hygiene` e `deploy-release`
 (smoke post-deploy).
 
-### Body delle richieste negli eventi: `dataCollection`, non `sendDefaultPii`
+### Body e IP negli eventi: `dataCollection`, non `sendDefaultPii`
 
 Da `@sentry/nextjs` 11 `sendDefaultPii` non esiste più: cosa l'SDK raccoglie
 lo decide `dataCollection`, e i suoi default raccolgono tutto (body, header,
@@ -488,15 +488,21 @@ cookie, IP del client). Header e cookie passano per un filtro a chiavi
 sensibili (`auth`, `token`, `cookie`, `sb-`…); il **body no**: finisce
 nell'evento com'è, fino a 10 KB. Per una server action il body sono gli
 argomenti in chiaro, cioè password e PIN Fisconline (`saveAdeCredentials`) e
-il cookie della sessione SPID (`connectAdeWithSpid`).
+il cookie della sessione SPID (`connectAdeWithSpid`). E con `userInfo` al
+default ogni evento server porta `user.ip_address` e gli header
+`x-forwarded-for` / `cf-connecting-ip`, contro la regola dei log (`ip` in
+`REDACT_PATHS`).
 
 Per questo i tre `Sentry.init` passano `SENTRY_DATA_COLLECTION`
-(`src/lib/sentry-filters.ts`), che spegne `httpBodies`. Gate:
-`tests/unit/sentry-configs.test.ts` (i tre bootstrap la passano) e
-`tests/unit/sentry-request-body.test.ts` (SDK vero, body letto come lo legge
-Next: deve restare fuori dall'evento). A ogni major di `@sentry/nextjs`
-rileggi i default in `resolveDataCollectionOptions` di `@sentry/core`: è lì
-che un aggiornamento allarga la raccolta senza toccare la nostra config.
+(`src/lib/sentry-filters.ts`): `httpBodies: []` e `userInfo: false`. Con
+`userInfo: false` l'SDK toglie da sé i dodici header che portano l'IP e, nel
+browser, smette di farlo ricavare a Sentry; `Sentry.setUser({ id })`
+(regola 22) resta. Gate: `tests/unit/sentry-configs.test.ts` (i tre
+bootstrap la passano) e `tests/unit/sentry-data-collection.test.ts` (SDK
+vero, envelope serializzato: body e IP devono restarne fuori, l'id utente
+dentro). A ogni major di `@sentry/nextjs` rileggi i default in
+`resolveDataCollectionOptions` di `@sentry/core`: è lì che un aggiornamento
+allarga la raccolta senza toccare la nostra config.
 
 ### `release` per legare un evento al commit in esecuzione
 

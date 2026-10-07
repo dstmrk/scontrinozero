@@ -477,19 +477,26 @@ export function isBenignServerActionNotFound(
 }
 
 /**
- * `dataCollection` comune ai tre `Sentry.init` (server, edge, browser):
- * nessun body HTTP negli eventi.
+ * `dataCollection` comune ai tre `Sentry.init` (server, edge, browser). Da
+ * @sentry/nextjs 11 `sendDefaultPii` non esiste più e i default di
+ * `dataCollection` raccolgono tutto. Qui si spegne ciò che non deve uscire
+ * verso un terzo:
  *
- * Da @sentry/nextjs 11 il default allega a ogni evento server il body della
- * richiesta in arrivo, fino a 10 KB e **senza** il filtro per chiavi sensibili
- * che l'SDK applica a header e cookie. Per una server action il body è l'array
- * degli argomenti in chiaro: la password e il PIN Fisconline di
- * `saveAdeCredentials`, l'header Cookie della sessione SPID di
- * `connectAdeWithSpid`, che funziona da qualunque IP (docs/mobile-v2.md punto
- * 5). Verificato con l'SDK vero in `tests/unit/sentry-request-body.test.ts`.
+ * - **Body HTTP** (`httpBodies: []`). L'SDK lo allega fino a 10 KB, **senza**
+ *   il filtro per chiavi sensibili che applica a header e cookie. Per una
+ *   server action il body sono gli argomenti in chiaro: password e PIN
+ *   Fisconline di `saveAdeCredentials`, l'header Cookie della sessione SPID di
+ *   `connectAdeWithSpid`, che funziona da qualunque IP (docs/mobile-v2.md
+ *   punto 5).
+ * - **IP del client** (`userInfo: false`). Stessa regola dei log, dove `ip`
+ *   è in REDACT_PATHS. Niente `user.ip_address`, e l'SDK toglie da sé i
+ *   dodici header che lo portano (`x-forwarded-for`, `cf-connecting-ip`…).
+ *   Nel browser Sentry smette anche di ricavarlo dalla richiesta d'invio.
+ *   `Sentry.setUser({ id })` (regola 22) non ne risente.
  *
- * Nell'edge e nel browser oggi nessuna integrazione legge `httpBodies`. La
+ * Verificato con l'SDK vero in `tests/unit/sentry-data-collection.test.ts`.
+ * Nell'edge e nel browser oggi nessuna integrazione legge `httpBodies`: la
  * stessa impostazione sta anche lì perché un aggiornamento dell'SDK non riapra
  * la raccolta in silenzio, come è successo col passaggio alla 11.
  */
-export const SENTRY_DATA_COLLECTION = { httpBodies: [] };
+export const SENTRY_DATA_COLLECTION = { httpBodies: [], userInfo: false };
