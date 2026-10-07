@@ -133,11 +133,10 @@ export function getUserFacingAdeErrorMessage(
     };
   }
   if (err instanceof AdeSpidTimeoutError) {
+    // Lo lancia solo il polling push di CIE: SPID non ha più un flusso server.
     return {
       message:
-        method === "cie"
-          ? "Non hai approvato la notifica sull'app CIE ID in tempo. Riprova."
-          : "Non hai approvato la richiesta SPID in tempo. Riprova.",
+        "Non hai approvato la notifica sull'app CIE ID in tempo. Riprova.",
     };
   }
   return { message: fallback };
@@ -145,7 +144,7 @@ export function getUserFacingAdeErrorMessage(
 
 /**
  * Ritorna true se l'errore è una condizione transient su cui ScontrinoZero
- * non può fare nulla (downtime AdE, rete, SPID timeout) OPPURE un esito
+ * non può fare nulla (downtime AdE, rete, timeout della push CIE) OPPURE un esito
  * **ignoto** (`AdeUnknownOutcomeError`: 200 con body non-JSON dopo un submit).
  *
  * Usato dai catch site dei servizi AdE per due decisioni: (a) il log level —

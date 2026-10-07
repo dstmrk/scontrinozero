@@ -203,31 +203,6 @@ export interface FisconlineCredentials {
 export type AdeLoginMethod = "fisconline" | "cie" | "spid";
 
 // ---------------------------------------------------------------------------
-// Credenziali SPID (sez. 1.3)
-// HAR finding (login_spid_ok_*.har): flusso SAML2 HTTP POST Binding. Entry AdE
-// per provider: /rp/{provider}/sel (es. /rp/sielte/sel). 2FA via OTP dall'app
-// del provider oppure push notification. Nessun PIN. Le credenziali SPID NON
-// vengono mai persistite (regole AgID): si passano solo, transitorie, al login.
-// ---------------------------------------------------------------------------
-
-export type SpidProvider =
-  | "aruba"
-  | "infocert"
-  | "intesa"
-  | "lepida"
-  | "namirial"
-  | "poste"
-  | "sielte"
-  | "spiditalia"
-  | "tim";
-
-export interface SpidCredentials {
-  codiceFiscale: string;
-  password: string;
-  spidProvider: SpidProvider;
-}
-
-// ---------------------------------------------------------------------------
 // Credenziali CIE (Carta d'Identità Elettronica)
 // HAR finding (login_cie_ok_notifica_app.har): IdP Shibboleth del Ministero
 // dell'Interno (idserver.servizicie.interno.gov.it). Entry AdE: /rp/cie/sel.

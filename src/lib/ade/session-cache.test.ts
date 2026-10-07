@@ -37,7 +37,6 @@ const SESSION: AdeSession = {
 function makeFakeClient(): CachedAdeClient {
   return {
     login: vi.fn().mockResolvedValue(SESSION),
-    loginSpid: vi.fn().mockResolvedValue(SESSION),
     loginCie: vi.fn().mockResolvedValue(SESSION),
     submitSale: vi.fn(),
     submitVoid: vi.fn(),
