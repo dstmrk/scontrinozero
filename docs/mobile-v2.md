@@ -136,9 +136,12 @@ Il contratto si verifica **senza una riga di codice nativo**, in due gradini:
    `portaleCookie`, `B2BCookie`, `FATSC`.
 2. **Uno scontrino da €0,01 emesso e annullato** con la sessione adottata,
    per verificare che la POST di emissione non chieda altro oltre ai cookie.
-   Lo fa `scripts/adopt-session-probe.ts` con `--emit`, sopra
-   `RealAdeClient.adoptSession`: il contratto nuovo di questo punto, già nel
-   client e coperto da test.
+   **Superato**: `scripts/adopt-session-probe.ts --emit`, sopra
+   `RealAdeClient.adoptSession`, ha emesso e annullato dalla rete di casa con
+   i cookie di un login SPID da browser. Né `x-appl` né una nuova scelta
+   dell'utenza: bastano i cookie. Accettato anche il cedente letto da
+   `dati/fiscali`. Il portale di prova non aveva un'aliquota di default, da
+   qui l'opzione `--vat` dello script.
 
 L'IP diverso è il punto del test: in produzione il login avviene sul telefono e
 l'emissione parte dalla VPS. Browser e server sulla stessa rete di casa
@@ -146,7 +149,7 @@ passerebbero il test per la ragione sbagliata. `fullTemplate` (HAR.md §18.5),
 la prima candidata, non l'ha chiamata nessuno: nel codice non esiste, quindi
 non si sa quali header richieda.
 
-Quello che il gradino 1 non dimostra: che i cookie letti dal plugin
+Quello che i due gradini non dimostrano: che i cookie letti dal plugin
 InAppBrowser siano gli stessi che copia un browser desktop. Lo verifica la
 slice di cattura.
 
@@ -261,6 +264,7 @@ nella skill `deploy-release`; istruzioni per costruire il guscio in
 | 9   | Sessione persistita cifrata: differenziatore, non prerequisito | media               |
 | 10  | iOS e Android insieme, dallo stesso guscio (ex B, C)           | alta                |
 | 11  | Guscio in parallelo al punto E: serve in entrambi gli esiti    | alta                |
+| 12  | Il server adotta la sessione SPID dai cookie (ex E, misurato)  | alta                |
 
 Sulla 9: i concorrenti costringono a riautenticarsi più volte al giorno, quindi
 perdere le sessioni a ogni deploy non è il problema di prodotto che sembrava.
@@ -278,7 +282,6 @@ Principi guida. Il build iOS gira su un Mac con Xcode, che c'è.
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | A   | Un 401 può arrivare **dalla POST di emissione**, dopo che l'AdE ha accettato il documento? Se sì, «sicuro per costruzione» cade e il resume richiede riconciliazione. | risposta secca nei tracciati HAR (`login_spid.har`), non un giudizio |
 | D   | Nome e semantica dello stato riprendibile, distinto da ERROR e invisibile allo stale-gate.                                                                            | in fase di slice                                                     |
-| E   | Il cookie jar trasportato regge un'emissione? (punto 5) Gradino 1 superato; manca il 2.                                                                               | `scripts/adopt-session-probe.ts --emit`                              |
 
 ---
 
@@ -301,9 +304,8 @@ quando la slice arriva.
 1. **Guscio** — fatto e accettato: `mobile/`, Capacitor 8, `server.url`
    scelto per ambiente al `cap sync`, nessun plugin nativo. Login di sandbox
    visto sul simulatore iOS il 24 settembre 2026.
-2. **Punto E** (punto 5) — gradino 1 superato, gradino 2 con
-   `scripts/adopt-session-probe.ts --emit`. Decide se la slice 3 adotta la
-   sessione sul server o se l'emissione SPID passa dal dispositivo.
+2. **Punto E** (punto 5) — chiuso: entrambi i gradini superati, la slice 3
+   adotta la sessione sul server.
 3. **Cattura del cookie**: InAppBrowser sul portale AdE, login SPID
    dell'utente, il plugin restituisce i cookie, POST al server, `AdeClient`
    adottato nello store interattivo, uno scontrino emesso. Un artefatto, un
@@ -314,9 +316,10 @@ quando la slice arriva.
 
 ## 13. Cosa non fare adesso
 
-Scrivere la cattura del cookie (slice 3) prima del punto E. Rimuovere gli helper S1-S15 prima che la scelta webview sia
-confermata dal punto E — la rimozione è corretta _sotto questo design_, e
-questo design ha ancora un test da superare.
+Il punto E ha tolto i due divieti che stavano qui: la cattura del cookie
+(slice 3) si può scrivere, e gli helper S1-S15 del flusso SPID su HTTP si
+possono rimuovere (punto 7, issue #997). Resta un vincolo: il resume del
+punto 6 non si progetta prima di aver chiuso la domanda A.
 
 E per il contesto di dominio sul client AdE, la skill `ade-integration` resta
 la fonte prescrittiva: questo documento è una decisione, non un come-fare.
