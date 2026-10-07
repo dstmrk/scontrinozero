@@ -146,9 +146,12 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    anticipato lascia nello store una sessione di un'altra P.IVA (identity
    guard fallito) o di una verifica non salvata, e su un rinnovo con
    `verifiedAt` già valorizzato l'emissione la userebbe (issue #1040). Una
-   verifica fallita lascia cadere il client senza logout. Gate: i test
-   «sessione nello store interattivo (ADE_MODE=real)» in
-   `src/server/onboarding-actions.test.ts`.
+   verifica fallita lascia cadere il client senza logout. Si guarda
+   `outcome`, non l'assenza di `error`: `credentials_changed` non ha errore
+   ma non ha salvato niente. Fisconline, e ogni metodo in `ADE_MODE=mock`,
+   fanno logout subito. Gate: i test «sessione nello store interattivo
+   (ADE_MODE=real)» in `src/server/onboarding-actions.test.ts`, uno per
+   ciascuna di queste condizioni.
 
 Il socket keep-alive morto (sezione sotto) colpisce **soprattutto qui**: i gap
 di 7 s tra un poll e l'altro superano il keep-alive dei server IdP.

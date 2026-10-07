@@ -3201,7 +3201,7 @@ describe("onboarding-actions", () => {
     });
   });
 
-  describe("verifica CIE: sessione nello store interattivo (ADE_MODE=real)", () => {
+  describe("verifica: sessione nello store interattivo (ADE_MODE=real)", () => {
     const BIZ = "11111111-1111-4111-8111-111111111111";
     const CIE_ROW = {
       businessId: BIZ,
@@ -3213,6 +3213,13 @@ describe("onboarding-actions", () => {
       keyVersion: 1,
       updatedAt: new Date("2026-03-26T14:36:07.000Z"),
       utenzaPiva: null,
+    };
+    const FISCONLINE_ROW = {
+      ...CIE_ROW,
+      loginMethod: "fisconline",
+      encryptedCodiceFiscale: "enc-cf",
+      encryptedUsername: null,
+      encryptedPin: "enc-pin",
     };
 
     function fiscal(partitaIva: string) {
@@ -3230,20 +3237,30 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValue([{ fiscalCode: null }]);
       mockGetAdeMode.mockReturnValue("real");
       mockLoginCie.mockResolvedValue({});
+      mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
     });
 
-    it("a verifica riuscita la sessione entra nello store, senza logout", async () => {
+    async function spyStoreSet() {
       const { adeInteractiveSessionStore } =
         await import("@/lib/ade/interactive-session-store");
-      const storeSet = vi
+      return vi
         .spyOn(adeInteractiveSessionStore, "set")
         .mockImplementation(() => {});
+    }
+
+    /** Ownership, riga credenziali, snapshot del primo onboarding. */
+    function queueFirstOnboarding(row: Record<string, unknown>) {
       mockLimit
         .mockResolvedValueOnce([{ id: BIZ }])
-        .mockResolvedValueOnce([CIE_ROW])
+        .mockResolvedValueOnce([row])
         .mockResolvedValueOnce([{ fiscalCode: null, vatNumber: null }]);
       mockGetFiscalData.mockResolvedValue(fiscal("12345678901"));
+    }
+
+    it("a verifica riuscita la sessione entra nello store, senza logout", async () => {
+      const storeSet = await spyStoreSet();
+      queueFirstOnboarding(CIE_ROW);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       const result = await verifyAdeCredentials(BIZ);
@@ -3257,11 +3274,7 @@ describe("onboarding-actions", () => {
     it("con un'altra P.IVA la sessione non entra nello store e il messaggio nomina la CIE", async () => {
       // Prima il deposito avveniva prima del guard: lo store teneva una
       // sessione intestata a un'altra P.IVA.
-      const { adeInteractiveSessionStore } =
-        await import("@/lib/ade/interactive-session-store");
-      const storeSet = vi
-        .spyOn(adeInteractiveSessionStore, "set")
-        .mockImplementation(() => {});
+      const storeSet = await spyStoreSet();
       mockLimit
         .mockResolvedValueOnce([{ id: BIZ }])
         .mockResolvedValueOnce([CIE_ROW])
@@ -3276,6 +3289,53 @@ describe("onboarding-actions", () => {
       expect(result.pivaMismatch).toBe(true);
       expect(result.error).toMatch(/CIE/);
       expect(result.error).not.toMatch(/Fisconline/);
+      expect(storeSet).not.toHaveBeenCalled();
+      storeSet.mockRestore();
+    });
+
+    it("se le credenziali cambiano durante la verifica la sessione CIE non entra nello store", async () => {
+      // credentials_changed non porta `error`: il deposito deve guardare
+      // l'esito, non l'assenza di errore.
+      const storeSet = await spyStoreSet();
+      queueFirstOnboarding(CIE_ROW);
+      // Optimistic-lock miss: l'UPDATE guardato di verifiedAt matcha 0 righe.
+      mockUpdateReturning.mockReset().mockResolvedValue([]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(BIZ);
+
+      expect(result.error).toBeUndefined();
+      expect(result.businessId).toBe(BIZ);
+      expect(storeSet).not.toHaveBeenCalled();
+      storeSet.mockRestore();
+    });
+
+    it("Fisconline non tiene la sessione: logout e niente store", async () => {
+      // Il login si rifà in silenzio con le credenziali salvate: nessuna
+      // sessione da conservare, anche in real.
+      const storeSet = await spyStoreSet();
+      queueFirstOnboarding(FISCONLINE_ROW);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(BIZ);
+
+      expect(result.error).toBeUndefined();
+      expect(mockLogin).toHaveBeenCalledTimes(1);
+      expect(mockLogout).toHaveBeenCalledTimes(1);
+      expect(storeSet).not.toHaveBeenCalled();
+      storeSet.mockRestore();
+    });
+
+    it("con ADE_MODE=mock anche la CIE fa logout e non usa lo store", async () => {
+      const storeSet = await spyStoreSet();
+      mockGetAdeMode.mockReturnValue("mock");
+      queueFirstOnboarding(CIE_ROW);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(BIZ);
+
+      expect(result.error).toBeUndefined();
+      expect(mockLogout).toHaveBeenCalledTimes(1);
       expect(storeSet).not.toHaveBeenCalled();
       storeSet.mockRestore();
     });
