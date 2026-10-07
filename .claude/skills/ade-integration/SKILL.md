@@ -140,6 +140,15 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    campi su Sentry Logs (`message:ade:cie_credentials_rejected`): un
    `error_class` con un `idpMessage` diverso è il caso da gestire. Mai loggare
    l'HTML grezzo: al re-render l'IdP ricompila l'email nel `value` dell'input.
+7. **Nello store entra solo una verifica riuscita.** `runAdeVerification`
+   deposita il client (CIE o SPID, solo `ADE_MODE=real`) dopo
+   `finalizeVerifiedIdentity` con esito `success`, mai prima. Un deposito
+   anticipato lascia nello store una sessione di un'altra P.IVA (identity
+   guard fallito) o di una verifica non salvata, e su un rinnovo con
+   `verifiedAt` già valorizzato l'emissione la userebbe (issue #1040). Una
+   verifica fallita lascia cadere il client senza logout. Gate: i test
+   «sessione nello store interattivo (ADE_MODE=real)» in
+   `src/server/onboarding-actions.test.ts`.
 
 Il socket keep-alive morto (sezione sotto) colpisce **soprattutto qui**: i gap
 di 7 s tra un poll e l'altro superano il keep-alive dei server IdP.
@@ -165,11 +174,14 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
   riga `ade_credentials` con `login_method = 'spid'` e nessun segreto, poi la
   stessa verifica di Fisconline e CIE (`verifyStoredCredentials`) con
   `adoptSession` al posto del login, identity guard compreso. La sessione
-  finisce nello store interattivo come CIE. **Si adotta prima di scrivere**:
-  `adoptSession` gira su un client nuovo prima dell'upsert, e quello stesso
-  client passa alla verifica. Un upsert prima dell'adozione cancellerebbe le
-  credenziali Fisconline di chi già emette, appena prova SPID con cookie
-  scaduti. `verifyAdeCredentials` su una riga
+  finisce nello store interattivo come CIE. **Si adotta e si controlla
+  l'identità prima di scrivere** (issue #1040): `adoptSession` gira su un
+  client nuovo e restituisce i dati fiscali che ha letto da `dati/fiscali`;
+  l'identity guard li confronta con la P.IVA registrata, e solo allora parte
+  l'upsert. Client e dati passano poi alla verifica, che non rifà la GET. Un
+  upsert prima di uno dei due controlli cancellerebbe le credenziali
+  Fisconline di chi già emette: con cookie scaduti, o scegliendo nel portale
+  un'utenza di un'altra P.IVA (chi ne ha più d'una). `verifyAdeCredentials` su una riga
   `spid` senza cookie non ha niente da adottare: risponde di ricollegarsi
   dall'app.
 - **Nessuna credenziale in memoria**: su 401 in emissione niente re-login,

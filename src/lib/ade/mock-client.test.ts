@@ -240,6 +240,14 @@ describe("MockAdeClient", () => {
       expect(session.partitaIva).toHaveLength(11);
     });
 
+    it("restituisce i dati fiscali della P.IVA fittizia, come getFiscalData", async () => {
+      const { partitaIva, fiscalData } =
+        await client.adoptSession("JSESSIONID=x");
+
+      expect(fiscalData.identificativiFiscali.partitaIva).toBe(partitaIva);
+      expect(fiscalData).toEqual(await client.getFiscalData());
+    });
+
     it("abilita le operazioni come un login", async () => {
       await client.adoptSession("JSESSIONID=x");
       const response = await client.submitSale(makeSalePayload());

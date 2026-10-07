@@ -30,6 +30,14 @@ export interface AdeSession {
   createdAt: number;
 }
 
+/**
+ * Sessione adottata, con i dati fiscali che l'adozione ha già letto da
+ * `dati/fiscali` per verificarla: la verifica li riusa senza rifare la GET.
+ */
+export interface AdeAdoptedSession extends AdeSession {
+  fiscalData: AdeCedentePrestatore;
+}
+
 export interface AdeClient {
   /**
    * Autentica sul portale AdE con credenziali Fisconline e restituisce una
@@ -64,7 +72,7 @@ export interface AdeClient {
    * webview dell'app nativa (docs/mobile-v2.md punto 5) — dai suoi cookie.
    * Nessuna credenziale resta in memoria: su 401 niente re-login.
    */
-  adoptSession(cookieHeader: string): Promise<AdeSession>;
+  adoptSession(cookieHeader: string): Promise<AdeAdoptedSession>;
 
   /** Invia un documento commerciale di vendita */
   submitSale(payload: AdePayload): Promise<AdeResponse>;
