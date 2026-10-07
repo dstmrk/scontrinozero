@@ -1245,10 +1245,12 @@ const SPID_VERIFY_FLOW: VerifyFlow = {
  * dell'app nativa (docs/mobile-v2.md punto 5). L'app legge i cookie del
  * portale e li passa qui; il server non vede mai credenziali SPID.
  *
- * Salva una riga credenziali `spid` senza segreti, poi la verifica con la
- * stessa pipeline di Fisconline e CIE: adozione dei cookie al posto del login,
- * identity guard sulla P.IVA, finalizzazione, sessione depositata nello store
- * interattivo. La scelta dell'utenza di lavoro l'ha già fatta l'utente nel
+ * Adotta i cookie e confronta i dati fiscali letti con la P.IVA registrata
+ * prima di scrivere: con un'altra P.IVA la riga credenziali esistente resta
+ * com'è (issue #1040). Solo allora salva la riga `spid` senza segreti e la
+ * verifica con la stessa pipeline di Fisconline e CIE (l'adozione al posto
+ * del login); la sessione entra nello store interattivo solo a verifica
+ * riuscita. La scelta dell'utenza di lavoro l'ha già fatta l'utente nel
  * portale, dentro la webview.
  */
 export async function connectAdeWithSpid(
