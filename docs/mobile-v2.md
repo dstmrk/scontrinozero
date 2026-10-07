@@ -205,15 +205,17 @@ portante del punto 6, al punto 10.
 
 ## 7. Cosa muore, cosa resta
 
-**Muore il flusso SPID su HTTP.** Gli helper S1-S15 in
-`src/lib/ade/real-client.ts:1303` sono implementati e testati ma senza
-chiamanti, e `spidPostCredentials` fa esattamente la cosa che la webview esiste
-per evitare: manda codice fiscale e password SPID dell'utente attraverso il
+**Muore il flusso SPID su HTTP** — rimosso dopo la chiusura del punto E. Gli
+helper S1-S15 di `src/lib/ade/real-client.ts` erano implementati e testati ma
+senza chiamanti, e `spidPostCredentials` faceva esattamente la cosa che la
+webview esiste per evitare: manda codice fiscale e password SPID dell'utente attraverso il
 nostro server. Le regole SPID di AgID e i termini degli IdP vietano a un
 soggetto non accreditato di raccogliere quelle credenziali — da confermare con
 un legale, ma la direzione è quella, e i concorrenti che usano tutti la webview
-sono un indizio concorde. Si rimuove, non si avvolge (regola 28). L'issue #997
-si chiude per cancellazione, non scrivendo `SPID_ALLOWED_IDP_HOSTS`.
+sono un indizio concorde. Rimosso, non avvolto (regola 28): l'issue #997 si è
+chiusa per cancellazione, senza mai scrivere `SPID_ALLOWED_IDP_HOSTS`. Con il
+flusso è uscito dall'allowlist federata anche l'IdP SPID
+(`identity.sieltecloud.it`), che nessun codice raggiungeva più.
 
 **Resta Fisconline su HTTP.** Le credenziali cifrate danno il re-auth
 silenzioso, che è una feature vera e che una sessione da webview non può
@@ -317,9 +319,9 @@ quando la slice arriva.
 ## 13. Cosa non fare adesso
 
 Il punto E ha tolto i due divieti che stavano qui: la cattura del cookie
-(slice 3) si può scrivere, e gli helper S1-S15 del flusso SPID su HTTP si
-possono rimuovere (punto 7, issue #997). Resta un vincolo: il resume del
-punto 6 non si progetta prima di aver chiuso la domanda A.
+(slice 3) si può scrivere, e gli helper S1-S15 del flusso SPID su HTTP sono
+stati rimossi (punto 7). Resta un vincolo: il resume del punto 6 non si
+progetta prima di aver chiuso la domanda A.
 
 E per il contesto di dominio sul client AdE, la skill `ade-integration` resta
 la fonte prescrittiva: questo documento è una decisione, non un come-fare.

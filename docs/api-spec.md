@@ -140,8 +140,9 @@ IdP CIE (Shibboleth Min. Interno): `https://idserver.servizicie.interno.gov.it`
 ## 1B. Autenticazione AdE (SPID — Sistema Pubblico di Identità Digitale)
 
 > **Nota**: il flusso SPID richiede conferma via app del proprio Identity Provider
-> (notifica push o QR). Non è automatizzabile headlessly. Documentato a fini di
-> ricerca per eventuale implementazione futura.
+> (notifica push o QR). Il server non lo implementa: SPID passa dalla webview
+> dell'app nativa, che fa il login, e il server adotta i cookie di sessione
+> (`docs/mobile-v2.md` punto 5). Resta qui come traduzione del tracciato.
 
 Base URL: `https://ivaservizi.agenziaentrate.gov.it`
 Chooser SPID: `https://spid.sogei.it/SPIDManagerWeb/loginFattureCorrispettivi.html`

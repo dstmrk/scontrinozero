@@ -8,11 +8,7 @@ import {
 import { createAdeClient } from "./index";
 import { mapSaleToAdePayload } from "./mapper";
 import { mapReturnToAdePayload } from "./return-mapper";
-import type {
-  AdePayload,
-  AdeCedentePrestatore,
-  SpidCredentials,
-} from "./types";
+import type { AdePayload, AdeCedentePrestatore } from "./types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -233,29 +229,6 @@ describe("MockAdeClient", () => {
 
     it("does not throw if already logged out", async () => {
       await expect(client.logout()).resolves.toBeUndefined();
-    });
-  });
-
-  describe("loginSpid", () => {
-    const spidCreds: SpidCredentials = {
-      codiceFiscale: "RSSMRA80A01H501A",
-      password: "spidpassword",
-      spidProvider: "poste",
-    };
-
-    it("returns a mock session marked as spid", async () => {
-      const session = await client.loginSpid(spidCreds);
-
-      expect(session.pAuth).toMatch(/^mock_p_auth_spid_/);
-      expect(session.partitaIva).toHaveLength(11);
-      expect(session.createdAt).toBeGreaterThan(0);
-    });
-
-    it("enables subsequent operations like a regular login", async () => {
-      await client.loginSpid(spidCreds);
-      const response = await client.submitSale(makeSalePayload());
-
-      expect(response.esito).toBe(true);
     });
   });
 

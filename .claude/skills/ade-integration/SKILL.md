@@ -122,8 +122,9 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
 5. **Finestra di polling push:** 12 × 7000 ms ≈ 84 s (`cieMaxPolls` /
    `ciePollIntervalMs`), scelta per stare **sotto** il taglio ~100 s del proxy
    Cloudflare (errore 524). Se allunghi l'attesa, il gate reale è quello, non AdE.
-   Il ramo SPID (`spidMaxPolls`, 30 poll) è implementato e testato ma **non ha
-   chiamanti**: SPID resta precluso alla PWA (vedi `docs/mobile-v2.md`).
+   SPID non ha più un flusso server: il login avviene nella webview dell'app
+   nativa e il server adotta i cookie (sezione "Sessione adottata" sotto).
+   `AdeSpidTimeoutError` resta, ma lo lancia solo questo polling CIE.
 6. **Un rifiuto a livello2 non è per forza "credenziali sbagliate".** Il
    rilevamento KO scatta sul testo "Credenziali non valide" **oppure** sulla
    sola classe `form-control … error`. Il 28/09/2026 le stesse credenziali

@@ -235,11 +235,11 @@ export class AdeReauthRequiredError extends AdeError {
 }
 
 /**
- * SPID push notification not confirmed within the polling window.
+ * Notifica push non approvata entro la finestra di polling.
  *
- * HAR finding (login_spid.har): the mobile app must approve the login
- * request before the session can be established. If the user doesn't
- * respond in time, this error is raised.
+ * Nato per SPID, oggi lo lancia solo il polling push di CIE (`cieMaxPolls`):
+ * il flusso SPID su HTTP è stato rimosso. Nome e codice `ADE_SPID_TIMEOUT`
+ * restano invariati per non toccare classificazione e log in questa slice.
  */
 export class AdeSpidTimeoutError extends AdeError {
   constructor(maxPolls: number) {

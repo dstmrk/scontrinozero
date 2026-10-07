@@ -17,7 +17,6 @@ import type {
   AdeSearchParams,
   AdeUtenzaCandidate,
   CieCredentials,
-  SpidCredentials,
 } from "./types";
 import {
   AdeUtenzaNotAvailableError,
@@ -169,14 +168,6 @@ export class MockAdeClient implements AdeClient {
     return this.startSession({
       pAuth: `mock_p_auth_${Date.now()}`,
       partitaIva: utenzaPiva,
-      createdAt: Date.now(),
-    });
-  }
-
-  loginSpid(credentials: SpidCredentials): Promise<AdeSession> {
-    return this.startSession({
-      pAuth: `mock_p_auth_spid_${Date.now()}`,
-      partitaIva: credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
       createdAt: Date.now(),
     });
   }

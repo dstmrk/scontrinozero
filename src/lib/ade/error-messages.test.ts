@@ -114,13 +114,15 @@ describe("getUserFacingAdeErrorMessage", () => {
     expect(result.passwordExpired).toBeUndefined();
   });
 
-  it("returns the SPID timeout message for AdeSpidTimeoutError", () => {
+  it("returns the CIE push message for AdeSpidTimeoutError even without a method", () => {
+    // Lo lancia solo il polling push di CIE: senza `method` il messaggio non
+    // può parlare di SPID, che sul server non ha più un flusso.
     const result = getUserFacingAdeErrorMessage(
-      new AdeSpidTimeoutError(30),
+      new AdeSpidTimeoutError(12),
       FALLBACK,
     );
     expect(result.message).toBe(
-      "Non hai approvato la richiesta SPID in tempo. Riprova.",
+      "Non hai approvato la notifica sull'app CIE ID in tempo. Riprova.",
     );
   });
 
@@ -184,17 +186,6 @@ describe("getUserFacingAdeErrorMessage", () => {
       );
       expect(result.message).toBe(
         "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
-      );
-    });
-
-    it("keeps the SPID message with method fisconline", () => {
-      const result = getUserFacingAdeErrorMessage(
-        new AdeSpidTimeoutError(30),
-        FALLBACK,
-        "fisconline",
-      );
-      expect(result.message).toBe(
-        "Non hai approvato la richiesta SPID in tempo. Riprova.",
       );
     });
   });
