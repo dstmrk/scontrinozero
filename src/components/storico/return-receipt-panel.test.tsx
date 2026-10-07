@@ -270,7 +270,7 @@ describe("ReturnReceiptPanel — trasmissione", () => {
   });
 
   it("sessione CIE scaduta: propone di ricollegarsi", async () => {
-    vi.mocked(returnReceipt).mockResolvedValue({ reauthRequired: true });
+    vi.mocked(returnReceipt).mockResolvedValue({ reauthRequired: "cie" });
     renderPanel();
 
     fireEvent.change(input("Calze"), { target: { value: "1" } });

@@ -194,7 +194,7 @@ export async function emitReceiptForBusiness(
     (prerequisites.method === "cie" || prerequisites.method === "spid") &&
     isInteractiveSessionMissing(input.businessId, prerequisites.method)
   ) {
-    return { reauthRequired: true };
+    return { reauthRequired: prerequisites.method };
   }
 
   // Insert document + lines atomically, with statement_timeout: if the
@@ -919,7 +919,7 @@ async function submitSaleToAde(
         { documentId },
         "Failed to mark document as ERROR after CIE reauth-required",
       );
-      return { reauthRequired: true };
+      return { reauthRequired: err.method };
     }
 
     logAdeFailure(

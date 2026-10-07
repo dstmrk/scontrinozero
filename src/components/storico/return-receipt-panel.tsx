@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CieReauthBanner } from "@/components/ade/cie-reauth-banner";
+import { AdeReauthBanner } from "@/components/ade/ade-reauth-banner";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
@@ -240,7 +240,8 @@ export function ReturnReceiptPanel({
       )}
 
       {mutation.data?.reauthRequired && (
-        <CieReauthBanner
+        <AdeReauthBanner
+          method={mutation.data.reauthRequired}
           businessId={businessId}
           actionLabel="Conferma reso"
           onDismiss={() => mutation.reset()}

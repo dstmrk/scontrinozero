@@ -35,8 +35,10 @@
    silenzio** (push CIE, o login SPID nella webview dell'app nativa adottato
    da `connectAdeWithSpid`). Il service fa il pre-check
    `isInteractiveSessionMissing` **prima** di inserire il documento: se manca/scaduta
-   ritorna `{ reauthRequired: true }` senza trasmettere nulla — la UI mostra
-   "Ricollegati" (`src/components/cassa/cassa-client.tsx`), la Developer API
+   ritorna `{ reauthRequired: "cie" | "spid" }` senza trasmettere nulla — la
+   UI mostra `src/components/ade/ade-reauth-banner.tsx`, che chiede l'accesso
+   del metodo indicato (notifica CIE; per SPID il login nell'app, o il rimando
+   all'app se si è nel browser), la Developer API
    risponde 409. Lo stesso esito arriva da `AdeReauthRequiredError` a metà
    flusso (documento marcato ERROR, mai duplicato). Una sessione che muore
    **dopo** il pre-check è riconosciuta da `isSessionNotActive`

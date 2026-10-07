@@ -225,7 +225,7 @@ describe("POST /api/v1/receipts/[id]/void", () => {
   });
 
   it("ritorna 409 con code ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
-    mockVoidReceiptForBusiness.mockResolvedValue({ reauthRequired: true });
+    mockVoidReceiptForBusiness.mockResolvedValue({ reauthRequired: "cie" });
 
     const res = await POST(makeRequest(), makeParams());
     expect(res.status).toBe(409);

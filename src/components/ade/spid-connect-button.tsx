@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useSyncExternalStore, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { connectAdeWithSpid } from "@/server/onboarding-actions";
-import { getCapacitorBridge, isNativeShell } from "@/lib/native/native-shell";
+import {
+  getCapacitorBridge,
+  useIsNativeShell,
+} from "@/lib/native/native-shell";
 import { captureSpidCookieHeader } from "@/lib/native/spid-capture";
 
 type ConnectResult = Awaited<ReturnType<typeof connectAdeWithSpid>>;
@@ -17,26 +20,18 @@ interface SpidConnectButtonProps {
   readonly onConnected?: (result: ConnectResult) => void;
 }
 
-const noopSubscribe = () => () => {};
-
 /**
  * Collega l'AdE con SPID dall'app nativa (docs/mobile-v2.md, slice 3b).
  *
  * Esiste solo nel guscio Capacitor: nel browser e nella PWA non rende niente,
- * perché lì non c'è un InAppBrowser da cui leggere i cookie del portale. Il
- * rilevamento passa da `useSyncExternalStore` con snapshot server `false`,
- * così l'HTML del server e il primo render del client coincidono.
+ * perché lì non c'è un InAppBrowser da cui leggere i cookie del portale.
  */
 export function SpidConnectButton({
   businessId,
   label = "Collega con SPID",
   onConnected,
 }: SpidConnectButtonProps) {
-  const native = useSyncExternalStore(
-    noopSubscribe,
-    isNativeShell,
-    () => false,
-  );
+  const native = useIsNativeShell();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

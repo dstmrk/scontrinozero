@@ -318,8 +318,10 @@ quando la slice arriva.
      `connectAdeWithSpid`. Il bottone «Collega con SPID» compare solo nel
      guscio nativo (`isNativeShell()`), nel passo credenziali
      dell'onboarding e nelle impostazioni AdE. Criterio di accettazione:
-     dall'app su sandbox, collegamento SPID e uno scontrino emesso. Il banner
-     di rinnovo resta CIE-only: diventa SPID-aware in una slice a parte.
+     dall'app su sandbox, collegamento SPID e uno scontrino emesso.
+   - **Rinnovo SPID** — scritto: `reauthRequired` porta il metodo, e
+     `AdeReauthBanner` a un utente SPID chiede «Ricollega con SPID»
+     nell'app o rimanda all'app dal browser.
 4. **Stampa BLE nativa** dietro il type alias `Transport` (punto 3).
 
 ---

@@ -27,7 +27,7 @@ import { formatCurrency } from "@/lib/utils";
 import { track, UMAMI_EVENTS } from "@/lib/umami";
 import { emitReceipt } from "@/server/receipt-actions";
 import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
-import { CieReauthBanner } from "@/components/ade/cie-reauth-banner";
+import { AdeReauthBanner } from "@/components/ade/ade-reauth-banner";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 
@@ -497,7 +497,8 @@ export function CassaClient({
     return (
       <div className="mx-auto max-w-sm space-y-2">
         {mutation.data?.reauthRequired && (
-          <CieReauthBanner
+          <AdeReauthBanner
+            method={mutation.data.reauthRequired}
             businessId={businessId}
             actionLabel="Emetti scontrino"
             onDismiss={() => mutation.reset()}

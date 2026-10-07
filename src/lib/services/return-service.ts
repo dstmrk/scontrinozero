@@ -314,7 +314,10 @@ async function prepareReturn(
     (prerequisites.method === "cie" || prerequisites.method === "spid") &&
     isInteractiveSessionMissing(input.businessId, prerequisites.method)
   ) {
-    return { kind: "done", result: { reauthRequired: true } };
+    return {
+      kind: "done",
+      result: { reauthRequired: prerequisites.method },
+    };
   }
 
   const ctx: ReturnContext = {
@@ -1003,7 +1006,9 @@ async function handleReturnFailure(
   if (!attempt.submitted) {
     // Nessuna POST: nessun effetto fiscale possibile da questo tentativo.
     await releaseBeforeSubmit(attempt);
-    if (err instanceof AdeReauthRequiredError) return { reauthRequired: true };
+    if (err instanceof AdeReauthRequiredError) {
+      return { reauthRequired: err.method };
+    }
   } else if (err instanceof AdeReauthRequiredError) {
     // 401 sulla POST = reso NON registrato (stesso ragionamento dell'annullo,
     // PR #707): ERROR, e il retry riparte da zero. Niente Sentry (regola 20).
@@ -1012,7 +1017,7 @@ async function handleReturnFailure(
       { returnDocumentId: rowId },
       "Failed to mark RETURN as ERROR after CIE reauth-required",
     );
-    return { reauthRequired: true };
+    return { reauthRequired: err.method };
   } else if (!isStatementTimeoutError(err) && !isTransientAdeError(err)) {
     // Fallimento non transitorio: l'AdE ha risposto e non ha registrato.
     // Sui transitori l'esito è ignoto e la riga resta PENDING per la

@@ -1,4 +1,5 @@
 import type { DocumentStatus } from "@/lib/ade/public-types";
+import type { InteractiveMethod } from "@/lib/ade/types";
 import type { PaymentEntry } from "@/lib/receipts/public-request";
 import type { PaymentMethod } from "@/types/cassa";
 
@@ -294,10 +295,10 @@ export interface VoidReceiptResult {
   adeTransactionId?: string;
   adeProgressive?: string;
   /**
-   * Sessione AdE interattiva (CIE) assente/scaduta: l'utente deve ri-collegarsi
-   * prima di riprovare. Nessun annullo è stato trasmesso.
+   * Sessione AdE interattiva assente/scaduta: l'utente deve ri-collegarsi col
+   * metodo indicato prima di riprovare. Nessun annullo è stato trasmesso.
    */
-  reauthRequired?: boolean;
+  reauthRequired?: InteractiveMethod;
 }
 
 // ---------------------------------------------------------------------------
@@ -353,8 +354,8 @@ export interface ReturnReceiptResult {
   adeTransactionId?: string;
   adeProgressive?: string;
   /**
-   * Sessione AdE interattiva (CIE) assente/scaduta: l'utente deve ri-collegarsi
-   * prima di riprovare. Nessun reso è stato trasmesso.
+   * Sessione AdE interattiva assente/scaduta: l'utente deve ri-collegarsi col
+   * metodo indicato prima di riprovare. Nessun reso è stato trasmesso.
    */
-  reauthRequired?: boolean;
+  reauthRequired?: InteractiveMethod;
 }

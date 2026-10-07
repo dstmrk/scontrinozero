@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
+import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { getCapacitorBridge, isNativeShell } from "./native-shell";
+import {
+  getCapacitorBridge,
+  isNativeShell,
+  useIsNativeShell,
+} from "./native-shell";
 
 type WithCapacitor = { Capacitor?: unknown };
 
@@ -36,5 +41,18 @@ describe("isNativeShell", () => {
       },
     };
     expect(isNativeShell()).toBe(false);
+  });
+});
+
+describe("useIsNativeShell", () => {
+  it("nel browser è false", () => {
+    const { result } = renderHook(() => useIsNativeShell());
+    expect(result.current).toBe(false);
+  });
+
+  it("nel guscio nativo è true", () => {
+    (window as WithCapacitor).Capacitor = { isNativePlatform: () => true };
+    const { result } = renderHook(() => useIsNativeShell());
+    expect(result.current).toBe(true);
   });
 });

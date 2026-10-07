@@ -155,8 +155,8 @@ export async function POST(request: Request): Promise<Response> {
   const result = await emitReceiptForBusiness(input, auth.apiKey.id);
 
   if (result.reauthRequired) {
-    // Sessione AdE interattiva (CIE) scaduta: richiede un ri-collegamento
-    // dall'app web (secondo fattore umano), non automatizzabile via API.
+    // Sessione AdE interattiva (CIE o SPID) scaduta: richiede un ri-collegamento
+    // da ScontrinoZero (secondo fattore umano), non automatizzabile via API.
     // 409 + code machine-readable così il client distingue "azione umana"
     // dagli altri 409 retryable (PENDING_IN_PROGRESS, ecc.).
     return v1Error(

@@ -21,6 +21,7 @@
  */
 
 import type { AdeClient } from "./client";
+import type { InteractiveMethod } from "./types";
 import { AdeReauthRequiredError, AdeSessionExpiredError } from "./errors";
 import { logger } from "@/lib/logger";
 
@@ -29,9 +30,6 @@ const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
 
 /** Cap LRU di default sul numero di sessioni interattive in memoria. */
 const DEFAULT_MAX_ENTRIES = 100;
-
-/** Metodi d'accesso la cui sessione vive in questo store. */
-export type InteractiveMethod = "cie" | "spid";
 
 interface Entry {
   client: AdeClient;

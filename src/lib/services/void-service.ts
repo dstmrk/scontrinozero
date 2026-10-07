@@ -648,7 +648,10 @@ async function prepareVoidDocument(
     (prerequisites.method === "cie" || prerequisites.method === "spid") &&
     isInteractiveSessionMissing(input.businessId, prerequisites.method)
   ) {
-    return { kind: "done", result: { reauthRequired: true } };
+    return {
+      kind: "done",
+      result: { reauthRequired: prerequisites.method },
+    };
   }
 
   const insertOutcome = await insertOrResolveVoid(input, apiKeyId);
@@ -964,7 +967,7 @@ export async function voidReceiptForBusiness(
         { voidDocumentId },
         "Failed to mark VOID as ERROR after CIE reauth-required",
       );
-      return { reauthRequired: true };
+      return { reauthRequired: err.method };
     }
 
     logAdeFailure(

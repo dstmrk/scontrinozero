@@ -1,4 +1,4 @@
-import type { AdeUtenzaCandidate } from "./types";
+import type { AdeUtenzaCandidate, InteractiveMethod } from "./types";
 
 /**
  * Custom error classes for the RealAdeClient.
@@ -222,9 +222,9 @@ export class AdeNetworkError extends AdeError {
  * è possibile e il suo fallimento è un errore vero).
  */
 export class AdeReauthRequiredError extends AdeError {
-  readonly method: string;
+  readonly method: InteractiveMethod;
 
-  constructor(method: string) {
+  constructor(method: InteractiveMethod) {
     super(
       "ADE_REAUTH_REQUIRED",
       `Interactive re-authentication required (${method})`,

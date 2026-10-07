@@ -6,6 +6,9 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { verifyAdeCredentials } from "@/server/onboarding-actions";
+import { SpidConnectButton } from "@/components/ade/spid-connect-button";
+import { useIsNativeShell } from "@/lib/native/native-shell";
+import type { InteractiveMethod } from "@/lib/ade/types";
 
 type ReconnectState =
   | { status: "idle" }
@@ -13,8 +16,13 @@ type ReconnectState =
   | { status: "success" }
   | { status: "error"; message: string };
 
-interface CieReauthBannerProps {
-  /** Business per cui rinnovare la sessione CIE interattiva. */
+interface AdeReauthBannerProps {
+  /**
+   * Metodo della sessione scaduta, come lo restituisce il server in
+   * `reauthRequired`: decide quale accesso chiedere.
+   */
+  readonly method: InteractiveMethod;
+  /** Business per cui rinnovare la sessione interattiva. */
   readonly businessId: string;
   /**
    * Etichetta dell'azione da ripetere dopo il ricollegamento (es. "Emetti
@@ -32,26 +40,40 @@ interface CieReauthBannerProps {
   readonly onDismiss?: () => void;
 }
 
+const AMBER_CLASS =
+  "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
+
 /**
- * Banner di ri-collegamento CIE mostrato quando emit/void ritornano
- * `reauthRequired` (sessione interattiva assente/scaduta).
+ * Banner di ri-collegamento mostrato quando emissione, annullo o reso
+ * ritornano `reauthRequired` (sessione interattiva assente/scaduta).
  *
- * A differenza di Fisconline la sessione CIE non è ri-creabile in silenzio: il
- * secondo fattore è la push sull'app CIE ID. Questo banner fa partire il
- * ricollegamento INLINE (stessa `verifyAdeCredentials` del bottone in
- * Impostazioni) senza costringere l'utente a lasciare cassa/annullo. Flusso
- * two-step, senza auto-retry: l'utente ricollega, poi ripreme il bottone
+ * A differenza di Fisconline le sessioni CIE e SPID non si ricreano in
+ * silenzio: serve un gesto umano, diverso per metodo.
+ *  - **CIE**: la push sull'app CIE ID. Il ricollegamento parte INLINE (stessa
+ *    `verifyAdeCredentials` del bottone in Impostazioni).
+ *  - **SPID**: un nuovo login SPID nell'InAppBrowser, possibile solo nell'app
+ *    nativa (`SpidConnectButton`). Nel browser e nella PWA il banner rimanda
+ *    all'app, senza pulsanti che lì non potrebbero funzionare.
+ *
+ * Flusso two-step, senza auto-retry: l'utente ricollega, poi ripreme il bottone
  * d'azione già presente nella schermata (regola 19/20: nessun documento fiscale
  * viene toccato qui — la sessione è solo un prerequisito).
  */
-export function CieReauthBanner({
+export function AdeReauthBanner({
+  method,
   businessId,
   actionLabel,
   onReconnected,
   onDismiss,
-}: CieReauthBannerProps) {
+}: AdeReauthBannerProps) {
   const [state, setState] = useState<ReconnectState>({ status: "idle" });
   const [, startTransition] = useTransition();
+  const native = useIsNativeShell();
+
+  function handleSpidConnected() {
+    setState({ status: "success" });
+    onReconnected?.();
+  }
 
   function handleReconnect() {
     setState({ status: "pending" });
@@ -86,6 +108,34 @@ export function CieReauthBanner({
     );
   }
 
+  if (method === "spid") {
+    return (
+      <div
+        role="alert"
+        className={cn(
+          "flex flex-col gap-2 rounded-xl border px-4 py-3 text-sm",
+          AMBER_CLASS,
+        )}
+      >
+        {native ? (
+          <>
+            <p>Sessione SPID scaduta. Ricollegati con SPID per continuare.</p>
+            <SpidConnectButton
+              businessId={businessId}
+              label="Ricollega con SPID"
+              onConnected={handleSpidConnected}
+            />
+          </>
+        ) : (
+          <p>
+            Sessione SPID scaduta: ricollegati con SPID dall&apos;app
+            ScontrinoZero, poi riprova.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   const isPending = state.status === "pending";
   const isError = state.status === "error";
 
@@ -115,7 +165,7 @@ export function CieReauthBanner({
         "flex flex-col gap-2 rounded-xl border px-4 py-3 text-sm",
         isError
           ? "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
-          : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200",
+          : AMBER_CLASS,
       )}
     >
       {messageNode}

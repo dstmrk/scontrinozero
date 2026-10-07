@@ -202,6 +202,13 @@ export interface FisconlineCredentials {
 
 export type AdeLoginMethod = "fisconline" | "cie" | "spid";
 
+/**
+ * Metodi la cui sessione nasce da un gesto umano (push CIE, login SPID
+ * nell'app) e non si ricrea in silenzio. Sta qui e non nello store perché
+ * viaggia fino al client: dice al banner di rinnovo quale accesso chiedere.
+ */
+export type InteractiveMethod = Exclude<AdeLoginMethod, "fisconline">;
+
 // ---------------------------------------------------------------------------
 // Credenziali CIE (Carta d'Identità Elettronica)
 // HAR finding (login_cie_ok_notifica_app.har): IdP Shibboleth del Ministero
