@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-filters";
 
 const { mockInit } = vi.hoisted(() => ({ mockInit: vi.fn() }));
 
@@ -13,7 +14,9 @@ vi.mock("@sentry/nextjs", () => ({
 /**
  * I tre bootstrap di Sentry (server, edge, browser) passano la stessa
  * `dataCollection`: un runtime che ne restasse fuori tornerebbe ai default
- * dell'SDK, che da @sentry/nextjs 11 allegano il body delle richieste.
+ * dell'SDK, che da @sentry/nextjs 11 allegano body delle richieste e IP del
+ * client. Cosa contiene la costante lo verifica, con l'SDK vero,
+ * `sentry-data-collection.test.ts`.
  */
 describe.each([
   { runtime: "server", load: () => import("../../sentry.server.config") },
@@ -25,12 +28,12 @@ describe.each([
     mockInit.mockClear();
   });
 
-  it("non raccoglie body HTTP", async () => {
+  it("passa la dataCollection condivisa", async () => {
     await load();
 
     expect(mockInit).toHaveBeenCalledTimes(1);
-    expect(mockInit.mock.calls[0][0].dataCollection).toEqual({
-      httpBodies: [],
-    });
+    expect(mockInit.mock.calls[0][0].dataCollection).toEqual(
+      SENTRY_DATA_COLLECTION,
+    );
   });
 });

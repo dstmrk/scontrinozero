@@ -15,7 +15,7 @@ Sentry.init({
   replaysSessionSampleRate: 0,
   integrations: [Sentry.replayIntegration()],
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
-  // Stessa impostazione del server: nessun body HTTP negli eventi.
+  // Stessa impostazione del server: né body HTTP né IP del client.
   dataCollection: SENTRY_DATA_COLLECTION,
   beforeSend: clientBeforeSend,
 });

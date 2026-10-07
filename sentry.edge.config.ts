@@ -14,7 +14,7 @@ Sentry.init({
   release: getAppRelease(),
   tracesSampleRate: 0.1,
   enabled: !!process.env.SENTRY_DSN,
-  // Stessa impostazione del server: nessun body HTTP negli eventi.
+  // Stessa impostazione del server: né body HTTP né IP del client.
   dataCollection: SENTRY_DATA_COLLECTION,
   beforeSend(event, hint) {
     // Istanza self-hosted che riporta nel nostro progetto: qui gira il
