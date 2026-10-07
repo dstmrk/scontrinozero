@@ -31,7 +31,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocumentLines, commercialDocuments } from "@/db/schema";
-import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
+import { withAdeSession, isInteractiveSessionMissing } from "@/lib/ade";
 import type { AdeClient } from "@/lib/ade/client";
 import { AdeReauthRequiredError } from "@/lib/ade/errors";
 import {
@@ -310,7 +310,10 @@ async function prepareReturn(
   }
   // CIE: sessione interattiva assente/scaduta → rinnovo PRIMA della riga
   // PENDING (stessa regola di emissione e annullo, skill ade-integration).
-  if (prerequisites.method === "cie" && isCieSessionMissing(input.businessId)) {
+  if (
+    (prerequisites.method === "cie" || prerequisites.method === "spid") &&
+    isInteractiveSessionMissing(input.businessId, prerequisites.method)
+  ) {
     return { kind: "done", result: { reauthRequired: true } };
   }
 

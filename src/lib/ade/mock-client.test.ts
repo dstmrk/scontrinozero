@@ -232,6 +232,22 @@ describe("MockAdeClient", () => {
     });
   });
 
+  describe("adoptSession", () => {
+    it("accetta qualunque header di cookie e restituisce una sessione", async () => {
+      const session = await client.adoptSession("JSESSIONID=x");
+
+      expect(session.pAuth).toMatch(/^mock_p_auth_spid_/);
+      expect(session.partitaIva).toHaveLength(11);
+    });
+
+    it("abilita le operazioni come un login", async () => {
+      await client.adoptSession("JSESSIONID=x");
+      const response = await client.submitSale(makeSalePayload());
+
+      expect(response.esito).toBe(true);
+    });
+  });
+
   describe("loginCie", () => {
     const cieCreds = {
       username: "mario.rossi@example.com",

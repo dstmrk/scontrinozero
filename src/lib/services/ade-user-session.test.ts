@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockFetchAdePrerequisites,
   mockToAdeSessionParams,
-  mockIsCieSessionMissing,
+  mockIsInteractiveSessionMissing,
 } = vi.hoisted(() => ({
   mockFetchAdePrerequisites: vi.fn(),
   mockToAdeSessionParams: vi.fn(),
-  mockIsCieSessionMissing: vi.fn(),
+  mockIsInteractiveSessionMissing: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -17,7 +17,7 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 vi.mock("@/lib/ade", () => ({
-  isCieSessionMissing: mockIsCieSessionMissing,
+  isInteractiveSessionMissing: mockIsInteractiveSessionMissing,
 }));
 
 import { resolveAdeUserSession } from "./ade-user-session";
@@ -56,7 +56,7 @@ describe("resolveAdeUserSession", () => {
   });
 
   it("Fisconline non controlla la sessione interattiva", async () => {
-    // `isCieSessionMissing` interroga uno store che per Fisconline non c'entra:
+    // `isInteractiveSessionMissing` interroga uno store che per Fisconline non c'entra:
     // chiamarlo comunque legherebbe il ramo credenziali a uno stato che non lo
     // riguarda.
     mockFetchAdePrerequisites.mockResolvedValue({
@@ -69,7 +69,7 @@ describe("resolveAdeUserSession", () => {
 
     await resolveAdeUserSession("biz-1");
 
-    expect(mockIsCieSessionMissing).not.toHaveBeenCalled();
+    expect(mockIsInteractiveSessionMissing).not.toHaveBeenCalled();
   });
 
   it("CIE con sessione viva → params CIE", async () => {
@@ -77,7 +77,7 @@ describe("resolveAdeUserSession", () => {
       method: "cie",
       cedentePrestatore: CEDENTE,
     });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockToAdeSessionParams.mockReturnValue({
       businessId: "biz-1",
       method: "cie",
@@ -98,7 +98,7 @@ describe("resolveAdeUserSession", () => {
       method: "cie",
       cedentePrestatore: CEDENTE,
     });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const result = await resolveAdeUserSession("biz-1");
 
@@ -110,11 +110,27 @@ describe("resolveAdeUserSession", () => {
       method: "cie",
       cedentePrestatore: CEDENTE,
     });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     await resolveAdeUserSession("biz-1");
 
     expect(mockToAdeSessionParams).not.toHaveBeenCalled();
+  });
+
+  it("SPID senza sessione adottata → stesso rinnovo di CIE, col metodo spid", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "spid",
+      cedentePrestatore: CEDENTE,
+    });
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
+
+    const result = await resolveAdeUserSession("biz-1");
+
+    expect(result).toEqual({ ok: false, reason: "cie-reauth" });
+    expect(mockIsInteractiveSessionMissing).toHaveBeenCalledWith(
+      "biz-1",
+      "spid",
+    );
   });
 
   it("credenziali assenti → unavailable, col messaggio dei prerequisiti", async () => {

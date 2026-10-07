@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
 import type { WithAdeSessionParams } from "@/lib/ade";
+import type { InteractiveMethod } from "@/lib/ade/interactive-session-store";
 export type { User } from "@supabase/supabase-js";
 
 export type BusinessOwnershipError = { error: string };
@@ -29,9 +30,10 @@ export type AdePrerequisites =
       cedentePrestatore: AdeCedentePrestatore;
     }
   | {
-      // CIE: nessuna credenziale ri-loggabile; la sessione è quella interattiva
-      // depositata nello store. Emit/void non passano credenziali.
-      method: "cie";
+      // CIE e SPID: nessuna credenziale ri-loggabile; la sessione è quella
+      // interattiva depositata nello store (push CIE, o cookie SPID adottati
+      // dall'app nativa). Emit/void non passano credenziali.
+      method: InteractiveMethod;
       cedentePrestatore: AdeCedentePrestatore;
     };
 
@@ -50,8 +52,8 @@ export function toAdeSessionParams(
   businessId: string,
   prerequisites: AdePrerequisites,
 ): WithAdeSessionParams {
-  if (prerequisites.method === "cie") {
-    return { businessId, method: "cie" };
+  if (prerequisites.method !== "fisconline") {
+    return { businessId, method: prerequisites.method };
   }
   return {
     businessId,
@@ -214,10 +216,11 @@ export async function fetchAdePrerequisites(
 
   const cedentePrestatore = buildCedenteFromBusiness(row.business);
 
-  // CIE: nessuna credenziale da decifrare — la sessione è quella interattiva
-  // depositata dallo store. emit/void la riusano (o chiedono il rinnovo).
-  if (row.cred.loginMethod === "cie") {
-    return { method: "cie", cedentePrestatore };
+  // CIE e SPID: nessuna credenziale da decifrare — la sessione è quella
+  // interattiva depositata dallo store. emit/void la riusano (o chiedono il
+  // rinnovo).
+  if (row.cred.loginMethod === "cie" || row.cred.loginMethod === "spid") {
+    return { method: row.cred.loginMethod, cedentePrestatore };
   }
 
   // Fisconline: CF+password+PIN. I campi encrypted* sono nullable (migrazione

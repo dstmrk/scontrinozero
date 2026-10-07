@@ -108,10 +108,11 @@ const mockAdeClient = {
 // withAdeSession (PR #624) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitSale restano valide.
-const mockIsCieSessionMissing = vi.fn().mockReturnValue(false);
+const mockIsInteractiveSessionMissing = vi.fn().mockReturnValue(false);
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
-  isCieSessionMissing: (...args: unknown[]) => mockIsCieSessionMissing(...args),
+  isInteractiveSessionMissing: (...args: unknown[]) =>
+    mockIsInteractiveSessionMissing(...args),
   withAdeSession: async (
     params: { credentials: unknown },
     fn: (client: typeof mockAdeClient) => unknown,
@@ -187,7 +188,7 @@ describe("emitReceiptForBusiness", () => {
     process.env.ADE_MODE = "mock";
 
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
 
     mockTransaction.mockImplementation(
       async (callback: (tx: unknown) => Promise<unknown>) => {
@@ -288,7 +289,7 @@ describe("emitReceiptForBusiness", () => {
       method: "cie",
       cedentePrestatore: { built: true },
     });
-    mockIsCieSessionMissing.mockReturnValue(true);
+    mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
@@ -305,7 +306,7 @@ describe("emitReceiptForBusiness", () => {
       method: "cie",
       cedentePrestatore: { built: true },
     });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("cie"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
@@ -326,7 +327,7 @@ describe("emitReceiptForBusiness", () => {
       method: "cie",
       cedentePrestatore: { built: true },
     });
-    mockIsCieSessionMissing.mockReturnValue(false);
+    mockIsInteractiveSessionMissing.mockReturnValue(false);
     mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("cie"));
     // Best-effort: se l'UPDATE a ERROR fallisce, il servizio non deve propagare
     // l'errore — l'utente vede comunque il prompt di ricollegamento.

@@ -11,7 +11,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
-import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
+import { withAdeSession, isInteractiveSessionMissing } from "@/lib/ade";
 import {
   AdePasswordExpiredError,
   AdeReauthRequiredError,
@@ -190,7 +190,10 @@ export async function emitReceiptForBusiness(
   // CIE: se la sessione interattiva manca/è scaduta, chiedi il rinnovo PRIMA di
   // inserire il documento — così un retry post-rinnovo non trova un PENDING
   // bloccato dallo stale-gate. Nessun documento fiscale viene trasmesso.
-  if (prerequisites.method === "cie" && isCieSessionMissing(input.businessId)) {
+  if (
+    (prerequisites.method === "cie" || prerequisites.method === "spid") &&
+    isInteractiveSessionMissing(input.businessId, prerequisites.method)
+  ) {
     return { reauthRequired: true };
   }
 

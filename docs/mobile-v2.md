@@ -174,12 +174,12 @@ con SPID diventa il caso frequente, e collide col principio numero uno
 
 Le due metà servono entrambe:
 
-**Pre-check** — già in produzione: `src/lib/services/receipt-service.ts:193`,
-`src/lib/services/void-service.ts:597`, `src/lib/services/ade-user-session.ts:50`.
-`isCieSessionMissing` in `src/lib/ade/index.ts` ritorna `reauthRequired` prima
-dell'insert, così un retry post-rinnovo non trova un PENDING bloccato dallo
-stale-gate. **Costa zero**: è un lookup su `Map` in memoria, non un round-trip
-all'AdE. Per SPID basta togliere il vincolo `method === "cie"`.
+**Pre-check** — in produzione per CIE, esteso a SPID con la slice 3a:
+`isInteractiveSessionMissing` in `src/lib/ade/index.ts`, chiamato da
+emissione, annullo, reso e `src/lib/services/ade-user-session.ts`, ritorna
+`reauthRequired` prima dell'insert, così un retry post-rinnovo non trova un
+PENDING bloccato dallo stale-gate. **Costa zero**: è un lookup su `Map` in
+memoria, non un round-trip all'AdE.
 
 **Resume** — da costruire, ed è più piccolo di quanto sembri. Il pre-check sa
 se _noi_ abbiamo una sessione, non se l'AdE la accetta ancora: una sessione

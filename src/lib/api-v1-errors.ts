@@ -124,7 +124,7 @@ export const V1_ERROR_CATALOG = {
   ALREADY_RETURNED: { status: 409, retryable: false },
   /** Key riusata con un payload diverso, o fra emissione e annullo. */
   IDEMPOTENCY_PAYLOAD_MISMATCH: { status: 409, retryable: false },
-  /** Sessione AdE (CIE) scaduta: va rinnovata dall'app web (fattore umano). */
+  /** Sessione AdE interattiva (CIE o SPID) scaduta: va rinnovata da chi accede (fattore umano). */
   ADE_REAUTH_REQUIRED: { status: 409, retryable: false },
   /** Password Fisconline scaduta: va aggiornata dall'app web (fattore umano). */
   ADE_PASSWORD_EXPIRED: { status: 409, retryable: false },

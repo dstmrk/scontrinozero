@@ -1,12 +1,13 @@
 /**
- * Store in-memory delle sessioni AdE stabilite in modo INTERATTIVO (CIE).
+ * Store in-memory delle sessioni AdE stabilite in modo INTERATTIVO (CIE, SPID).
  *
  * A differenza di Fisconline — dove il server conserva le credenziali e può
- * rifare il login in silenzio su 401 (`session-cache.ts`) — una sessione CIE è
- * stabilita da un login con secondo fattore umano (push sull'app CIE ID) e NON
- * è ri-creabile senza una nuova azione dell'utente. Quindi qui NON si fa login:
- * il client già autenticato viene depositato da `verifyAdeCredentials` (il
- * "collega/rinnova") e riusato per emissione/annullo finché AdE lo accetta.
+ * rifare il login in silenzio su 401 (`session-cache.ts`) — queste sessioni
+ * nascono da un'azione umana non ripetibile dal server: la push sull'app CIE
+ * ID, o il login SPID nella webview dell'app nativa, i cui cookie il server
+ * adotta (`adoptSession`). Quindi qui NON si fa login: il client già
+ * autenticato viene depositato dalla verifica (il "collega/rinnova") e riusato
+ * per emissione/annullo finché AdE lo accetta.
  *
  * Rinnovo lazy: `run` prova la sessione depositata; se assente o rifiutata da
  * AdE (401 → `AdeSessionExpiredError`) solleva `AdeReauthRequiredError`, che
@@ -28,6 +29,9 @@ const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
 
 /** Cap LRU di default sul numero di sessioni interattive in memoria. */
 const DEFAULT_MAX_ENTRIES = 100;
+
+/** Metodi d'accesso la cui sessione vive in questo store. */
+export type InteractiveMethod = "cie" | "spid";
 
 interface Entry {
   client: AdeClient;
@@ -55,7 +59,7 @@ export class AdeInteractiveSessionStore {
   }
 
   /**
-   * Deposita un client CIE già autenticato per il business, sostituendo
+   * Deposita un client già autenticato (CIE o sessione SPID adottata) per il business, sostituendo
    * (con logout best-effort) un'eventuale sessione precedente.
    */
   set(businessId: string, client: AdeClient): void {
@@ -82,16 +86,18 @@ export class AdeInteractiveSessionStore {
   }
 
   /**
-   * Esegue `fn` con il client CIE depositato, serializzando le operazioni per
-   * business. Solleva `AdeReauthRequiredError` se la sessione è assente/scaduta
-   * o se AdE la rifiuta durante l'operazione (`AdeSessionExpiredError`).
+   * Esegue `fn` con il client depositato, serializzando le operazioni per
+   * business. Solleva `AdeReauthRequiredError` col `method` dato se la sessione
+   * è assente/scaduta o se AdE la rifiuta durante l'operazione
+   * (`AdeSessionExpiredError`): il metodo dice alla UI come far ricollegare.
    */
   async run<T>(
     businessId: string,
+    method: InteractiveMethod,
     fn: (client: AdeClient) => Promise<T>,
   ): Promise<T> {
     const prev = this.chains.get(businessId) ?? Promise.resolve();
-    const task = prev.then(() => this.execute(businessId, fn));
+    const task = prev.then(() => this.execute(businessId, method, fn));
     const guard = task.catch(() => {});
     this.chains.set(businessId, guard);
     try {
@@ -105,6 +111,7 @@ export class AdeInteractiveSessionStore {
 
   private async execute<T>(
     businessId: string,
+    method: InteractiveMethod,
     fn: (client: AdeClient) => Promise<T>,
   ): Promise<T> {
     const entry = this.entries.get(businessId);
@@ -117,7 +124,7 @@ export class AdeInteractiveSessionStore {
         { businessId, event: "ade_interactive_session_missing" },
         "AdE interactive session missing/expired — reauth required",
       );
-      throw new AdeReauthRequiredError("cie");
+      throw new AdeReauthRequiredError(method);
     }
 
     // MRU refresh (access order = LRU).
@@ -135,7 +142,7 @@ export class AdeInteractiveSessionStore {
           { businessId, event: "ade_interactive_session_expired" },
           "AdE interactive session rejected by AdE — reauth required",
         );
-        throw new AdeReauthRequiredError("cie");
+        throw new AdeReauthRequiredError(method);
       }
       throw err;
     }

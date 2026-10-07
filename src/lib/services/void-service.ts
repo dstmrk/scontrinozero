@@ -11,7 +11,7 @@
 import { and, eq, getTableColumns } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
-import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
+import { withAdeSession, isInteractiveSessionMissing } from "@/lib/ade";
 import { AdeReauthRequiredError } from "@/lib/ade/errors";
 import type { AdeClient } from "@/lib/ade/client";
 import {
@@ -644,7 +644,10 @@ async function prepareVoidDocument(
 
   // CIE: sessione interattiva assente/scaduta → chiedi il rinnovo PRIMA di
   // inserire la riga VOID PENDING (evita un annullo bloccato dallo stale-gate).
-  if (prerequisites.method === "cie" && isCieSessionMissing(input.businessId)) {
+  if (
+    (prerequisites.method === "cie" || prerequisites.method === "spid") &&
+    isInteractiveSessionMissing(input.businessId, prerequisites.method)
+  ) {
     return { kind: "done", result: { reauthRequired: true } };
   }
 
