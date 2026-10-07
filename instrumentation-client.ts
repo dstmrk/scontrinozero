@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { clientBeforeSend } from "@/lib/sentry-filters";
+import { clientBeforeSend, SENTRY_DATA_COLLECTION } from "@/lib/sentry-filters";
 
 // UNICO entry point Sentry lato browser. Il legacy `sentry.client.config.ts`
 // è stato rimosso: il SDK lo inietta solo dal path webpack
@@ -15,6 +15,8 @@ Sentry.init({
   replaysSessionSampleRate: 0,
   integrations: [Sentry.replayIntegration()],
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
+  // Stessa impostazione del server: nessun body HTTP negli eventi.
+  dataCollection: SENTRY_DATA_COLLECTION,
   beforeSend: clientBeforeSend,
 });
 

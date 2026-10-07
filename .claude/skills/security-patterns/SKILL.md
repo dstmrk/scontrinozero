@@ -480,6 +480,24 @@ Per la **validazione end-to-end del drain** dopo un rollout di telemetria
 (sentinella, query Sentry) → skill `sentry-hygiene` e `deploy-release`
 (smoke post-deploy).
 
+### Body delle richieste negli eventi: `dataCollection`, non `sendDefaultPii`
+
+Da `@sentry/nextjs` 11 `sendDefaultPii` non esiste più: cosa l'SDK raccoglie
+lo decide `dataCollection`, e i suoi default raccolgono tutto (body, header,
+cookie, IP del client). Header e cookie passano per un filtro a chiavi
+sensibili (`auth`, `token`, `cookie`, `sb-`…); il **body no**: finisce
+nell'evento com'è, fino a 10 KB. Per una server action il body sono gli
+argomenti in chiaro, cioè password e PIN Fisconline (`saveAdeCredentials`) e
+il cookie della sessione SPID (`connectAdeWithSpid`).
+
+Per questo i tre `Sentry.init` passano `SENTRY_DATA_COLLECTION`
+(`src/lib/sentry-filters.ts`), che spegne `httpBodies`. Gate:
+`tests/unit/sentry-configs.test.ts` (i tre bootstrap la passano) e
+`tests/unit/sentry-request-body.test.ts` (SDK vero, body letto come lo legge
+Next: deve restare fuori dall'evento). A ogni major di `@sentry/nextjs`
+rileggi i default in `resolveDataCollectionOptions` di `@sentry/core`: è lì
+che un aggiornamento allarga la raccolta senza toccare la nostra config.
+
 ### `release` per legare un evento al commit in esecuzione
 
 `release: getAppRelease()` (da `@/lib/version`, formato `scontrinozero@<ver>+<sha>`)

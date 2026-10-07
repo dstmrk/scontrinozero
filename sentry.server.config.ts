@@ -4,6 +4,7 @@ import {
   isBenignServerActionNotFound,
   isForeignHostEvent,
   NEXT_CLIENT_COMPONENT_LOADING_SPAN,
+  SENTRY_DATA_COLLECTION,
 } from "@/lib/sentry-filters";
 import { getAppRelease } from "@/lib/version";
 
@@ -24,6 +25,9 @@ Sentry.init({
   release: getAppRelease(),
   tracesSampleRate: 0.1,
   enabled: !!process.env.SENTRY_DSN,
+  // Niente body delle richieste negli eventi: per una server action sono gli
+  // argomenti in chiaro, credenziali comprese (vedi la costante).
+  dataCollection: SENTRY_DATA_COLLECTION,
   // Log drain: drena i pino logs (info e superiori) verso Sentry Logs, cosi'
   // gli errori non-eccezione e il flusso applicativo sono interrogabili senza
   // entrare nel container via SSH. L'integrazione legge l'output POST-redazione
