@@ -90,7 +90,7 @@ export async function captureSpidCookieHeader(
         });
       }),
       listen.call(bridge, PLUGIN, "closeEvent", () => {
-        finish(async () => null);
+        finish(() => Promise.resolve(null));
       }),
     );
 
