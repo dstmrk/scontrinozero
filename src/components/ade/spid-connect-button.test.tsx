@@ -82,7 +82,11 @@ describe("SpidConnectButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
     expect(await screen.findByRole("status")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+    // findBy, non getBy: setNotice dopo l'await esce dalla transition e
+    // l'avviso compare un render prima che isPending torni false.
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Collega con SPID" }),
+    );
     await waitFor(() => {
       expect(mockConnectAdeWithSpid).toHaveBeenCalled();
     });
