@@ -1313,9 +1313,13 @@ export async function connectAdeWithSpid(
   // dati fiscali già letti, passa poi alla verifica: una sola GET all'AdE.
   const db = getDb();
   const adeClient = createAdeClient(getAdeMode());
+  const identity = await readBusinessIdentity(db, businessId);
   let adopted: AdeAdoptedSession;
   try {
-    adopted = await adeClient.adoptSession(header);
+    adopted = await adeClient.adoptSession(
+      header,
+      identity?.vatNumber ?? undefined,
+    );
   } catch (err) {
     const step = verificationErrorStep(err, businessId, {
       ...SPID_VERIFY_FLOW,
@@ -1325,7 +1329,6 @@ export async function connectAdeWithSpid(
     return step.result;
   }
 
-  const identity = await readBusinessIdentity(db, businessId);
   const identityError = checkAdeIdentityGuard(
     Boolean(identity?.fiscalCode),
     businessId,

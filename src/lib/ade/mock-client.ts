@@ -203,14 +203,19 @@ export class MockAdeClient implements AdeClient {
   }
 
   /**
-   * Sessione SPID adottata: in mock i cookie non si verificano. P.IVA fittizia
-   * come per CIE, così il primo collegamento passa l'identity guard. Come il
-   * client reale, restituisce i dati fiscali letti nell'adozione.
+   * Sessione SPID adottata: in mock i cookie non si verificano. La P.IVA è
+   * quella registrata del business, se c'è: un business già collegato (es.
+   * con Fisconline) che passa a SPID in sandbox supera così l'identity guard,
+   * che con la P.IVA fittizia lo respingerebbe. Senza, P.IVA fittizia come per
+   * CIE. Come il client reale, restituisce i dati fiscali letti nell'adozione.
    */
-  async adoptSession(_cookieHeader: string): Promise<AdeAdoptedSession> {
+  async adoptSession(
+    _cookieHeader: string,
+    utenzaPiva?: string,
+  ): Promise<AdeAdoptedSession> {
     const session = await this.startSession({
       pAuth: `mock_p_auth_spid_${Date.now()}`,
-      partitaIva: "00000000000",
+      partitaIva: utenzaPiva ?? "00000000000",
       createdAt: Date.now(),
     });
     return { ...session, fiscalData: mockCedente(session) };

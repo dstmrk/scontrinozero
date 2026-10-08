@@ -189,6 +189,13 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
   un'utenza di un'altra P.IVA (chi ne ha più d'una). `verifyAdeCredentials` su una riga
   `spid` senza cookie non ha niente da adottare: risponde di ricollegarsi
   dall'app.
+- **In mock l'adozione prende la P.IVA registrata.** `connectAdeWithSpid`
+  passa a `adoptSession` la P.IVA del business; il client reale la ignora, il
+  mock la usa come identità. Con la P.IVA fittizia `00000000000` l'identity
+  guard respingeva ogni business già collegato che passava a SPID in sandbox,
+  e il collegamento non arrivava mai in fondo. `loginCie` in mock ha ancora la
+  fittizia senza utenza scelta: chi passa da Fisconline a CIE in sandbox
+  incontra lo stesso muro.
 - **Nessuna credenziale in memoria**: su 401 in emissione niente re-login,
   `AdeSessionExpiredError` come per CIE. `adoptSession` azzera anche
   credenziali e sessione di un login precedente sullo stesso client.

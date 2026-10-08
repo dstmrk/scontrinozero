@@ -248,6 +248,25 @@ describe("MockAdeClient", () => {
       expect(fiscalData).toEqual(await client.getFiscalData());
     });
 
+    it("con la P.IVA su cui si opera, la sessione è di quella P.IVA", async () => {
+      // In sandbox un business già collegato (es. con Fisconline) che passa a
+      // SPID ha una P.IVA registrata: con quella fittizia l'identity guard lo
+      // respingerebbe, e il collegamento non arriverebbe mai in fondo.
+      const { partitaIva, fiscalData } = await client.adoptSession(
+        "JSESSIONID=x",
+        "12345678901",
+      );
+
+      expect(partitaIva).toBe("12345678901");
+      expect(fiscalData.identificativiFiscali.partitaIva).toBe("12345678901");
+    });
+
+    it("senza P.IVA nota resta quella fittizia", async () => {
+      const { partitaIva } = await client.adoptSession("JSESSIONID=x");
+
+      expect(partitaIva).toBe("00000000000");
+    });
+
     it("abilita le operazioni come un login", async () => {
       await client.adoptSession("JSESSIONID=x");
       const response = await client.submitSale(makeSalePayload());
