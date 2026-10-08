@@ -26,8 +26,6 @@ export type SaleLineRow = Pick<
   | "vatCode"
 >;
 
-export type ReturnLineRow = SaleLineRow;
-
 /** Quantità (numeric del DB o numero) in centesimi interi. */
 function toHundredths(value: string | number): number {
   return Math.round(Number(value) * 100);
@@ -42,7 +40,7 @@ export function buildReturnLines(
   saleLines: readonly SaleLineRow[],
   returnedBefore: readonly number[],
   quantities: readonly number[],
-): ReturnLineRow[] {
+): SaleLineRow[] {
   if (
     returnedBefore.length !== saleLines.length ||
     quantities.length !== saleLines.length

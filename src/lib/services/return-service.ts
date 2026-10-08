@@ -57,7 +57,6 @@ import {
 import { logger } from "@/lib/logger";
 import {
   buildReturnLines,
-  type ReturnLineRow,
   type SaleLineRow,
 } from "@/lib/receipts/return-lines";
 import {
@@ -263,7 +262,7 @@ async function loadSale(
   };
 }
 
-async function loadSaleLines(saleId: string): Promise<SaleLineRow[]> {
+function loadSaleLines(saleId: string): Promise<SaleLineRow[]> {
   return getDb()
     .select({
       lineIndex: commercialDocumentLines.lineIndex,
@@ -730,7 +729,7 @@ async function persistBeforeSubmit(
   ctx: ReturnContext,
   rowId: string,
   adeAmount: string,
-  lines: ReturnLineRow[],
+  lines: SaleLineRow[],
 ): Promise<void> {
   const publicRequest: ReturnPublicRequest = {
     documentId: ctx.sale.id,
