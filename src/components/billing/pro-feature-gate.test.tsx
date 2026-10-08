@@ -1,6 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProFeatureGate } from "./pro-feature-gate";
+
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
+beforeEach(() => {
+  mockNative = false;
+});
 
 describe("ProFeatureGate", () => {
   it("renders children when plan is pro", () => {
@@ -100,5 +109,31 @@ describe("ProFeatureGate", () => {
     expect(
       screen.getByText("Sblocca i grafici per i tuoi scontrini."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("ProFeatureGate — guscio nativo (issue #1044)", () => {
+  it("dice che la funzione è del piano Pro, senza link al billing", () => {
+    mockNative = true;
+    render(
+      <ProFeatureGate plan="starter">
+        <div>protected content</div>
+      </ProFeatureGate>,
+    );
+    expect(screen.getByText("Disponibile sul piano Pro")).toBeInTheDocument();
+    expect(
+      screen.getByText("Questa funzionalità è inclusa nel piano Pro."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("piano Pro: rende i figli come nel browser", () => {
+    mockNative = true;
+    render(
+      <ProFeatureGate plan="pro">
+        <div>protected content</div>
+      </ProFeatureGate>,
+    );
+    expect(screen.getByText("protected content")).toBeInTheDocument();
   });
 });

@@ -172,7 +172,9 @@ function catalogGateError(planInfo: PlanInfo): string {
   ) {
     return TRIAL_EXPIRED_MESSAGE;
   }
-  return `Piano Starter: massimo ${STARTER_CATALOG_LIMIT} prodotti nel catalogo. Passa a Pro per catalogo illimitato.`;
+  // Constatazione, non invito: la stringa arriva anche nel guscio nativo, dove
+  // una call to action d'acquisto non può comparire (issue #1044).
+  return `Piano Starter: massimo ${STARTER_CATALOG_LIMIT} prodotti nel catalogo. Il catalogo illimitato è incluso nel piano Pro.`;
 }
 
 /**

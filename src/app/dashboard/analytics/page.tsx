@@ -104,7 +104,7 @@ export default async function AnalyticsPage({
           plan={planInfo.plan}
           trialStartedAt={planInfo.trialStartedAt}
           title="Grafici avanzati · Pro"
-          description="Andamento ricavi giornaliero, ripartizione per metodo di pagamento e prodotti più venduti, con periodi fino a inizio anno. Passa a Pro per sbloccarli."
+          description="Andamento ricavi giornaliero, ripartizione per metodo di pagamento e prodotti più venduti, con periodi fino a inizio anno."
         >
           <div />
         </ProFeatureGate>

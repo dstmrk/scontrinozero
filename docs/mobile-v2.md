@@ -105,6 +105,26 @@ native sono ciò che mette l'app dalla parte giusta della regola: è un
 argomento in più per implementarle davvero in nativo e non spedire un WebView
 e basta. Confidenza media — i revisori variano.
 
+**Pagamenti: dall'app non ci si abbona** (decisione del 7 ottobre 2026, issue
+#1044). `server.url` porta nel guscio anche checkout Stripe, scelta del piano
+e CTA d'acquisto. App Store 3.1.1 chiede l'in-app purchase per le funzioni
+sbloccate da un abbonamento, 3.1.3 vieta link e call to action verso altri
+metodi d'acquisto fuori dallo storefront USA, e la Payments policy di Google
+Play tratta come aggiramento anche il link alla pagina d'acquisto. La casella
+in cui stiamo è la 3.1.3(f), Free Stand-alone Apps: app gratuita, companion di
+uno strumento web a pagamento, «provided there is no purchasing inside the
+app, or calls to action for purchase outside of the app».
+
+Nel guscio quindi il trial parte come sul web, senza carta, e l'abbonamento si
+fa solo dal browser. Le superfici di billing non rendono checkout, prezzi,
+portale Stripe né inviti a pagare (`WebBillingOnly` nei server component,
+`useIsNativeShell` nei client component); restano lo stato del piano e la
+constatazione «è del piano Pro» o «il periodo di prova è scaduto», senza link.
+Il gate è `src/components/billing/native-billing.contract.test.ts`: un file
+nuovo con checkout, link al billing o CTA d'acquisto senza ramo nativo fa
+fallire `npm run test`. IAP scartato: due sistemi di billing paralleli,
+ricevute da validare e una commissione del 15-30% contro i costi fissi ~€0.
+
 ---
 
 ## 5. Il contratto nuovo lato server: adozione della sessione

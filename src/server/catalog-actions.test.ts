@@ -551,6 +551,8 @@ describe("catalog-actions", () => {
 
       expect(result.error).toMatch(/Starter/i);
       expect(result.error).not.toBe(TRIAL_EXPIRED_MESSAGE);
+      // Arriva anche nel guscio nativo: niente invito all'acquisto (#1044).
+      expect(result.error).not.toMatch(/passa a pro/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -584,6 +586,8 @@ describe("catalog-actions", () => {
 
       expect(result.error).toMatch(/Starter/i);
       expect(result.error).not.toBe(TRIAL_EXPIRED_MESSAGE);
+      // Arriva anche nel guscio nativo: niente invito all'acquisto (#1044).
+      expect(result.error).not.toMatch(/passa a pro/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
 

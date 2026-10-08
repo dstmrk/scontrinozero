@@ -13,6 +13,7 @@ import {
   canUsePro,
   type Plan,
 } from "@/lib/plans-shared";
+import { WebBillingOnly } from "./web-billing-only";
 
 interface ProFeatureGateProps {
   /**
@@ -36,8 +37,10 @@ interface ProFeatureGateProps {
 }
 
 const DEFAULT_TITLE = "Disponibile sul piano Pro";
-const DEFAULT_DESCRIPTION =
-  "Questa funzionalità è inclusa nel piano Pro. Passa a Pro per sbloccarla.";
+// Constatazione, non invito: la stessa descrizione appare nel guscio nativo,
+// dove la CTA d'acquisto non può esserci (issue #1044). L'invito sta nel
+// bottone, che `WebBillingOnly` rende solo nel browser.
+const DEFAULT_DESCRIPTION = "Questa funzionalità è inclusa nel piano Pro.";
 
 export function ProFeatureGate({
   plan,
@@ -59,11 +62,13 @@ export function ProFeatureGate({
         </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Button asChild>
-          <Link href={BILLING_SETTINGS_HREF}>Passa a Pro</Link>
-        </Button>
-      </CardContent>
+      <WebBillingOnly>
+        <CardContent>
+          <Button asChild>
+            <Link href={BILLING_SETTINGS_HREF}>Passa a Pro</Link>
+          </Button>
+        </CardContent>
+      </WebBillingOnly>
     </Card>
   );
 }

@@ -17,8 +17,15 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockRouterPush }),
 }));
 
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/native/native-shell")>()),
+  useIsNativeShell: () => mockNative,
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockNative = false;
   mockVerifyAdeCredentials.mockResolvedValue({});
 });
 
@@ -216,5 +223,37 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
     expect(
       screen.queryByText("Scegli la partita IVA su cui operare"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("OnboardingForm — trial già usato (issue #1044)", () => {
+  beforeEach(() => {
+    mockVerifyAdeCredentials.mockResolvedValue({ trialAlreadyUsed: true });
+  });
+
+  it("nel browser invita ad attivare un piano", async () => {
+    renderAtVerifyStep();
+    clickVerify();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Attiva un piano" }),
+    );
+    expect(mockRouterPush).toHaveBeenCalledWith("/dashboard/settings#billing");
+  });
+
+  it("nel guscio nativo dice solo lo stato, senza invito né bottone", async () => {
+    mockNative = true;
+    renderAtVerifyStep();
+    clickVerify();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Hai già utilizzato il periodo di prova con questa P.IVA. L'account è attivo in sola lettura.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Attiva un piano" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Vai al pannello" }),
+    ).toBeInTheDocument();
   });
 });

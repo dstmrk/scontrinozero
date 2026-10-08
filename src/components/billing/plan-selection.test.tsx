@@ -20,6 +20,11 @@ vi.mock("./checkout-button", () => ({
   ),
 }));
 
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
 // --- Helpers ---
 
 const defaultProps = {
@@ -38,6 +43,7 @@ function renderComponent() {
 describe("PlanSelection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNative = false;
   });
 
   it.each([
@@ -124,5 +130,14 @@ describe("PlanSelection", () => {
     expect(
       screen.queryByTestId("checkout-price_pro_monthly"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("PlanSelection — guscio nativo (issue #1044)", () => {
+  it("non rende né prezzi né checkout", () => {
+    mockNative = true;
+    const { container } = renderComponent();
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText(/€/)).not.toBeInTheDocument();
   });
 });

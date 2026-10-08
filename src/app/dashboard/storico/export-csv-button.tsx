@@ -25,6 +25,7 @@ import {
   canUsePro,
   type Plan,
 } from "@/lib/plans-shared";
+import { useIsNativeShell } from "@/lib/native/native-shell";
 
 interface ExportCsvButtonProps {
   readonly plan: Plan;
@@ -58,6 +59,8 @@ function buildExportUrl(
 }
 
 export function ExportCsvButton(props: ExportCsvButtonProps) {
+  const native = useIsNativeShell();
+
   if (canUsePro(props.plan, null, props.trialStartedAt)) {
     // Menu e non modale: chi scarica sempre lo stesso file paga un clic in
     // piu' invece di una decisione in piu'. Il riepilogo resta la prima voce,
@@ -102,7 +105,8 @@ export function ExportCsvButton(props: ExportCsvButtonProps) {
   }
 
   // Non-Pro (starter/trial): segnale visivo "Pro" + dialog esplicativo invece
-  // del redirect silenzioso alle impostazioni.
+  // del redirect silenzioso alle impostazioni. Nel guscio nativo il dialog
+  // resta, senza il bottone verso il billing (issue #1044).
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -119,18 +123,20 @@ export function ExportCsvButton(props: ExportCsvButtonProps) {
             Esportazione CSV è una funzionalità Pro
           </DialogTitle>
           <DialogDescription>
-            L&apos;export dello storico in formato CSV è incluso nel piano Pro.
-            Passa a Pro per scaricare i tuoi corrispettivi e usarli in
-            contabilità o nei tuoi report.
+            L&apos;export dello storico in formato CSV è incluso nel piano Pro:
+            scarichi i tuoi corrispettivi e li usi in contabilità o nei tuoi
+            report.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Annulla</Button>
+            <Button variant="outline">{native ? "Chiudi" : "Annulla"}</Button>
           </DialogClose>
-          <Button asChild>
-            <Link href={BILLING_SETTINGS_HREF}>Passa a Pro</Link>
-          </Button>
+          {!native && (
+            <Button asChild>
+              <Link href={BILLING_SETTINGS_HREF}>Passa a Pro</Link>
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
