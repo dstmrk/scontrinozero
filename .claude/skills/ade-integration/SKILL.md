@@ -190,6 +190,14 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
 - **Nessuna credenziale in memoria**: su 401 in emissione niente re-login,
   `AdeSessionExpiredError` come per CIE. `adoptSession` azzera anche
   credenziali e sessione di un login precedente sullo stesso client.
+- **Il logout di un client adottato non chiama l'AdE** (issue #1042). La
+  sessione l'ha aperta il telefono, e un ricollegamento può ricatturare gli
+  stessi cookie: il logout IAM che lo store fa quando sostituisce,
+  invalida o sfratta un client chiuderebbe anche la sessione nuova, e
+  nello store finirebbe un client morto. `logout()` su un client nato da
+  `adoptSession` svuota solo sessione e cookie jar; un `login`/`loginCie`
+  sullo stesso client torna al logout remoto. Lo store tratta tutti i
+  client allo stesso modo: la differenza sta nel client.
 - **L'emissione chiede solo i cookie.** Misurato con
   `scripts/adopt-session-probe.ts --emit`: vendita e annullo da €0,01
   accettati con la sola sessione adottata, senza `x-appl` né `setUserChoice`

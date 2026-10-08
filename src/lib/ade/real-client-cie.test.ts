@@ -220,6 +220,33 @@ describe("RealAdeClient.loginCie", () => {
     expect(body.pIva).toBe("10872631006");
   });
 
+  it("dopo un'adozione sullo stesso client, il logout CIE chiude la sessione sull'AdE", async () => {
+    // Il client adottato non fa logout remoto (issue #1042); un login CIE
+    // apre una sessione del server, che il logout deve chiudere.
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: { identificativiFiscali: { partitaIva: "10872631006" } },
+      }),
+    );
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await client.adoptSession("JSESSIONID=abc");
+    mockCieHappyPath(fetchMock);
+    await client.loginCie(CREDENTIALS);
+    const before = fetchMock.mock.calls.length;
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+    await client.logout();
+
+    const logoutCalls = fetchMock.mock.calls
+      .slice(before)
+      .map(([url]) => String(url));
+    expect(logoutCalls).toEqual([
+      expect.stringContaining("iampe.agenziaentrate.gov.it/sam/UI/Logout"),
+      expect.stringContaining("iampe.agenziaentrate.gov.it/api/logout"),
+    ]);
+  });
+
   it("posts CIE credentials to the livello2 endpoint", async () => {
     mockCieHappyPath(fetchMock);
     const client = new RealAdeClient({ ciePollIntervalMs: 0 });

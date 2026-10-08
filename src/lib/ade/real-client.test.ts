@@ -2574,6 +2574,56 @@ describe("RealAdeClient", () => {
         "Not logged in",
       );
     });
+
+    describe("sessione adottata (issue #1042)", () => {
+      const COOKIES = "JSESSIONID=abc; LtpaToken2=xyz";
+      const fiscali = {
+        identificativiFiscali: { partitaIva: "12345678901" },
+      };
+      const jarSize = () =>
+        (client as unknown as { cookieJar: { size: number } }).cookieJar.size;
+
+      it("non chiama l'AdE: svuota solo sessione e cookie", async () => {
+        // La sessione l'ha aperta il telefono: chiuderla sull'AdE potrebbe
+        // chiudere anche quella appena ricatturata con gli stessi cookie.
+        fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
+        await client.adoptSession(COOKIES);
+
+        await client.logout();
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(jarSize()).toBe(0);
+        await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+          "Not logged in",
+        );
+      });
+
+      it("anche dopo un'adozione fallita il logout non chiama l'AdE", async () => {
+        fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+        await expect(client.adoptSession(COOKIES)).rejects.toThrow();
+
+        await client.logout();
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+
+      it("un login Fisconline sullo stesso client torna a chiudere la sessione sull'AdE", async () => {
+        fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
+        await client.adoptSession(COOKIES);
+        mockLoginSequence(fetchMock);
+        await client.login(mockCredentials);
+        fetchMock.mockResolvedValueOnce(mockResponse({}));
+        fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+        await client.logout();
+
+        // 1 adozione + 8 login + 2 logout
+        expect(fetchMock).toHaveBeenCalledTimes(11);
+        expect(fetchMock.mock.calls[9][0]).toContain(
+          "iampe.agenziaentrate.gov.it/sam/UI/Logout",
+        );
+      });
+    });
   });
 });
 

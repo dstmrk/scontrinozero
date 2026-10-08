@@ -58,7 +58,8 @@ export class AdeInteractiveSessionStore {
 
   /**
    * Deposita un client già autenticato (CIE o sessione SPID adottata) per il business, sostituendo
-   * (con logout best-effort) un'eventuale sessione precedente.
+   * (con logout best-effort) un'eventuale sessione precedente. Il logout di un
+   * client adottato non chiama l'AdE (issue #1042): lo decide il client.
    */
   set(businessId: string, client: AdeClient): void {
     const existing = this.entries.get(businessId);
