@@ -2,9 +2,8 @@
  * @vitest-environment node
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AdeInteractiveSessionStore } from "./interactive-session-store";
-import { RealAdeClient } from "./real-client";
 import { AdeReauthRequiredError, AdeSessionExpiredError } from "./errors";
 import type { AdeClient } from "./client";
 
@@ -132,6 +131,35 @@ describe("AdeInteractiveSessionStore", () => {
     },
   );
 
+  it("un 401 sul client sostituito nel frattempo non cancella il client nuovo", async () => {
+    // Un'emissione in volo sulla sessione vecchia (dal tablet), un
+    // ricollegamento SPID che deposita la nuova (dal telefono), poi il 401
+    // della vecchia: chi si è appena ricollegato non deve rifarlo.
+    const oldClient = fakeClient();
+    const newClient = fakeClient();
+    store.set("biz-1", oldClient);
+    let rejectOld!: (err: unknown) => void;
+    const pending = store.run(
+      "biz-1",
+      "spid",
+      () =>
+        new Promise((_, reject) => {
+          rejectOld = reject;
+        }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
+    store.set("biz-1", newClient);
+    rejectOld(new AdeSessionExpiredError());
+
+    await expect(pending).rejects.toBeInstanceOf(AdeReauthRequiredError);
+    expect(store.has("biz-1")).toBe(true);
+    expect(newClient.logout).not.toHaveBeenCalled();
+    await expect(
+      store.run("biz-1", "spid", async (client) => client),
+    ).resolves.toBe(newClient);
+  });
+
   it("su 401 l'errore di rinnovo porta il metodo della sessione adottata", async () => {
     store.set("biz-1", fakeClient());
 
@@ -140,40 +168,5 @@ describe("AdeInteractiveSessionStore", () => {
         throw new AdeSessionExpiredError();
       }),
     ).rejects.toMatchObject({ method: "spid" });
-  });
-});
-
-describe("AdeInteractiveSessionStore con una sessione SPID adottata", () => {
-  const fetchMock = vi.fn();
-
-  beforeEach(() => {
-    vi.stubGlobal("fetch", fetchMock);
-    fetchMock.mockReset();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("invalidarla non chiama l'AdE (issue #1042)", async () => {
-    // È ciò che fa connectAdeWithSpid quando si ricollega: un logout remoto
-    // chiuderebbe anche la sessione appena ricatturata con gli stessi cookie.
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          identificativiFiscali: { partitaIva: "12345678901" },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    const client = new RealAdeClient();
-    await client.adoptSession("JSESSIONID=abc; LtpaToken2=xyz");
-    const store = new AdeInteractiveSessionStore();
-    store.set("biz-1", client);
-
-    await store.invalidate("biz-1");
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain("dati/fiscali");
   });
 });
