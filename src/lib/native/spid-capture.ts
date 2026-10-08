@@ -3,9 +3,9 @@
  *
  * Apre il portale AdE in un InAppBrowser, dove l'utente fa il login SPID e
  * sceglie l'utenza di lavoro come farebbe nel browser. Quando arriva a
- * Documento Commerciale Online la sessione è completa: si leggono i cookie del
- * portale (HttpOnly compresi), li si cancella dal telefono (issue #1041), si
- * chiude il browser e si restituisce l'header `Cookie` che
+ * Documento Commerciale Online, a pagina caricata, la sessione è completa: si
+ * leggono i cookie (HttpOnly compresi), li si cancella dal telefono (issue
+ * #1041), si chiude il browser e si restituisce l'header `Cookie` che
  * `connectAdeWithSpid` adotta sul server.
  *
  * Il plugin è `@capgo/capacitor-inappbrowser`, installato nel guscio
@@ -27,8 +27,15 @@ const PLUGIN = "CapgoInAppBrowser";
 export const ADE_PORTAL_LOGIN_URL =
   "https://ivaservizi.agenziaentrate.gov.it/portale/";
 
-/** I cookie si leggono per host: `getCookies` include i domini padre. */
-const ADE_COOKIE_URL = "https://ivaservizi.agenziaentrate.gov.it/";
+/**
+ * I cookie si leggono per l'URL che il server chiama nell'adozione
+ * (`RealAdeClient.adoptSession`, `dati/fiscali`), non per la radice: su
+ * Android `getCookies` filtra per path come farebbe il browser, e un cookie
+ * con `Path=/ser` alla radice non torna (issue #1043). Su iOS il plugin filtra
+ * solo per dominio, e l'URL non cambia niente.
+ */
+export const SPID_COOKIE_URL =
+  "https://ivaservizi.agenziaentrate.gov.it/ser/api/documenti/v1/doc/documenti/dati/fiscali";
 
 /** True quando il browser è arrivato a Documento Commerciale Online. */
 export function isDcoUrl(url: string): boolean {
@@ -90,13 +97,22 @@ export async function captureSpidCookieHeader(
       await call.call(bridge, PLUGIN, "close", {}).catch(() => undefined);
     };
 
+    // L'ultimo URL visto è il DCO. Si legge solo quando quella pagina finisce
+    // di caricare: su iOS l'URL cambia all'inizio della navigazione, prima che
+    // arrivino i cookie della risposta (issue #1043). `browserPageLoaded` non
+    // porta l'URL, per questo lo si ricorda qui.
+    let atDco = false;
+
     handles.push(
       listen.call(bridge, PLUGIN, "urlChangeEvent", ({ url }) => {
-        if (!url || !isDcoUrl(url)) return;
+        atDco = Boolean(url && isDcoUrl(url));
+      }),
+      listen.call(bridge, PLUGIN, "browserPageLoaded", () => {
+        if (!atDco) return;
         finish(async () => {
           try {
             const cookies = (await call.call(bridge, PLUGIN, "getCookies", {
-              url: ADE_COOKIE_URL,
+              url: SPID_COOKIE_URL,
               includeHttpOnly: true,
             })) as Record<string, string>;
             return toCookieHeader(cookies ?? {}) || null;

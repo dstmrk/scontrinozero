@@ -211,10 +211,22 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
   InAppBrowser arriva dal server e usa il bridge `window.Capacitor`
   (`nativePromise`/`addListener` sul plugin `CapgoInAppBrowser`), senza
   `@capacitor/core` fra le dipendenze web. Il segnale di login riuscito è
-  l'arrivo della webview su Documento commerciale online: è lì che si leggono
-  i cookie di `ivaservizi` (`includeHttpOnly`). URL di partenza e prefisso
-  vanno verificati sul device: se l'AdE li sposta, è la prima cosa da
-  guardare.
+  la pagina di Documento commerciale online **caricata**: `urlChangeEvent`
+  sul DCO arma, il `browserPageLoaded` successivo legge (`includeHttpOnly`).
+  Non si legge sull'`urlChangeEvent`: su iOS viene dal KVO di
+  `WKWebView.url`, che può cambiare a navigazione appena iniziata, prima
+  dei cookie della risposta. `browserPageLoaded` non porta l'URL, per
+  questo la cattura ricorda l'ultimo. I cookie si leggono per l'URL di
+  `dati/fiscali`, quello che il server chiama nell'adozione, non per la
+  radice: su Android `getCookies` va a `CookieManager.getCookie(url)`, che
+  filtra per path (su iOS il plugin filtra solo per dominio). Su sandbox
+  `MockAdeClient` accetta qualunque header: a dire se la cattura porta i
+  cookie giusti è il log `connectAdeWithSpid: cookie ricevuti`, con i soli
+  nomi (`cookieNames`; la chiave `cookie` la censura REDACT_PATHS), da
+  confrontare con l'insieme del punto E di `docs/mobile-v2.md`. La prova
+  vera resta un'emissione in produzione (issue #1043). URL di partenza e
+  prefisso vanno verificati sul device: se l'AdE li sposta, è la prima
+  cosa da guardare.
 - **Letti i cookie, li si cancella dal telefono** (issue #1041,
   `src/lib/native/ade-cookie-cleanup.ts`). Il plugin li tiene dopo la
   chiusura, e il bridge li dà a qualunque script dell'origine dell'app,

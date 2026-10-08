@@ -1240,6 +1240,14 @@ const SPID_VERIFY_FLOW: VerifyFlow = {
   method: "spid",
 };
 
+/** I nomi dell'header `Cookie`, nell'ordine e con i duplicati. */
+function cookieNamesOf(header: string): string[] {
+  return header
+    .split(";")
+    .map((pair) => pair.split("=", 1)[0].trim())
+    .filter(Boolean);
+}
+
 /**
  * Collega (o ricollega) l'AdE con una sessione SPID aperta nella webview
  * dell'app nativa (docs/mobile-v2.md punto 5). L'app legge i cookie del
@@ -1287,6 +1295,15 @@ export async function connectAdeWithSpid(
     logger.warn({ userId: user.id }, "connectAdeWithSpid rate limit exceeded");
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
+
+  // Solo i nomi, mai i valori. Su sandbox `MockAdeClient` accetta qualunque
+  // header: questo log è ciò che mostra se la cattura porta l'insieme del
+  // punto E di docs/mobile-v2.md (issue #1043). Non sotto la chiave `cookie`,
+  // che REDACT_PATHS censura.
+  logger.info(
+    { businessId, cookieNames: cookieNamesOf(header) },
+    "connectAdeWithSpid: cookie ricevuti",
+  );
 
   // Adozione e identità PRIMA di scrivere: la riga `spid` sostituisce le
   // credenziali salvate (es. Fisconline di chi già emette), quindi si scrive

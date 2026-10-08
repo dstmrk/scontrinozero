@@ -3023,6 +3023,47 @@ describe("onboarding-actions", () => {
       expect(mockAdoptSession).not.toHaveBeenCalled();
     });
 
+    it("registra i nomi dei cookie ricevuti e mai i valori", async () => {
+      // Su sandbox l'AdE è un mock che accetta qualunque header: il log è
+      // l'unico modo di vedere se la cattura porta l'insieme del punto E
+      // (issue #1043). La chiave non è `cookie`, che REDACT_PATHS censura.
+      queueReads(NOT_ONBOARDED);
+      const { logger } = await import("@/lib/logger");
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      await connectAdeWithSpid(
+        BIZ,
+        "JSESSIONID=valore-jsession; LtpaToken2=valore=ltpa==;; SIAMPE=valore-siampe; senza-uguale",
+      );
+
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          businessId: BIZ,
+          cookieNames: ["JSESSIONID", "LtpaToken2", "SIAMPE", "senza-uguale"],
+        },
+        expect.any(String),
+      );
+      const logged = JSON.stringify([
+        vi.mocked(logger.info).mock.calls,
+        vi.mocked(logger.warn).mock.calls,
+        vi.mocked(logger.error).mock.calls,
+      ]);
+      expect(logged).not.toMatch(/valore/);
+    });
+
+    it("su un business non suo non registra i nomi dei cookie", async () => {
+      mockLimit.mockResolvedValueOnce([]);
+      const { logger } = await import("@/lib/logger");
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.objectContaining({ cookieNames: expect.anything() }),
+        expect.any(String),
+      );
+    });
+
     it("salva una riga spid senza segreti, adotta la sessione e completa la verifica", async () => {
       queueReads(NOT_ONBOARDED);
 

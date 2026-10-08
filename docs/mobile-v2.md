@@ -171,7 +171,8 @@ non si sa quali header richieda.
 
 Quello che i due gradini non dimostrano: che i cookie letti dal plugin
 InAppBrowser siano gli stessi che copia un browser desktop. Lo verifica la
-slice di cattura.
+slice di cattura, su sandbox dai nomi dei cookie che `connectAdeWithSpid`
+registra e in produzione con un'emissione (#1043).
 
 Che i concorrenti facciano SPID via webview non chiude la domanda. Dimostra che
 il login in webview funziona e che i cookie si leggono, non che si possano
@@ -333,18 +334,26 @@ quando la slice arriva.
      in un `AdeClient` e lo deposita nello store interattivo.
    - **3b, app** — scritta, da accettare sul device: il plugin
      `@capgo/capacitor-inappbrowser` apre il portale AdE, l'utente fa il
-     login SPID e apre Documento commerciale online; a quell'URL l'app legge
-     i cookie di `ivaservizi`, chiude la webview e li passa a
-     `connectAdeWithSpid`. Il bottone «Collega con SPID» compare solo nel
-     guscio nativo (`isNativeShell()`), nel passo credenziali
+     login SPID e apre Documento commerciale online; a pagina caricata
+     l'app legge i cookie per l'URL di `dati/fiscali` (quello che il server
+     chiama), chiude la webview e li passa a `connectAdeWithSpid`, che ne
+     registra i soli nomi. Chiuso il browser prima del DCO, il bottone dice
+     cosa manca invece di tacere. Il bottone «Collega con SPID» compare solo
+     nel guscio nativo (`isNativeShell()`), nel passo credenziali
      dell'onboarding e nelle impostazioni AdE. Letti i cookie, l'app li
      cancella dal telefono, prima e dopo `close` (#1041). Criterio di
-     accettazione: dall'app su sandbox, collegamento SPID e uno scontrino
-     emesso; poi, su iOS e su Android, `getCookies` del plugin sugli host
-     AdE torna vuoto e Sentry non ha warning `flow:spid-capture`. Lo
-     stesso dopo un login SPID chiuso con la X prima del DCO. Su iOS
-     15/16 anche `CapacitorCookies.getCookies` sugli host AdE torna
-     vuoto.
+     accettazione, in due tempi (#1043). Su sandbox, dove `MockAdeClient`
+     accetta qualunque header: collegamento SPID e uno scontrino emesso, da
+     iOS e da Android, e nel log `connectAdeWithSpid: cookie ricevuti` i
+     nomi del punto E (`JSESSIONID`, `LtpaToken2`, `SIAMPE`, `SIAMPE_TAI`,
+     `portaleCookie`, `B2BCookie`, `FATSC`); poi `getCookies` del plugin
+     sugli host AdE torna vuoto e Sentry non ha warning
+     `flow:spid-capture`. Lo stesso dopo un login SPID chiuso con la X
+     prima del DCO. Su iOS 15/16 anche `CapacitorCookies.getCookies` sugli
+     host AdE torna vuoto. In produzione, con l'app buildata da
+     `sync:prod`: collegamento SPID, poi uno scontrino da €0,01 emesso e
+     annullato, una volta su iOS e una su Android. È l'unica prova che i
+     cookie catturati funzionino davvero.
    - **Rinnovo SPID** — scritto: `reauthRequired` porta il metodo, e
      `AdeReauthBanner` a un utente SPID chiede «Ricollega con SPID»
      nell'app o rimanda all'app dal browser.

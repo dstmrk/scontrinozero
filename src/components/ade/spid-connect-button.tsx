@@ -33,12 +33,14 @@ export function SpidConnectButton({
 }: SpidConnectButtonProps) {
   const native = useIsNativeShell();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   if (!native) return null;
 
   function handleClick() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       let header: string | null;
       try {
@@ -49,9 +51,15 @@ export function SpidConnectButton({
         );
         return;
       }
-      // Browser chiuso prima di Documento commerciale online: l'utente ha
-      // rinunciato, non è un errore.
-      if (!header) return;
+      // Browser chiuso prima di Documento commerciale online: non è un
+      // errore, ma chi ha già fatto login e secondo fattore deve sapere cosa
+      // manca (issue #1043).
+      if (!header) {
+        setNotice(
+          'Collegamento non completato: dopo l\'accesso SPID apri "Documento commerciale online".',
+        );
+        return;
+      }
 
       const result = await connectAdeWithSpid(businessId, header);
       if (result.error) {
@@ -76,6 +84,11 @@ export function SpidConnectButton({
         )}
         {isPending ? "Collegamento SPID in corso…" : label}
       </Button>
+      {notice && (
+        <output className="text-muted-foreground block text-sm">
+          {notice}
+        </output>
+      )}
       {error && (
         <p className="text-destructive text-sm" role="alert">
           {error}

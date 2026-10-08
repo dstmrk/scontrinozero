@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CapacitorBridge } from "./native-shell";
 import {
   ADE_PORTAL_LOGIN_URL,
+  SPID_COOKIE_URL,
   captureSpidCookieHeader,
   isDcoUrl,
   toCookieHeader,
@@ -41,6 +42,7 @@ beforeEach(() => {
 });
 
 type Listener = (data: { url?: string }) => void;
+type Emit = (event: string, data?: { url?: string }) => void;
 
 const DCO =
   "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/";
@@ -69,8 +71,7 @@ function fakeBridge(cookies: Record<string, string> = { JSESSIONID: "abc" }) {
       };
     }),
   };
-  const emit = (event: string, data: { url?: string }) =>
-    listeners.get(event)?.(data);
+  const emit: Emit = (event, data = {}) => listeners.get(event)?.(data);
   return { bridge, emit, calls, removed };
 }
 
@@ -81,7 +82,18 @@ async function settle() {
   for (let i = 0; i < 10; i++) await flush();
 }
 
-const LISTENERS = ["closeEvent", "hideEvent", "urlChangeEvent"];
+/** Arrivo al DCO: l'URL cambia, poi la pagina finisce di caricare. */
+function reachDco(emit: Emit, url = DCO) {
+  emit("urlChangeEvent", { url });
+  emit("browserPageLoaded");
+}
+
+const LISTENERS = [
+  "browserPageLoaded",
+  "closeEvent",
+  "hideEvent",
+  "urlChangeEvent",
+];
 
 // La pulizia in background di un test non deve finire nel successivo.
 afterEach(settle);
@@ -132,11 +144,12 @@ describe("captureSpidCookieHeader", () => {
     });
 
     emit("urlChangeEvent", { url: ADE_PORTAL_LOGIN_URL });
-    emit("urlChangeEvent", { url: DCO });
+    emit("browserPageLoaded");
+    reachDco(emit);
 
     await expect(pending).resolves.toBe("JSESSIONID=abc; LtpaToken2=xyz");
     expect(calls.find((c) => c.method === "getCookies")?.options).toEqual({
-      url: "https://ivaservizi.agenziaentrate.gov.it/",
+      url: SPID_COOKIE_URL,
       includeHttpOnly: true,
     });
     expect(removed.sort()).toEqual(LISTENERS);
@@ -149,7 +162,7 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", { url: DCO });
+    reachDco(emit);
     await pending;
     await settle();
 
@@ -177,7 +190,7 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", { url: DCO });
+    reachDco(emit);
 
     await expect(pending).resolves.toBe("JSESSIONID=abc");
     expect(mockClearAdeCookies).toHaveBeenCalledTimes(2);
@@ -225,13 +238,79 @@ describe("captureSpidCookieHeader", () => {
     ]);
   });
 
-  it("cattura una volta sola anche se il DCO cambia URL più volte", async () => {
+  it("legge i cookie per l'URL dell'API che il server chiama", () => {
+    // Su Android getCookies filtra per path: la radice perde i cookie con
+    // Path=/ser, e l'header deve essere quello che riceve dati/fiscali.
+    expect(SPID_COOKIE_URL).toBe(
+      "https://ivaservizi.agenziaentrate.gov.it/ser/api/documenti/v1/doc/documenti/dati/fiscali",
+    );
+  });
+
+  it("all'URL del DCO non legge ancora: aspetta che la pagina finisca di caricare", async () => {
+    // Su iOS l'URL cambia all'inizio della navigazione, prima dei cookie
+    // della risposta.
     const { bridge, emit, calls } = fakeBridge();
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
     emit("urlChangeEvent", { url: DCO });
-    emit("urlChangeEvent", { url: `${DCO}#/vendita` });
+    await settle();
+    expect(calls.some((c) => c.method === "getCookies")).toBe(false);
+
+    emit("browserPageLoaded");
+    await expect(pending).resolves.toBe("JSESSIONID=abc");
+  });
+
+  it("una pagina caricata fuori dal DCO non fa leggere", async () => {
+    const { bridge, emit, calls } = fakeBridge();
+
+    const pending = captureSpidCookieHeader(bridge);
+    await flush();
+    emit("browserPageLoaded");
+    emit("urlChangeEvent", { url: ADE_PORTAL_LOGIN_URL });
+    emit("browserPageLoaded");
+    await settle();
+    expect(calls.some((c) => c.method === "getCookies")).toBe(false);
+
+    emit("closeEvent");
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it("DCO lasciato prima del caricamento: il caricamento successivo non conta", async () => {
+    // Un redirect dal DCO al login vuol dire che la sessione non c'è ancora.
+    const { bridge, emit, calls } = fakeBridge();
+
+    const pending = captureSpidCookieHeader(bridge);
+    await flush();
+    emit("urlChangeEvent", { url: DCO });
+    emit("urlChangeEvent", { url: ADE_PORTAL_LOGIN_URL });
+    emit("browserPageLoaded");
+    await settle();
+    expect(calls.some((c) => c.method === "getCookies")).toBe(false);
+
+    reachDco(emit);
+    await expect(pending).resolves.toBe("JSESSIONID=abc");
+  });
+
+  it("DCO visto ma mai caricato, poi chiusura: null senza leggere", async () => {
+    const { bridge, emit, calls } = fakeBridge();
+
+    const pending = captureSpidCookieHeader(bridge);
+    await flush();
+    emit("urlChangeEvent", { url: DCO });
+    emit("hideEvent", { url: DCO });
+
+    await expect(pending).resolves.toBeNull();
+    expect(calls.some((c) => c.method === "getCookies")).toBe(false);
+  });
+
+  it("cattura una volta sola anche se il DCO cambia URL più volte", async () => {
+    const { bridge, emit, calls } = fakeBridge();
+
+    const pending = captureSpidCookieHeader(bridge);
+    await flush();
+    reachDco(emit);
+    reachDco(emit, `${DCO}#/vendita`);
     emit("hideEvent", { url: DCO });
     emit("closeEvent", { url: DCO });
     await pending;
@@ -246,7 +325,7 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", { url: DCO });
+    reachDco(emit);
 
     await expect(pending).resolves.toBeNull();
     expect(calls.at(-1)?.method).toBe("close");
@@ -264,7 +343,7 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", { url: DCO });
+    reachDco(emit);
 
     await expect(pending).rejects.toThrow("lettura fallita");
     await settle();
@@ -294,7 +373,7 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", { url: DCO });
+    reachDco(emit);
 
     await expect(pending).resolves.toBe("JSESSIONID=abc");
     await settle();

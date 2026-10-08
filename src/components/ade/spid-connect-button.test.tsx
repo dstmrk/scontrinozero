@@ -58,21 +58,35 @@ describe("SpidConnectButton", () => {
     );
   });
 
-  it("browser chiuso prima del DCO: nessuna chiamata, nessun errore", async () => {
+  it("browser chiuso prima del DCO: avviso informativo, nessuna chiamata", async () => {
+    // L'utente può aver fatto login e secondo fattore: chiudere senza dire
+    // niente lo lascia senza esito.
     mockCapture.mockResolvedValue(null);
     const onConnected = vi.fn();
     render(<SpidConnectButton businessId="biz-1" onConnected={onConnected} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Collega con SPID" }),
-      ).toBeEnabled();
-    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      'Collegamento non completato: dopo l\'accesso SPID apri "Documento commerciale online".',
+    );
     expect(mockConnectAdeWithSpid).not.toHaveBeenCalled();
     expect(onConnected).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("un nuovo tentativo toglie l'avviso", async () => {
+    mockCapture.mockResolvedValueOnce(null);
+    render(<SpidConnectButton businessId="biz-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collega con SPID" }));
+    await waitFor(() => {
+      expect(mockConnectAdeWithSpid).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("un errore del server compare sotto il pulsante e non chiama onConnected", async () => {
