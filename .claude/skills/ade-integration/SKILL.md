@@ -90,10 +90,12 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    nuovo login SPID dall'app (`SpidConnectButton`), non la notifica CIE, e
    nel browser non c'è niente da premere, solo il rimando all'app.
 2. **Il TTL dello store NON è la scadenza della sessione AdE.** `DEFAULT_TTL_MS`
-   (6h) e `DEFAULT_MAX_ENTRIES` (100, LRU per-business) sono un cap di memoria:
+   (6h) e `DEFAULT_MAX_ENTRIES` (1.000, LRU per-business) sono un cap di memoria:
    la scadenza vera la dichiara AdE → `AdeSessionExpiredError` → tradotto in
    `AdeReauthRequiredError`. Non inventare una scadenza logica lato nostro, e
    non "riprovare" un login CIE dal server: il secondo fattore è umano.
+   Uno sfratto LRU per cap pieno logga `ade_interactive_session_evicted`
+   (warn, col `businessId`): l'esercente sfrattato dovrà ricollegarsi.
    **L'AdE però non la dichiara solo col 401.** Misurato in produzione
    (SCONTRINOZERO-M, 12/09/2026): sessione CIE creata alle 12:15, `submitSale`
    alle 16:36 → **`405` con `text/html` e body vuoto**, non un 401. Il client si
