@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AdeInteractiveSessionStore } from "./interactive-session-store";
 import { AdeReauthRequiredError, AdeSessionExpiredError } from "./errors";
 import type { AdeClient } from "./client";
+import { logger } from "@/lib/logger";
 
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -23,6 +24,7 @@ describe("AdeInteractiveSessionStore", () => {
   let store: AdeInteractiveSessionStore;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     now = 1_000_000;
     store = new AdeInteractiveSessionStore({ now: () => now });
   });
@@ -168,5 +170,86 @@ describe("AdeInteractiveSessionStore", () => {
         throw new AdeSessionExpiredError();
       }),
     ).rejects.toMatchObject({ method: "spid" });
+  });
+  describe("cap LRU (issue #1045)", () => {
+    it("allo sfratto logga un warn col businessId sfrattato e fa logout", () => {
+      store = new AdeInteractiveSessionStore({ maxEntries: 2, now: () => now });
+      const evicted = fakeClient();
+      store.set("biz-1", evicted);
+      store.set("biz-2", fakeClient());
+      expect(logger.warn).not.toHaveBeenCalled();
+
+      store.set("biz-3", fakeClient());
+
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "biz-1",
+          event: "ade_interactive_session_evicted",
+        }),
+        expect.any(String),
+      );
+      expect(evicted.logout).toHaveBeenCalled();
+      expect(store.has("biz-1")).toBe(false);
+    });
+
+    it("sfrattare una sessione già scaduta per TTL non logga il warn", () => {
+      store = new AdeInteractiveSessionStore({
+        maxEntries: 1,
+        ttlMs: 1000,
+        now: () => now,
+      });
+      const stale = fakeClient();
+      store.set("biz-1", stale);
+      now += 1001;
+
+      store.set("biz-2", fakeClient());
+
+      expect(store.size).toBe(1);
+      expect(stale.logout).toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("rispetta il cap configurato e l'entry usata più di recente sopravvive", async () => {
+      store = new AdeInteractiveSessionStore({ maxEntries: 2, now: () => now });
+      store.set("biz-1", fakeClient());
+      store.set("biz-2", fakeClient());
+      // biz-1 usato per ultimo: ora la meno recente è biz-2.
+      await store.run("biz-1", "spid", async () => "ok");
+
+      store.set("biz-3", fakeClient());
+
+      expect(store.size).toBe(2);
+      expect(store.has("biz-1")).toBe(true);
+      expect(store.has("biz-2")).toBe(false);
+      expect(store.has("biz-3")).toBe(true);
+    });
+
+    it("sostituire la sessione di un business già presente non sfratta nessuno", () => {
+      store = new AdeInteractiveSessionStore({ maxEntries: 2, now: () => now });
+      store.set("biz-1", fakeClient());
+      store.set("biz-2", fakeClient());
+
+      store.set("biz-1", fakeClient());
+
+      expect(store.size).toBe(2);
+      expect(store.has("biz-2")).toBe(true);
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("il cap di default regge 1000 sessioni e sfratta la 1001-esima più vecchia", () => {
+      for (let i = 0; i < 1000; i++) store.set(`biz-${i}`, fakeClient());
+      expect(store.size).toBe(1000);
+      expect(logger.warn).not.toHaveBeenCalled();
+
+      store.set("biz-1000", fakeClient());
+
+      expect(store.size).toBe(1000);
+      expect(store.has("biz-0")).toBe(false);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ businessId: "biz-0" }),
+        expect.any(String),
+      );
+    });
   });
 });

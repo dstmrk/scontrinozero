@@ -28,8 +28,17 @@ import { logger } from "@/lib/logger";
 /** TTL di default: cap di memoria ampio (6h), NON la scadenza logica AdE. */
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
 
-/** Cap LRU di default sul numero di sessioni interattive in memoria. */
-const DEFAULT_MAX_ENTRIES = 100;
+/**
+ * Cap LRU di default sul numero di sessioni interattive in memoria. Protegge
+ * da una crescita senza limite, non da un vincolo di memoria vicino: una entry
+ * è un `RealAdeClient` con un cookie jar di pochi KB (stima, non misura), quindi
+ * 1.000 entry restano nell'ordine dei MB. Era 100, dimensionato quando CIE era
+ * l'unico metodo interattivo; con SPID come canale d'ingresso uno sfratto
+ * costringe un esercente a rifare il login col secondo fattore a metà servizio
+ * (issue #1045). Lo sfratto logga `ade_interactive_session_evicted`: il primo
+ * nei log è il trigger per rivedere il cap.
+ */
+const DEFAULT_MAX_ENTRIES = 1000;
 
 interface Entry {
   client: AdeClient;
@@ -166,7 +175,19 @@ export class AdeInteractiveSessionStore {
       if (oldestKey === undefined) break;
       const oldest = this.entries.get(oldestKey);
       this.entries.delete(oldestKey);
-      if (oldest) void oldest.client.logout().catch(() => {});
+      if (!oldest) continue;
+      void oldest.client.logout().catch(() => {});
+      // Una sessione già scaduta per TTL non è un danno: loggarla falserebbe
+      // il trigger per rivedere il cap.
+      if (oldest.expiresAt <= this.now()) continue;
+      logger.warn(
+        {
+          businessId: oldestKey,
+          maxEntries: this.maxEntries,
+          event: "ade_interactive_session_evicted",
+        },
+        "AdE interactive session evicted by LRU cap — reauth required",
+      );
     }
   }
 
