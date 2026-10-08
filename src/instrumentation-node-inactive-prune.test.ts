@@ -14,8 +14,6 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: mockLoggerWarn },
 }));
 
-vi.mock("@sentry/nextjs", () => ({ captureRequestError: vi.fn() }));
-
 describe("startInactiveUserPruneSweep()", () => {
   let capturedCallback: (() => Promise<void>) | undefined;
   let capturedInitialCallback: (() => Promise<void>) | undefined;
@@ -31,7 +29,7 @@ describe("startInactiveUserPruneSweep()", () => {
       startInactiveUserPruneSweep,
       INACTIVE_USER_PRUNE_INTERVAL_MS,
       INACTIVE_USER_PRUNE_INITIAL_DELAY_MS,
-    } = await import("./instrumentation"));
+    } = await import("./instrumentation-node"));
 
     mockUnref = vi.fn();
     const mockTimer = { unref: mockUnref } as unknown as ReturnType<

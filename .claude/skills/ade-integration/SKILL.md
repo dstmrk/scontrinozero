@@ -37,7 +37,7 @@ vincoli di design, sono quelle che il codice già rispetta — e che una
    collisione sull'idempotency key, cioè un'azione dell'esercente in sessione
    — e `src/lib/services/pending-verification.ts` **verifica senza
    ri-sottomettere** (un "nessun match" porta a `ERROR` e all'invito a
-   riemettere, mai a un nuovo `submitSale`). Uno sweep in background in `src/instrumentation.ts` che
+   riemettere, mai a un nuovo `submitSale`). Uno sweep in background in `src/instrumentation-node.ts` che
    parli con l'AdE romperebbe questo invariante **e** il precedente: è il
    motivo per cui non esiste, oltre al fatto che fuori da una richiesta utente
    non c'è sessione AdE né chi sappia se la vendita è avvenuta davvero.
@@ -734,7 +734,7 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    **mai** a un `submitSale`, perché ri-sottomettere è irreversibile e non è
    una decisione da prendere per conto suo. Su candidati multipli mostra la
    lista e non sceglie: chi sta al banco è l'unico che sa se la vendita è
-   avvenuta. Uno sweep in `instrumentation.ts` e un avviso su `/admin` contano
+   avvenuta. Uno sweep in `instrumentation-node.ts` e un avviso su `/admin` contano
    le righe rimaste in sospeso; lo sweep **conta e basta**, perché fuori da una
    richiesta utente non c'è una sessione AdE e non c'è nemmeno chi sa
    rispondere.

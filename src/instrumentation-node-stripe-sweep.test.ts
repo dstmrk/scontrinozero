@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   STRIPE_WEBHOOK_EVENT_RETENTION_MS,
   STUCK_WEBHOOK_CLAIM_THRESHOLD_MS,
-} from "./instrumentation";
+} from "./instrumentation-node";
 
 const { mockGetDb, mockLoggerInfo, mockLoggerWarn } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
@@ -17,10 +17,6 @@ vi.mock("@/db", () => ({ getDb: mockGetDb }));
 
 vi.mock("@/lib/logger", () => ({
   logger: { info: mockLoggerInfo, warn: mockLoggerWarn },
-}));
-
-vi.mock("@sentry/nextjs", () => ({
-  captureRequestError: vi.fn(),
 }));
 
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
@@ -57,7 +53,7 @@ describe("startStripeWebhookClaimSweep()", () => {
   beforeEach(async () => {
     // Reset dello stato module-level (guardia di idempotenza) tra i test.
     vi.resetModules();
-    ({ startStripeWebhookClaimSweep } = await import("./instrumentation"));
+    ({ startStripeWebhookClaimSweep } = await import("./instrumentation-node"));
 
     capturedConditions = [];
     whereShouldThrow = undefined;

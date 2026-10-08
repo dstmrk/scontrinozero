@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // NB: register() non fa più lavoro DB al boot. Le migrazioni le applica
@@ -190,5 +192,30 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(global.setInterval).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Next compila `instrumentation.ts` anche per il runtime edge, anche se nessuna
+ * route ci gira, e Turbopack segue ogni `import()` del file, anche quelli
+ * dentro funzioni mai chiamate su edge: un modulo Node raggiungibile da qui
+ * stampa "not supported in the Edge Runtime" a ogni build (issue #1030). Il
+ * solo modo per tagliare il grafo è che questo file non nomini altro che
+ * l'SDK Sentry e, dietro il guard nodejs, `instrumentation-node`.
+ */
+describe("instrumentation.ts: confine edge", () => {
+  const source = readFileSync(
+    fileURLToPath(new URL("./instrumentation.ts", import.meta.url)),
+    "utf8",
+  );
+
+  it("importa staticamente solo @sentry/nextjs", () => {
+    const staticImports = [...source.matchAll(/^import .* from "([^"]+)";$/gm)];
+    expect(staticImports.map((m) => m[1])).toEqual(["@sentry/nextjs"]);
+  });
+
+  it("importa dinamicamente solo ./instrumentation-node", () => {
+    const dynamicImports = [...source.matchAll(/import\(\s*"([^"]+)"\s*\)/g)];
+    expect(dynamicImports.map((m) => m[1])).toEqual(["./instrumentation-node"]);
   });
 });

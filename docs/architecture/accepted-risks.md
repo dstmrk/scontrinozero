@@ -31,7 +31,7 @@ riconciliazione richiede l'archivio AdE, la esegue una persona, e la persona
 che può farlo è l'esercente — che è stato avvisato.
 
 **Conseguenza operativa, da conoscere prima di indagare.** Lo sweep in
-`instrumentation.ts` continuerà a loggare `stale_pending_documents` con
+`instrumentation-node.ts` continuerà a loggare `stale_pending_documents` con
 `salePending: 4` a ogni giro (~6h), a tempo indefinito. Quel contatore non è
 un segnale nuovo: è questo residuo. Chi lo trova nei log e ci apre
 un'indagine sta ri-scoprendo una voce già chiusa, ed è la ragione per cui

@@ -514,7 +514,7 @@ grezzi portano `release` su ogni riga.
 
 Gotcha (estende regola 18, build-vs-runtime): `BUILD_SHA` è **runtime** e
 non-`NEXT_PUBLIC`, ed è bakato solo nello stage di produzione del `Dockerfile`
-(non nello stage di build). Quindi è leggibile da `sentry.server/edge.config.ts`
+(non nello stage di build). Quindi è leggibile da `sentry.server.config.ts`
 e da `logger.ts` (runtime, Node), **ma non** dal bundle client: per taggare con
 la release anche gli errori browser servirebbe spostare `BUILD_SHA` allo stage
 di build ed esporlo come `NEXT_PUBLIC_*`. Gli errori che identificano "che

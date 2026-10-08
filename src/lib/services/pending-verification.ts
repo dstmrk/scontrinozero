@@ -9,7 +9,7 @@
  * `searchDocuments`, non c'è finalize — e una riga che nessuno ritenta con la
  * *stessa* chiave non viene riconciliata mai.
  *
- * **Perché qui e non in uno sweep di `instrumentation.ts`.** Uno sweep non ha
+ * **Perché qui e non in uno sweep di `instrumentation-node.ts`.** Uno sweep non ha
  * una sessione AdE: dovrebbe decifrare le credenziali fuori da una richiesta
  * utente e fare un login per ogni business con righe orfane. E soprattutto
  * sposterebbe la decisione lontano dall'unica persona che sa se quella vendita

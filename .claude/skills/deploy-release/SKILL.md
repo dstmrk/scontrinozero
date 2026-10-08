@@ -1,6 +1,6 @@
 ---
 name: deploy-release
-description: Use when deploying or releasing ScontrinoZero — tagging vX.Y.Z, building/pushing the Docker image to GHCR, docker compose on the VPS or the dev Raspberry Pi (deploy/dev/), passing NEXT_PUBLIC_* build-args (baked at build vs read at runtime, present-but-empty "" pitfalls where a ?? default never fires), identity env fail-fast validation (assertIdentityEnv in src/lib/identity-env.ts called from src/instrumentation.ts), the mandatory post-deploy smoke (live + env + drain probes on /api/health/live, /api/health/env, /api/health/sentry-sentinel), Turnstile site-key/secret pairing for the :dev widget, env handling in next.config.ts, or updating the T&C / Privacy Policy version (CURRENT_TERMS_VERSION in src/server/auth-actions.ts).
+description: Use when deploying or releasing ScontrinoZero — tagging vX.Y.Z, building/pushing the Docker image to GHCR, docker compose on the VPS or the dev Raspberry Pi (deploy/dev/), passing NEXT_PUBLIC_* build-args (baked at build vs read at runtime, present-but-empty "" pitfalls where a ?? default never fires), identity env fail-fast validation (assertIdentityEnv in src/lib/identity-env.ts called from src/instrumentation-node.ts), the mandatory post-deploy smoke (live + env + drain probes on /api/health/live, /api/health/env, /api/health/sentry-sentinel), Turnstile site-key/secret pairing for the :dev widget, env handling in next.config.ts, or updating the T&C / Privacy Policy version (CURRENT_TERMS_VERSION in src/server/auth-actions.ts).
 ---
 
 # deploy-release — rilasci, env d'identità, smoke post-deploy, T&C
@@ -82,8 +82,8 @@ generare le route — usare import relativi (PR #536).
 
 Le env che producono URL/redirect (`NEXT_PUBLIC_APP_URL` + le 6 varianti
 `*_HOSTNAME`) sono validate da `assertIdentityEnv()` in
-`src/lib/identity-env.ts`, chiamato come **prima istruzione** di `register()`
-in `src/instrumentation.ts` (runtime nodejs). In produzione un valore
+`src/lib/identity-env.ts`, chiamato come **prima istruzione** di `registerNode()`
+in `src/instrumentation-node.ts` (runtime nodejs). In produzione un valore
 malformato fa **throware al boot** e il container non parte — invece di
 produrre 503 al primo route che costruisce URL, come succedeva con
 SCONTRINOZERO-F (5 eventi su utente FR/Stripe checkout) e SCONTRINOZERO-D
