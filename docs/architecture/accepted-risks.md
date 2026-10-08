@@ -240,6 +240,37 @@ quelli memorizzati sul portale. Registrato per non ri-scoprirlo a ogni audit del
 mapper. **Riaprire:** se l'AdE iniziasse a rifiutare o a trattare diversamente i
 documenti con il flag a `true`.
 
+## Utenza AdE di lavoro: i rami non osservati restano scoperti (issue #984)
+
+L'issue #984 ha portato l'onboarding oltre la P.IVA intestata alla persona:
+utenza `incaricato`, più P.IVA dirette, le due personae insieme, picker in
+onboarding e in impostazioni. Restano tre scelte, accettate perché nessun
+caso reale le esercita e nessun tracciato dice cosa cambierebbe a valle:
+scriverle ora sarebbe codice non verificabile.
+
+- **Rami `delega` e `tutore`.** Il bundle del wizard ne dice nomi e flag
+  (`HAR.md` `#18.7`), non il traffico che producono (`#18.6`). Un'utenza
+  che ha solo quelle personae arriva a `AdeNoPartitaIvaError`.
+- **`tipoincaricante` cablato.** `ADE_TIPO_INCARICANTE` in
+  `src/lib/ade/real-client.ts` è il default del portale, `incaricoDiretto`.
+  Il portale lo deriva da `deleghe`, `tutore` e `intermediario`
+  dell'incarico scelto; i tre booleani arrivano già in `AdeIncarico.raw`.
+  Corretto per l'unica utenza incaricata osservata, che li ha tutti falsi.
+- **Conferma senza denominazione per gli incarichi.** `incarichi[]` porta
+  le sole P.IVA (`HAR.md` `#18.1`), e mostrare il nome costerebbe un
+  `procediWizard` per candidato. Anche la tendina del portale mostra le
+  sole P.IVA (`#18.5-bis`), e il nome compare in impostazioni subito dopo
+  la scelta.
+
+**Riaprire:** il primo `ade_credentials.last_verify_outcome =
+'no_partita_iva'` (utenza senza P.IVA dirette né incarichi leggibili: il
+caso `delega`/`tutore`), oppure il primo incarico con uno dei tre flag
+acceso in `AdeIncarico.raw`. Il conteggio va fatto sul DB: il log
+`ade:wizard_piva_missing` nei Sentry Logs è campionato e non serve a
+contare. Per vedere chi è fermo a metà onboarding qualunque sia la causa:
+`ade_credentials.verified_at IS NULL` in join con `businesses.fiscal_code
+IS NULL`.
+
 ## Link pubblici scontrini senza TTL/revoca, UUID come token (PR #632)
 
 `src/app/r/[documentId]/page.tsx` + `src/lib/receipts/fetch-public-receipt.ts`
