@@ -227,7 +227,7 @@ combaciano, l'evento non è nostro e l'indagine finisce lì. Utile anche
 
 **E prima ancora: stai cercando nel progetto giusto?** L'org ha **due**
 progetti — `scontrinozero` (produzione, e il browser di sandbox) e
-`scontrinozero-test` (server ed edge di sandbox). Un evento "mancante" è spesso
+`scontrinozero-test` (server di sandbox). Un evento "mancante" è spesso
 un evento cercato nell'altro progetto: è successo con la sentinella di sandbox,
 che sembrava non arrivata ed era in `scontrinozero-test`.
 
@@ -254,7 +254,7 @@ quelle è ruotare il DSN (procedura → skill `deploy-release`).
 ### 4-ter. Job di background: livello del log, e cosa Sentry non vede
 
 Due cose da sapere prima di scegliere il livello dentro un job che gira da
-`setInterval` in `src/instrumentation.ts` (sweep GDPR, sweep claim Stripe,
+`setInterval` in `src/instrumentation-node.ts` (sweep GDPR, sweep claim Stripe,
 keep-alive) invece che dentro una richiesta.
 
 **Il retry esiste già? Allora `warn`.** Prima di mettere `error` su un
@@ -435,10 +435,14 @@ Tre dettagli:
   anche `GET /NextNodeServer.clientComponentLoading`. È la forma che
   `@sentry/nextjs` stesso usa per la root span gemella
   `/^NextServer\.getRequestHandler$/`.
-- **Solo `sentry.server.config.ts`, non l'edge.** `NextNodeServer` è la classe
-  del server Node di Next (`next/dist/server/next-server`); il runtime edge usa
-  `NextWebServer` e quella transaction non la emette. Un gemello in
-  `sentry.edge.config.ts` sarebbe codice per un caso impossibile (regola 28).
+- **Solo `sentry.server.config.ts`.** `NextNodeServer` è la classe del server
+  Node di Next (`next/dist/server/next-server`). Una config Sentry edge non
+  esiste più (issue #1030): nessun codice dell'app gira sul runtime edge.
+  Next però compila `instrumentation.ts` anche per edge, e Turbopack segue
+  ogni `import()` raggiungibile da lì, anche dinamico e anche in una
+  funzione che su edge non parte mai. Il boot del server sta quindi in
+  `src/instrumentation-node.ts`; che il guscio non nomini altro lo verifica
+  `src/instrumentation.test.ts`.
 
 **Il commento cita le misure, non un ID.** La convenzione "ogni guard cita
 l'issue Sentry" (sezione sotto) qui non si applica: una transaction non genera
@@ -581,7 +585,7 @@ NESSUNO di quei listener è codice applicativo: 2 li mette `@sentry/core`
 `signalFromNodeResponse`, `res.onClose` delle fetch metrics, `AfterContext`,
 abort controller + writer della pipe RSC). Muoiono tutti con la risposta.
 
-Fix in repo: `SERVER_RESPONSE_MAX_LISTENERS` in `src/instrumentation.ts`, alzato
+Fix in repo: `SERVER_RESPONSE_MAX_LISTENERS` in `src/instrumentation-node.ts`, alzato
 **solo** sul prototype di `http.ServerResponse` — mai
 `EventEmitter.defaultMaxListeners`, che nasconderebbe una perdita vera su pool
 DB o stream pdfkit — e abbastanza basso da far riscattare il warning se un
@@ -630,7 +634,7 @@ l'ID Sentry che ha originato il fix. Esempi già in repo:
 - `sentry.server.config.ts:beforeSend` + `src/lib/sentry-filters.ts` →
   cita `SCONTRINOZERO-E`
 - `src/lib/ade/log-failure.ts` → cita `SCONTRINOZERO-7` (regola 20)
-- `src/instrumentation.ts` → cita `SCONTRINOZERO-F` + regola 24
+- `src/instrumentation-node.ts` → cita `SCONTRINOZERO-F` + regola 24
 - `src/lib/deploy-skew.ts` → cita `SCONTRINOZERO-Z`
 - `src/app/layout.tsx` (`formatDetection`) → cita `SCONTRINOZERO-Y`
 

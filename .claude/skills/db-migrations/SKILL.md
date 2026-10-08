@@ -46,7 +46,7 @@ gira come processo separato (`migrate.js`, compilato via esbuild) dal `CMD` del
 `Dockerfile` PRIMA di `server.js`: `node migrate.js && node server.js`.
 
 🚫 **MAI chiamare il migrator NATIVO di drizzle** (`migrate` da
-`drizzle-orm/postgres-js/migrator`) in `src/instrumentation.ts` o altrove. Traccia
+`drizzle-orm/postgres-js/migrator`) in `src/instrumentation-node.ts` o altrove. Traccia
 in una tabella DIVERSA (`drizzle.__drizzle_migrations`), si aspetta migrazioni
 generate da drizzle-kit, e **non ha la logica di bootstrap** su DB pre-esistente.
 Affiancato al runner handwritten su un DB già inizializzato ritenta da

@@ -18,7 +18,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 /**
  * `setMaxListeners` scrive `_maxListeners` sull'oggetto su cui è chiamato: sul
  * prototype significa "default per tutte le ServerResponse". Il valore va
- * ripristinato dopo ogni test, altrimenti il primo `register()` lo lascia
+ * ripristinato dopo ogni test, altrimenti il primo `registerNode()` lo lascia
  * alzato per l'intero file di suite.
  */
 function readPrototypeMaxListeners(): number | undefined {
@@ -61,26 +61,27 @@ describe("raiseServerResponseMaxListeners()", () => {
 
   it("alza il tetto dei listener sulle ServerResponse create dopo la chiamata", async () => {
     const { raiseServerResponseMaxListeners, SERVER_RESPONSE_MAX_LISTENERS } =
-      await import("./instrumentation");
+      await import("./instrumentation-node");
 
-    await raiseServerResponseMaxListeners();
+    raiseServerResponseMaxListeners();
 
     const res = new ServerResponse({} as never);
     expect(res.getMaxListeners()).toBe(SERVER_RESPONSE_MAX_LISTENERS);
   });
 
   it("il tetto è sopra il picco misurato di 11 listener close per risposta", async () => {
-    const { SERVER_RESPONSE_MAX_LISTENERS } = await import("./instrumentation");
+    const { SERVER_RESPONSE_MAX_LISTENERS } =
+      await import("./instrumentation-node");
 
     expect(SERVER_RESPONSE_MAX_LISTENERS).toBeGreaterThan(11);
   });
 
   it("è idempotente: due chiamate lasciano lo stesso tetto", async () => {
     const { raiseServerResponseMaxListeners, SERVER_RESPONSE_MAX_LISTENERS } =
-      await import("./instrumentation");
+      await import("./instrumentation-node");
 
-    await raiseServerResponseMaxListeners();
-    await raiseServerResponseMaxListeners();
+    raiseServerResponseMaxListeners();
+    raiseServerResponseMaxListeners();
 
     expect(new ServerResponse({} as never).getMaxListeners()).toBe(
       SERVER_RESPONSE_MAX_LISTENERS,
@@ -89,21 +90,20 @@ describe("raiseServerResponseMaxListeners()", () => {
 
   it("NON tocca il default globale degli altri EventEmitter", async () => {
     const { raiseServerResponseMaxListeners } =
-      await import("./instrumentation");
+      await import("./instrumentation-node");
     const before = EventEmitter.defaultMaxListeners;
 
-    await raiseServerResponseMaxListeners();
+    raiseServerResponseMaxListeners();
 
     expect(EventEmitter.defaultMaxListeners).toBe(before);
     expect(new EventEmitter().getMaxListeners()).toBe(before);
   });
 
-  it("register() lo applica nel runtime nodejs", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    const { register, SERVER_RESPONSE_MAX_LISTENERS } =
-      await import("./instrumentation");
+  it("registerNode() lo applica al boot", async () => {
+    const { registerNode, SERVER_RESPONSE_MAX_LISTENERS } =
+      await import("./instrumentation-node");
 
-    await register();
+    await registerNode();
 
     expect(new ServerResponse({} as never).getMaxListeners()).toBe(
       SERVER_RESPONSE_MAX_LISTENERS,

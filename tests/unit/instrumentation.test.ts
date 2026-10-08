@@ -70,7 +70,8 @@ describe("startStripeWebhookClaimSweep", () => {
     ]);
     const runTick = captureIntervalCallback();
 
-    const { startStripeWebhookClaimSweep } = await import("@/instrumentation");
+    const { startStripeWebhookClaimSweep } =
+      await import("@/instrumentation-node");
     startStripeWebhookClaimSweep();
     await runTick();
 
@@ -85,7 +86,8 @@ describe("startStripeWebhookClaimSweep", () => {
     mockReturning.mockResolvedValue([]);
     const runTick = captureIntervalCallback();
 
-    const { startStripeWebhookClaimSweep } = await import("@/instrumentation");
+    const { startStripeWebhookClaimSweep } =
+      await import("@/instrumentation-node");
     startStripeWebhookClaimSweep();
     await runTick();
 
@@ -99,7 +101,8 @@ describe("startStripeWebhookClaimSweep", () => {
     });
     const runTick = captureIntervalCallback();
 
-    const { startStripeWebhookClaimSweep } = await import("@/instrumentation");
+    const { startStripeWebhookClaimSweep } =
+      await import("@/instrumentation-node");
     startStripeWebhookClaimSweep();
     await runTick();
 
@@ -112,7 +115,8 @@ describe("startStripeWebhookClaimSweep", () => {
   it("is idempotent: calling it twice only starts a single interval", async () => {
     const setIntervalSpy = vi.spyOn(global, "setInterval");
 
-    const { startStripeWebhookClaimSweep } = await import("@/instrumentation");
+    const { startStripeWebhookClaimSweep } =
+      await import("@/instrumentation-node");
     startStripeWebhookClaimSweep();
     startStripeWebhookClaimSweep();
 

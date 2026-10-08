@@ -296,7 +296,7 @@ function isOwnHostname(hostname: string): boolean {
  * il JS e Sentry **attivo e puntato su questo progetto** senza saperlo: i suoi
  * errori diventano nostre issue.
  *
- * Lo split `SENTRY_DSN` (runtime, server ed edge) vs `NEXT_PUBLIC_SENTRY_DSN`
+ * Lo split `SENTRY_DSN` (runtime, server) vs `NEXT_PUBLIC_SENTRY_DSN`
  * (build, browser) toglie il DSN dal bundle server, ma per il **browser**
  * l'inlining è inevitabile finché l'immagine è una sola: da lì il filtro resta
  * l'unica difesa. Rotazione del DSN e distinguo fra i due progetti Sentry →
@@ -394,9 +394,7 @@ export function clientBeforeSend(
  * Span root che Next.js emette per il caricamento dei moduli client component
  * lato server, da passare a `ignoreSpans` in `sentry.server.config.ts`.
  * `NextNodeServer` è la classe del server Node di Next
- * (`next/dist/server/next-server`), non del runtime edge: per questo il
- * filtro vive solo nella config server e non ha un gemello in
- * `sentry.edge.config.ts`, dove lo span non può nascere.
+ * (`next/dist/server/next-server`).
  *
  * **Perché lo scartiamo: la durata non misura la richiesta a cui è
  * agganciato.** Su 7 giorni di produzione: 730 occorrenze, p95 723 s, massimo
@@ -477,7 +475,7 @@ export function isBenignServerActionNotFound(
 }
 
 /**
- * `dataCollection` comune ai tre `Sentry.init` (server, edge, browser). Da
+ * `dataCollection` comune ai due `Sentry.init` (server, browser). Da
  * @sentry/nextjs 11 `sendDefaultPii` non esiste più e i default di
  * `dataCollection` raccolgono tutto. Qui si spegne ciò che non deve uscire
  * verso un terzo:
@@ -495,7 +493,7 @@ export function isBenignServerActionNotFound(
  *   `Sentry.setUser({ id })` (regola 22) non ne risente.
  *
  * Verificato con l'SDK vero in `tests/unit/sentry-data-collection.test.ts`.
- * Nell'edge e nel browser oggi nessuna integrazione legge `httpBodies`: la
+ * Nel browser oggi nessuna integrazione legge `httpBodies`: la
  * stessa impostazione sta anche lì perché un aggiornamento dell'SDK non riapra
  * la raccolta in silenzio, come è successo col passaggio alla 11.
  */

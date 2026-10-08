@@ -27,7 +27,7 @@ COPY . .
 # runner e non serve: il valore e' gia' dentro il JS. Poiche' l'immagine e'
 # pubblica su GHCR (self-hosting = piano supportato), ogni NEXT_PUBLIC_* qui
 # e' un segreto REGALATO a chiunque faccia `docker pull`.
-# Per questo la telemetria server/edge legge `SENTRY_DSN` (senza prefisso) a
+# Per questo la telemetria server legge `SENTRY_DSN` (senza prefisso) a
 # runtime dal .env, e qui resta solo il DSN del browser, che inlineato deve
 # esserlo per forza. Vedi sentry.server.config.ts e PR #876.
 ARG NEXT_PUBLIC_SENTRY_DSN

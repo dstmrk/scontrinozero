@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { KEEP_ALIVE_INTERVAL_MS } from "./instrumentation";
+import { KEEP_ALIVE_INTERVAL_MS } from "./instrumentation-node";
 
 const { mockCreateAdminSupabaseClient, mockLoggerInfo, mockLoggerWarn } =
   vi.hoisted(() => ({
@@ -15,10 +15,6 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("@/lib/logger", () => ({
   logger: { info: mockLoggerInfo, warn: mockLoggerWarn },
-}));
-
-vi.mock("@sentry/nextjs", () => ({
-  captureRequestError: vi.fn(),
 }));
 
 describe("KEEP_ALIVE_INTERVAL_MS", () => {
@@ -39,7 +35,7 @@ describe("startSupabaseKeepAlive()", () => {
     // Reset dello stato module-level (guardia di idempotenza) tra i test:
     // senza questo, dal secondo test in poi la guardia farebbe early-return.
     vi.resetModules();
-    ({ startSupabaseKeepAlive } = await import("./instrumentation"));
+    ({ startSupabaseKeepAlive } = await import("./instrumentation-node"));
 
     mockUnref = vi.fn();
     const mockTimer = { unref: mockUnref } as unknown as ReturnType<

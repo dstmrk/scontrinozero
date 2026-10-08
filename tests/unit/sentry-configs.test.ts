@@ -12,7 +12,7 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 /**
- * I tre bootstrap di Sentry (server, edge, browser) passano la stessa
+ * I due bootstrap di Sentry (server, browser) passano la stessa
  * `dataCollection`: un runtime che ne restasse fuori tornerebbe ai default
  * dell'SDK, che da @sentry/nextjs 11 allegano body delle richieste e IP del
  * client. Cosa contiene la costante lo verifica, con l'SDK vero,
@@ -20,7 +20,6 @@ vi.mock("@sentry/nextjs", () => ({
  */
 describe.each([
   { runtime: "server", load: () => import("../../sentry.server.config") },
-  { runtime: "edge", load: () => import("../../sentry.edge.config") },
   { runtime: "browser", load: () => import("../../instrumentation-client") },
 ])("bootstrap Sentry $runtime", ({ load }) => {
   beforeEach(() => {

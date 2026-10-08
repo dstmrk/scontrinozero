@@ -21,7 +21,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /**
  * Budget di latenza della SELECT dei candidati (issue #981).
  *
- * Lo sweep gira da `setInterval` in `src/instrumentation.ts`, fuori da qualunque
+ * Lo sweep gira da `setInterval` in `src/instrumentation-node.ts`, fuori da qualunque
  * richiesta: nessun utente aspetta il risultato, ma la connessione che occupa
  * esce dallo stesso pool da 10 (`src/db/index.ts`) che serve la cassa. Senza
  * budget, sotto contention l'aggregato dei candidati può tenere quella

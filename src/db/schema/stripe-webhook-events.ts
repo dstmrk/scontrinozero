@@ -11,13 +11,13 @@ export const stripeWebhookEvents = pgTable(
       .defaultNow(),
     /**
      * Set only after handleEvent succeeds. NULL means "claimed but not (yet)
-     * completed" — used by the sweep job in src/instrumentation.ts to detect
+     * completed" — used by the sweep job in src/instrumentation-node.ts to detect
      * and unblock stuck claims (PR #652).
      */
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
-    // Serves both DELETEs of the sweep in src/instrumentation.ts: stuck claims
+    // Serves both DELETEs of the sweep in src/instrumentation-node.ts: stuck claims
     // (completed_at IS NULL) and retention (completed_at < now() - 30 days).
     // Rationale for a single plain index over two partial ones is in
     // supabase/migrations/0030_stripe_webhook_events_completed_at_index.sql.

@@ -2,7 +2,7 @@
  * Config (pure) dello sweep GDPR di cancellazione utenti inattivi.
  *
  * Tenuto SEPARATO da `inactive-user-prune.ts` (che importa `getDb`/Drizzle/
- * email — server-only e pesante) così `src/instrumentation.ts` può leggere la
+ * email — server-only e pesante) così `src/instrumentation-node.ts` può leggere la
  * config al boot per decidere se avviare lo sweep, SENZA tirare dentro l'intera
  * pipeline DB quando la feature è disabilitata (default). Nessuna dipendenza
  * oltre `process.env`.
@@ -17,7 +17,7 @@ export type PruneConfig = {
   warnBeforeDays: number;
   /**
    * Violazioni rilevate nella config (vuoto se tutto ok). Il chiamante
-   * (`register()` in `src/instrumentation.ts`) le logga a `logger.warn` al boot:
+   * (`registerNode()` in `src/instrumentation-node.ts`) le logga a `logger.warn` al boot:
    * una soglia distruttiva sbagliata deve essere VISIBILE, non silenziosa.
    */
   warnings: string[];

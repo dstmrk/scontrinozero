@@ -684,7 +684,7 @@ export async function getAdminStalledOnboarding(): Promise<AdminStalledOnboardin
  * fisse (esercente, data scontrino, importo) che un annullo non riempirebbe
  * con lo stesso significato. `countStalePendingDocuments`
  * (`src/lib/services/ade-recovery.ts`), che alimenta anche lo sweep
- * automatico in `instrumentation.ts`, resta l'unico owner del conteggio che
+ * automatico in `instrumentation-node.ts`, resta l'unico owner del conteggio che
  * include entrambi i `kind`.
  *
  * Stessa soglia stale del recovery: `staleUpdatedBefore` è l'owner unico del

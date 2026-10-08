@@ -36,8 +36,6 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: mockLoggerWarn },
 }));
 
-vi.mock("@sentry/nextjs", () => ({ captureRequestError: vi.fn() }));
-
 describe("startStalePendingSweep()", () => {
   let capturedInterval: (() => Promise<void>) | undefined;
   let capturedInitial: (() => Promise<void>) | undefined;
@@ -55,7 +53,7 @@ describe("startStalePendingSweep()", () => {
       STALE_PENDING_SWEEP_INTERVAL_MS,
       STALE_PENDING_SWEEP_INITIAL_DELAY_MS,
       STALE_PENDING_COUNT_TIMEOUT_MS,
-    } = await import("./instrumentation"));
+    } = await import("./instrumentation-node"));
 
     mockIntervalUnref = vi.fn();
     vi.spyOn(global, "setInterval").mockImplementation((callback) => {
