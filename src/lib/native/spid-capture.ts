@@ -4,8 +4,9 @@
  * Apre il portale AdE in un InAppBrowser, dove l'utente fa il login SPID e
  * sceglie l'utenza di lavoro come farebbe nel browser. Quando arriva a
  * Documento Commerciale Online la sessione è completa: si leggono i cookie del
- * portale (HttpOnly compresi), si chiude il browser e si restituisce l'header
- * `Cookie` che `connectAdeWithSpid` adotta sul server.
+ * portale (HttpOnly compresi), li si cancella dal telefono (issue #1041), si
+ * chiude il browser e si restituisce l'header `Cookie` che
+ * `connectAdeWithSpid` adotta sul server.
  *
  * Il plugin è `@capgo/capacitor-inappbrowser`, installato nel guscio
  * (`mobile/`). Lo si chiama attraverso il bridge e non importandone il
@@ -13,6 +14,11 @@
  * non può portare un wrapper più nuovo del plugin compilato nell'app.
  */
 
+import {
+  ADE_DCO_URL,
+  clearAdeCookies,
+  reportAdeCookieResidue,
+} from "./ade-cookie-cleanup";
 import type { CapacitorBridge } from "./native-shell";
 
 const PLUGIN = "CapgoInAppBrowser";
@@ -21,15 +27,12 @@ const PLUGIN = "CapgoInAppBrowser";
 export const ADE_PORTAL_LOGIN_URL =
   "https://ivaservizi.agenziaentrate.gov.it/portale/";
 
-const DCO_URL_PREFIX =
-  "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/";
-
 /** I cookie si leggono per host: `getCookies` include i domini padre. */
 const ADE_COOKIE_URL = "https://ivaservizi.agenziaentrate.gov.it/";
 
 /** True quando il browser è arrivato a Documento Commerciale Online. */
 export function isDcoUrl(url: string): boolean {
-  return url.startsWith(DCO_URL_PREFIX);
+  return url.startsWith(ADE_DCO_URL);
 }
 
 export function toCookieHeader(cookies: Record<string, string>): string {
@@ -59,36 +62,59 @@ export async function captureSpidCookieHeader(
     const detach = () => {
       for (const handle of handles) handle.remove();
     };
+    // Su ogni uscita, a browser chiuso, si cancella di nuovo e si controlla
+    // cosa resta: il DCO può scrivere cookie mentre la pagina finisce di
+    // caricare. Non si aspetta: connectAdeWithSpid parte subito.
     const finish = (outcome: () => Promise<string | null>) => {
       if (settled) return;
       settled = true;
+      const afterClose = () =>
+        clearAdeCookies(bridge).then(() => reportAdeCookieResidue(bridge));
       outcome().then(
         (value) => {
           detach();
           resolve(value);
+          void afterClose();
         },
         (err: unknown) => {
           detach();
           reject(err);
+          void afterClose();
         },
       );
+    };
+    // Prima di close: su iOS 15/16 il plugin cancella solo a browser aperto.
+    // La chiusura è best-effort: i cookie letti valgono un secondo fattore.
+    const clearThenClose = async () => {
+      await clearAdeCookies(bridge);
+      await call.call(bridge, PLUGIN, "close", {}).catch(() => undefined);
     };
 
     handles.push(
       listen.call(bridge, PLUGIN, "urlChangeEvent", ({ url }) => {
         if (!url || !isDcoUrl(url)) return;
         finish(async () => {
-          const cookies = (await call.call(bridge, PLUGIN, "getCookies", {
-            url: ADE_COOKIE_URL,
-            includeHttpOnly: true,
-          })) as Record<string, string>;
-          // Chiusura best-effort: i cookie sono già in mano, e l'utente ha
-          // già speso il secondo fattore per ottenerli.
-          await call.call(bridge, PLUGIN, "close", {}).catch(() => undefined);
-          const header = toCookieHeader(cookies ?? {});
-          return header || null;
+          try {
+            const cookies = (await call.call(bridge, PLUGIN, "getCookies", {
+              url: ADE_COOKIE_URL,
+              includeHttpOnly: true,
+            })) as Record<string, string>;
+            return toCookieHeader(cookies ?? {}) || null;
+          } finally {
+            await clearThenClose();
+          }
         });
       }),
+      // La X della toolbar nasconde invece di chiudere (`closeAction: "hide"`):
+      // il browser resta registrato, e su iOS 15/16 lo si può ancora pulire.
+      // Chi fa il login SPID e rinuncia prima del DCO ha già una sessione.
+      listen.call(bridge, PLUGIN, "hideEvent", () => {
+        finish(async () => {
+          await clearThenClose();
+          return null;
+        });
+      }),
+      // Chiusure che non passano dalla X (indietro di sistema, gesto).
       listen.call(bridge, PLUGIN, "closeEvent", () => {
         finish(() => Promise.resolve(null));
       }),
@@ -99,6 +125,7 @@ export async function captureSpidCookieHeader(
         url: ADE_PORTAL_LOGIN_URL,
         title: "Accedi con SPID e apri Documento commerciale online",
         isPresentAfterPageLoad: false,
+        closeAction: "hide",
       })
       .catch((err: unknown) => {
         finish(() => Promise.reject(err));

@@ -12,6 +12,8 @@ import { useSyncExternalStore } from "react";
 /** Il sottoinsieme del bridge Capacitor che la web app usa. */
 export interface CapacitorBridge {
   isNativePlatform?: () => boolean;
+  /** "ios", "android" o "web". */
+  getPlatform?: () => string;
   nativePromise?: (
     pluginName: string,
     methodName: string,

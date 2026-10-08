@@ -205,6 +205,39 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
   i cookie di `ivaservizi` (`includeHttpOnly`). URL di partenza e prefisso
   vanno verificati sul device: se l'AdE li sposta, è la prima cosa da
   guardare.
+- **Letti i cookie, li si cancella dal telefono** (issue #1041,
+  `src/lib/native/ade-cookie-cleanup.ts`). Il plugin li tiene dopo la
+  chiusura, e il bridge li dà a qualunque script dell'origine dell'app,
+  HttpOnly compresi: un XSS diventerebbe una sessione AdE usabile da
+  qualunque IP. I due plugin non fanno quello che il nome promette, e la
+  lezione è leggerne il sorgente nativo in `mobile/node_modules` prima di
+  usare un metodo:
+  - **iOS**: `clearCookies({url})` del plugin cancella per suffisso di
+    dominio, sul data store del browser aperto. Su iOS 17+ è uno store
+    dedicato (UUID fisso), su iOS 15/16 è il `default()` dell'app, e a
+    browser chiuso il plugin rifiuta: si chiama **prima** di `close`. Per
+    questo il browser si apre con `closeAction: "hide"`: la X della
+    toolbar lo nasconde (`hideEvent`) invece di chiuderlo, e chi rinuncia
+    dopo il login passa anche lui da pulizia e poi `close`.
+    `clearAllCookies` e `clearCookiesOnOpen` su iOS 15/16 sloggano
+    l'utente da ScontrinoZero. L'observer con cui Capacitor copierebbe i
+    cookie WebKit in `HTTPCookieStorage.shared` non è trattenuto da
+    nessuno (`CAPBridgeViewController`), quindi non scatta: lì i cookie
+    AdE non arrivano. Se un giorno smette di valere, `CapacitorHttp` li
+    manderebbe all'AdE.
+  - **Android**: `clearCookies` del plugin **non cancella**, scrive
+    `NOME=del`; `clearAllCookies` svuota il `CookieManager` di processo,
+    Supabase compreso. Si fa scadere ogni nome con `CapacitorCookies`
+    (`setCookie`, nel runtime Capacitor anche senza `enabled`) nelle tre
+    chiavi possibili su `Path=/`: host-only, `Domain` dell'host, `Domain`
+    di `.agenziaentrate.gov.it`, tutte `Secure`. Il Domain viaggia nel
+    campo `path`, che Capacitor 8 concatena senza escape.
+  - Dopo `close`, su ogni uscita, la pulizia si ripete e
+    `reportAdeCookieResidue` rilegge: se resta un nome, apre un warning
+    Sentry (`flow:spid-capture`) con i soli nomi. Gira in background, la
+    cattura non lo aspetta. È il gate di una pulizia che smette di
+    funzionare in silenzio: un upgrade di Capacitor o del plugin, un
+    cookie scritto dopo la cancellazione.
 
 ---
 
