@@ -6,6 +6,7 @@ import {
   canUseApi,
   type Plan,
 } from "@/lib/plans-shared";
+import { WebBillingOnly } from "@/components/billing/web-billing-only";
 import { ApiKeySection } from "./api-key-section";
 
 /**
@@ -22,7 +23,9 @@ import { ApiKeySection } from "./api-key-section";
  * Presentazionale puro: nessun hook, cosi' resta renderizzabile dal server
  * component della pagina e testabile con `render()`. Il link alla doc usa un
  * path relativo — dal dominio app l'hop cross-origin lo fa il middleware
- * (stesso pattern di `support-section.tsx`).
+ * (stesso pattern di `support-section.tsx`). *
+ * Il bottone "Passa a Pro" sta in `WebBillingOnly`: nel guscio nativo resta
+ * solo la frase sul piano (issue #1044).
  */
 export function ApiKeyCard({
   businessId,
@@ -63,7 +66,7 @@ export function ApiKeyCard({
             {plan === "trial" && (
               <p className="text-muted-foreground text-sm">
                 Al termine della prova le chiavi create ora smettono di
-                funzionare: passando a Pro tornano attive senza doverle
+                funzionare: con il piano Pro tornano attive senza doverle
                 rigenerare.
               </p>
             )}
@@ -75,13 +78,15 @@ export function ApiKeyCard({
               L&apos;accesso alle API è incluso nel piano Pro e nella prova
               gratuita.
             </p>
-            <a
-              href={BILLING_SETTINGS_HREF}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-            >
-              <Sparkles className="size-4" aria-hidden="true" />
-              Passa a Pro
-            </a>
+            <WebBillingOnly>
+              <a
+                href={BILLING_SETTINGS_HREF}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+              >
+                <Sparkles className="size-4" aria-hidden="true" />
+                Passa a Pro
+              </a>
+            </WebBillingOnly>
           </div>
         )}
       </CardContent>

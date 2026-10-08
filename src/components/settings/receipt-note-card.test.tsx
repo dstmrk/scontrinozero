@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { TRIAL_DAYS } from "@/lib/plans-shared";
 import { ReceiptNoteCard } from "./receipt-note-card";
 
@@ -18,6 +18,15 @@ vi.mock("./receipt-note-section", () => ({
     </div>
   ),
 }));
+
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
+beforeEach(() => {
+  mockNative = false;
+});
 
 const BIZ_ID = "biz-uuid";
 
@@ -112,5 +121,24 @@ describe("ReceiptNoteCard — stato bloccato", () => {
     expect(
       screen.queryByTestId("receipt-note-section"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("ReceiptNoteCard — guscio nativo (issue #1044)", () => {
+  it("bloccata: dice che è del piano Pro, senza link al billing", () => {
+    mockNative = true;
+    renderCard({ plan: "starter" });
+
+    expect(screen.getByText(/incluso nel piano Pro/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /passa a pro/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sbloccata: invariata", () => {
+    mockNative = true;
+    renderCard({ plan: "pro" });
+
+    expect(screen.getByTestId("receipt-note-section")).toBeInTheDocument();
   });
 });

@@ -105,6 +105,10 @@ vi.mock("@/components/settings/export-data-section", () => ({
 vi.mock("@/components/settings/account-delete-section", () => ({
   AccountDeleteSection: () => <div data-testid="account-delete" />,
 }));
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
 vi.mock("@/components/billing/plan-selection", () => ({
   PlanSelection: () => <div data-testid="plan-selection" />,
 }));
@@ -210,6 +214,7 @@ function domOrderOf(text: string): number {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockNative = false;
   mockGetUser.mockResolvedValue({
     data: { user: { id: "user-1", email: "mario@example.com" } },
   });
@@ -417,5 +422,67 @@ describe("SettingsPage — avviso sulla ragione sociale", () => {
     await renderSettings();
 
     expect(screen.getByTestId("ade-sede-legale")).toHaveTextContent("nessuna");
+  });
+});
+
+describe("SettingsPage — card piano nel guscio nativo (issue #1044)", () => {
+  const PLAN_TRIAL_EXPIRED = {
+    ...PLAN_PRO,
+    plan: "trial",
+    trialStartedAt: new Date("2020-01-01"),
+    planExpiresAt: null,
+    hasSubscription: false,
+    subscriptionStatus: null,
+  };
+  const PLAN_PAST_DUE = { ...PLAN_PRO, subscriptionStatus: "past_due" };
+
+  function portalLinks() {
+    return Array.from(document.querySelectorAll("a")).filter((a) =>
+      a.getAttribute("href")?.startsWith("/api/stripe"),
+    );
+  }
+
+  it("nel browser: portale Stripe e inviti a scegliere un piano", async () => {
+    await renderSettings();
+    expect(portalLinks()).toHaveLength(1);
+
+    mockGetProfilePlan.mockResolvedValue(PLAN_TRIAL_EXPIRED);
+    await renderSettings();
+    expect(screen.getByText(/Scegli un piano/)).toBeInTheDocument();
+  });
+
+  it("abbonato: resta lo stato del piano, sparisce il portale", async () => {
+    mockNative = true;
+    await renderSettings();
+
+    expect(screen.getByText("Piano e Abbonamento")).toBeInTheDocument();
+    expect(screen.getByText(/Abbonamento mensile/)).toBeInTheDocument();
+    expect(screen.queryByText("Gestisci abbonamento")).not.toBeInTheDocument();
+    expect(portalLinks()).toHaveLength(0);
+  });
+
+  it("trial scaduto: constatazione senza invito a scegliere un piano", async () => {
+    mockNative = true;
+    mockGetProfilePlan.mockResolvedValue(PLAN_TRIAL_EXPIRED);
+    await renderSettings();
+
+    expect(
+      screen.getByText("Il periodo di prova è scaduto."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Scegli un piano/)).not.toBeInTheDocument();
+  });
+
+  it("pagamento fallito: stato visibile, nessun invito né link a pagare", async () => {
+    mockNative = true;
+    mockGetProfilePlan.mockResolvedValue(PLAN_PAST_DUE);
+    await renderSettings();
+
+    expect(
+      screen.getByText("Pagamento dell'abbonamento non riuscito."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/aggiorna il metodo di pagamento/i),
+    ).not.toBeInTheDocument();
+    expect(portalLinks()).toHaveLength(0);
   });
 });

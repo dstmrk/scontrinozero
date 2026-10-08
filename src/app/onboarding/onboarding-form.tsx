@@ -41,6 +41,7 @@ import { SpidConnectButton } from "@/components/ade/spid-connect-button";
 import type { AdeUtenzaCandidate } from "@/lib/ade/types";
 import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
+import { useIsNativeShell } from "@/lib/native/native-shell";
 
 const STEPS = ["Dati attivita", "Credenziali AdE", "Verifica"];
 
@@ -128,6 +129,7 @@ export function OnboardingForm({
   const [utenzaChoices, setUtenzaChoices] = useState<AdeUtenzaCandidate[]>([]);
   const [trialAlreadyUsed, setTrialAlreadyUsed] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const native = useIsNativeShell();
 
   const step1Form = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
@@ -561,17 +563,24 @@ export function OnboardingForm({
 
               {trialAlreadyUsed ? (
                 <div className="space-y-3">
+                  {/* Nel guscio nativo niente invito ad attivare un piano né
+                      bottone verso il billing (issue #1044). */}
                   <p className="text-sm" role="alert">
                     Hai già utilizzato il periodo di prova con questa P.IVA.
-                    L&apos;account è attivo in sola lettura: attiva un piano per
-                    tornare a emettere scontrini.
+                    {native
+                      ? " L'account è attivo in sola lettura."
+                      : " L'account è attivo in sola lettura: attiva un piano per tornare a emettere scontrini."}
                   </p>
                   <div className="flex flex-col gap-2">
-                    <Button onClick={() => router.push(BILLING_SETTINGS_HREF)}>
-                      Attiva un piano
-                    </Button>
+                    {!native && (
+                      <Button
+                        onClick={() => router.push(BILLING_SETTINGS_HREF)}
+                      >
+                        Attiva un piano
+                      </Button>
+                    )}
                     <Button
-                      variant="ghost"
+                      variant={native ? "default" : "ghost"}
                       onClick={() => router.push("/dashboard")}
                     >
                       Vai al pannello

@@ -5,6 +5,7 @@ import {
   canUsePro,
   type Plan,
 } from "@/lib/plans-shared";
+import { WebBillingOnly } from "@/components/billing/web-billing-only";
 import { ReceiptNoteSection } from "./receipt-note-section";
 
 /**
@@ -18,7 +19,9 @@ import { ReceiptNoteSection } from "./receipt-note-section";
  * faceva parola.
  *
  * Presentazionale puro (nessun hook): resta renderizzabile dal server component
- * della pagina e testabile con `render()`.
+ * della pagina e testabile con `render()`. *
+ * Il bottone "Passa a Pro" sta in `WebBillingOnly`: nel guscio nativo resta
+ * solo la frase sul piano (issue #1044).
  */
 export function ReceiptNoteCard({
   businessId,
@@ -63,13 +66,15 @@ export function ReceiptNoteCard({
               Il messaggio personalizzato è incluso nel piano Pro e nella prova
               gratuita.
             </p>
-            <a
-              href={BILLING_SETTINGS_HREF}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-            >
-              <Sparkles className="size-4" aria-hidden="true" />
-              Passa a Pro
-            </a>
+            <WebBillingOnly>
+              <a
+                href={BILLING_SETTINGS_HREF}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+              >
+                <Sparkles className="size-4" aria-hidden="true" />
+                Passa a Pro
+              </a>
+            </WebBillingOnly>
           </div>
         )}
       </CardContent>

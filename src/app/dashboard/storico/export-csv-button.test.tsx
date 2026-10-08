@@ -1,6 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExportCsvButton } from "./export-csv-button";
+
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
+beforeEach(() => {
+  mockNative = false;
+});
 
 /**
  * Apre il menu del trigger Radix. In jsdom il click non basta: DropdownMenu
@@ -189,5 +198,41 @@ describe("ExportCsvButton", () => {
 
     const upsell = screen.getByRole("link", { name: /passa a pro/i });
     expect(upsell).toHaveAttribute("href", "/dashboard/settings#billing");
+  });
+});
+
+describe("ExportCsvButton — guscio nativo (issue #1044)", () => {
+  it("non-Pro: il dialog spiega, ma senza link al billing", () => {
+    mockNative = true;
+    render(
+      <ExportCsvButton
+        plan="starter"
+        dateFrom="2026-01-01"
+        dateTo="2026-05-19"
+        status={null}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /esporta csv/i }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      /incluso nel piano Pro/,
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chiudi" })).toBeInTheDocument();
+  });
+
+  it("Pro: il menu di export resta invariato", () => {
+    mockNative = true;
+    render(
+      <ExportCsvButton
+        plan="pro"
+        dateFrom="2026-01-01"
+        dateTo="2026-05-19"
+        status={null}
+      />,
+    );
+    openExportMenu();
+
+    expect(menuLinks().riepilogo).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { API_KEYS_ANCHOR_ID, TRIAL_DAYS } from "@/lib/plans-shared";
 import { ApiKeyCard } from "./api-key-card";
 
@@ -10,6 +10,15 @@ vi.mock("./api-key-section", () => ({
     <div data-testid="api-key-section">{businessId}</div>
   ),
 }));
+
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
+beforeEach(() => {
+  mockNative = false;
+});
 
 const BIZ_ID = "biz-uuid";
 
@@ -129,5 +138,24 @@ describe("ApiKeyCard — documentazione", () => {
     expect(
       container.querySelector(`#${API_KEYS_ANCHOR_ID}`)?.className,
     ).toContain("scroll-mt-20");
+  });
+});
+
+describe("ApiKeyCard — guscio nativo (issue #1044)", () => {
+  it("bloccata: dice che è del piano Pro, senza link al billing", () => {
+    mockNative = true;
+    renderCard({ plan: "starter" });
+
+    expect(screen.getByText(/incluso nel piano Pro/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /passa a pro/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sbloccata: invariata", () => {
+    mockNative = true;
+    renderCard({ plan: "pro" });
+
+    expect(screen.getByTestId("api-key-section")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useIsNativeShell } from "@/lib/native/native-shell";
 import { CheckoutButton } from "./checkout-button";
 
 type PlanSelectionProps = Readonly<{
@@ -10,6 +11,12 @@ type PlanSelectionProps = Readonly<{
   proYearly: string;
 }>;
 
+/**
+ * Scelta del piano con prezzi e checkout Stripe. Nel guscio nativo non rende
+ * nulla: dall'app non ci si abbona (issue #1044). Il guard sta qui, non nei
+ * call site, così copre anche `CheckoutButton`, che vive solo dentro questo
+ * componente.
+ */
 export function PlanSelection({
   starterMonthly,
   starterYearly,
@@ -17,7 +24,10 @@ export function PlanSelection({
   proYearly,
 }: PlanSelectionProps) {
   const [interval, setInterval] = useState<"month" | "year">("year");
+  const native = useIsNativeShell();
   const isAnnual = interval === "year";
+
+  if (native) return null;
 
   return (
     <div>

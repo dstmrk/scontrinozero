@@ -38,6 +38,7 @@ import { ExtraSettingsSection } from "@/components/settings/extra-settings-secti
 import { SupportSection } from "@/components/settings/support-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
+import { WebBillingOnly } from "@/components/billing/web-billing-only";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 import { ScrollToHash } from "@/components/billing/scroll-to-hash";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
@@ -337,19 +338,27 @@ export default async function SettingsPage({
                   <CardTitle>Piano e Abbonamento</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Nel guscio nativo la card mostra solo lo stato del
+                      piano: niente scelta del piano, prezzi, portale Stripe
+                      né inviti a pagare (issue #1044, `WebBillingOnly`). */}
+
                   {/* Trial scaduto — banner warning */}
                   {cardState === "trial-expired" && (
                     <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                      Il periodo di prova è scaduto. Scegli un piano per
-                      continuare ad emettere scontrini.
+                      <WebBillingOnly nativeFallback="Il periodo di prova è scaduto.">
+                        Il periodo di prova è scaduto. Scegli un piano per
+                        continuare ad emettere scontrini.
+                      </WebBillingOnly>
                     </div>
                   )}
 
                   {/* Pagamento fallito — banner errore */}
                   {cardState === "past-due" && (
                     <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                      Pagamento fallito — aggiorna il metodo di pagamento per
-                      evitare l&apos;interruzione del servizio.
+                      <WebBillingOnly nativeFallback="Pagamento dell'abbonamento non riuscito.">
+                        Pagamento fallito — aggiorna il metodo di pagamento per
+                        evitare l&apos;interruzione del servizio.
+                      </WebBillingOnly>
                     </div>
                   )}
 
@@ -420,30 +429,34 @@ export default async function SettingsPage({
                   {/* Gestisci abbonamento — abbonamento attivo o in cancellazione */}
                   {(cardState === "subscribed" ||
                     cardState === "canceling") && (
-                    <div>
-                      <p className="text-muted-foreground mb-2 text-sm font-medium">
-                        Gestisci abbonamento
-                      </p>
-                      <p className="text-muted-foreground mb-3 text-sm">
-                        {getManageSubscriptionCopy(cardState)}
-                      </p>
-                      <a
-                        href="/api/stripe/portal"
-                        className="text-primary text-sm underline underline-offset-4"
-                      >
-                        Vai al portale Stripe →
-                      </a>
-                    </div>
+                    <WebBillingOnly>
+                      <div>
+                        <p className="text-muted-foreground mb-2 text-sm font-medium">
+                          Gestisci abbonamento
+                        </p>
+                        <p className="text-muted-foreground mb-3 text-sm">
+                          {getManageSubscriptionCopy(cardState)}
+                        </p>
+                        <a
+                          href="/api/stripe/portal"
+                          className="text-primary text-sm underline underline-offset-4"
+                        >
+                          Vai al portale Stripe →
+                        </a>
+                      </div>
+                    </WebBillingOnly>
                   )}
 
                   {/* Pagamento scaduto — link urgente al portal */}
                   {cardState === "past-due" && (
-                    <a
-                      href="/api/stripe/portal"
-                      className="text-sm font-medium text-red-600 underline underline-offset-4"
-                    >
-                      Aggiorna metodo di pagamento →
-                    </a>
+                    <WebBillingOnly>
+                      <a
+                        href="/api/stripe/portal"
+                        className="text-sm font-medium text-red-600 underline underline-offset-4"
+                      >
+                        Aggiorna metodo di pagamento →
+                      </a>
+                    </WebBillingOnly>
                   )}
                 </CardContent>
               </Card>
