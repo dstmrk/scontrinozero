@@ -17,6 +17,9 @@
  *   Supabase compreso. Si fa scadere ogni nome con `CapacitorCookies`, che è
  *   nel runtime di Capacitor. `getCookies` non dice Domain e Path, quindi si
  *   scrive ogni chiave possibile su `Path=/`.
+ *
+ * I due helper esportati non rigettano mai: la cattura li attende con in mano
+ * cookie costati all'utente un secondo fattore.
  */
 
 import * as Sentry from "@sentry/nextjs";
@@ -50,7 +53,6 @@ const EXPIRED = "Thu, 01 Jan 1970 00:00:00 GMT";
 
 type Platform = "ios" | "android";
 
-/** Mai lancia: i due helper sotto non devono rigettare (la cattura li attende). */
 function nativePlatform(bridge: CapacitorBridge): Platform | null {
   try {
     const platform = bridge.getPlatform?.();
@@ -60,11 +62,23 @@ function nativePlatform(bridge: CapacitorBridge): Platform | null {
   }
 }
 
+/** Una chiamata al bridge, sempre come promessa: rigetta se il bridge manca. */
+function callNative(
+  bridge: CapacitorBridge,
+  plugin: string,
+  method: string,
+  options: unknown,
+): Promise<unknown> {
+  const call = bridge.nativePromise;
+  if (!call) return Promise.reject(new Error("Bridge nativo non disponibile."));
+  return call.call(bridge, plugin, method, options);
+}
+
 async function readCookieNames(
   bridge: CapacitorBridge,
   url: string,
 ): Promise<string[]> {
-  const cookies = (await bridge.nativePromise?.(BROWSER_PLUGIN, "getCookies", {
+  const cookies = (await callNative(bridge, BROWSER_PLUGIN, "getCookies", {
     url,
     includeHttpOnly: true,
   })) as Record<string, string> | undefined;
@@ -74,20 +88,30 @@ async function readCookieNames(
 /**
  * Le chiavi sotto cui `CookieManager` può tenere un cookie con `Path=/` che il
  * browser manda a `url`: host-only, `Domain` uguale all'host, `Domain` del
- * dominio registrabile. Il Domain viaggia nel campo `path`: `CapacitorCookies`
- * lo concatena tale e quale nell'header `Set-Cookie` (Capacitor 8,
+ * dominio registrabile. Ognuna esce come `[identità, opzioni di setCookie]`:
+ * un cookie di `.agenziaentrate.gov.it` torna da ogni host, e l'identità fa
+ * sì che lo si scriva una volta sola (ogni setCookie fa anche un flush).
+ *
+ * Il Domain viaggia nel campo `path`: `CapacitorCookies` lo concatena tale e
+ * quale nell'header `Set-Cookie` (Capacitor 8,
  * `CapacitorCookieManager.setCookie`). Se un aggiornamento lo cambiasse, lo
- * dice `reportAdeCookieResidue`.
+ * dice `reportAdeCookieResidue`. `Secure` serve ai nomi `__Secure-`/`__Host-`,
+ * che Chromium non lascia sovrascrivere senza; per gli altri è indifferente.
  */
-function expireEverywhere(url: string, key: string) {
+function expiries(url: string, key: string): [string, object][] {
   const host = new URL(url).host;
-  return ["/", `/; domain=${host}`, `/; domain=.${ADE_DOMAIN}`].map((path) => ({
+  const expire = (path: string) => ({
     url,
     key,
     value: "",
     expires: EXPIRED,
     path,
-  }));
+  });
+  return [
+    [`${host} ${key}`, expire("/; secure")],
+    [`.${host} ${key}`, expire(`/; domain=${host}; secure`)],
+    [`.${ADE_DOMAIN} ${key}`, expire(`/; domain=.${ADE_DOMAIN}; secure`)],
+  ];
 }
 
 async function clearOnAndroid(bridge: CapacitorBridge): Promise<void> {
@@ -97,16 +121,16 @@ async function clearOnAndroid(bridge: CapacitorBridge): Promise<void> {
       names: await readCookieNames(bridge, url),
     })),
   );
-  const writes = reads.flatMap((read) =>
-    read.status === "fulfilled"
-      ? read.value.names.flatMap((name) =>
-          expireEverywhere(read.value.url, name),
-        )
-      : [],
+  const writes = new Map(
+    reads.flatMap((read) =>
+      read.status === "fulfilled"
+        ? read.value.names.flatMap((key) => expiries(read.value.url, key))
+        : [],
+    ),
   );
   await Promise.allSettled(
-    writes.map((options) =>
-      bridge.nativePromise?.(COOKIES_PLUGIN, "setCookie", options),
+    [...writes.values()].map((options) =>
+      callNative(bridge, COOKIES_PLUGIN, "setCookie", options),
     ),
   );
 }
@@ -120,7 +144,7 @@ export async function clearAdeCookies(bridge: CapacitorBridge): Promise<void> {
   const platform = nativePlatform(bridge);
   try {
     if (platform === "ios") {
-      await bridge.nativePromise?.(BROWSER_PLUGIN, "clearCookies", {
+      await callNative(bridge, BROWSER_PLUGIN, "clearCookies", {
         url: ADE_DOMAIN_URL,
       });
     } else if (platform === "android") {
@@ -149,19 +173,24 @@ async function residueNames(
 /**
  * Rilegge i cookie AdE dopo la pulizia e, se ne resta qualcuno, apre un
  * warning Sentry con i soli nomi. È il controllo che rende visibile una
- * pulizia rotta: da un aggiornamento di Capacitor o del plugin, da un cookie
- * con un Path diverso da `/`, da un cookie scritto dopo la cancellazione.
+ * pulizia rotta: un aggiornamento di Capacitor o del plugin, un cookie scritto
+ * dopo la cancellazione. Su Android vede anche i cookie con un Path sotto
+ * quello del DCO, non quelli con un Path che il DCO non attraversa.
  */
 export async function reportAdeCookieResidue(
   bridge: CapacitorBridge,
 ): Promise<void> {
-  const platform = nativePlatform(bridge);
-  if (!platform) return;
-  const names = await residueNames(bridge, platform);
-  if (names.length === 0) return;
-  Sentry.captureMessage("Cattura SPID: cookie AdE rimasti sul telefono", {
-    level: "warning",
-    tags: { flow: "spid-capture", platform },
-    extra: { cookieNames: names },
-  });
+  try {
+    const platform = nativePlatform(bridge);
+    if (!platform) return;
+    const names = await residueNames(bridge, platform);
+    if (names.length === 0) return;
+    Sentry.captureMessage("Cattura SPID: cookie AdE rimasti sul telefono", {
+      level: "warning",
+      tags: { flow: "spid-capture", platform },
+      extra: { cookieNames: names },
+    });
+  } catch {
+    // Telemetria: un suo errore non tocca la cattura.
+  }
 }

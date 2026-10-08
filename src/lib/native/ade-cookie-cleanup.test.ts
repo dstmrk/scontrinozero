@@ -68,6 +68,30 @@ describe("clearAdeCookies su iOS", () => {
     ]);
   });
 
+  it("si risolve solo quando il plugin ha finito di cancellare", async () => {
+    // La cattura chiude il browser subito dopo: su iOS 15/16 una close che
+    // arriva prima della fine lascia i cookie dove sono.
+    const { bridge } = fakeBridge("ios");
+    let releaseClear!: () => void;
+    vi.mocked(bridge.nativePromise!).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseClear = () => resolve({});
+        }),
+    );
+
+    let done = false;
+    const pending = clearAdeCookies(bridge).then(() => {
+      done = true;
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(done).toBe(false);
+
+    releaseClear();
+    await pending;
+    expect(done).toBe(true);
+  });
+
   it("un clearCookies che rigetta non risale (iOS 15/16 a browser chiuso)", async () => {
     const { bridge } = fakeBridge("ios");
     vi.mocked(bridge.nativePromise!).mockRejectedValue(
@@ -93,37 +117,67 @@ describe("clearAdeCookies su Android", () => {
     );
   });
 
-  it("fa scadere ogni nome nelle tre chiavi possibili su Path=/", async () => {
-    const ivaservizi = "https://ivaservizi.agenziaentrate.gov.it/";
+  it("fa scadere ogni nome nelle tre chiavi possibili su Path=/, ognuna dal suo host", async () => {
+    // Host-only, Domain uguale all'host, Domain del dominio registrabile:
+    // `CookieManager` le tiene come tre cookie distinti, e `getCookies` non
+    // dice quale delle tre esiste. Un cookie host-only di iampe si cancella
+    // solo scrivendo sull'URL di iampe.
+    const [ivaservizi, iampe] = HOSTS;
     const { bridge, calls } = fakeBridge("android", {
-      [ivaservizi]: { JSESSIONID: "abc", LtpaToken2: "xyz" },
+      [ivaservizi]: { JSESSIONID: "abc" },
+      [iampe]: { SIAMPE: "s" },
     });
 
     await clearAdeCookies(bridge);
 
     const writes = calls.filter((c) => c.method === "setCookie");
     expect(writes.every((c) => c.plugin === "CapacitorCookies")).toBe(true);
-    // Host-only, Domain uguale all'host, Domain del dominio registrabile:
-    // `CookieManager` le tiene come tre cookie distinti, e `getCookies` non
-    // dice quale delle tre esiste.
-    for (const key of ["JSESSIONID", "LtpaToken2"]) {
-      expect(writes.map((c) => c.options)).toEqual(
-        expect.arrayContaining(
-          [
-            "/",
-            "/; domain=ivaservizi.agenziaentrate.gov.it",
-            "/; domain=.agenziaentrate.gov.it",
-          ].map((path) => ({
-            url: ivaservizi,
-            key,
-            value: "",
-            expires: EXPIRED,
-            path,
-          })),
+    const expire = (url: string, key: string, path: string) => ({
+      url,
+      key,
+      value: "",
+      expires: EXPIRED,
+      path,
+    });
+    expect(writes.map((c) => c.options)).toEqual([
+      expire(ivaservizi, "JSESSIONID", "/; secure"),
+      expire(
+        ivaservizi,
+        "JSESSIONID",
+        "/; domain=ivaservizi.agenziaentrate.gov.it; secure",
+      ),
+      expire(
+        ivaservizi,
+        "JSESSIONID",
+        "/; domain=.agenziaentrate.gov.it; secure",
+      ),
+      expire(iampe, "SIAMPE", "/; secure"),
+      expire(iampe, "SIAMPE", "/; domain=iampe.agenziaentrate.gov.it; secure"),
+      expire(iampe, "SIAMPE", "/; domain=.agenziaentrate.gov.it; secure"),
+    ]);
+  });
+
+  it("un cookie del dominio padre letto da più host scade una volta sola", async () => {
+    // Ogni setCookie di Capacitor fa anche un flush su disco.
+    const { bridge, calls } = fakeBridge(
+      "android",
+      Object.fromEntries(HOSTS.map((url) => [url, { LtpaToken2: "sso" }])),
+    );
+
+    await clearAdeCookies(bridge);
+
+    const domainWide = calls.filter(
+      (c) =>
+        c.method === "setCookie" &&
+        (c.options as { path: string }).path.includes(
+          "domain=.agenziaentrate.gov.it",
         ),
-      );
-    }
-    expect(writes).toHaveLength(6);
+    );
+    expect(domainWide).toHaveLength(1);
+    // Le chiavi legate all'host restano una per host.
+    expect(calls.filter((c) => c.method === "setCookie")).toHaveLength(
+      HOSTS.length * 2 + 1,
+    );
   });
 
   it("non usa mai i clear del plugin InAppBrowser né i clear globali", async () => {
@@ -222,6 +276,19 @@ describe("bridge che lancia su getPlatform", () => {
   });
 });
 
+describe("bridge senza nativePromise", () => {
+  it.each([["ios"], ["android"]])(
+    "%s: né la pulizia né il controllo rigettano",
+    async (platform) => {
+      const bridge: CapacitorBridge = { getPlatform: () => platform };
+
+      await expect(clearAdeCookies(bridge)).resolves.toBeUndefined();
+      await expect(reportAdeCookieResidue(bridge)).resolves.toBeUndefined();
+      expect(mockCaptureMessage).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("clearAdeCookies fuori da iOS e Android", () => {
   it.each([["web"], [undefined]])(
     "piattaforma %s: nessuna chiamata",
@@ -297,6 +364,17 @@ describe("reportAdeCookieResidue", () => {
     await reportAdeCookieResidue(bridge);
 
     expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("se Sentry lancia, il controllo non rigetta", async () => {
+    const { bridge } = fakeBridge("ios", {
+      "https://agenziaentrate.gov.it/": { LtpaToken2: "x" },
+    });
+    mockCaptureMessage.mockImplementation(() => {
+      throw new Error("sentry rotto");
+    });
+
+    await expect(reportAdeCookieResidue(bridge)).resolves.toBeUndefined();
   });
 
   it("niente rimasto: nessun evento", async () => {

@@ -215,20 +215,29 @@ i cookie di una sessione aperta altrove. È il contratto dell'app nativa
   - **iOS**: `clearCookies({url})` del plugin cancella per suffisso di
     dominio, sul data store del browser aperto. Su iOS 17+ è uno store
     dedicato (UUID fisso), su iOS 15/16 è il `default()` dell'app, e a
-    browser chiuso il plugin rifiuta: si chiama **prima** di `close`.
+    browser chiuso il plugin rifiuta: si chiama **prima** di `close`. Per
+    questo il browser si apre con `closeAction: "hide"`: la X della
+    toolbar lo nasconde (`hideEvent`) invece di chiuderlo, e chi rinuncia
+    dopo il login passa anche lui da pulizia e poi `close`.
     `clearAllCookies` e `clearCookiesOnOpen` su iOS 15/16 sloggano
-    l'utente da ScontrinoZero.
+    l'utente da ScontrinoZero. L'observer con cui Capacitor copierebbe i
+    cookie WebKit in `HTTPCookieStorage.shared` non è trattenuto da
+    nessuno (`CAPBridgeViewController`), quindi non scatta: lì i cookie
+    AdE non arrivano. Se un giorno smette di valere, `CapacitorHttp` li
+    manderebbe all'AdE.
   - **Android**: `clearCookies` del plugin **non cancella**, scrive
     `NOME=del`; `clearAllCookies` svuota il `CookieManager` di processo,
     Supabase compreso. Si fa scadere ogni nome con `CapacitorCookies`
     (`setCookie`, nel runtime Capacitor anche senza `enabled`) nelle tre
     chiavi possibili su `Path=/`: host-only, `Domain` dell'host, `Domain`
-    di `.agenziaentrate.gov.it`. Il Domain viaggia nel campo `path`, che
-    Capacitor 8 concatena senza escape.
-  - Dopo la pulizia `reportAdeCookieResidue` rilegge e, se resta un nome,
-    apre un warning Sentry (`flow:spid-capture`) con i soli nomi. È il
-    gate di una pulizia che smette di funzionare in silenzio: un upgrade di
-    Capacitor o del plugin, un cookie con un Path sotto `/ser/`.
+    di `.agenziaentrate.gov.it`, tutte `Secure`. Il Domain viaggia nel
+    campo `path`, che Capacitor 8 concatena senza escape.
+  - Dopo `close`, su ogni uscita, la pulizia si ripete e
+    `reportAdeCookieResidue` rilegge: se resta un nome, apre un warning
+    Sentry (`flow:spid-capture`) con i soli nomi. Gira in background, la
+    cattura non lo aspetta. È il gate di una pulizia che smette di
+    funzionare in silenzio: un upgrade di Capacitor o del plugin, un
+    cookie scritto dopo la cancellazione.
 
 ---
 

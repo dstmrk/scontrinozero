@@ -321,7 +321,10 @@ quando la slice arriva.
      cancella dal telefono, prima e dopo `close` (#1041). Criterio di
      accettazione: dall'app su sandbox, collegamento SPID e uno scontrino
      emesso; poi, su iOS e su Android, `getCookies` del plugin sugli host
-     AdE torna vuoto e Sentry non ha warning `flow:spid-capture`.
+     AdE torna vuoto e Sentry non ha warning `flow:spid-capture`. Lo
+     stesso dopo un login SPID chiuso con la X prima del DCO. Su iOS
+     15/16 anche `CapacitorCookies.getCookies` sugli host AdE torna
+     vuoto.
    - **Rinnovo SPID** — scritto: `reauthRequired` porta il metodo, e
      `AdeReauthBanner` a un utente SPID chiede «Ricollega con SPID»
      nell'app o rimanda all'app dal browser.

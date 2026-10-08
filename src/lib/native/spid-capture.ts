@@ -62,26 +62,32 @@ export async function captureSpidCookieHeader(
     const detach = () => {
       for (const handle of handles) handle.remove();
     };
-    // Su ogni uscita, a browser chiuso, si cancella di nuovo: l'utente può
-    // aver fatto il login e poi chiuso, e il DCO può scrivere cookie mentre la
-    // pagina finisce di caricare. Il residuo si controlla solo a cattura
-    // riuscita: lì una sessione c'era di sicuro.
+    // Su ogni uscita, a browser chiuso, si cancella di nuovo e si controlla
+    // cosa resta: il DCO può scrivere cookie mentre la pagina finisce di
+    // caricare. Non si aspetta: connectAdeWithSpid parte subito.
     const finish = (outcome: () => Promise<string | null>) => {
       if (settled) return;
       settled = true;
-      outcome()
-        .finally(() => clearAdeCookies(bridge))
-        .then(
-          async (value) => {
-            if (value) await reportAdeCookieResidue(bridge);
-            detach();
-            resolve(value);
-          },
-          (err: unknown) => {
-            detach();
-            reject(err);
-          },
-        );
+      const afterClose = () =>
+        clearAdeCookies(bridge).then(() => reportAdeCookieResidue(bridge));
+      outcome().then(
+        (value) => {
+          detach();
+          resolve(value);
+          void afterClose();
+        },
+        (err: unknown) => {
+          detach();
+          reject(err);
+          void afterClose();
+        },
+      );
+    };
+    // Prima di close: su iOS 15/16 il plugin cancella solo a browser aperto.
+    // La chiusura è best-effort: i cookie letti valgono un secondo fattore.
+    const clearThenClose = async () => {
+      await clearAdeCookies(bridge);
+      await call.call(bridge, PLUGIN, "close", {}).catch(() => undefined);
     };
 
     handles.push(
@@ -95,15 +101,20 @@ export async function captureSpidCookieHeader(
             })) as Record<string, string>;
             return toCookieHeader(cookies ?? {}) || null;
           } finally {
-            // Prima di close: su iOS 15/16 il plugin cancella solo a browser
-            // aperto.
-            await clearAdeCookies(bridge);
-            // Chiusura best-effort: i cookie sono già in mano, e l'utente ha
-            // già speso il secondo fattore per ottenerli.
-            await call.call(bridge, PLUGIN, "close", {}).catch(() => undefined);
+            await clearThenClose();
           }
         });
       }),
+      // La X della toolbar nasconde invece di chiudere (`closeAction: "hide"`):
+      // il browser resta registrato, e su iOS 15/16 lo si può ancora pulire.
+      // Chi fa il login SPID e rinuncia prima del DCO ha già una sessione.
+      listen.call(bridge, PLUGIN, "hideEvent", () => {
+        finish(async () => {
+          await clearThenClose();
+          return null;
+        });
+      }),
+      // Chiusure che non passano dalla X (indietro di sistema, gesto).
       listen.call(bridge, PLUGIN, "closeEvent", () => {
         finish(() => Promise.resolve(null));
       }),
@@ -114,6 +125,7 @@ export async function captureSpidCookieHeader(
         url: ADE_PORTAL_LOGIN_URL,
         title: "Accedi con SPID e apri Documento commerciale online",
         isPresentAfterPageLoad: false,
+        closeAction: "hide",
       })
       .catch((err: unknown) => {
         finish(() => Promise.reject(err));

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CapacitorBridge } from "./native-shell";
 import {
   ADE_PORTAL_LOGIN_URL,
@@ -13,11 +13,15 @@ const { mockSequence, mockClearAdeCookies, mockReportAdeCookieResidue } =
     const sequence: string[] = [];
     return {
       mockSequence: sequence,
+      // Registra anche la fine: l'ordine che conta è "pulizia finita, poi
+      // close", non solo "pulizia chiamata, poi close".
       mockClearAdeCookies: vi.fn(async () => {
-        sequence.push("clearAdeCookies");
+        sequence.push("clear");
+        await new Promise((r) => setTimeout(r, 0));
+        sequence.push("clear:fine");
       }),
       mockReportAdeCookieResidue: vi.fn(async () => {
-        sequence.push("reportAdeCookieResidue");
+        sequence.push("report");
       }),
     };
   });
@@ -72,6 +76,16 @@ function fakeBridge(cookies: Record<string, string> = { JSESSIONID: "abc" }) {
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
+/** Lascia finire la pulizia dopo close, che la cattura non aspetta. */
+async function settle() {
+  for (let i = 0; i < 10; i++) await flush();
+}
+
+const LISTENERS = ["closeEvent", "hideEvent", "urlChangeEvent"];
+
+// La pulizia in background di un test non deve finire nel successivo.
+afterEach(settle);
+
 describe("toCookieHeader", () => {
   it("unisce le coppie nel formato dell'header Cookie", () => {
     expect(toCookieHeader({ a: "1", b: "x=y==" })).toBe("a=1; b=x=y==");
@@ -111,23 +125,24 @@ describe("captureSpidCookieHeader", () => {
     await flush();
     expect(calls[0]).toMatchObject({
       method: "openWebView",
-      options: expect.objectContaining({ url: ADE_PORTAL_LOGIN_URL }),
+      options: expect.objectContaining({
+        url: ADE_PORTAL_LOGIN_URL,
+        closeAction: "hide",
+      }),
     });
 
     emit("urlChangeEvent", { url: ADE_PORTAL_LOGIN_URL });
-    emit("urlChangeEvent", {
-      url: "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/",
-    });
+    emit("urlChangeEvent", { url: DCO });
 
     await expect(pending).resolves.toBe("JSESSIONID=abc; LtpaToken2=xyz");
     expect(calls.find((c) => c.method === "getCookies")?.options).toEqual({
       url: "https://ivaservizi.agenziaentrate.gov.it/",
       includeHttpOnly: true,
     });
-    expect(removed.sort()).toEqual(["closeEvent", "urlChangeEvent"]);
+    expect(removed.sort()).toEqual(LISTENERS);
   });
 
-  it("letti i cookie li cancella prima e dopo close, poi controlla cosa resta", async () => {
+  it("a cattura riuscita la pulizia finisce prima di close, poi si ripete e si controlla", async () => {
     // Prima di close: su iOS 15/16 il plugin cancella solo a browser aperto.
     // Dopo: il DCO può scrivere cookie mentre la pagina finisce di caricare.
     const { bridge, emit } = fakeBridge();
@@ -136,20 +151,63 @@ describe("captureSpidCookieHeader", () => {
     await flush();
     emit("urlChangeEvent", { url: DCO });
     await pending;
+    await settle();
 
     expect(mockSequence).toEqual([
       "openWebView",
       "getCookies",
-      "clearAdeCookies",
+      "clear",
+      "clear:fine",
       "close",
-      "clearAdeCookies",
-      "reportAdeCookieResidue",
+      "clear",
+      "clear:fine",
+      "report",
     ]);
     expect(mockClearAdeCookies).toHaveBeenCalledWith(bridge);
     expect(mockReportAdeCookieResidue).toHaveBeenCalledWith(bridge);
   });
 
-  it("se l'utente chiude il browser prima del DCO restituisce null", async () => {
+  it("si risolve senza aspettare la pulizia dopo close", async () => {
+    // connectAdeWithSpid parte subito: la seconda pulizia e il controllo
+    // girano in background.
+    const { bridge, emit } = fakeBridge();
+    mockClearAdeCookies
+      .mockImplementationOnce(async () => undefined)
+      .mockImplementationOnce(() => new Promise<void>(() => undefined));
+
+    const pending = captureSpidCookieHeader(bridge);
+    await flush();
+    emit("urlChangeEvent", { url: DCO });
+
+    await expect(pending).resolves.toBe("JSESSIONID=abc");
+    expect(mockClearAdeCookies).toHaveBeenCalledTimes(2);
+  });
+
+  it("la X della toolbar nasconde: pulizia, chiusura, null", async () => {
+    // Chi fa il login SPID e rinuncia prima del DCO ha già una sessione: a
+    // browser solo nascosto, iOS 15/16 la può ancora cancellare.
+    const { bridge, emit, calls, removed } = fakeBridge();
+
+    const pending = captureSpidCookieHeader(bridge);
+    await flush();
+    emit("hideEvent", { url: ADE_PORTAL_LOGIN_URL });
+
+    await expect(pending).resolves.toBeNull();
+    await settle();
+    expect(calls.some((c) => c.method === "getCookies")).toBe(false);
+    expect(mockSequence).toEqual([
+      "openWebView",
+      "clear",
+      "clear:fine",
+      "close",
+      "clear",
+      "clear:fine",
+      "report",
+    ]);
+    expect(removed.sort()).toEqual(LISTENERS);
+  });
+
+  it("chiuso senza la X prima del DCO: null, pulizia e controllo a browser chiuso", async () => {
     const { bridge, emit, calls } = fakeBridge();
 
     const pending = captureSpidCookieHeader(bridge);
@@ -157,25 +215,30 @@ describe("captureSpidCookieHeader", () => {
     emit("closeEvent", { url: ADE_PORTAL_LOGIN_URL });
 
     await expect(pending).resolves.toBeNull();
+    await settle();
     expect(calls.some((c) => c.method === "getCookies")).toBe(false);
-    // L'utente può aver già fatto il login SPID: si cancella comunque, ma
-    // senza controllo (su iOS 15/16 a browser chiuso non si può).
-    expect(mockSequence).toEqual(["openWebView", "clearAdeCookies"]);
+    expect(mockSequence).toEqual([
+      "openWebView",
+      "clear",
+      "clear:fine",
+      "report",
+    ]);
   });
 
   it("cattura una volta sola anche se il DCO cambia URL più volte", async () => {
     const { bridge, emit, calls } = fakeBridge();
-    const dco =
-      "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/";
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", { url: dco });
-    emit("urlChangeEvent", { url: `${dco}#/vendita` });
-    emit("closeEvent", { url: dco });
+    emit("urlChangeEvent", { url: DCO });
+    emit("urlChangeEvent", { url: `${DCO}#/vendita` });
+    emit("hideEvent", { url: DCO });
+    emit("closeEvent", { url: DCO });
     await pending;
+    await settle();
 
     expect(calls.filter((c) => c.method === "getCookies")).toHaveLength(1);
+    expect(calls.filter((c) => c.method === "close")).toHaveLength(1);
   });
 
   it("nessun cookie letto: null, e il browser si chiude comunque", async () => {
@@ -183,16 +246,13 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", {
-      url: "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/",
-    });
+    emit("urlChangeEvent", { url: DCO });
 
     await expect(pending).resolves.toBeNull();
     expect(calls.at(-1)?.method).toBe("close");
-    expect(mockReportAdeCookieResidue).not.toHaveBeenCalled();
   });
 
-  it("se la lettura dei cookie fallisce cancella e chiude comunque, e l'errore risale", async () => {
+  it("se la lettura dei cookie fallisce pulisce e chiude comunque, e l'errore risale", async () => {
     const { bridge, emit, removed } = fakeBridge();
     const call = vi.mocked(bridge.nativePromise!);
     const original = call.getMockImplementation()!;
@@ -207,14 +267,18 @@ describe("captureSpidCookieHeader", () => {
     emit("urlChangeEvent", { url: DCO });
 
     await expect(pending).rejects.toThrow("lettura fallita");
+    await settle();
     expect(mockSequence).toEqual([
       "openWebView",
       "getCookies",
-      "clearAdeCookies",
+      "clear",
+      "clear:fine",
       "close",
-      "clearAdeCookies",
+      "clear",
+      "clear:fine",
+      "report",
     ]);
-    expect(removed.sort()).toEqual(["closeEvent", "urlChangeEvent"]);
+    expect(removed.sort()).toEqual(LISTENERS);
   });
 
   it("se la chiusura fallisce i cookie letti non si perdono", async () => {
@@ -230,11 +294,10 @@ describe("captureSpidCookieHeader", () => {
 
     const pending = captureSpidCookieHeader(bridge);
     await flush();
-    emit("urlChangeEvent", {
-      url: "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/",
-    });
+    emit("urlChangeEvent", { url: DCO });
 
     await expect(pending).resolves.toBe("JSESSIONID=abc");
+    await settle();
     expect(mockClearAdeCookies).toHaveBeenCalledTimes(2);
     expect(mockReportAdeCookieResidue).toHaveBeenCalledTimes(1);
   });
@@ -248,7 +311,7 @@ describe("captureSpidCookieHeader", () => {
     await expect(captureSpidCookieHeader(bridge)).rejects.toThrow(
       "plugin assente",
     );
-    expect(removed.sort()).toEqual(["closeEvent", "urlChangeEvent"]);
+    expect(removed.sort()).toEqual(LISTENERS);
   });
 
   it("senza bridge nativo fallisce subito", async () => {
