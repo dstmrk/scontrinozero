@@ -1,8 +1,9 @@
 # App nativa iOS/Android (v2.0) — decisioni di design
 
-**Stato al 22 settembre 2026.** Nota di design, non un piano: nessuna release
-pianificata. Il guscio Capacitor esiste in `mobile/` e punta all'app deployata,
-senza ancora capability native. Serve a non rifare questa analisi fra sei mesi
+**Stato all'8 ottobre 2026.** Nota di design, non un piano: nessuna release
+pianificata. Il guscio Capacitor esiste in `mobile/` e punta all'app deployata;
+le due capability native (cattura SPID e stampa BLE) sono scritte e attendono
+l'accettazione sul device (punto 12, procedura in `mobile/README.md`). Serve a non rifare questa analisi fra sei mesi
 e a consegnare a chi implementa le decisioni già prese invece di fargliele
 reinventare (regola 5, decision budget).
 
@@ -68,8 +69,8 @@ hobby project.
 
 La parte difficile della stampa resta riusabile:
 `@point-of-sale/receipt-printer-encoder` genera i byte ESC/POS in JS puro. Il
-seam esiste già — `src/lib/printing/bluetooth-printer.ts:79` dichiara il type
-alias `Transport` con un solo punto di istanziazione. Si sostituisce il
+seam esiste già — `Transport` in `src/lib/printing/bluetooth-printer.ts`, con
+un solo punto di istanziazione (`getTransport`). Si sostituisce il
 trasporto, non il codificatore. Il rilevamento di supporto in
 `src/lib/printing/support.ts` va esteso al caso «nativo» oltre a
 `navigator.bluetooth`.
@@ -342,29 +343,19 @@ quando la slice arriva.
      nel guscio nativo (`isNativeShell()`), nel passo credenziali
      dell'onboarding e nelle impostazioni AdE. Letti i cookie, l'app li
      cancella dal telefono, prima e dopo `close` (#1041). Criterio di
-     accettazione, in due tempi (#1043). Su sandbox, dove `MockAdeClient`
-     accetta qualunque header: collegamento SPID e uno scontrino emesso, da
-     iOS e da Android, e nel log `connectAdeWithSpid: cookie ricevuti` i
-     nomi del punto E (`JSESSIONID`, `LtpaToken2`, `SIAMPE`, `SIAMPE_TAI`,
-     `portaleCookie`, `B2BCookie`, `FATSC`); poi `getCookies` del plugin
-     sugli host AdE torna vuoto e Sentry non ha warning
-     `flow:spid-capture`. Lo stesso dopo un login SPID chiuso con la X
-     prima del DCO. Su iOS 15/16 anche `CapacitorCookies.getCookies` sugli
-     host AdE torna vuoto. In produzione, con l'app buildata da
-     `sync:prod`: collegamento SPID, poi uno scontrino da €0,01 emesso e
-     annullato, una volta su iOS e una su Android. È l'unica prova che i
-     cookie catturati funzionino davvero.
+     accettazione in due tempi (#1043), sandbox per la cattura e
+     produzione per la prova che i cookie funzionino: `mobile/README.md`,
+     «Accettazione sul device».
    - **Rinnovo SPID** — scritto: `reauthRequired` porta il metodo, e
      `AdeReauthBanner` a un utente SPID chiede «Ricollega con SPID»
      nell'app o rimanda all'app dal browser.
-4. **Stampa BLE nativa** dietro il type alias `Transport` (punto 3) —
+4. **Stampa BLE nativa** dietro `Transport` (punto 3) —
    scritta, da accettare sul device: plugin
    `@capacitor-community/bluetooth-le`, chiamato via bridge da
    `src/lib/printing/native-ble-transport.ts`; `Transport` è diventato
    un'interfaccia con due implementazioni. Il simulatore iOS non ha
-   Bluetooth: serve un iPhone vero. Criterio di accettazione: dall'app,
-   collegare una stampante ESC/POS BLE, stampare uno scontrino, e
-   ritrovarla collegata alla riapertura dell'app.
+   Bluetooth: serve un iPhone vero. Criterio di accettazione in
+   `mobile/README.md`, «Accettazione sul device».
 
 ---
 
