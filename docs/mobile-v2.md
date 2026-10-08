@@ -317,8 +317,11 @@ quando la slice arriva.
      i cookie di `ivaservizi`, chiude la webview e li passa a
      `connectAdeWithSpid`. Il bottone «Collega con SPID» compare solo nel
      guscio nativo (`isNativeShell()`), nel passo credenziali
-     dell'onboarding e nelle impostazioni AdE. Criterio di accettazione:
-     dall'app su sandbox, collegamento SPID e uno scontrino emesso.
+     dell'onboarding e nelle impostazioni AdE. Letti i cookie, l'app li
+     cancella dal telefono, prima e dopo `close` (#1041). Criterio di
+     accettazione: dall'app su sandbox, collegamento SPID e uno scontrino
+     emesso; poi, su iOS e su Android, `getCookies` del plugin sugli host
+     AdE torna vuoto e Sentry non ha warning `flow:spid-capture`.
    - **Rinnovo SPID** — scritto: `reauthRequired` porta il metodo, e
      `AdeReauthBanner` a un utente SPID chiede «Ricollega con SPID»
      nell'app o rimanda all'app dal browser.
