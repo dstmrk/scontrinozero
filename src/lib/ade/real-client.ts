@@ -504,10 +504,9 @@ export class RealAdeClient implements AdeClient {
   private readonly cookieJar: CookieJar = new CookieJar();
   private credentials: FisconlineCredentials | null = null;
   /**
-   * La sessione viene da `adoptSession`, non da un login di questo client: i
-   * suoi cookie restano anche nel telefono che l'ha aperta, che può
-   * ricatturarli. `logout` allora la lascia cadere dalla memoria senza
-   * chiuderla sull'AdE (issue #1042).
+   * La sessione viene da `adoptSession`: l'ha aperta il login SPID
+   * dell'utente sul telefono, non questo client. `logout` allora la lascia
+   * cadere dalla memoria senza chiuderla sull'AdE (issue #1042).
    */
   private adopted = false;
   /**

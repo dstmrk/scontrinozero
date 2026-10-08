@@ -58,8 +58,9 @@ export class AdeInteractiveSessionStore {
 
   /**
    * Deposita un client già autenticato (CIE o sessione SPID adottata) per il business, sostituendo
-   * (con logout best-effort) un'eventuale sessione precedente. Il logout di un
-   * client adottato non chiama l'AdE (issue #1042): lo decide il client.
+   * (con logout best-effort) un'eventuale sessione precedente. Cosa fa il
+   * logout lo decide il client: su una sessione adottata non chiama l'AdE
+   * (`AdeClient.logout`).
    */
   set(businessId: string, client: AdeClient): void {
     const existing = this.entries.get(businessId);
@@ -135,7 +136,11 @@ export class AdeInteractiveSessionStore {
     } catch (err) {
       if (err instanceof AdeSessionExpiredError) {
         // AdE ha rifiutato la sessione (401): non ri-creabile in silenzio.
-        this.entries.delete(businessId);
+        // Si toglie solo se è ancora quella: `set` e `invalidate` non passano
+        // dalla coda, e un ricollegamento può averla già sostituita.
+        if (this.entries.get(businessId) === entry) {
+          this.entries.delete(businessId);
+        }
         void entry.client.logout().catch(() => {});
         logger.warn(
           { businessId, event: "ade_interactive_session_expired" },

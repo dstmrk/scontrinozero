@@ -133,6 +133,10 @@ export interface AdeClient {
     confirmNewPassword: string;
   }): Promise<void>;
 
-  /** Logout dalla sessione AdE */
+  /**
+   * Logout dalla sessione AdE. Su una sessione adottata (`adoptSession`)
+   * lascia solo cadere lo stato locale, senza chiamare l'AdE: la sessione non
+   * l'ha aperta il server (issue #1042).
+   */
   logout(): Promise<void>;
 }

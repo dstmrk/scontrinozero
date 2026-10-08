@@ -2584,8 +2584,7 @@ describe("RealAdeClient", () => {
         (client as unknown as { cookieJar: { size: number } }).cookieJar.size;
 
       it("non chiama l'AdE: svuota solo sessione e cookie", async () => {
-        // La sessione l'ha aperta il telefono: chiuderla sull'AdE potrebbe
-        // chiudere anche quella appena ricatturata con gli stessi cookie.
+        // La sessione l'ha aperta il login SPID sul telefono, non il server.
         fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscali }));
         await client.adoptSession(COOKIES);
 
