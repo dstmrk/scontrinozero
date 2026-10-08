@@ -3089,7 +3089,7 @@ describe("onboarding-actions", () => {
           }),
         }),
       );
-      expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES);
+      expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES, undefined);
       expect(mockLogin).not.toHaveBeenCalled();
       expect(mockLoginCie).not.toHaveBeenCalled();
       expect(mockUpdateSet).toHaveBeenCalledWith(
@@ -3188,6 +3188,9 @@ describe("onboarding-actions", () => {
         const { connectAdeWithSpid } = await import("./onboarding-actions");
         const result = await connectAdeWithSpid(BIZ, COOKIES);
 
+        // La P.IVA registrata arriva al client: il reale la ignora, il mock
+        // la usa come identità della sessione (sandbox).
+        expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES, REGISTERED_VAT);
         expect(result.error).toBeUndefined();
         expect(result.pivaMismatch).toBeUndefined();
         expect(mockInsertValues).toHaveBeenCalledWith(
