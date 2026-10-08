@@ -504,6 +504,13 @@ export class RealAdeClient implements AdeClient {
   private readonly cookieJar: CookieJar = new CookieJar();
   private credentials: FisconlineCredentials | null = null;
   /**
+   * La sessione viene da `adoptSession`, non da un login di questo client: i
+   * suoi cookie restano anche nel telefono che l'ha aperta, che può
+   * ricatturarli. `logout` allora la lascia cadere dalla memoria senza
+   * chiuderla sull'AdE (issue #1042).
+   */
+  private adopted = false;
+  /**
    * Partita IVA scelta al login, rigiocata a ogni re-auth su 401. Vive accanto
    * alle credenziali e non nella sessione perché è un parametro di **come** ci
    * autentichiamo, non un risultato dell'autenticazione: la sessione porta già
@@ -1596,6 +1603,7 @@ export class RealAdeClient implements AdeClient {
   ): Promise<AdeSession> {
     this.credentials = credentials;
     this.utenzaPiva = utenzaPiva;
+    this.adopted = false;
     this.cookieJar.clear();
     this.session = await this.authenticate(credentials, undefined, utenzaPiva);
     return this.session;
@@ -1628,6 +1636,7 @@ export class RealAdeClient implements AdeClient {
   ): Promise<AdeSession> {
     // Nessun re-auth automatico su 401: il secondo fattore è umano.
     this.credentials = null;
+    this.adopted = false;
     this.cookieJar.clear();
     // `this.utenzaPiva` resta invariata: senza credenziali riusabili non esiste
     // un re-auth da rigiocare, e la sessione CIE si ricrea solo
@@ -1654,6 +1663,7 @@ export class RealAdeClient implements AdeClient {
     this.session = null;
     this.credentials = null;
     this.utenzaPiva = undefined;
+    this.adopted = true;
     this.cookieJar.clear();
 
     this.cookieJar.loadHeader(cookieHeader);
@@ -1915,7 +1925,16 @@ export class RealAdeClient implements AdeClient {
   }
 
   async logout(): Promise<void> {
-    // HAR finding (logout.har): nuovo logout tramite iampe.agenziaentrate.gov.it
+    if (!this.adopted) {
+      await this.logoutFromAde();
+    }
+    this.session = null;
+    this.credentials = null;
+    this.cookieJar.clear();
+  }
+
+  /** HAR finding (logout.har): logout tramite iampe.agenziaentrate.gov.it. */
+  private async logoutFromAde(): Promise<void> {
     try {
       await this.request(
         `${ADE_IAM_BASE_URL}/sam/UI/Logout?realm=/agenziaentrate`,
@@ -1933,10 +1952,6 @@ export class RealAdeClient implements AdeClient {
     } catch {
       // Best-effort
     }
-
-    this.session = null;
-    this.credentials = null;
-    this.cookieJar.clear();
   }
 
   // -----------------------------------------------------------------------
