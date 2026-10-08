@@ -1312,14 +1312,13 @@ export async function connectAdeWithSpid(
   // sceglierne una di un'altra P.IVA (issue #1040). Lo stesso client, con i
   // dati fiscali già letti, passa poi alla verifica: una sola GET all'AdE.
   const db = getDb();
-  const adeClient = createAdeClient(getAdeMode());
   const identity = await readBusinessIdentity(db, businessId);
+  const adeClient = createAdeClient(getAdeMode(), {
+    registeredPartitaIva: identity?.vatNumber ?? undefined,
+  });
   let adopted: AdeAdoptedSession;
   try {
-    adopted = await adeClient.adoptSession(
-      header,
-      identity?.vatNumber ?? undefined,
-    );
+    adopted = await adeClient.adoptSession(header);
   } catch (err) {
     const step = verificationErrorStep(err, businessId, {
       ...SPID_VERIFY_FLOW,
@@ -1519,7 +1518,11 @@ async function runAdeVerification(params: {
   // essere ancora cifrata con la chiave precedente.
   const keys = getEncryptionKeys();
 
-  const adeClient = adoptedSpid?.client ?? createAdeClient(getAdeMode());
+  const adeClient =
+    adoptedSpid?.client ??
+    createAdeClient(getAdeMode(), {
+      registeredPartitaIva: businessSnapshot?.vatNumber ?? undefined,
+    });
 
   // Login method-aware (Fisconline / CIE / adozione SPID). La coda post-login
   // (dati fiscali, identity guard, finalize, notifiche) è identica per tutti.

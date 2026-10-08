@@ -141,8 +141,22 @@ function mockCedente(session: AdeSession): AdeCedentePrestatore {
   });
 }
 
+export interface MockAdeClientOptions {
+  /**
+   * P.IVA registrata del business. CIE senza utenza scelta e SPID la usano
+   * come identità della sessione: con la P.IVA fittizia l'identity guard
+   * respingerebbe in sandbox ogni business già collegato che cambia metodo.
+   */
+  readonly registeredPartitaIva?: string;
+}
+
 export class MockAdeClient implements AdeClient {
   private session: AdeSession | null = null;
+  private readonly registeredPartitaIva: string | undefined;
+
+  constructor(options: MockAdeClientOptions = {}) {
+    this.registeredPartitaIva = options.registeredPartitaIva;
+  }
 
   login(
     credentials: {
@@ -192,30 +206,25 @@ export class MockAdeClient implements AdeClient {
     _credentials: CieCredentials,
     utenzaPiva?: string,
   ): Promise<AdeSession> {
-    // CIE: lo username è un'email, non il CF. In mock la P.IVA è fittizia
-    // (in real viene estratta dal portale post-login via wizardTemplate), a
-    // meno di una scelta esplicita.
+    // CIE: lo username è un'email, non il CF. In mock la P.IVA è l'utenza
+    // scelta, poi quella registrata del business, poi una fittizia (in real
+    // viene estratta dal portale post-login via wizardTemplate).
     return this.startSession({
       pAuth: `mock_p_auth_cie_${Date.now()}`,
-      partitaIva: utenzaPiva ?? "00000000000",
+      partitaIva: utenzaPiva ?? this.registeredPartitaIva ?? "00000000000",
       createdAt: Date.now(),
     });
   }
 
   /**
    * Sessione SPID adottata: in mock i cookie non si verificano. La P.IVA è
-   * quella registrata del business, se c'è: un business già collegato (es.
-   * con Fisconline) che passa a SPID in sandbox supera così l'identity guard,
-   * che con la P.IVA fittizia lo respingerebbe. Senza, P.IVA fittizia come per
-   * CIE. Come il client reale, restituisce i dati fiscali letti nell'adozione.
+   * quella registrata del business, se c'è, altrimenti fittizia come per CIE.
+   * Come il client reale, restituisce i dati fiscali letti nell'adozione.
    */
-  async adoptSession(
-    _cookieHeader: string,
-    utenzaPiva?: string,
-  ): Promise<AdeAdoptedSession> {
+  async adoptSession(_cookieHeader: string): Promise<AdeAdoptedSession> {
     const session = await this.startSession({
       pAuth: `mock_p_auth_spid_${Date.now()}`,
-      partitaIva: utenzaPiva ?? "00000000000",
+      partitaIva: this.registeredPartitaIva ?? "00000000000",
       createdAt: Date.now(),
     });
     return { ...session, fiscalData: mockCedente(session) };
