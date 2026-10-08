@@ -133,8 +133,10 @@ export class AdeUnknownOutcomeError extends AdeError {
  * personae del wizard): `cfUidUltimo`, `hasDelega`, `intermediario`,
  * `richiestaIncarichi`, `soloPerMe`, `tutore`. Accade quando la P.IVA è
  * intestata a un soggetto diverso dalla persona che accede — società, studio,
- * delega a intermediario. `setUserChoice` invia sempre
- * `tipoutenza: "meStesso"`, quindi quei casi non sono supportati: issue #984.
+ * delega a intermediario. Il ramo `incaricato` oggi è supportato e porta al
+ * picker (`AdeUtenzaSelectionRequiredError`); qui arriva solo un'utenza senza
+ * P.IVA dirette né incarichi leggibili, cioè i rami `delega` e `tutore` mai
+ * osservati — rischio accettato in `docs/architecture/accepted-risks.md`.
  *
  * `source` è l'endpoint che ha risposto senza P.IVA, per distinguere i tre
  * percorsi nei log. Mai includere CF, P.IVA o denominazione nel messaggio.

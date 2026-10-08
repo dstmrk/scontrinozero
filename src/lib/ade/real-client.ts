@@ -238,8 +238,8 @@ export function isStaleSocketError(err: unknown): boolean {
  * non ha almeno uno fra `deleghe`, `tutore` e `intermediario` (HAR.md #18.7).
  * Qui è cablato perché l'unica utenza incaricata che abbiamo ha tutti e tre
  * falsi su tutte le entry. I tre booleani arrivano dentro `AdeIncarico.raw`,
- * quindi la derivazione è a portata di mano quando servirà — voce aperta in
- * issue #984.
+ * quindi la derivazione è a portata di mano quando servirà — rischio
+ * accettato, con il trigger, in `docs/architecture/accepted-risks.md`.
  */
 const ADE_TIPO_INCARICANTE = "incaricoDiretto";
 

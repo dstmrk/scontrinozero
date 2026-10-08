@@ -189,8 +189,9 @@ export function isExpectedUserAdeError(err: unknown): boolean {
   // SCONTRINOZERO-13: utenza AdE senza partita IVA. Il login è andato a buon
   // fine, quindi non è un guasto nostro né del portale; è deterministico
   // (nessun retry produce una P.IVA che non esiste) e si corregge solo
-  // cambiando utenza. Resta tracciabile via il log `ade:wizard_piva_missing`
-  // nel dataset Sentry `logs` — trigger di riapertura nell'issue #984.
+  // cambiando utenza. Si conta sul DB (`last_verify_outcome =
+  // 'no_partita_iva'`), non sui Sentry Logs, che campionano: trigger in
+  // `docs/architecture/accepted-risks.md`.
   if (err instanceof AdeNoPartitaIvaError) return true;
   // Utenza di lavoro: richiede una scelta che non abbiamo, o punta a un
   // incarico che il portale non offre più. Entrambe deterministiche — nessun
