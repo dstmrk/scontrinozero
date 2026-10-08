@@ -85,9 +85,9 @@ export function SpidConnectButton({
         {isPending ? "Collegamento SPID in corso…" : label}
       </Button>
       {notice && (
-        <p className="text-muted-foreground text-sm" role="status">
+        <output className="text-muted-foreground block text-sm">
           {notice}
-        </p>
+        </output>
       )}
       {error && (
         <p className="text-destructive text-sm" role="alert">
