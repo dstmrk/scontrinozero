@@ -100,6 +100,22 @@ describe("createAdeClient", () => {
   it("returns a RealAdeClient for mode=real", () => {
     expect(createAdeClient("real")).toBeInstanceOf(RealAdeClient);
   });
+
+  it("passa la P.IVA registrata al mock, che la usa come identità", async () => {
+    const client = createAdeClient("mock", {
+      registeredPartitaIva: "12345678901",
+    });
+
+    const session = await client.adoptSession("JSESSIONID=x");
+
+    expect(session.partitaIva).toBe("12345678901");
+  });
+
+  it("il client reale accetta l'opzione e la ignora", () => {
+    expect(
+      createAdeClient("real", { registeredPartitaIva: "12345678901" }),
+    ).toBeInstanceOf(RealAdeClient);
+  });
 });
 
 describe("withAdeSession (mock mode)", () => {

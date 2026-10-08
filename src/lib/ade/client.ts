@@ -71,16 +71,8 @@ export interface AdeClient {
    * Adotta una sessione del portale aperta altrove — il login SPID nella
    * webview dell'app nativa (docs/mobile-v2.md punto 5) — dai suoi cookie.
    * Nessuna credenziale resta in memoria: su 401 niente re-login.
-   *
-   * `utenzaPiva` è la P.IVA registrata del business, se c'è. Il client reale
-   * la ignora: l'utenza l'ha scelta l'utente nel portale, e l'identity guard
-   * del chiamante la confronta coi dati fiscali letti. Il mock la usa come
-   * identità della sessione, come fanno `login` e `loginCie` con la loro.
    */
-  adoptSession(
-    cookieHeader: string,
-    utenzaPiva?: string,
-  ): Promise<AdeAdoptedSession>;
+  adoptSession(cookieHeader: string): Promise<AdeAdoptedSession>;
 
   /** Invia un documento commerciale di vendita */
   submitSale(payload: AdePayload): Promise<AdeResponse>;

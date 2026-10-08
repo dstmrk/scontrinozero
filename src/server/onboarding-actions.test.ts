@@ -1483,6 +1483,45 @@ describe("onboarding-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
+    it("CIE: la P.IVA registrata arriva al factory del client (sandbox)", async () => {
+      // In mock `loginCie` senza utenza scelta usa la P.IVA registrata: chi
+      // passa da Fisconline a CIE in sandbox supera così l'identity guard.
+      mockLimit
+        .mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }])
+        .mockResolvedValueOnce([
+          {
+            businessId: "11111111-1111-4111-8111-111111111111",
+            loginMethod: "cie",
+            encryptedCodiceFiscale: null,
+            encryptedUsername: "enc-email",
+            encryptedPassword: "enc-pw",
+            encryptedPin: null,
+            keyVersion: 1,
+            updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          },
+        ])
+        .mockResolvedValueOnce([
+          { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+        ]);
+      mockLoginCie.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
+
+      const { createAdeClient } = await import("@/lib/ade");
+      expect(createAdeClient).toHaveBeenLastCalledWith(expect.anything(), {
+        registeredPartitaIva: "12345678901",
+      });
+    });
+
     it("SPID: riga con metodo spid degrada senza tentare login", async () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
@@ -3089,7 +3128,7 @@ describe("onboarding-actions", () => {
           }),
         }),
       );
-      expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES, undefined);
+      expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES);
       expect(mockLogin).not.toHaveBeenCalled();
       expect(mockLoginCie).not.toHaveBeenCalled();
       expect(mockUpdateSet).toHaveBeenCalledWith(
@@ -3188,9 +3227,12 @@ describe("onboarding-actions", () => {
         const { connectAdeWithSpid } = await import("./onboarding-actions");
         const result = await connectAdeWithSpid(BIZ, COOKIES);
 
-        // La P.IVA registrata arriva al client: il reale la ignora, il mock
-        // la usa come identità della sessione (sandbox).
-        expect(mockAdoptSession).toHaveBeenCalledWith(COOKIES, REGISTERED_VAT);
+        // La P.IVA registrata arriva al factory: il client reale la ignora,
+        // il mock la usa come identità della sessione (sandbox).
+        const { createAdeClient } = await import("@/lib/ade");
+        expect(createAdeClient).toHaveBeenCalledWith(expect.anything(), {
+          registeredPartitaIva: REGISTERED_VAT,
+        });
         expect(result.error).toBeUndefined();
         expect(result.pivaMismatch).toBeUndefined();
         expect(mockInsertValues).toHaveBeenCalledWith(

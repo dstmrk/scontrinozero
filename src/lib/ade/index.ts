@@ -5,7 +5,7 @@
  */
 
 import type { AdeClient } from "./client";
-import { MockAdeClient } from "./mock-client";
+import { MockAdeClient, type MockAdeClientOptions } from "./mock-client";
 import { RealAdeClient } from "./real-client";
 import { adeSessionCache, type AdeLoginInputs } from "./session-cache";
 import { adeInteractiveSessionStore } from "./interactive-session-store";
@@ -52,11 +52,16 @@ export function getAdeMode(): AdeMode {
  * Creates an AdeClient instance based on the specified mode.
  *
  * @param mode - "mock" for testing, "real" for production
+ * @param options - solo per il mock: il client reale legge l'identità dal
+ *   portale e ignora `registeredPartitaIva`.
  */
-export function createAdeClient(mode: AdeMode): AdeClient {
+export function createAdeClient(
+  mode: AdeMode,
+  options: MockAdeClientOptions = {},
+): AdeClient {
   switch (mode) {
     case "mock":
-      return new MockAdeClient();
+      return new MockAdeClient(options);
     case "real":
       return new RealAdeClient();
     default:

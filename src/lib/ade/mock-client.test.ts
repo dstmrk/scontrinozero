@@ -248,25 +248,6 @@ describe("MockAdeClient", () => {
       expect(fiscalData).toEqual(await client.getFiscalData());
     });
 
-    it("con la P.IVA su cui si opera, la sessione è di quella P.IVA", async () => {
-      // In sandbox un business già collegato (es. con Fisconline) che passa a
-      // SPID ha una P.IVA registrata: con quella fittizia l'identity guard lo
-      // respingerebbe, e il collegamento non arriverebbe mai in fondo.
-      const { partitaIva, fiscalData } = await client.adoptSession(
-        "JSESSIONID=x",
-        "12345678901",
-      );
-
-      expect(partitaIva).toBe("12345678901");
-      expect(fiscalData.identificativiFiscali.partitaIva).toBe("12345678901");
-    });
-
-    it("senza P.IVA nota resta quella fittizia", async () => {
-      const { partitaIva } = await client.adoptSession("JSESSIONID=x");
-
-      expect(partitaIva).toBe("00000000000");
-    });
-
     it("abilita le operazioni come un login", async () => {
       await client.adoptSession("JSESSIONID=x");
       const response = await client.submitSale(makeSalePayload());
@@ -294,6 +275,57 @@ describe("MockAdeClient", () => {
       const response = await client.submitSale(makeSalePayload());
 
       expect(response.esito).toBe(true);
+    });
+  });
+
+  describe("P.IVA registrata (sandbox)", () => {
+    // Un business già collegato che passa a CIE o SPID in sandbox ha una
+    // P.IVA registrata: con quella fittizia l'identity guard lo respingerebbe,
+    // e il collegamento non arriverebbe mai in fondo.
+    const REGISTERED = "12345678901";
+    const cieCreds = { username: "mario.rossi@example.com", password: "x" };
+
+    it("SPID: la sessione adottata è della P.IVA registrata", async () => {
+      const mock = new MockAdeClient({ registeredPartitaIva: REGISTERED });
+
+      const { partitaIva, fiscalData } =
+        await mock.adoptSession("JSESSIONID=x");
+
+      expect(partitaIva).toBe(REGISTERED);
+      expect(fiscalData.identificativiFiscali.partitaIva).toBe(REGISTERED);
+    });
+
+    it("CIE: senza utenza scelta usa la P.IVA registrata", async () => {
+      const mock = new MockAdeClient({ registeredPartitaIva: REGISTERED });
+
+      const session = await mock.loginCie(cieCreds);
+
+      expect(session.partitaIva).toBe(REGISTERED);
+    });
+
+    it("CIE: un'utenza scelta vince sulla P.IVA registrata", async () => {
+      const mock = new MockAdeClient({ registeredPartitaIva: REGISTERED });
+
+      const session = await mock.loginCie(cieCreds, "98765432109");
+
+      expect(session.partitaIva).toBe("98765432109");
+    });
+
+    it("Fisconline resta derivata dal codice fiscale", async () => {
+      // Con Fisconline il guard in sandbox si prova cambiando CF: la P.IVA
+      // registrata non deve coprirlo.
+      const mock = new MockAdeClient({ registeredPartitaIva: REGISTERED });
+
+      const session = await mock.login(mockCredentials);
+
+      expect(session.partitaIva).not.toBe(REGISTERED);
+    });
+
+    it("senza P.IVA registrata CIE e SPID restano sulla fittizia", async () => {
+      expect((await client.loginCie(cieCreds)).partitaIva).toBe("00000000000");
+      expect((await client.adoptSession("JSESSIONID=x")).partitaIva).toBe(
+        "00000000000",
+      );
     });
   });
 
