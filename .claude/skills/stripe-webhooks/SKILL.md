@@ -1,13 +1,13 @@
 ---
 name: stripe-webhooks
-description: Use when working with Stripe billing — handling API version `2026-08-26.dahlia` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), debugging "pending" subscription rows after checkout, or touching referral bonuses / trial extensions / any derived plan date — never adjust a Stripe-owned date at read time, push trial_end to Stripe via extendSubscriptionForReferral in src/server/referral-reward.ts and let the webhook resync; on derived trial dates in src/lib/plans.ts assert the observable expiry, not the intermediate shift. Files: src/lib/stripe.ts (SDK wrapper), src/app/api/stripe/ (webhook + checkout/portal), src/server/billing-actions.ts. For the AdE stale-pending recovery see the ade-integration skill.
+description: Use when working with Stripe billing — handling API version `2026-09-30.endive` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), debugging "pending" subscription rows after checkout, or touching referral bonuses / trial extensions / any derived plan date — never adjust a Stripe-owned date at read time, push trial_end to Stripe via extendSubscriptionForReferral in src/server/referral-reward.ts and let the webhook resync; on derived trial dates in src/lib/plans.ts assert the observable expiry, not the intermediate shift. Files: src/lib/stripe.ts (SDK wrapper), src/app/api/stripe/ (webhook + checkout/portal), src/server/billing-actions.ts. For the AdE stale-pending recovery see the ade-integration skill.
 ---
 
 # stripe-webhooks — Stripe API version, webhook events, recovery patterns
 
-## API version `2026-08-26.dahlia` — breaking changes
+## API version `2026-09-30.endive` — breaking changes
 
-SDK: `stripe` npm v22.x.
+SDK: `stripe` npm v23.x.
 
 - `Invoice.subscription` **rimosso** →
   `invoice.parent?.subscription_details?.subscription`
@@ -24,8 +24,8 @@ recente** (`Stripe.API_VERSION`), non come union storica: ogni minor della SDK
 che sposta il pin rompe `npm run type-check` con
 
 ```
-src/lib/stripe.ts(48,7): error TS2322: Type '"<vecchia>.dahlia"' is not
-assignable to type '"<nuova>.dahlia"'.
+src/lib/stripe.ts(48,7): error TS2322: Type '"<vecchia>.<nome>"' is not
+assignable to type '"<nuova>.<nome>"'.
 ```
 
 Non è un errore da aggirare con un cast: allineare il pin è il fix. Workflow —
@@ -39,7 +39,7 @@ Non è un errore da aggirare con un cast: allineare il pin è il fix. Workflow �
    `src/lib/stripe.ts`, `src/lib/stripe.test.ts` (assert esatto), il commento in
    `src/server/referral-reward.ts`, `CLAUDE.md` (stack + sezione Stripe),
    `docs/architecture/data-flows.md` e questa skill.
-   Check: `grep -rn "dahlia" src/ CLAUDE.md docs/ .claude/skills/`.
+   Check: `grep -rn "<nome-versione>" src/ CLAUDE.md docs/ .claude/skills/`.
 
 Il pin in codice vale solo per le **richieste in uscita**: gli endpoint webhook
 mantengono la versione con cui sono stati creati in dashboard, quindi il bump

@@ -46,6 +46,7 @@ const USER_ID = "8d0f6c2a-1b3e-4f5a-9c7d-2e4b6a8c0d1f";
 const sentEnvelopes: string[] = [];
 let server: http.Server;
 let baseUrl: string;
+let requestCount = 0;
 
 beforeAll(async () => {
   Sentry.init({
@@ -76,7 +77,13 @@ beforeAll(async () => {
     ]);
     // Come `getAuthenticatedUser` (regola 22): l'utente si lega a mano.
     Sentry.setUser({ id: USER_ID });
-    Sentry.captureException(new Error("errore dentro una server action"));
+    // Messaggio diverso a ogni richiesta: `dedupeIntegration` scarta
+    // un errore identico al precedente (stesso messaggio e stesso punto di
+    // lancio), e i test successivi al primo non vedrebbero alcun evento.
+    requestCount += 1;
+    Sentry.captureException(
+      new Error(`errore dentro una server action #${requestCount}`),
+    );
     res.end("ok");
   });
   await new Promise<void>((resolve) => server.listen(0, resolve));
