@@ -43,7 +43,7 @@ import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
 import { useIsNativeShell } from "@/lib/native/native-shell";
 
-const STEPS = ["Dati attivita", "Credenziali AdE", "Verifica"];
+const STEPS = ["Dati attività", "Credenziali AdE", "Verifica"];
 
 const step1Schema = z.object({
   businessName: z.string().optional(),
