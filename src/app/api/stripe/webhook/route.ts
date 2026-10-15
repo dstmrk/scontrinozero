@@ -8,6 +8,14 @@ import {
   STRIPE_WEBHOOK_REQUEST_OPTIONS,
 } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
+import { notifyOperatorOfSubscriptionEvent } from "@/lib/operator-notification";
+import {
+  classifySubscriptionChange,
+  type NextSubscriptionState,
+  type PlanChoice,
+  type PreviousSubscriptionState,
+  type SubscriptionChange,
+} from "@/lib/subscription-change";
 import { readTextWithLimit } from "@/lib/request-utils";
 import type Stripe from "stripe";
 
@@ -359,6 +367,48 @@ function isNotOlderThanWatermark(eventCreatedAt: Date) {
   );
 }
 
+/** Piano + intervallo di un priceId, o `null` se non è uno dei nostri. */
+function selectionFromPriceId(priceId: string): PlanChoice | null {
+  const plan = planFromPriceId(priceId);
+  const interval = intervalFromPriceId(priceId);
+  return plan && interval ? { plan, interval } : null;
+}
+
+/**
+ * Lancia la mail all'operatore senza attendere e senza poter fallire: la
+ * funzione chiamata cattura già tutto, il `.catch` copre solo ciò che
+ * sfuggisse comunque. Una mail persa è accettabile, un webhook in errore
+ * (Stripe ritenta) no.
+ */
+function fireOperatorNotification(
+  userId: string,
+  change: SubscriptionChange,
+  endsAt?: Date,
+): void {
+  void notifyOperatorOfSubscriptionEvent(userId, change, endsAt).catch((err) =>
+    logger.warn({ err }, "Operator subscription notification failed"),
+  );
+}
+
+/**
+ * Classifica la sync appena applicata e, se c'è un cambio da notificare,
+ * lancia la mail. Tutto in un try/catch: nemmeno un errore di classificazione
+ * deve arrivare al webhook.
+ */
+function notifySyncedChange(
+  userId: string,
+  prev: PreviousSubscriptionState,
+  next: NextSubscriptionState,
+  endsAt: Date,
+): void {
+  try {
+    const change = classifySubscriptionChange(prev, next, selectionFromPriceId);
+    if (change) fireOperatorNotification(userId, change, endsAt);
+  } catch (err) {
+    logger.warn({ err }, "Operator subscription notification skipped");
+  }
+}
+
 /**
  * Cancel a deleted Stripe subscription and downgrade the user's plan to trial.
  * Extracted to reduce Cognitive Complexity of handleEvent: the transaction
@@ -381,7 +431,7 @@ async function handleSubscriptionDeleted(
   // Wrap both writes in a transaction: subscription + profile must stay
   // consistent. A partial update (subscription canceled but plan not reset,
   // or vice versa) would leave feature gates in an inconsistent state.
-  await db.transaction(async (tx) => {
+  const ended = await db.transaction(async (tx) => {
     // Azzera anche stripeSubscriptionId/stripePriceId/currentPeriodEnd.
     // Lasciarli stale fa fallire `applySubscriptionUpdate` quando arriva un
     // customer.subscription.updated per la sub successiva creata dopo un
@@ -407,7 +457,7 @@ async function handleSubscriptionDeleted(
       // 0 righe: o la riga non esiste (nessun `subRow`), o la guardia ha
       // respinto un evento più vecchio del watermark. `subRow` discrimina.
       logOutOfOrderOrMissing(sub.id, eventCreated, Boolean(subRow));
-      return;
+      return false;
     }
 
     if (subRow) {
@@ -415,8 +465,21 @@ async function handleSubscriptionDeleted(
         .update(profiles)
         .set({ plan: "trial" })
         .where(eq(profiles.authUserId, subRow.userId));
+      return true;
     }
+    return false;
   });
+
+  // Dopo il commit: la mail non fa parte della transazione e nulla di ciò
+  // che segue può far fallire il webhook.
+  if (ended && subRow) {
+    try {
+      const to = selectionFromPriceId(sub.items.data[0]?.price.id ?? "");
+      if (to) fireOperatorNotification(subRow.userId, { kind: "ended", to });
+    } catch (err) {
+      logger.warn({ err }, "Operator subscription notification skipped");
+    }
+  }
 }
 
 /**
@@ -482,16 +545,28 @@ async function syncSubscriptionData(
   const cancelAtPeriodEnd = stripeSub.cancel_at_period_end;
   const eventCreatedAt = new Date(eventCreated * 1000);
 
-  await db.transaction(async (tx) => {
+  const previous = await db.transaction(async (tx) => {
     // Il lookup precede l'UPDATE di proposito: serve a distinguere le due
     // cause di un UPDATE a 0 righe — riga assente (desync, si rilancia perché
     // Stripe ritenti) contro guardia di ordering scattata (evento stale, si
     // acknowledgia). Senza questa lettura i due casi sono indistinguibili e un
     // desync reale finirebbe silenziosamente in un warn.
+    //
+    // FOR UPDATE: `checkout.session.completed` e `customer.subscription.updated`
+    // di una nuova sottoscrizione arrivano quasi insieme su richieste
+    // concorrenti. Il lock le mette in coda sulla riga, così la seconda legge
+    // lo stato già scritto dalla prima e non notifica due volte lo stesso
+    // cambio.
     const [subRow] = await tx
-      .select({ userId: subscriptions.userId })
+      .select({
+        userId: subscriptions.userId,
+        status: subscriptions.status,
+        stripePriceId: subscriptions.stripePriceId,
+        cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
+      })
       .from(subscriptions)
       .where(eq(subscriptions.stripeCustomerId, stripeCustomerId))
+      .for("update")
       .limit(1);
 
     if (!subRow) {
@@ -540,12 +615,36 @@ async function syncSubscriptionData(
         },
         "stripe_event_out_of_order: evento subscription più vecchio dell'ultimo applicato — ignorato, evento acknowledged",
       );
-      return;
+      return null;
     }
 
     await tx
       .update(profiles)
       .set({ plan, planExpiresAt: currentPeriodEnd })
       .where(eq(profiles.authUserId, subRow.userId));
+
+    // Solo la sync applicata (non quella scartata dalla guardia di ordering)
+    // può produrre una notifica. Qui si cattura soltanto lo stato precedente:
+    // classificare dentro la transazione esporrebbe il webhook a un rollback
+    // per una mail.
+    return {
+      userId: subRow.userId,
+      state: {
+        status: subRow.status,
+        priceId: subRow.stripePriceId,
+        cancelAtPeriodEnd: subRow.cancelAtPeriodEnd,
+      } satisfies PreviousSubscriptionState,
+    };
   });
+
+  // Dopo il commit: la mail non fa parte della transazione e nulla di ciò
+  // che segue può far fallire il webhook.
+  if (previous) {
+    notifySyncedChange(
+      previous.userId,
+      previous.state,
+      { status, priceId, cancelAtPeriodEnd },
+      currentPeriodEnd,
+    );
+  }
 }

@@ -158,6 +158,27 @@ della skill `marketing-content` quando cambiano i termini del bonus.
 
 ---
 
+## Effetti collaterali non critici (mail all'operatore)
+
+Una mail non vale un webhook in errore: Stripe ritenterebbe l'evento e il
+claim verrebbe rilasciato. Il pattern in `route.ts`:
+
+- La mail parte **dopo il commit**, senza `await`, e il notificatore
+  (`notifyOperatorOfSubscriptionEvent`) non lancia mai: errore → `logger.warn`,
+  mai `error` (regola 20).
+- Nella transazione si **cattura soltanto** lo stato precedente; la
+  classificazione (`classifySubscriptionChange`) e l'invio stanno fuori, in un
+  `try/catch`. Un bug nel codice di notifica non deve poter fare rollback.
+- "Nuovo", "già visto" e "cambio" si decidono confrontando lo stato della riga
+  prima/dopo la sync, mai dal tipo di evento: `checkout.session.completed` e
+  `customer.subscription.updated` di una nuova sottoscrizione arrivano
+  ravvicinati, concorrenti e in ordine non garantito. Il SELECT dello stato
+  precedente è `FOR UPDATE` proprio per metterli in coda sulla riga.
+- Il tipo del piano si chiama `PlanChoice`, non `PlanSelection`: quel nome è un
+  token del gate `native-billing.contract.test.ts` (componente di acquisto).
+
+---
+
 ## Stale recovery AdE → skill `ade-integration`
 
 La sezione sul recovery delle mutazioni AdE idempotenti (soglia 30 min
