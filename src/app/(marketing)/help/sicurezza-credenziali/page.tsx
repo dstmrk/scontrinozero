@@ -235,9 +235,10 @@ export default function SicurezzaCredenzialiPage() {
             Impostazioni → Altre impostazioni → Zona pericolosa → Elimina
             account
           </strong>
-          : la cancellazione è <strong>immediata</strong> e include credenziali
-          AdE, anagrafica, scontrini e catalogo (cascade delete sul profilo). Il
-          diritto alla cancellazione è garantito dal GDPR art. 17.
+          {": la cancellazione è "}
+          <strong>immediata</strong> e include credenziali AdE, anagrafica,
+          scontrini e catalogo (cascade delete sul profilo). Il diritto alla
+          cancellazione è garantito dal GDPR art. 17.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Oggi non esiste un pulsante dedicato per rimuovere solo le credenziali
