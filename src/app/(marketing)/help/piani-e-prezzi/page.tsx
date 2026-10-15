@@ -374,8 +374,8 @@ export default function PianiEPrezziPage() {
           </div>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Ricorda: puoi provare tutto con il <strong>trial di 30 giorni</strong>{" "}
-          e decidere alla scadenza.
+          Ricorda: con il <strong>trial di 30 giorni</strong> provi le funzioni
+          Pro, con il catalogo limitato a 5 prodotti, e decidi alla scadenza.
         </p>
 
         <RelatedHelpArticles slug="piani-e-prezzi" />

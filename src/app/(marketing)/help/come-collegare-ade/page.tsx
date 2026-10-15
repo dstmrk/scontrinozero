@@ -268,7 +268,7 @@ export default function ComeCollegareAde() {
               {"Verifica che il codice fiscale inserito sia quello del "}
               <strong>titolare dell&apos;esercizio</strong>
               {
-                " (o del legale rappresentante), non quello del commercialista. ScontrinoZero usa le credenziali per operare sul portale "
+                " (per una società, del legale rappresentante o della persona che lui ha nominato gestore o operatore incaricato), non quello di un commercialista che opera con una delega. ScontrinoZero usa le credenziali per operare sul portale "
               }
               <em>Fatture e Corrispettivi</em>
               {

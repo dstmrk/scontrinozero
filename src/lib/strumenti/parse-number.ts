@@ -11,8 +11,9 @@
  *     la forma di un numero raggruppato ("1.000", "1.234.567"), con prima cifra
  *     diversa da zero; altrimenti il punto resta decimale ("1.5", "19.99",
  *     "0.125").
- *   - più di una virgola, o più punti che non formano gruppi di migliaia
- *     ("1.23.456") → input ambiguo → NaN.
+ *   - più di una virgola → NaN; senza virgola, più punti che non formano
+ *     gruppi di migliaia ("1.23.456") → input ambiguo → NaN. Con la virgola
+ *     i punti vengono rimossi senza controllarne la posizione.
  *
  * Usato dai tool /strumenti/* per evitare che "1.234,56" venga letto come 1.234.
  */

@@ -120,10 +120,9 @@ export default function AnalyticsEReportPage() {
           <div>
             <p className="text-sm font-medium">Scontrini annullati</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Quanti degli scontrini emessi nel periodo risultano annullati:
-              conta la data della vendita, non quella dell&apos;annullo. Sono
-              contati a parte: non entrano nei ricavi né nel conteggio degli
-              emessi.
+              Quanti scontrini del periodo risultano poi annullati: conta la
+              data della vendita, non quella dell&apos;annullo. Sono contati a
+              parte: non entrano nei ricavi né nella card Scontrini emessi.
             </p>
           </div>
         </div>

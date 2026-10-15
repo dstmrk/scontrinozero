@@ -117,7 +117,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Quale app scegliere per lo scontrino elettronico",
-        body: "La risposta secca: un'app che trasmetta il documento commerciale direttamente all'Agenzia delle Entrate con le tue credenziali, senza hardware aggiuntivo, con prezzo trasparente e prova gratuita. I criteri che contano nella scelta sono cinque: velocità di emissione (al banco contano i secondi, non i minuti), costo chiaro senza vincoli di durata né hardware da comprare, storico consultabile con i totali giornalieri, annullo dello scontrino direttamente dall'app, e assistenza raggiungibile quando qualcosa non va. ScontrinoZero è costruita esattamente su questi criteri: catalogo prodotti, emissione in pochi secondi, annullo e storico inclusi, da €29,99 l'anno con 30 giorni di prova senza carta. Per una checklist completa dei criteri vedi la guida alla scelta del software, linkata in fondo.",
+        body: "La risposta secca: un'app che trasmetta il documento commerciale direttamente all'Agenzia delle Entrate con le tue credenziali, senza hardware aggiuntivo, con prezzo trasparente e prova gratuita. I criteri che contano nella scelta sono cinque: velocità di emissione (al banco contano i secondi, non i minuti), costo chiaro senza vincoli di durata né hardware da comprare, storico consultabile e filtrabile per periodo, annullo dello scontrino direttamente dall'app, e assistenza raggiungibile quando qualcosa non va. ScontrinoZero è costruita esattamente su questi criteri: catalogo prodotti, emissione in pochi secondi, annullo e storico inclusi, da €29,99 l'anno con 30 giorni di prova senza carta. Per una checklist completa dei criteri vedi la guida alla scelta del software, linkata in fondo.",
       },
       {
         heading: "Cosa contiene il documento commerciale",
@@ -791,7 +791,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "I codici natura IVA (N1, N2, N2.2, N3, N4, N5, N6, N7) servono a spiegare al fisco perché su un'operazione non viene addebitata l'IVA con un'aliquota ordinaria. Sono obbligatori nel tracciato della fattura elettronica e dei corrispettivi telematici. Qui vediamo cosa significano uno per uno, perché il regime forfettario usa N2.2 in fattura ma N2 sullo scontrino, e quale dicitura di esenzione indicare.",
     publishedAt: "2026-06-29",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-10-15",
     readingMinutes: 8,
     sections: [
       {
@@ -875,7 +875,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come ScontrinoZero gestisce la natura N2",
-        body: "In ScontrinoZero imposti l'IVA prevalente della tua attività su \"0% - Non soggette\" (natura N2) in onboarding o in Impostazioni → Attività: da quel momento le righe dello scontrino vengono emesse e trasmesse all'AdE con il codice natura N2 corretto per il documento commerciale, senza che tu debba ricordartelo a ogni vendita. Per la fattura elettronica B2B (N2.2) serve invece un software di fatturazione: ScontrinoZero si occupa degli scontrini al consumatore finale.",
+        body: "In ScontrinoZero imposti l'IVA prevalente della tua attività su \"0% - Non soggette\" (natura N2) in onboarding o in Impostazioni → Attività: da quel momento le righe a importo libero partono già con il codice natura N2 corretto per il documento commerciale. I prodotti del catalogo hanno invece un'aliquota propria, che parte da 22%: impostala su N2 quando li crei. Per la fattura elettronica B2B (N2.2) serve invece un software di fatturazione: ScontrinoZero si occupa degli scontrini al consumatore finale.",
       },
     ],
     faq: [
@@ -1058,7 +1058,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Le alternative: SPID e CIE",
-        body: "SPID si richiede a uno degli identity provider accreditati e vale per tutta la pubblica amministrazione; i costi dipendono dal gestore. Poste ID, il più diffuso, è gratuito il primo anno e dal secondo costa 6 € l'anno (dal 2026; restano esenti minorenni, over 75, residenti all'estero e PosteID ad uso professionale), a cui si può aggiungere un costo per il riconoscimento secondo la modalità scelta. La CIE (Carta d'Identità Elettronica) si usa con l'app CIE ID sullo smartphone: si accede approvando una notifica push, senza ricordare password che scadono. Entrambe permettono l'accesso completo al portale Fatture e Corrispettivi e alla procedura Documento Commerciale Online.",
+        body: "SPID si richiede a uno degli identity provider accreditati e vale per tutta la pubblica amministrazione; i costi dipendono dal gestore. PosteID, il più diffuso, è gratuito il primo anno e dal secondo costa 6 € l'anno (dal 2026; restano esenti minorenni, over 75, residenti all'estero e titolari di PosteID ad uso professionale), a cui si può aggiungere un costo per il riconoscimento secondo la modalità scelta. La CIE (Carta d'Identità Elettronica) si usa con l'app CIE ID sullo smartphone: si accede approvando una notifica push, senza ricordare password che scadono. Entrambe permettono l'accesso completo al portale Fatture e Corrispettivi e alla procedura Documento Commerciale Online.",
       },
       {
         heading: "Credenziali di una società o di più attività",

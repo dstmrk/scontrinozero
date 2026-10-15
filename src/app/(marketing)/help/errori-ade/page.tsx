@@ -132,8 +132,10 @@ export default function ErroriAdePage() {
           </li>
           <li>
             {"Per aggiornare le credenziali vai in "}
-            <strong>Impostazioni → Credenziali AdE</strong> e usa il pulsante{" "}
-            <strong>Modifica</strong>.
+            <strong>Impostazioni → Credenziali AdE</strong>
+            {
+              " e tocca l'icona a forma di matita accanto al titolo della card (Modifica credenziali AdE): il modulo si apre vuoto, quindi reinserisci codice fiscale, password e PIN."
+            }
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -349,9 +351,13 @@ export default function ErroriAdePage() {
             utente per recuperare o reimpostare le credenziali Fisconline.
           </li>
           <li>
-            {"Una volta impostata la nuova password, aggiornala in "}
-            <strong>Impostazioni → Credenziali AdE → Modifica</strong>
-            {" su ScontrinoZero."}
+            {
+              "Una volta impostata la nuova password, aggiornala anche su ScontrinoZero: in "
+            }
+            <strong>Impostazioni → Credenziali AdE</strong>
+            {
+              " tocca l'icona a forma di matita (Modifica credenziali AdE) e reinserisci codice fiscale, nuova password e PIN."
+            }
           </li>
         </ul>
 

@@ -272,7 +272,7 @@ export default function PrezziPage() {
       <section className="px-4 py-16 text-center">
         <h2 className="text-2xl font-bold">Inizia gratis, senza impegno</h2>
         <p className="text-muted-foreground mt-2">
-          30 giorni per provare tutto. Nessuna carta richiesta.
+          30 giorni di prova gratuita. Nessuna carta richiesta.
         </p>
         <Button asChild size="lg" className="mt-6">
           <a href={registerHref("prezzi")}>

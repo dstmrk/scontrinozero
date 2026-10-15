@@ -152,14 +152,17 @@ export default function IntestazioneScontrinoPage() {
           <strong>Suggerimento:</strong> per le variazioni anagrafiche
           AdE/Camera di Commercio rivolgiti al tuo commercialista — è la
           procedura più rapida e sicura. Una volta completata la variazione,
-          contattaci scrivendo a{" "}
-          <a
-            href="mailto:info@scontrinozero.it"
+          aggiorna ragione sociale e indirizzo dall&apos;app come spiegato
+          sopra. Se invece chiudi la partita IVA e ne apri una nuova,
+          l&apos;account ScontrinoZero resta legato a quella vecchia: per la
+          nuova registra un account separato con un&apos;altra email (vedi{" "}
+          <Link
+            href="/help/errori-ade"
             className="text-primary hover:underline"
           >
-            info@scontrinozero.it
-          </a>{" "}
-          per allineare i dati nel tuo profilo ScontrinoZero.
+            errori comuni di accesso AdE
+          </Link>
+          ).
         </div>
 
         {/* ─── Dati nel PDF scontrino ─── */}

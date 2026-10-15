@@ -44,8 +44,8 @@ export default function StampareScontrinoTermicaPage() {
           quello che ha valore legale è il documento commerciale online (DCO, la
           versione elettronica dello scontrino) trasmesso all&apos;Agenzia delle
           Entrate. La stampa su carta termica è il modo più comodo per
-          consegnare il documento su carta, ma{" "}
-          <strong>non è l&apos;unico</strong>: se il cliente è d&apos;accordo
+          consegnare il documento su carta, ma la carta{" "}
+          <strong>non è obbligatoria</strong>: se il cliente è d&apos;accordo
           puoi consegnarglielo in forma elettronica, con il link alla ricevuta o
           il QR code da inquadrare.
         </p>
@@ -82,7 +82,7 @@ export default function StampareScontrinoTermicaPage() {
           Da iPhone, iPad e computer stampi invece il PDF dello scontrino, già
           formattato a 58 mm. Non è richiesto un modello fiscale o omologato:
           una qualsiasi stampante termica generica va bene, perché il documento
-          commerciale è già stato registrato all&apos;AdE: la stampante serve
+          commerciale è già stato registrato all&apos;AdE. La stampante serve
           solo a metterlo su carta per consegnarlo al cliente.
         </p>
 

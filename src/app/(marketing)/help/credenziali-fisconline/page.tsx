@@ -85,7 +85,8 @@ export default function CredenzialiPage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Codice fiscale</strong> — il codice fiscale personale (16
-            caratteri) del titolare o del legale rappresentante.
+            caratteri) di chi accede: il titolare, il legale rappresentante o la
+            persona incaricata di operare per la società.
           </li>
           <li>
             <strong>Password</strong> — scelta dall&apos;utente al primo
@@ -280,10 +281,10 @@ export default function CredenzialiPage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               {"Il "}
               <strong>
-                codice fiscale personale del legale rappresentante
+                codice fiscale personale di chi accede per la società
               </strong>
               {
-                ", non la partita IVA della società. Le credenziali Fisconline sono associate alla persona fisica che risulta abilitata a operare per conto della società (gestore incaricato)."
+                ": il legale rappresentante oppure la persona che lui ha nominato gestore o operatore incaricato. Mai la partita IVA della società: le credenziali Fisconline sono sempre associate a una persona fisica."
               }
             </p>
           </div>
