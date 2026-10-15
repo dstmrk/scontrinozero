@@ -17,6 +17,7 @@ const {
   mockIntervalFromPriceId,
   mockLoggerError,
   mockLoggerWarn,
+  mockNotifyOperator,
 } = vi.hoisted(() => ({
   mockConstructEvent: vi.fn(),
   mockSubscriptionsRetrieve: vi.fn(),
@@ -29,6 +30,11 @@ const {
   mockIntervalFromPriceId: vi.fn(),
   mockLoggerError: vi.fn(),
   mockLoggerWarn: vi.fn(),
+  mockNotifyOperator: vi.fn(),
+}));
+
+vi.mock("@/lib/operator-notification", () => ({
+  notifyOperatorOfSubscriptionEvent: mockNotifyOperator,
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -105,10 +111,12 @@ function makeSelectBuilder(result: unknown[]) {
   const builder = {
     from: vi.fn(),
     where: vi.fn(),
+    for: vi.fn(),
     limit: vi.fn().mockResolvedValue(result),
   };
   builder.from.mockReturnValue(builder);
   builder.where.mockReturnValue(builder);
+  builder.for.mockReturnValue(builder);
   return builder;
 }
 
@@ -126,9 +134,8 @@ function makeRequest(body = "{}", signature = "sig_test") {
  */
 function setupTransactionPassthrough() {
   mockTransaction.mockImplementation(
-    async (fn: (tx: unknown) => Promise<void>) => {
-      await fn({ update: mockUpdate, select: mockSelect });
-    },
+    async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ update: mockUpdate, select: mockSelect }),
   );
 }
 
@@ -1016,6 +1023,260 @@ describe("POST /api/stripe/webhook — ordering guard event.created (PR #784)", 
     expect(updateBuilder.set).toHaveBeenCalledWith({ status: "past_due" });
     expect(updateBuilder.set).not.toHaveBeenCalledWith(
       expect.objectContaining({ lastStripeEventCreated: expect.anything() }),
+    );
+  });
+});
+
+describe("POST /api/stripe/webhook — notifica all'operatore sugli eventi di abbonamento", () => {
+  const PERIOD_END = 1_800_000_000;
+
+  function updatedEvent(
+    priceId: string,
+    opts: { status?: string; cancelAtPeriodEnd?: boolean } = {},
+  ) {
+    return {
+      id: "evt_notify_upd",
+      type: "customer.subscription.updated",
+      created: 1_700_000_000,
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          status: opts.status ?? "active",
+          cancel_at_period_end: opts.cancelAtPeriodEnd ?? false,
+          items: {
+            data: [{ price: { id: priceId }, current_period_end: PERIOD_END }],
+          },
+        },
+      },
+    };
+  }
+
+  function previousRow(row: {
+    status: string | null;
+    stripePriceId: string | null;
+    cancelAtPeriodEnd?: boolean;
+  }) {
+    const builder = makeSelectBuilder([
+      { userId: "user-123", cancelAtPeriodEnd: false, ...row },
+    ]);
+    mockSelect.mockReturnValue(builder);
+    return builder;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    mockUpdate.mockReturnValue(makeUpdateBuilder());
+    mockNotifyOperator.mockResolvedValue(undefined);
+    mockPlanFromPriceId.mockImplementation((id: string) =>
+      id === "price_starter" ? "starter" : id === "price_pro" ? "pro" : null,
+    );
+    mockIntervalFromPriceId.mockReturnValue("month");
+    setupTransactionPassthrough();
+  });
+
+  it("nuova sottoscrizione: la riga pending diventa active → 'started'", async () => {
+    previousRow({ status: "pending", stripePriceId: null });
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockNotifyOperator).toHaveBeenCalledTimes(1);
+    expect(mockNotifyOperator).toHaveBeenCalledWith(
+      "user-123",
+      { kind: "started", to: { plan: "pro", interval: "month" } },
+      new Date(PERIOD_END * 1000),
+    );
+  });
+
+  it("legge lo stato precedente con FOR UPDATE (due eventi concorrenti non notificano due volte)", async () => {
+    const builder = previousRow({ status: "pending", stripePriceId: null });
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    await POST(makeRequest());
+
+    expect(builder.for).toHaveBeenCalledWith("update");
+  });
+
+  it("checkout.session.completed produce la stessa notifica", async () => {
+    previousRow({ status: "pending", stripePriceId: null });
+    mockSubscriptionsRetrieve.mockResolvedValue({
+      id: "sub_123",
+      status: "active",
+      cancel_at_period_end: false,
+      items: {
+        data: [{ price: { id: "price_starter" }, current_period_end: 9999 }],
+      },
+    });
+    mockConstructEvent.mockReturnValue({
+      id: "evt_notify_co",
+      type: "checkout.session.completed",
+      created: 1_700_000_000,
+      data: { object: { subscription: "sub_123", customer: "cus_123" } },
+    });
+
+    await POST(makeRequest());
+
+    expect(mockNotifyOperator).toHaveBeenCalledWith(
+      "user-123",
+      { kind: "started", to: { plan: "starter", interval: "month" } },
+      expect.any(Date),
+    );
+  });
+
+  it("cambio piano: Starter → Pro riporta piano di partenza e di arrivo", async () => {
+    previousRow({ status: "active", stripePriceId: "price_starter" });
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    await POST(makeRequest());
+
+    expect(mockNotifyOperator).toHaveBeenCalledWith(
+      "user-123",
+      {
+        kind: "changed",
+        from: { plan: "starter", interval: "month" },
+        to: { plan: "pro", interval: "month" },
+      },
+      expect.any(Date),
+    );
+  });
+
+  it("disdetta programmata dal portale: cancel_at_period_end false → true", async () => {
+    previousRow({
+      status: "active",
+      stripePriceId: "price_pro",
+      cancelAtPeriodEnd: false,
+    });
+    mockConstructEvent.mockReturnValue(
+      updatedEvent("price_pro", { cancelAtPeriodEnd: true }),
+    );
+
+    await POST(makeRequest());
+
+    expect(mockNotifyOperator).toHaveBeenCalledWith(
+      "user-123",
+      { kind: "cancel_scheduled", to: { plan: "pro", interval: "month" } },
+      new Date(PERIOD_END * 1000),
+    );
+  });
+
+  it("rinnovo o evento ripetuto sullo stesso stato: nessuna notifica", async () => {
+    previousRow({ status: "active", stripePriceId: "price_pro" });
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockNotifyOperator).not.toHaveBeenCalled();
+  });
+
+  it("evento scartato dalla guardia di ordering: nessuna notifica", async () => {
+    previousRow({ status: "pending", stripePriceId: null });
+    mockUpdate.mockReturnValue(makeUpdateBuilder([]));
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockNotifyOperator).not.toHaveBeenCalled();
+  });
+
+  it("customer.subscription.deleted: 'ended' col piano che l'utente aveva", async () => {
+    previousRow({ status: "active", stripePriceId: "price_pro" });
+    mockConstructEvent.mockReturnValue({
+      id: "evt_notify_del",
+      type: "customer.subscription.deleted",
+      created: 1_700_000_000,
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          items: { data: [{ price: { id: "price_starter" } }] },
+        },
+      },
+    });
+
+    await POST(makeRequest());
+
+    expect(mockNotifyOperator).toHaveBeenCalledWith(
+      "user-123",
+      { kind: "ended", to: { plan: "starter", interval: "month" } },
+      undefined,
+    );
+  });
+
+  it("deleted scartato dalla guardia di ordering: nessuna notifica", async () => {
+    previousRow({ status: "active", stripePriceId: "price_pro" });
+    mockUpdate.mockReturnValue(makeUpdateBuilder([]));
+    mockConstructEvent.mockReturnValue({
+      id: "evt_notify_del_stale",
+      type: "customer.subscription.deleted",
+      created: 1_700_000_000,
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          items: { data: [{ price: { id: "price_pro" } }] },
+        },
+      },
+    });
+
+    await POST(makeRequest());
+
+    expect(mockNotifyOperator).not.toHaveBeenCalled();
+  });
+
+  it("se la mail fallisce (promise rifiutata) il webhook risponde 200 e non rilascia il claim", async () => {
+    previousRow({ status: "pending", stripePriceId: null });
+    mockNotifyOperator.mockRejectedValue(new Error("Resend boom"));
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    const res = await POST(makeRequest());
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(res.status).toBe(200);
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockLoggerError).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      expect.stringContaining("Operator subscription notification"),
+    );
+  });
+
+  it("se la mail lancia in modo sincrono il webhook risponde comunque 200", async () => {
+    previousRow({ status: "pending", stripePriceId: null });
+    mockNotifyOperator.mockImplementation(() => {
+      throw new Error("sync boom");
+    });
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockLoggerError).not.toHaveBeenCalled();
+  });
+
+  it("price sconosciuto nella notifica non rompe nulla (la sync, invece, fallisce come prima)", async () => {
+    previousRow({ status: "active", stripePriceId: "price_unknown_old" });
+    mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    // prev price non riconosciuto → 'changed' con from null, non un crash.
+    expect(mockNotifyOperator).toHaveBeenCalledWith(
+      "user-123",
+      {
+        kind: "changed",
+        from: null,
+        to: { plan: "pro", interval: "month" },
+      },
+      expect.any(Date),
     );
   });
 });

@@ -23,6 +23,7 @@ const {
   mockDelete,
   mockSelectWhere,
   mockSelectLimit,
+  mockSelectFor,
   mockSelectFrom,
   mockSelect,
   mockTransaction,
@@ -45,6 +46,7 @@ const {
   mockDelete: vi.fn(),
   mockSelectWhere: vi.fn(),
   mockSelectLimit: vi.fn(),
+  mockSelectFor: vi.fn(),
   mockSelectFrom: vi.fn(),
   mockSelect: vi.fn(),
   mockTransaction: vi.fn(),
@@ -160,7 +162,13 @@ describe("POST /api/stripe/webhook", () => {
     // (Dedup is now handled by INSERT-first, not SELECT.)
     mockSelect.mockReturnValue({ from: mockSelectFrom });
     mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
-    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
+    // .for("update") sta tra where e limit: la sync legge lo stato precedente
+    // con lock di riga.
+    mockSelectWhere.mockReturnValue({
+      for: mockSelectFor,
+      limit: mockSelectLimit,
+    });
+    mockSelectFor.mockReturnValue({ limit: mockSelectLimit });
     mockSelectLimit.mockResolvedValue([{ userId: "user-123" }]); // subRow lookups
 
     // transaction is a passthrough: calls callback with same mock db
