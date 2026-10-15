@@ -181,15 +181,15 @@ export default function SicurezzaCredenzialiPage() {
           </li>
         </ul>
 
-        {/* ─── Cosa succede se cambi il PIN ─── */}
+        {/* ─── Cosa succede se cambi password o PIN ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Cosa succede se cambi il PIN Fisconline
+          Cosa succede se cambi password o PIN Fisconline
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se cambi il PIN sul portale dell&apos;Agenzia delle Entrate, le
-          credenziali salvate su ScontrinoZero diventano non valide: il sistema
-          ti mostrerà un errore di connessione AdE la prossima volta che emetti
-          uno scontrino.
+          Se cambi la password sul portale dell&apos;Agenzia delle Entrate (lo
+          chiede ogni 90 giorni) o ottieni un nuovo PIN, le credenziali salvate
+          su ScontrinoZero diventano non valide: il sistema ti mostrerà un
+          errore di connessione AdE la prossima volta che emetti uno scontrino.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per aggiornare le credenziali:
@@ -201,7 +201,7 @@ export default function SicurezzaCredenzialiPage() {
           <li>
             Clicca su <strong>Modifica credenziali</strong>.
           </li>
-          <li>Inserisci il nuovo PIN e salva.</li>
+          <li>Inserisci la nuova password (o il nuovo PIN) e salva.</li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Gli scontrini emessi prima dell&apos;aggiornamento e rifiutati
@@ -224,8 +224,12 @@ export default function SicurezzaCredenzialiPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per <strong>revocare completamente</strong> l&apos;accesso e
           cancellare i dati cifrati, puoi eliminare l&apos;account ScontrinoZero
-          da <strong>Impostazioni → Zona pericolosa → Elimina account</strong>:
-          la cancellazione è <strong>immediata</strong> e include credenziali
+          da{" "}
+          <strong>
+            Impostazioni → Altre impostazioni → Zona pericolosa → Elimina
+            account
+          </strong>
+          : la cancellazione è <strong>immediata</strong> e include credenziali
           AdE, anagrafica, scontrini e catalogo (cascade delete sul profilo). Il
           diritto alla cancellazione è garantito dal GDPR art. 17.
         </p>
@@ -258,8 +262,8 @@ export default function SicurezzaCredenzialiPage() {
               In caso di accesso non autorizzato al database, un attaccante
               otterrebbe solo il testo cifrato, inutilizzabile senza la chiave
               di decifratura (che non è nel database). Come misura aggiuntiva,
-              ti consigliamo di cambiare il PIN Fisconline se ricevi notifiche
-              di sicurezza da parte nostra.
+              ti consigliamo di cambiare la password Fisconline se ricevi
+              notifiche di sicurezza da parte nostra.
             </p>
           </div>
           <div>

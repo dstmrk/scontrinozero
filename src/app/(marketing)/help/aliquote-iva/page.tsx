@@ -81,23 +81,24 @@ export default function AliquoteIvaPage() {
               <tr>
                 <td className="text-foreground py-2 font-medium">4%</td>
                 <td className="py-2">
-                  Alimenti di prima necessità, libri, giornali, farmaci (DPR
+                  Alimenti di prima necessità, libri, giornali e periodici (DPR
                   633/72, Tab. A parte II)
                 </td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">5%</td>
                 <td className="py-2">
-                  Prodotti igienico-sanitari femminili, alcuni alimenti
-                  specifici (basilico, rosmarino, salvia, tartufi), prestazioni
-                  di cooperative sociali (DPR 633/72, Tab. A parte II-bis)
+                  Alcuni alimenti specifici (basilico, rosmarino e salvia
+                  freschi, tartufi), prestazioni socio-sanitarie ed educative di
+                  cooperative sociali (DPR 633/72, Tab. A parte II-bis)
                 </td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">10%</td>
                 <td className="py-2">
-                  Alimenti, bevande, somministrazione al tavolo, spettacoli (DPR
-                  633/72, Tab. A parte III)
+                  Alimenti, bevande, somministrazione al tavolo, spettacoli,
+                  medicinali, assorbenti e tamponi (DPR 633/72, Tab. A parte
+                  III)
                 </td>
               </tr>
               <tr>
@@ -252,9 +253,9 @@ export default function AliquoteIvaPage() {
         <h2 className="mt-10 text-xl font-semibold">Metodi di pagamento</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           In cassa il selettore propone due metodi, <strong>Contanti</strong> ed{" "}
-          <strong>Elettronico</strong>, e ogni documento commerciale ne porta
-          uno solo. Quale scegliere a seconda di come hai incassato — bonifico,
-          assegno, carta o denaro — è spiegato con i riferimenti
+          <strong>Elettronico</strong>, e di norma ogni documento commerciale ne
+          porta uno solo. Quale scegliere a seconda di come hai incassato —
+          bonifico, assegno, carta o denaro — è spiegato con i riferimenti
           dell&apos;Agenzia delle Entrate in{" "}
           <Link
             href="/help/metodi-di-pagamento"
@@ -322,12 +323,14 @@ export default function AliquoteIvaPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               L&apos;aliquota del <strong>5%</strong> è disponibile come opzione
-              standard nel selettore aliquota: si applica ai prodotti igienico-
-              sanitari femminili, ad alcuni alimenti specifici (basilico,
-              rosmarino, salvia, tartufi) e alle prestazioni di cooperative
-              sociali (DPR 633/72, Tab. A parte II-bis). Per operazioni a 0% che
-              non rientrano in queste aliquote (esportazioni, esenti, regime
-              margine, reverse charge) usa il codice natura corretto fra N1-N6.
+              standard nel selettore aliquota: si applica ad alcuni alimenti
+              specifici (basilico, rosmarino e salvia freschi, tartufi) e alle
+              prestazioni socio-sanitarie ed educative delle cooperative sociali
+              (DPR 633/72, Tab. A parte II-bis). Assorbenti e tamponi non ci
+              rientrano più: dal 1° gennaio 2024 sono al 10% (L. 213/2023). Per
+              operazioni a 0% che non rientrano in queste aliquote
+              (esportazioni, esenti, regime del margine) usa il codice natura
+              corretto fra N1-N6.
             </p>
           </div>
         </div>

@@ -34,7 +34,7 @@ import {
   Wrench,
   BedDouble,
   Percent,
-  Briefcase,
+  Store,
 } from "lucide-react";
 
 // Homepage: pagina SEO #1 del progetto. Title assoluto (no template suffix),
@@ -72,12 +72,12 @@ export const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
     ours: "da €29,99/anno",
   },
   {
-    label: "Installazione tecnico",
+    label: "Senza installazione del tecnico",
     competitor: false,
     ours: true,
   },
   {
-    label: "Collaudo biennale",
+    label: "Senza verificazione periodica",
     competitor: false,
     ours: true,
   },
@@ -384,11 +384,11 @@ export default function Home() {
                   "Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere.",
               },
               {
-                icon: Briefcase,
-                slug: "professionisti",
-                title: "Liberi professionisti",
+                icon: Store,
+                slug: "negozi",
+                title: "Piccoli negozi",
                 description:
-                  "Consulenti, tutor, fotografi: scontrino al cliente che paga al momento.",
+                  "Boutique, atelier, showroom: poche vendite al giorno, nessun registratore sul banco.",
               },
               {
                 icon: BedDouble,

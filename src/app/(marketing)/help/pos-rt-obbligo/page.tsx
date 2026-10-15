@@ -65,11 +65,13 @@ export default function PosRtObbligoPage() {
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il collegamento è <strong>logico</strong>, non fisico: non servono
-          cavi né aggiornamenti hardware. Si effettua online, associando la
-          matricola del POS al registratore telematico (o al DCO) tramite la
-          funzione <em>Gestione collegamenti</em> del portale{" "}
-          <em>Fatture e Corrispettivi</em> dell&apos;Agenzia delle Entrate. Il
-          servizio è attivo dal <strong>5 marzo 2026</strong>.
+          cavi né aggiornamenti hardware. Si effettua online nel portale{" "}
+          <em>Fatture e Corrispettivi</em> dell&apos;Agenzia delle Entrate: chi
+          ha un registratore telematico usa la funzione{" "}
+          <em>Gestione collegamenti</em>, chi emette con la procedura web
+          Documento Commerciale Online registra il collegamento dentro la
+          procedura stessa. Il servizio è attivo dal{" "}
+          <strong>5 marzo 2026</strong>.
         </p>
 
         {/* ─── Chi è obbligato ─── */}
@@ -89,8 +91,8 @@ export default function PosRtObbligoPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Sono inclusi negozi al dettaglio, ristoranti, bar, ambulanti con POS,
-          professionisti e in generale chiunque emetta scontrini elettronici.
+          Sono inclusi negozi al dettaglio, ristoranti, bar, ambulanti con POS e
+          in generale chiunque emetta scontrini elettronici.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Eccezione:</strong> chi usa il POS{" "}
@@ -125,14 +127,17 @@ export default function PosRtObbligoPage() {
         </p>
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950">
           <strong>Procedura obbligatoria a carico dell&apos;esercente:</strong>{" "}
-          accedi al portale Fatture e Corrispettivi, apri la funzione{" "}
-          <em>Gestione collegamenti</em> e associa la matricola del tuo POS al
-          DCO. Per chi usa la procedura DCO l&apos;associazione{" "}
-          <strong>non è delegabile</strong> a intermediari (commercialista,
-          CAF): la deve fare direttamente l&apos;operatore titolare delle
-          credenziali Fisconline. Servono il numero di matricola del POS, i dati
-          identificativi dello strumento di pagamento e l&apos;indirizzo
-          dell&apos;esercizio.
+          accedi al portale Fatture e Corrispettivi, apri{" "}
+          <em>Documento Commerciale on line</em> e, nel riquadro{" "}
+          <em>Funzionalità di supporto</em>, scegli{" "}
+          <em>Associazione strumenti di pagamento elettronico</em>:
+          l&apos;elenco mostra già i POS a tuo nome, selezioni quelli che usi e
+          premi <em>Collega</em>. Per chi usa la procedura DCO
+          l&apos;associazione <strong>non è delegabile</strong> a intermediari
+          (commercialista, CAF): la fa direttamente l&apos;esercente, con le
+          proprie credenziali. Se un POS non compare, lo aggiungi a mano con il
+          Terminal ID, l&apos;operatore finanziario (Acquirer) e il numero del
+          contratto di convenzionamento.
         </div>
 
         {/* ─── Scadenze ─── */}
@@ -160,8 +165,8 @@ export default function PosRtObbligoPage() {
               <tr className="border-b">
                 <td className="py-2 pr-6 font-medium">5 mar. 2026</td>
                 <td className="py-2">
-                  Attivazione del servizio <em>Gestione collegamenti</em> sul
-                  portale Fatture e Corrispettivi dell&apos;AdE.
+                  Attivazione della procedura web di collegamento sul portale
+                  Fatture e Corrispettivi dell&apos;AdE.
                 </td>
               </tr>
               <tr className="border-b">
@@ -192,7 +197,7 @@ export default function PosRtObbligoPage() {
           richiamato dall&apos;art. 2 comma 6 D.Lgs. 127/2015 nella versione
           modificata dalla L. 207/2024). È inoltre prevista la sospensione della
           licenza o dell&apos;autorizzazione all&apos;esercizio
-          dell&apos;attività da <strong>3 giorni a 1 mese</strong> (art. 12
+          dell&apos;attività da <strong>15 giorni a 2 mesi</strong> (art. 12
           comma 3 D.Lgs. 471/97).
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">

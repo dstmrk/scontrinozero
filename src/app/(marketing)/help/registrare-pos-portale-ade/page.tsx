@@ -39,33 +39,35 @@ export default function RegistrarePosPortaleAdePage() {
           <Badge variant="secondary">POS / Normativa</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dal 1° gennaio 2026 ogni POS (Point Of Sale, il terminale per
-          incassare pagamenti con carta) usato in attività commerciale va
-          comunicato all&apos;Agenzia delle Entrate tramite la procedura di{" "}
-          <strong>Censimento POS</strong> sul portale{" "}
-          <em>Fatture e Corrispettivi</em>. È una registrazione una tantum: la
-          fai la prima volta che metti in funzione il terminale e poi non devi
-          più rifarla, salvo cambi di terminale o di banca.
+          Dal 1° gennaio 2026 ogni POS con cui incassi corrispettivi certificati
+          — terminale fisico, SoftPOS sul telefono o pagamento online — va
+          collegato allo strumento con cui emetti il documento commerciale. Non
+          si registra il POS da zero: il portale{" "}
+          <em>Fatture e Corrispettivi</em> mostra già i POS a tuo nome,
+          comunicati dagli operatori finanziari, e tu indichi quali usi. Se
+          emetti con ScontrinoZero lo fai dentro la procedura{" "}
+          <strong>Documento Commerciale Online</strong>, con la funzione{" "}
+          <strong>Associazione strumenti di pagamento elettronico</strong>. È
+          una comunicazione una tantum, da ripetere solo se cambi o aggiungi un
+          POS.
         </p>
         <HelpArticleUpdatedAt slug="registrare-pos-portale-ade" />
 
-        {/* ─── Promemoria sulla differenza POS bancario vs POS-RT ─── */}
+        {/* ─── Due percorsi: RT o documento commerciale online ─── */}
         <div className="bg-muted/50 mt-6 rounded-md p-4 text-sm">
           <p className="font-medium">
-            POS bancario e POS-RT: stesso censimento
+            Registratore telematico o documento commerciale online: due percorsi
           </p>
           <p className="text-muted-foreground mt-1 leading-relaxed">
-            Un <strong>POS bancario</strong> classico è il terminale che la tua
-            banca ti dà per accettare carte: trasmette l&apos;incasso al
-            circuito (Visa, Mastercard) e basta. Un <strong>POS-RT</strong>{" "}
-            (Registratore Telematico) è un POS evoluto che, oltre a incassare il
-            pagamento, emette anche lo scontrino fiscale e lo manda
-            all&apos;AdE: integra entrambe le funzioni in un unico dispositivo.
-            Per il portale la procedura di Censimento è la{" "}
-            <strong>stessa</strong>: cambia solo cosa indichi nel campo
-            &quot;Modello&quot; e se poi colleghi o meno il terminale a un
-            sistema di emissione scontrini (come ScontrinoZero o un registratore
-            telematico). Per il quadro normativo completo vedi{" "}
+            Chi usa un <strong>registratore telematico</strong> registra il
+            collegamento dalla funzione <em>Gestione collegamenti</em> del
+            portale, abbinando la matricola dell&apos;RT ai POS e
+            all&apos;indirizzo del punto vendita; quell&apos;operazione la può
+            fare anche un intermediario delegato. Chi emette con la procedura
+            web <strong>Documento Commerciale Online</strong> — come chi usa
+            ScontrinoZero — lo fa dentro la procedura stessa, e solo di persona:
+            l&apos;Agenzia non ne consente la delega. Questa guida segue il
+            secondo percorso. Per il quadro normativo vedi{" "}
             <Link
               href="/guide/pos-rt-obbligo-2026"
               className="text-primary hover:underline"
@@ -85,9 +87,8 @@ export default function RegistrarePosPortaleAdePage() {
             <strong>Credenziali per accedere al portale AdE</strong>: vanno bene
             SPID (l&apos;identità digitale unica nazionale), CIE (Carta
             d&apos;Identità Elettronica), CNS (Carta Nazionale dei Servizi)
-            oppure Fisconline (il sistema di accesso dell&apos;Agenzia per chi
-            ha partita IVA attiva). Se hai già collegato ScontrinoZero
-            all&apos;AdE, le credenziali Fisconline sono le stesse — vedi{" "}
+            oppure Fisconline (le credenziali dell&apos;Agenzia per chi ha
+            partita IVA) — vedi{" "}
             <Link
               href="/help/credenziali-fisconline"
               className="text-primary hover:underline"
@@ -97,167 +98,131 @@ export default function RegistrarePosPortaleAdePage() {
             .
           </li>
           <li>
-            <strong>ID del terminale POS</strong> (il codice identificativo
-            univoco scritto sul retro del terminale e/o nel contratto della
-            banca, spesso chiamato &quot;Terminal ID&quot; o &quot;TID&quot;, di
-            solito 6-8 cifre).
+            <strong>Terminal ID</strong> di ogni POS fisico: lo trovi nel
+            contratto di convenzionamento, nei rapporti mensili o nell&apos;area
+            web dell&apos;operatore; per i lettori da smartphone di solito
+            nell&apos;app. I POS online (pagamenti su internet) non ne hanno
+            uno.
           </li>
           <li>
-            <strong>Dati del contratto con la banca o l&apos;operatore</strong>{" "}
-            (numero contratto, codice esercente o &quot;Merchant ID&quot; — un
-            altro codice fornito dalla banca che identifica il tuo esercizio sul
-            circuito di pagamento). Tutto questo è riportato sul contratto di
-            noleggio o acquisto del POS.
-          </li>
-          <li>
-            <strong>Partita IVA attiva</strong> e dati anagrafici
-            dell&apos;esercizio aggiornati sul portale AdE.
+            Solo se un POS non compare già in elenco:{" "}
+            <strong>codice fiscale e denominazione dell&apos;Acquirer</strong>,
+            cioè l&apos;operatore con cui hai firmato il contratto di
+            convenzionamento (non sempre è la tua banca), e il{" "}
+            <strong>numero del contratto</strong>.
           </li>
         </ul>
 
         {/* ─── Passaggio 1 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 1 — Accedi al portale Fatture e Corrispettivi
+          Passaggio 1 — Entra in Fatture e Corrispettivi
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Vai su <strong>ivaservizi.agenziaentrate.gov.it</strong> e clicca{" "}
-          <strong>Entra</strong>. Scegli il metodo di accesso (SPID, CIE, CNS o
-          Fisconline) e completa l&apos;autenticazione. Una volta dentro, se
-          operi a nome di una società o sei delegato da un altro soggetto, il
-          portale ti chiederà di selezionare l&apos;utenza di lavoro: scegli
-          quella della tua attività (P.IVA), non l&apos;utenza personale.
+          Accedi all&apos;area riservata del sito dell&apos;Agenzia delle
+          Entrate (SPID, CIE, CNS o Fisconline), cerca il servizio{" "}
+          <em>Fatturazione elettronica</em> e clicca{" "}
+          <strong>Vai al servizio</strong>, poi <strong>Accedi</strong> nel
+          riquadro <em>Fatture e corrispettivi</em>. Se operi per conto di una
+          società o di un altro soggetto, scegli l&apos;utenza di lavoro della
+          tua attività.
         </p>
 
         {/* ─── Passaggio 2 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 2 — Apri la sezione Corrispettivi
+          Passaggio 2 — Apri Documento Commerciale Online
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dalla home del portale, nel menu in alto trovi le voci{" "}
-          <em>Fatture elettroniche</em>, <em>Corrispettivi</em>, <em>Altro</em>.
-          Clicca su <strong>Corrispettivi</strong> →{" "}
-          <strong>Gestore ed esercente</strong>. Si apre una pagina con
-          l&apos;elenco delle funzioni dedicate a chi gestisce corrispettivi
-          telematici.
+          Nella home del portale, nel riquadro <em>Corrispettivi</em>, clicca{" "}
+          <strong>Documento Commerciale on line</strong>: è la procedura web
+          dell&apos;Agenzia con cui si emettono i documenti commerciali, la
+          stessa che ScontrinoZero usa per te.
         </p>
 
         {/* ─── Passaggio 3 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 3 — Vai su Censimento POS
+          Passaggio 3 — Apri l&apos;associazione dei POS
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Nella sezione <em>Gestore ed esercente</em> trovi una card intitolata{" "}
-          <strong>Censimento POS</strong>. Cliccala: ti ritrovi sulla pagina di
-          gestione dei terminali registrati. Se non hai mai censito un POS, la
-          lista sarà vuota. Clicca il pulsante <strong>Nuovo POS</strong> (in
-          alto a destra, etichetta arancione).
+          Nel riquadro <em>Funzionalità di supporto</em> clicca{" "}
+          <strong>Associazione strumenti di pagamento elettronico</strong>. La
+          pagina ha tre pulsanti: <strong>Cerca</strong> mostra i collegamenti
+          già registrati, <strong>Inserisci collegamento</strong> ne crea uno
+          nuovo, <strong>POS non collegati</strong> elenca i POS a tuo nome che
+          non risultano ancora collegati.
         </p>
 
         {/* ─── Passaggio 4 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 4 — Compila i dati del terminale
+          Passaggio 4 — Collega i tuoi POS
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il modulo chiede pochi dati: prepara il contratto della banca accanto,
-          ci trovi tutto. I campi principali:
+          Clicca <strong>Inserisci collegamento</strong>, seleziona dalla lista
+          i POS che usi e premi <strong>Collega</strong>. La lista è costruita
+          sui dati che gli operatori finanziari comunicano all&apos;Agenzia ogni
+          mese, entro la fine del mese successivo: un POS attivato da poco può
+          non comparire ancora.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Se un POS che usi non c&apos;è, aggiungilo a mano con{" "}
+          <strong>Aggiungi nuovo POS</strong>:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Identificativo POS (TID)</strong> — il codice di 6-8 cifre
-            del terminale. Lo trovi su un&apos;etichetta sotto il POS o sul
-            contratto.
+            cerca l&apos;<strong>Acquirer</strong> per nome con{" "}
+            <strong>Cerca</strong>; se non c&apos;è, inseriscilo con{" "}
+            <strong>Aggiungi nuovo Acquirer</strong>, indicando se è italiano o
+            estero e il suo codice fiscale;
           </li>
           <li>
-            <strong>Codice esercente (Merchant ID)</strong> — codice assegnato
-            dalla banca all&apos;esercizio. Anche questo sul contratto.
-          </li>
-          <li>
-            <strong>Codice fiscale dell&apos;esercente</strong> — viene
-            precompilato con la P.IVA dell&apos;attività con cui hai fatto
-            login, lascialo così.
-          </li>
-          <li>
-            <strong>Soggetto gestore</strong> — la banca o l&apos;istituto di
-            pagamento (Nexi, SumUp, Worldline, Intesa Sanpaolo, Unicredit,
-            ecc.). Lo selezioni da un menu a tendina.
-          </li>
-          <li>
-            <strong>Tipo POS</strong> — tipicamente &quot;POS
-            tradizionale&quot;, &quot;POS evoluto&quot; o &quot;POS-RT&quot;. Se
-            non sai cosa scegliere e il terminale è uno standard fornito dalla
-            tua banca per accettare carte, è &quot;POS tradizionale&quot;. Se è
-            un dispositivo che emette anche scontrini fiscali, è
-            &quot;POS-RT&quot;.
-          </li>
-          <li>
-            <strong>Data di attivazione</strong> — la data in cui hai iniziato a
-            usare il terminale (di solito coincide con la data del contratto o
-            di consegna).
+            indica il <strong>tipo di POS</strong> (fisico oppure online), il{" "}
+            <strong>terminal ID</strong> e il{" "}
+            <strong>numero del contratto di convenzionamento</strong>, poi
+            salva.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Clicca <strong>Salva</strong>. Il portale mostra un messaggio di
-          conferma e il POS appare nella lista con stato <em>Attivo</em>.
+          Un POS fisico convenzionato con due operatori diversi — per esempio
+          uno per il bancomat e uno per le carte di credito — va collegato due
+          volte, una per contratto.
         </p>
 
         {/* ─── Passaggio 5 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 5 — Conferma e archiviazione
+          Passaggio 5 — Controlla e pulisci l&apos;elenco
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dalla lista dei POS censiti puoi scaricare la ricevuta della
-          registrazione in PDF: cliccala una volta, salvala fra i documenti
-          dell&apos;attività. Non è obbligatorio archiviarla, ma è la prova più
-          immediata che il censimento è andato a buon fine in caso di controllo
-          successivo. Da questa stessa pagina, in futuro, potrai disattivare il
-          POS (se cambi banca o lo rendi), modificare i dati o aggiungerne uno
-          nuovo.
+          Con <strong>Cerca</strong> rivedi i collegamenti registrati. Se in
+          elenco compare un POS che non è tuo, che hai restituito o che usi solo
+          per vendite esonerate dal documento commerciale (per esempio tabacchi
+          o carburante), segnalalo da <strong>POS non collegati</strong>. La
+          segnalazione è irreversibile: da quel momento quel POS non va usato,
+          nemmeno di rado, per incassi certificati con documento commerciale.
         </p>
 
-        {/* ─── Errori comuni ─── */}
+        {/* ─── Problemi frequenti ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Se il censimento fallisce: cosa controllare
+          Problemi frequenti: cosa controllare
         </h2>
         <div className="mt-3 space-y-4">
           <div>
-            <p className="text-sm font-medium">
-              {"«"}P.IVA non abilitata{"»"}
-            </p>
+            <p className="text-sm font-medium">Il POS non compare in elenco</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Se la P.IVA è stata aperta di recente (meno di 5-7 giorni
-              lavorativi), potrebbe non risultare ancora abilitata sulla sezione
-              Corrispettivi del portale. Aspetta qualche giorno e riprova. Se
-              persiste oltre i 10 giorni lavorativi, contatta l&apos;Agenzia
-              delle Entrate al numero verde <strong>800 90 96 96</strong>{" "}
-              (gratuito da telefono fisso, lunedì-venerdì 9-17) per verificare
-              l&apos;abilitazione.
+              L&apos;elenco si basa sulle comunicazioni mensili degli operatori
+              finanziari, quindi un POS attivato di recente arriva in ritardo:
+              non aspettare, aggiungilo a mano con{" "}
+              <strong>Aggiungi nuovo POS</strong>. Controlla anche
+              l&apos;Acquirer: è il soggetto del contratto di convenzionamento,
+              che non sempre coincide con la banca da cui hai il terminale, e
+              dopo una fusione può aver cambiato codice fiscale e denominazione.
             </p>
           </div>
           <div>
-            <p className="text-sm font-medium">
-              {"«"}Identificativo POS non valido{"» / «"}TID già censito{"»"}
-            </p>
+            <p className="text-sm font-medium">Non trovo il terminal ID</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Ricontrolla il TID copiandolo direttamente dal contratto o
-              dall&apos;etichetta sul retro del terminale (è facile confondere
-              uno 0 con la lettera O). Se l&apos;errore è {"«"}TID già censito
-              {"»"}, vuol dire che lo stesso terminale è registrato a
-              un&apos;altra P.IVA — può succedere se hai comprato un POS usato o
-              se il precedente esercente non l&apos;ha disattivato. In quel caso
-              devi chiedere alla banca o al fornitore di rilasciare il terminale
-              e censirlo poi a tuo nome.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">
-              Codice esercente / Merchant ID rifiutato
-            </p>
-            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Il codice esercente è specifico per la coppia terminale-banca.
-              Verifica di averlo letto dal contratto giusto: se hai più POS con
-              banche diverse, ognuno ha il suo. In caso di dubbio chiama
-              l&apos;assistenza tecnica della banca che ti ha fornito il POS —
-              sono loro a generare il codice e possono confermarlo in 5 minuti.
+              È nella documentazione del contratto, nei rapporti periodici o
+              nell&apos;area web che l&apos;operatore finanziario mette a
+              disposizione. Se non lo trovi, chiedilo all&apos;assistenza
+              dell&apos;operatore.
             </p>
           </div>
           <div>
@@ -265,31 +230,31 @@ export default function RegistrarePosPortaleAdePage() {
               Il portale dà errore generico o pagina bianca
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Il portale AdE può essere in manutenzione o sovraccarico,
-              soprattutto in orari di punta (mattine fra le 10 e le 12). Prova a
-              riaccedere dopo 15-30 minuti, o in serata. Se il problema persiste
-              per più di mezza giornata, prova un browser diverso (Chrome /
-              Firefox / Safari): il portale è noto per essere più stabile su
-              Chrome e Firefox aggiornati.
+              Il portale AdE può essere in manutenzione o sovraccarico. Prova a
+              riaccedere dopo 15-30 minuti, o in serata. Se il problema
+              persiste, prova un browser diverso e aggiornato, oppure contatta
+              l&apos;assistenza dell&apos;Agenzia al numero verde{" "}
+              <strong>800 90 96 96</strong> (gratuito da telefono fisso,
+              lunedì-venerdì 9-17).
             </p>
           </div>
         </div>
 
-        {/* ─── Cosa succede dopo il censimento ─── */}
+        {/* ─── Cosa succede dopo il collegamento ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Cosa succede dopo il censimento
+          Cosa succede dopo il collegamento
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Una volta censito il POS, dal 2026 il terminale invierà
-          all&apos;Agenzia delle Entrate i dati aggregati dei pagamenti
-          elettronici ricevuti (importi e numero di transazioni giornaliere, non
-          i dati dei singoli clienti). È un flusso automatico gestito dalla
-          banca o dall&apos;operatore: tu non devi fare nulla. Se usi
-          ScontrinoZero per emettere gli scontrini, i corrispettivi continuano
-          ad arrivare all&apos;AdE come sempre: i due flussi (POS → AdE per gli
-          incassi aggregati, ScontrinoZero → AdE per i corrispettivi
-          giornalieri) viaggiano in parallelo e l&apos;Agenzia li incrocia per
-          controllare la coerenza.
+          Gli operatori finanziari comunicano già all&apos;Agenzia, ogni mese, i
+          dati delle transazioni elettroniche dei tuoi POS: non è il
+          collegamento ad avviare quel flusso. Il collegamento dice
+          all&apos;Agenzia quali POS incassano i corrispettivi che certifichi,
+          così può confrontare i pagamenti elettronici con gli scontrini
+          indicati come elettronici. Per questo il metodo di pagamento che
+          scegli in ScontrinoZero conta: un incasso con carta registrato come
+          contanti diventa uno scostamento. Il collegamento va aggiornato solo
+          se cambia qualcosa — un POS nuovo, uno dismesso, uno spostato in un
+          altro punto vendita.
         </p>
 
         {/* ─── FAQ ─── */}
@@ -297,38 +262,38 @@ export default function RegistrarePosPortaleAdePage() {
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              Devo censire anche i POS mobili tipo SumUp o myPOS?
+              Devo collegare anche i POS mobili tipo SumUp o myPOS?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì. Qualsiasi terminale che accetta pagamenti elettronici in
-              attività commerciale va censito, indipendentemente dalla forma
-              fisica. I lettori da smartphone (SumUp, myPOS, Nexi Mobile POS,
-              iZettle) hanno un Terminal ID proprio come i POS classici, lo
-              trovi nell&apos;app o nel contratto dell&apos;operatore.
+              Sì. Va collegato ogni strumento con cui incassi elettronicamente
+              corrispettivi certificati, compresi i SoftPOS installati sul
+              telefono e i lettori da smartphone. I pagamenti online (POS
+              virtuali) si collegano indicando solo l&apos;Acquirer, senza
+              terminal ID.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              Se ho più POS della stessa banca, li censisco in un&apos;unica
-              volta?
+              Ho più POS: li collego uno per uno?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No, ognuno va censito singolarmente, perché ognuno ha il suo
-              Terminal ID. Ripeti la procedura di &quot;Nuovo POS&quot; per ogni
-              terminale. I dati di banca e codice esercente possono essere
-              identici, ma il TID è univoco.
+              No: con <strong>Inserisci collegamento</strong> puoi selezionare
+              più POS dall&apos;elenco nella stessa operazione. Ognuno resta un
+              collegamento distinto, identificato dal suo terminal ID e
+              dall&apos;operatore.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              Cosa succede se uso il POS senza averlo censito?
+              Entro quando va fatto, e cosa rischio se non lo faccio?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              In fase di prima applicazione (2026) l&apos;Agenzia ha annunciato
-              un periodo di tolleranza per gli adeguamenti. Resta però una
-              violazione formale: a regime sono previste sanzioni amministrative
-              graduate, con possibilità di ravvedimento operoso. Per la
-              disciplina aggiornata segui{" "}
+              Per i POS in uso a gennaio 2026 il termine era il 20 aprile 2026.
+              Per un POS attivato dopo, il collegamento si registra fra il 6 e
+              l&apos;ultimo giorno lavorativo del secondo mese successivo
+              all&apos;attivazione: un POS attivato a marzo si collega fra il 6
+              e il 31 maggio. Il mancato collegamento è punito da 1.000 a 4.000
+              €; i dettagli sono in{" "}
               <Link
                 href="/help/normativa-pos-2026"
                 className="text-primary hover:underline"
@@ -340,15 +305,15 @@ export default function RegistrarePosPortaleAdePage() {
           </div>
           <div>
             <p className="text-sm font-medium">
-              Devo censire il POS anche se uso ScontrinoZero?
+              Devo collegare il POS anche se uso ScontrinoZero?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì. Le due cose sono separate. ScontrinoZero gestisce
-              l&apos;emissione dello scontrino e la trasmissione dei
-              corrispettivi; il POS è il dispositivo fisico che materialmente
-              incassa il pagamento. Il censimento POS riguarda solo il terminale
-              di pagamento. ScontrinoZero come strumento software non va censito
-              né registrato.
+              Sì. ScontrinoZero emette e trasmette il documento commerciale con
+              il metodo di pagamento, ma il collegamento del POS è una
+              comunicazione che l&apos;Agenzia chiede all&apos;esercente, e per
+              la procedura web non è delegabile: né a noi né al commercialista.
+              ScontrinoZero in sé non va registrato da nessuna parte: non è un
+              POS.
             </p>
           </div>
           <div>
@@ -356,11 +321,9 @@ export default function RegistrarePosPortaleAdePage() {
               Quanto tempo richiede la procedura?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Una volta che hai i dati sotto mano (TID e Merchant ID dal
-              contratto), il censimento di un singolo POS richiede 5-10 minuti.
-              La parte più lenta è di solito trovare il contratto fisico della
-              banca o aspettare che la P.IVA risulti abilitata al portale
-              Corrispettivi se l&apos;hai aperta da poco.
+              Se il POS è già in elenco, pochi minuti: lo selezioni e premi{" "}
+              <strong>Collega</strong>. Se va aggiunto a mano, il tempo di
+              ritrovare terminal ID e numero di contratto.
             </p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   categories,
+  type CategorySlug,
   categorySlugs,
   getCategory,
   isCategorySlug,
@@ -262,5 +263,65 @@ describe("separazione di intento sul cluster forfettario", () => {
     expect(perTitle.toLowerCase()).toMatch(/app|soluzione/);
     expect(perTitle.toLowerCase()).not.toContain("obbligatorio");
     expect(guideTitle.toLowerCase()).toContain("obbligatorio");
+  });
+});
+
+/**
+ * Audit ottobre 2026: promesse e claim fiscali sbagliati trovati nelle
+ * landing di categoria. Ogni pattern è una frase che c'era.
+ */
+describe("audit 2026-10: claim che non devono rientrare in /per", () => {
+  const prosa = (c: (typeof categories)[CategorySlug]) =>
+    [
+      c.metaTitle,
+      c.metaDescription,
+      c.heroSubtitle,
+      c.useCase,
+      ...c.obligations,
+      ...c.benefits,
+      ...c.faq.flatMap((f) => [f.question, f.answer]),
+    ].join(" ");
+
+  const VIETATI: readonly [RegExp, string][] = [
+    // Nessuna coda offline: senza rete l'emissione fallisce e basta.
+    [/trasmissione successiva è automatica/i, "coda offline"],
+    // Il commercialista non ha un accesso allo storico.
+    [/consultabile dal commercialista/i, "accesso del commercialista"],
+    // Non esiste una pausa del piano: si disdice e si riattiva.
+    [/sospend[ei] (il piano|a fine stagione|quando)/i, "pausa del piano"],
+    // rt-costs.ts: nessun canone annuo obbligatorio per l'RT.
+    [/canon[ei]/i, "canone RT"],
+    // N3 è "non imponibile": l'imposta di soggiorno è esclusa (N1).
+    [/righe non imponibili/i, "imposta di soggiorno come non imponibile"],
+  ];
+
+  for (const slug of categorySlugs) {
+    it(`${slug} non ripete i claim ritirati`, () => {
+      const testo = prosa(categories[slug]);
+      for (const [pattern, motivo] of VIETATI) {
+        expect(testo, `${slug}: ${motivo}`).not.toMatch(pattern);
+      }
+    });
+  }
+
+  // Art. 22 DPR 633/72: l'esonero dalla fattura vale per le imprese. Il
+  // lavoratore autonomo fattura ogni prestazione, anche al privato.
+  it("professionisti: dice che il lavoro autonomo si fattura sempre", () => {
+    const c = categories.professionisti;
+    expect(c.obligations.join(" ")).toMatch(/fattura/i);
+    expect(prosa(c)).toMatch(/art\. 22/);
+    expect(prosa(c)).toMatch(/impres[ae]/i);
+    expect(c.useCase).not.toMatch(/ti permette di scegliere caso per caso/i);
+  });
+
+  it("artigiani: il 10% sulle manutenzioni cita la L. 488/1999", () => {
+    const testo = prosa(categories.artigiani);
+    expect(testo).toContain("L. 488/1999");
+    expect(testo).not.toContain("127-duodecies");
+  });
+
+  it("negozi: il reso merce è nel FAQ, non solo l'annullo", () => {
+    const faq = categories.negozi.faq.map((f) => f.answer).join(" ");
+    expect(faq).toMatch(/Fai un reso/);
   });
 });

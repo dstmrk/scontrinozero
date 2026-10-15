@@ -56,7 +56,7 @@ const sections = [
         icon: CreditCard,
         title: "Metodo di pagamento tracciato",
         description:
-          "Su ogni scontrino indichi se l'incasso è in contanti o elettronico: il dato viaggia dentro il documento commerciale trasmesso all'AdE. Un metodo per documento — la ripartizione dello stesso scontrino fra contante ed elettronico oggi non è gestita.",
+          "Su ogni scontrino indichi se l'incasso è in contanti o elettronico: il dato viaggia dentro il documento commerciale trasmesso all'AdE. Con il piano Pro puoi anche ripartire lo stesso scontrino fra contanti ed elettronico (pagamento misto).",
       },
     ],
   },
@@ -112,7 +112,7 @@ const sections = [
         icon: ScrollText,
         title: "Allineato alla normativa POS 2026",
         description:
-          "Dal 1° gennaio 2026 è in vigore l'obbligo di collegamento fra terminale POS e strumento di memorizzazione dei corrispettivi (L. 207/2024, art. 1 commi 74-77). ScontrinoZero segue i flussi previsti dall'Agenzia delle Entrate e si aggiorna in automatico per restare in regola.",
+          "Dal 1° gennaio 2026 il POS va collegato allo strumento che memorizza i corrispettivi (L. 207/2024, art. 1 commi 74-77). ScontrinoZero trasmette su ogni scontrino il metodo di pagamento; l'abbinamento del POS lo registri tu, una volta, nella procedura Documento Commerciale Online dell'AdE.",
       },
     ],
   },

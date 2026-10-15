@@ -155,18 +155,18 @@ export default function ComeCollegareAde() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dalla dashboard di ScontrinoZero vai su{" "}
-          <strong>Impostazioni → Credenziali AdE</strong>. Trovi il link nella
-          barra laterale sinistra (su mobile: tocca l&apos;icona ☰ in alto a
-          sinistra) e la sezione è una card dedicata in fondo alla pagina
-          Impostazioni.
+          <strong>Impostazioni → Credenziali AdE</strong>. Su desktop trovi
+          Impostazioni nel menu in alto, su mobile è l&apos;icona a forma di
+          ingranaggio in alto a destra; Credenziali AdE è la seconda card della
+          pagina, subito sotto Attività.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
           Passaggio 2 — Inserisci le credenziali Fisconline
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Nel modulo <strong>Modifica credenziali Fisconline</strong> trovi tre
-          campi:
+          Nel modulo <strong>Modifica credenziali AdE</strong>, con il metodo
+          Fisconline selezionato, trovi tre campi:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>

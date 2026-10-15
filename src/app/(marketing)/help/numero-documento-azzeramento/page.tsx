@@ -76,9 +76,10 @@ export default function NumeroDocumentoAzzeramentoPage() {
           trattino (es. <em>0051-0023</em>) e, poco sotto, la matricola
           dell&apos;apparecchio (es. <em>99MEY012345</em>). Su un documento
           commerciale online — quello emesso dal portale Fatture e Corrispettivi
-          o da un&apos;app come ScontrinoZero — trovi invece un codice unico del
-          tipo <em>DCW2026/123456</em>, assegnato dall&apos;Agenzia delle
-          Entrate al momento della trasmissione.
+          o da un&apos;app come ScontrinoZero — trovi invece un codice del tipo{" "}
+          <em>DCW2026/2610-5298</em>: anche qui ci sono due blocchi di cifre, ma
+          il codice intero lo assegna l&apos;Agenzia delle Entrate al momento
+          della trasmissione e non si ripete.
         </p>
 
         {/* ─── Cosa significa il numero di azzeramento ─── */}
@@ -122,9 +123,9 @@ export default function NumeroDocumentoAzzeramentoPage() {
           </li>
           <li>
             <strong>Controlli e contabilità.</strong> Il numero è il riferimento
-            con cui il documento compare nel cassetto fiscale e nei registri dei
-            corrispettivi: se un cliente o il commercialista ti chiede
-            &quot;quale scontrino?&quot;, la risposta è quel numero.
+            con cui il documento compare sul portale Fatture e Corrispettivi e
+            nei registri dei corrispettivi: se un cliente o il commercialista ti
+            chiede &quot;quale scontrino?&quot;, la risposta è quel numero.
           </li>
           <li>
             <strong>Lotteria degli scontrini.</strong> In caso di vincita, il
@@ -154,7 +155,7 @@ export default function NumeroDocumentoAzzeramentoPage() {
           </Link>
           ). Il numero documento è il progressivo assegnato direttamente
           dall&apos;Agenzia delle Entrate alla trasmissione (formato tipo{" "}
-          <em>DCW2026/123456</em>) e in ScontrinoZero lo trovi sul PDF dello
+          <em>DCW2026/2610-5298</em>) e in ScontrinoZero lo trovi sul PDF dello
           scontrino, nella pagina pubblica raggiungibile dal QR code e nello{" "}
           <Link
             href="/help/storico-ed-esportazione"

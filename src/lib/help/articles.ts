@@ -18,7 +18,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-27",
+    dateModified: "2026-10-15",
     title: "Aliquote IVA e catalogo prodotti",
     metaTitle: "Come gestire le aliquote IVA e il catalogo prodotti",
     description:
@@ -28,7 +28,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "annullare-scontrino": {
     slug: "annullare-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-10-02",
+    dateModified: "2026-10-15",
     title: "Annullare uno scontrino: quando si può e come fare",
     metaTitle: "Annullare uno scontrino da ScontrinoZero: la procedura",
     description:
@@ -66,7 +66,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   api: {
     slug: "api",
     datePublished: "2026-04-02",
-    dateModified: "2026-10-03",
+    dateModified: "2026-10-15",
     title: "API per sviluppatori",
     metaTitle: "API per sviluppatori",
     description:
@@ -90,17 +90,17 @@ export const helpArticles: Record<string, HelpArticle> = {
   "cassetto-fiscale": {
     slug: "cassetto-fiscale",
     datePublished: "2026-04-17",
-    dateModified: "2026-06-21",
+    dateModified: "2026-10-15",
     title: "Verificare i corrispettivi nel cassetto fiscale",
     metaTitle: "Dove verificare i corrispettivi nel cassetto fiscale",
     description:
-      "Scopri come accedere al cassetto fiscale dell'Agenzia delle Entrate per verificare che i tuoi scontrini siano stati trasmessi correttamente.",
+      "Dove verificare gli scontrini trasmessi all'Agenzia delle Entrate: il portale Fatture e Corrispettivi (spesso chiamato cassetto fiscale), i filtri di ricerca e cosa fare se uno non compare.",
     related: ["storico-ed-esportazione", "errori-ade", "primo-scontrino"],
   },
   "chiusura-giornaliera": {
     slug: "chiusura-giornaliera",
     datePublished: "2026-04-17",
-    dateModified: "2026-06-21",
+    dateModified: "2026-10-15",
     title: "Chiusura giornaliera: è obbligatoria?",
     metaTitle: "Chiusura giornaliera: è obbligatoria?",
     description:
@@ -110,7 +110,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "come-collegare-ade": {
     slug: "come-collegare-ade",
     datePublished: "2026-04-11",
-    dateModified: "2026-09-16",
+    dateModified: "2026-10-15",
     title: "Collegare ScontrinoZero all'Agenzia delle Entrate",
     metaTitle: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
     description:
@@ -120,7 +120,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "collegare-ade-con-cie": {
     slug: "collegare-ade-con-cie",
     datePublished: "2026-07-15",
-    dateModified: "2026-07-15",
+    dateModified: "2026-10-15",
     title: "Collegare l'AdE con CIE (app CIE ID)",
     metaTitle: "Collegare ScontrinoZero all'AdE con CIE (app CIE ID)",
     description:
@@ -140,7 +140,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "credenziali-fisconline": {
     slug: "credenziali-fisconline",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-13",
+    dateModified: "2026-10-15",
     title: "Credenziali Fisconline: dove trovarle e verificarle",
     metaTitle: "Credenziali Fisconline: dove trovarle e come verificarle",
     description:
@@ -150,7 +150,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "errori-ade": {
     slug: "errori-ade",
     datePublished: "2026-04-16",
-    dateModified: "2026-09-16",
+    dateModified: "2026-10-15",
     title: "Errori comuni di accesso AdE e come risolverli",
     metaTitle: "Password AdE scaduta o accesso bloccato: come risolvere",
     description:
@@ -184,7 +184,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "intestazione-scontrino": {
     slug: "intestazione-scontrino",
     datePublished: "2026-04-20",
-    dateModified: "2026-08-20",
+    dateModified: "2026-10-15",
     title: "Personalizzare intestazione e dati dello scontrino",
     metaTitle: "Personalizzare intestazione e dati dello scontrino",
     description:
@@ -212,7 +212,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "metodi-di-pagamento": {
     slug: "metodi-di-pagamento",
     datePublished: "2026-08-04",
-    dateModified: "2026-08-27",
+    dateModified: "2026-10-15",
     title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
     metaTitle: "Bonifico e assegno sullo scontrino: quale metodo scegliere",
     description:
@@ -222,7 +222,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "normativa-pos-2026": {
     slug: "normativa-pos-2026",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-02",
+    dateModified: "2026-10-15",
     title: "Normativa POS 2026: cosa cambia per gli esercenti",
     metaTitle: "Normativa POS 2026: obbligo, scadenze e sanzioni POS-cassa",
     description:
@@ -232,7 +232,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "numero-documento-azzeramento": {
     slug: "numero-documento-azzeramento",
     datePublished: "2026-07-12",
-    dateModified: "2026-10-02",
+    dateModified: "2026-10-15",
     title: "Numero documento e azzeramento sullo scontrino",
     metaTitle: "Numero azzeramento e numero documento scontrino: cosa sono",
     description:
@@ -256,7 +256,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "pos-rt-obbligo": {
     slug: "pos-rt-obbligo",
     datePublished: "2026-04-20",
-    dateModified: "2026-08-18",
+    dateModified: "2026-10-15",
     title: "Collegamento POS-RT: obbligo e scadenze 2026",
     metaTitle: "Collegamento POS-RT: chi è obbligato e scadenze 2026",
     description:
@@ -266,17 +266,17 @@ export const helpArticles: Record<string, HelpArticle> = {
   "prima-configurazione": {
     slug: "prima-configurazione",
     datePublished: "2026-04-16",
-    dateModified: "2026-07-15",
+    dateModified: "2026-10-15",
     title: "Prima configurazione passo-passo",
     metaTitle: "Prima configurazione passo-passo",
     description:
-      "Guida all'onboarding di ScontrinoZero: crea l'account, inserisci i dati dell'attività e collega le credenziali Fisconline per iniziare a emettere scontrini elettronici.",
+      "Guida all'onboarding di ScontrinoZero: crea l'account, inserisci i dati dell'attività e collega l'Agenzia delle Entrate con Fisconline o con la CIE per iniziare a emettere scontrini.",
     related: ["come-collegare-ade", "primo-scontrino", "installare-app"],
   },
   "presenta-un-amico": {
     slug: "presenta-un-amico",
     datePublished: "2026-06-26",
-    dateModified: "2026-07-13",
+    dateModified: "2026-10-15",
     title: "Presenta un amico: come funziona il bonus referral",
     metaTitle: "Presenta un amico: bonus referral e mese gratis",
     description:
@@ -286,7 +286,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "primo-scontrino": {
     slug: "primo-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-08-18",
+    dateModified: "2026-10-15",
     title: "Come emettere il primo scontrino elettronico",
     metaTitle: "Come emettere il primo scontrino elettronico",
     description:
@@ -300,7 +300,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-22",
+    dateModified: "2026-10-15",
     title: "Regime forfettario: configurazione IVA corretta",
     // Intent operativo in-app: le query informative su N2/N2.2 sono territorio
     // della guida codici-natura-iva (regola slug separati /help vs /guide).
@@ -312,27 +312,27 @@ export const helpArticles: Record<string, HelpArticle> = {
   "registrare-pos-portale-ade": {
     slug: "registrare-pos-portale-ade",
     datePublished: "2026-05-21",
-    dateModified: "2026-06-21",
+    dateModified: "2026-10-15",
     title: "Registrare un POS nel portale Fatture e Corrispettivi",
     metaTitle: "Come registrare un POS nel portale Fatture e Corrispettivi",
     description:
-      "Guida passo-passo al Censimento POS sul portale Fatture e Corrispettivi dell'Agenzia delle Entrate: prerequisiti, percorso nel portale, differenza fra POS bancario e POS-RT, errori comuni.",
+      "Come collegare il POS al documento commerciale online sul portale Fatture e Corrispettivi: il percorso nel portale, i dati per aggiungere un POS, quali non collegare e gli errori comuni.",
     related: ["pos-rt-obbligo", "normativa-pos-2026", "come-collegare-ade"],
   },
   "sicurezza-credenziali": {
     slug: "sicurezza-credenziali",
     datePublished: "2026-04-16",
-    dateModified: "2026-08-02",
+    dateModified: "2026-10-15",
     title: "Sicurezza e privacy delle credenziali",
     metaTitle: "Sicurezza e privacy: come proteggiamo le tue credenziali",
     description:
-      "Come ScontrinoZero protegge le credenziali Fisconline: cifratura AES-256-GCM at-rest, chiave fuori dal database, chi può accedere ai tuoi dati e come revocare l'accesso.",
+      "Come ScontrinoZero protegge le credenziali AdE (Fisconline e CIE): cifratura AES-256-GCM at-rest, chiave fuori dal database, chi può accedere ai tuoi dati e come revocare l'accesso.",
     related: ["credenziali-fisconline", "errori-ade", "come-collegare-ade"],
   },
   "stampare-scontrino-termica": {
     slug: "stampare-scontrino-termica",
     datePublished: "2026-05-21",
-    dateModified: "2026-08-20",
+    dateModified: "2026-10-15",
     title: "Stampare lo scontrino su carta termica",
     metaTitle: "Come stampare lo scontrino su carta termica",
     description:

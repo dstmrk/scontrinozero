@@ -77,8 +77,9 @@ export default function AnnullareScontrinoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Uno scontrino elettronico non si &quot;cancella&quot;: si emette un{" "}
           <strong>documento di annullo</strong> che rettifica il documento
-          originale nel cassetto fiscale dell&apos;Agenzia delle Entrate. Questa
-          guida spiega come farlo da ScontrinoZero e in quali casi è possibile.
+          originale sul portale Fatture e Corrispettivi dell&apos;Agenzia delle
+          Entrate. Questa guida spiega come farlo da ScontrinoZero e in quali
+          casi è possibile.
         </p>
         <HelpArticleUpdatedAt slug="annullare-scontrino" />
 
@@ -112,11 +113,16 @@ export default function AnnullareScontrinoPage() {
             {")."}
           </li>
           <li>
-            {"Scontrini ancora in attesa di conferma AdE (badge giallo "}
-            <strong>&quot;PENDING&quot;</strong>
-            {": aspetta che diventino "}
-            <em>Emesso</em>
-            {" prima di annullare."}
+            {
+              "Scontrini rimasti in sospeso, senza conferma dall'AdE: non compaiono nello Storico finché non li verifichi dall'avviso in dashboard ("
+            }
+            <Link
+              href="/help/errori-ade#scontrino-in-sospeso"
+              className="text-primary hover:underline"
+            >
+              scontrino in sospeso
+            </Link>
+            {")."}
           </li>
           <li>
             Scontrini con almeno un reso (badge{" "}
@@ -126,9 +132,10 @@ export default function AnnullareScontrinoPage() {
             non lo impedisce. ScontrinoZero sì.
           </li>
           <li>
-            Scontrini con stato <strong>&quot;Errore&quot;</strong>: non sono
-            mai stati registrati dall&apos;AdE, quindi non c&apos;è nulla da
-            annullare. Riemetti la vendita dalla Cassa.
+            Scontrini la cui emissione è fallita: l&apos;errore compare subito
+            in Cassa, non sono mai stati registrati dall&apos;AdE e non entrano
+            nello Storico, quindi non c&apos;è nulla da annullare. Riemetti la
+            vendita dalla Cassa.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -157,7 +164,7 @@ export default function AnnullareScontrinoPage() {
             d&apos;imposta
           </strong>
           {
-            ": ogni ritardo rende più complicata la riconciliazione dei corrispettivi giornalieri nel cassetto fiscale."
+            ": ogni ritardo rende più complicata la riconciliazione dei corrispettivi giornalieri sul portale Fatture e Corrispettivi."
           }
         </p>
 
@@ -167,7 +174,8 @@ export default function AnnullareScontrinoPage() {
         </h2>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Vai nella sezione <strong>Storico</strong> dalla barra laterale.
+            Apri <strong>Storico</strong> dal menu (in alto su desktop, nella
+            barra in basso su mobile).
           </li>
           <li>
             Trova lo scontrino usando i filtri per intervallo di date o
@@ -209,8 +217,8 @@ export default function AnnullareScontrinoPage() {
         </h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            L&apos;AdE registra il documento di annullo nel cassetto fiscale e
-            rettifica i corrispettivi del giorno.
+            L&apos;AdE registra il documento di annullo sul portale Fatture e
+            Corrispettivi e rettifica i corrispettivi del giorno.
           </li>
           <li>
             Lo scontrino originale <strong>non viene eliminato</strong>: rimane
@@ -249,13 +257,11 @@ export default function AnnullareScontrinoPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Succede quando lo scontrino non è in stato <em>Emesso</em>: se è
-              ancora <strong>PENDING</strong> aspetta la conferma AdE, se è{" "}
-              <strong>Errore</strong> non è stato registrato all&apos;origine
-              quindi non c&apos;è nulla da annullare, se è già{" "}
-              <strong>Annullato</strong> l&apos;operazione è stata fatta. Non
-              compare nemmeno su uno scontrino che ha già un reso: lì
+              già <strong>Annullato</strong> l&apos;operazione è stata fatta.
+              Non compare nemmeno su uno scontrino che ha già un reso: lì
               l&apos;unica strada è un altro reso, finché restano pezzi da
-              rendere.
+              rendere. Gli scontrini in sospeso o con l&apos;emissione fallita,
+              invece, nello Storico non ci sono proprio.
             </p>
           </div>
           <div>

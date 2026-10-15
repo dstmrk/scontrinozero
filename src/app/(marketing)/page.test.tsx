@@ -39,10 +39,29 @@ describe("HOME_COMPARISON_ROWS", () => {
   });
 
   it("mantiene le righe booleane sui vincoli che l'RT impone", () => {
-    for (const l of ["Installazione tecnico", "Collaudo biennale"]) {
+    for (const l of [
+      "Senza installazione del tecnico",
+      "Senza verificazione periodica",
+    ]) {
       const row = label(l);
       expect(row?.competitor, l).toBe(false);
       expect(row?.ours, l).toBe(true);
+    }
+  });
+
+  /**
+   * La tabella rende `true` come ✓ e `false` come ✗. Con etichette che
+   * nominano un onere ("Installazione tecnico", "Collaudo biennale") il ✓
+   * finiva sotto ScontrinoZero e diceva il contrario del vero: che
+   * ScontrinoZero richiede il tecnico. Ogni riga booleana deve nominare un
+   * vantaggio, così ✓ significa "ce l'ha".
+   */
+  it("le righe booleane nominano un vantaggio, non un onere", () => {
+    const oneri =
+      /^(installazione|collaudo|verificazione|canone|manutenzione)/i;
+    for (const row of HOME_COMPARISON_ROWS) {
+      if (typeof row.ours !== "boolean") continue;
+      expect(row.label, row.label).not.toMatch(oneri);
     }
   });
 });

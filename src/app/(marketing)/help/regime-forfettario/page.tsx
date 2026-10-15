@@ -112,8 +112,8 @@ export default function RegimeForfettarioPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;errore più comune è impostare l&apos;aliquota IVA al 22% (o
           altra aliquota ordinaria) anziché usare una natura N2: lo scontrino
-          risulterebbe fiscalmente scorretto e l&apos;esoneratore si troverebbe
-          ad aver certificato operazioni come imponibili.
+          risulterebbe fiscalmente scorretto e l&apos;esercente si troverebbe ad
+          aver certificato operazioni come imponibili.
         </p>
         {/* ─── Codice e natura IVA: N2 vs N2.2 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
@@ -132,7 +132,7 @@ export default function RegimeForfettarioPage() {
           </li>
           <li>
             <strong>Fattura elettronica B2B:</strong> codice granulare{" "}
-            <strong>N2.2</strong> (in vigore dal 1° luglio 2022), riferito
+            <strong>N2.2</strong> (obbligatorio dal 1° gennaio 2021), riferito
             all&apos;art. 1 commi 54-89 della L. 190/2014.
           </li>
           <li>
@@ -187,7 +187,7 @@ export default function RegimeForfettarioPage() {
             <strong>&quot;0% – Non soggette&quot; (codice N2)</strong>.
           </li>
           <li>
-            Completa gli altri step (credenziali AdE, riepilogo) e termina
+            Completa gli altri step (credenziali AdE, verifica) e termina
             l&apos;onboarding.
           </li>
         </ol>

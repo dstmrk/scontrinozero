@@ -72,7 +72,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     title: "Registratore di cassa per ambulanti e mercati",
     metaTitle: "Registratore di cassa per ambulanti e mercati",
     metaDescription:
-      "Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico, nessun canone. Da €2,50/mese, 30 giorni di prova gratuita.",
+      "Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico da comprare. Da €2,50/mese, 30 giorni di prova gratuita.",
     heroSubtitle:
       "Emetti scontrini al banco del mercato, dal furgone, ovunque sei. Basta lo smartphone che hai già in tasca.",
     audience: "ambulanti, operatori di mercato, venditori su area pubblica",
@@ -94,7 +94,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Posso usarlo senza connessione internet?",
         answer:
-          "Serve una connessione attiva al momento dell'emissione per ottenere il numero progressivo da AdE. La maggior parte dei piani dati 4G/5G è sufficiente. Per ora non esiste una modalità offline per l'emissione fiscale, ma la trasmissione successiva è automatica.",
+          "Serve una connessione attiva al momento dell'emissione per ottenere il numero progressivo da AdE. La maggior parte dei piani dati 4G/5G è sufficiente. Non esiste una modalità offline: senza rete l'emissione non va a buon fine e la ripeti quando torna il segnale.",
       },
       {
         question: "Va bene anche per chi è in regime forfettario?",
@@ -114,7 +114,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     title: "Scontrino elettronico per parrucchieri ed estetisti",
     metaTitle: "Scontrino elettronico per parrucchieri ed estetisti",
     metaDescription:
-      "Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, senza canoni. Da €2,50/mese, prova 30 giorni gratis.",
+      "Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, nessun hardware da comprare. Da €2,50/mese, prova 30 giorni gratis.",
     heroSubtitle:
       "Emetti scontrini dal tablet alla reception o dallo smartphone in cabina, senza ingombrare il banco con un registratore fisico.",
     audience: "parrucchieri, estetisti e operatori dei servizi alla persona",
@@ -130,7 +130,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Tablet alla reception: zero ingombro sul banco, design pulito da salone moderno.",
       "Metodo di pagamento (contanti o elettronico) selezionabile su ogni scontrino, trasmesso all'AdE con il documento.",
       "Catalogo prodotti e servizi configurabile, per emettere lo scontrino in 2 tap.",
-      "Storico consultabile dal commercialista senza dover esportare nulla manualmente.",
+      "Storico sempre consultabile e, sul piano Pro, export CSV pronto per il commercialista.",
     ],
     faq: [
       {
@@ -180,7 +180,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
         question:
           "Per gli interventi su prima casa posso applicare l'IVA al 10%?",
         answer:
-          "L'aliquota IVA agevolata al 10% si applica a specifiche manutenzioni ordinarie e straordinarie su immobili a prevalente destinazione abitativa privata (DPR 633/72 Tab. A, parte III, n. 127-duodecies). ScontrinoZero ti permette di scegliere l'aliquota corretta per ogni riga. Verifica con il commercialista i casi limite.",
+          "L'aliquota IVA agevolata al 10% si applica alle manutenzioni ordinarie e straordinarie su immobili a prevalente destinazione abitativa privata (art. 7, comma 1, lett. b, L. 488/1999), con un limite sui «beni significativi» come caldaie e infissi: il loro valore va al 10% solo fino a concorrenza del resto della prestazione, l'eccedenza al 22%. ScontrinoZero ti permette di scegliere l'aliquota corretta per ogni riga. Verifica con il commercialista i casi limite.",
       },
       {
         question: "Se rilascio già fattura, devo emettere anche lo scontrino?",
@@ -203,11 +203,11 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     metaDescription:
       "Gestisci scontrini per B&B, affittacamere e strutture stagionali senza registratore fisico. Ideale per attività che aprono pochi mesi all'anno. Da €2,50/mese.",
     heroSubtitle:
-      "Soluzione ideale per attività ricettive stagionali: nessun canone fisso annuale per un registratore che useresti solo nei mesi di alta stagione.",
+      "Soluzione ideale per attività ricettive stagionali: nessun registratore da comprare, installare e verificare per usarlo solo nei mesi di alta stagione.",
     audience:
       "gestori di B&B, affittacamere, case vacanza e strutture ricettive minori",
     useCase:
-      "Se gestisci un B&B aperto solo nei mesi estivi o nei weekend, un registratore di cassa telematico è uno spreco: paghi canone tutto l'anno per usarlo poche settimane. Con ScontrinoZero emetti lo scontrino al check-out dal telefono o dal tablet, e paghi solo quando ti serve. Stagione finita? Disdici e riattiva quando vuoi — lo storico resta sempre accessibile sul tuo account.",
+      "Se gestisci un B&B aperto solo nei mesi estivi o nei weekend, un registratore telematico è uno spreco: lo compri, lo fai installare e lo verifichi ogni due anni per usarlo poche settimane. Con ScontrinoZero emetti lo scontrino al check-out dal telefono o dal tablet, e paghi solo quando ti serve. Stagione finita? Disdici e riattiva quando vuoi — lo storico resta sempre accessibile sul tuo account.",
     obligations: [
       "Emissione del Documento Commerciale Online per il servizio di pernottamento (aliquota IVA 10%).",
       "Imposta di soggiorno (dove applicata) calcolata separatamente, non soggetta a IVA.",
@@ -225,7 +225,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "L'imposta di soggiorno va indicata sullo scontrino?",
         answer:
-          "L'imposta di soggiorno non è soggetta a IVA e va indicata separatamente sul documento commerciale come voce non concorrente al totale imponibile. ScontrinoZero supporta righe non imponibili per gestirla correttamente.",
+          "L'imposta di soggiorno è fuori campo IVA: la incassi per conto del Comune. Se la riporti sul documento commerciale, va su una riga a parte con natura N1 (esclusa ex art. 15 DPR 633/72), che non concorre all'imponibile: in ScontrinoZero la scegli fra le nature disponibili per riga.",
       },
       {
         question: "Cosa succede in bassa stagione quando non emetto scontrini?",
@@ -286,39 +286,37 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   },
   professionisti: {
     slug: "professionisti",
-    title: "Scontrino elettronico per liberi professionisti",
-    metaTitle: "Scontrino elettronico per liberi professionisti",
+    title: "Professionisti e scontrino elettronico: quando si può usare",
+    metaTitle: "Libero professionista: scontrino o fattura?",
     metaDescription:
-      "Quando un professionista deve emettere scontrino e quando fattura? Guida pratica e soluzione mobile per chi incassa al momento. Da €2,50/mese.",
+      "Il libero professionista fattura ogni prestazione, anche ai privati: lo scontrino vale solo per chi lavora come impresa. Quando ScontrinoZero fa al caso tuo.",
     heroSubtitle:
-      "Consulenti, tutor, fotografi, formatori: quando incassi al momento da un privato, ti serve uno strumento veloce per documentare la prestazione.",
+      "Consulente, formatore, fotografo, tutor: prima dello strumento conta come eserciti l'attività. Il lavoro autonomo si fattura; lo scontrino è per chi è impresa.",
     audience:
-      "liberi professionisti con prestazioni B2C: consulenti, tutor, fotografi, formatori",
+      "liberi professionisti e lavoratori autonomi con clientela privata: consulenti, formatori, tutor, fotografi",
     useCase:
-      "Molti professionisti emettono fattura, ma per le prestazioni B2C incassate al momento (lezione privata, consulenza spot, set fotografico) lo scontrino elettronico è più rapido e adatto. ScontrinoZero ti permette di scegliere caso per caso: emetti scontrino quando il cliente paga subito, fattura tradizionale quando serve a un'azienda.",
+      "Molti professionisti cercano uno scontrino per gli incassi rapidi da privati, ma la regola è un'altra. L'art. 22 DPR 633/72 esonera dalla fattura il commercio al minuto e le prestazioni rese «nell'esercizio di imprese»: il lavoro autonomo ne resta fuori, quindi consulenze, lezioni e incarichi professionali si fatturano sempre, anche al privato. Lo scontrino elettronico diventa lo strumento giusto quando la stessa attività è esercitata come impresa — lo studio fotografico artigiano, il centro di ripetizioni organizzato come impresa, la vendita di prodotti o stampe al pubblico: lì ScontrinoZero emette il documento commerciale dal telefono e affianca il tuo software di fatturazione.",
     obligations: [
-      "Obbligo di documentare ogni prestazione verso privato: fattura o documento commerciale (DPR 633/72 art. 22).",
-      "Applicazione dell'aliquota IVA propria della prestazione (22% per la maggior parte delle consulenze; verifica casi specifici).",
-      "Se sei iscritto a un ordine professionale con una cassa di previdenza propria (es. avvocati, geometri, architetti), il contributo da versare alla cassa si gestisce a parte rispetto allo scontrino.",
-      "Trasmissione corrispettivi all'Agenzia delle Entrate entro 12 giorni.",
+      "Lavoro autonomo (art. 5 DPR 633/72): fattura elettronica per ogni prestazione, anche verso privati — l'esonero dell'art. 22 vale solo per le imprese.",
+      "Attività esercitata come impresa con clientela privata: documento commerciale online per ogni incasso, se il cliente non chiede fattura (art. 22 DPR 633/72).",
+      "Regime forfettario: cambia l'IVA (natura N2 sullo scontrino, N2.2 in fattura), non la scelta fra scontrino e fattura.",
     ],
     benefits: [
-      "Una sola app per gestire scontrini e storico, separata dal gestionale fatture.",
-      "Emissione veloce in mobilità: a fine sessione, dal telefono, senza tornare in studio.",
-      "Storico consultabile; export CSV da consegnare al commercialista sul piano Pro.",
-      "Costo contenuto: meno di una cena al ristorante al mese per il piano Starter.",
+      "Se la tua attività è d'impresa, emetti lo scontrino dal telefono a fine servizio, senza registratore.",
+      "Convive con il software di fatturazione: scontrini ai privati da ScontrinoZero, fatture dal gestionale.",
+      "Storico consultabile ovunque; export CSV da consegnare al commercialista sul piano Pro.",
+      "Costo contenuto: il piano Starter parte da 29,99 €/anno.",
     ],
     faq: [
       {
         question: "Un libero professionista deve emettere scontrino o fattura?",
         answer:
-          "Dipende. Se la prestazione è documentata con fattura elettronica (richiesta dal cliente o per scelta), lo scontrino non è dovuto. Per gli incassi B2C dove il cliente non chiede fattura, il documento commerciale (scontrino) è la forma più rapida.",
+          "Fattura. Il lavoro autonomo non rientra nell'art. 22 DPR 633/72, che esonera dalla fattura solo il commercio al minuto e le prestazioni rese nell'esercizio di imprese: ogni prestazione professionale si fattura, anche al privato e anche in regime forfettario. Lo scontrino è previsto se l'attività è esercitata come impresa.",
       },
       {
-        question:
-          "Sono iscritto a un ordine professionale: ScontrinoZero va bene?",
+        question: "Quando un professionista può usare ScontrinoZero?",
         answer:
-          "Sì, se sei titolare di partita IVA con credenziali AdE (Fisconline o CIE). Verifica con il tuo ordine se ci sono obblighi specifici di emissione fattura per tutte le prestazioni: in quel caso lo scontrino non è applicabile e ti serve un gestionale di fatturazione.",
+          "Quando l'attività, o una sua parte, è d'impresa: per esempio il fotografo con uno studio artigiano che vende servizi e stampe al pubblico, o chi vende prodotti al dettaglio accanto alla consulenza. Su quella parte emetti il documento commerciale; le prestazioni professionali restano in fattura. L'inquadramento dipende da come è aperta la partita IVA: verificalo con il commercialista.",
       },
       {
         question:
@@ -439,14 +437,14 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "In palestra il pagamento avviene al front desk tra un ingresso e l'altro; il personal trainer incassa a fine sessione, magari al parco o a domicilio del cliente. In entrambi i casi ScontrinoZero emette il documento commerciale in pochi tap da smartphone o tablet, con abbonamenti e pacchetti già configurati a catalogo, e trasmette i corrispettivi all'Agenzia delle Entrate in automatico.",
     obligations: [
       "Emissione del Documento Commerciale Online per abbonamenti, ingressi e lezioni pagati da privati (DPR 633/72 art. 22).",
-      "IVA al 22% sui servizi fitness resi in forma commerciale (ditta individuale, società, libero professionista).",
+      "IVA al 22% sui servizi fitness resi in forma d'impresa (ditta individuale o società); il personal trainer che lavora come libero professionista fattura ogni seduta.",
       "Regole proprie per ASD/SSD in regime L. 398/91: i corrispettivi istituzionali verso i tesserati seguono una disciplina diversa — verifica con il commercialista.",
       "Trasmissione telematica dei corrispettivi entro 12 giorni dall'incasso.",
     ],
     benefits: [
       "Abbonamenti, ingressi singoli e pacchetti lezioni configurati una volta a catalogo, scontrino in 2 tap.",
       "Il personal trainer emette ovunque si alleni il cliente: parco, domicilio, studio.",
-      "Storico incassi ordinato per giorno e per prodotto, utile per capire cosa vende di più.",
+      "Storico incassi per giorno e, sul piano Pro, i prodotti più venduti in Analytics.",
       "Zero hardware al front desk: niente registratore, solo il tablet o lo smartphone.",
     ],
     faq: [
@@ -454,7 +452,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
         question:
           "Sono un personal trainer in regime forfettario: come esce lo scontrino?",
         answer:
-          "Imposti la natura N2 (operazioni non soggette) come aliquota prevalente e gli scontrini escono senza IVA, come previsto per il forfettario. È la configurazione più comune tra trainer e istruttori a partita IVA individuale.",
+          "Se eserciti come impresa, imposti la natura N2 (operazioni non soggette) come aliquota prevalente e gli scontrini escono senza IVA, come previsto per il forfettario. Se invece sei un libero professionista, il documento commerciale non fa per te: fatturi ogni seduta, senza IVA e con la dicitura del regime.",
       },
       {
         question: "Gestisco una ASD/SSD: devo emettere scontrino?",
@@ -534,7 +532,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emissione a fine corsa in pochi secondi, direttamente dal telefono già montato sul cruscotto.",
       "Consegna digitale via link o QR: perfetta per i clienti in trasferta che vogliono la ricevuta subito.",
       "Tariffe ricorrenti a catalogo (aeroporto, stazione, tratta fissa) per non digitare gli importi ogni volta.",
-      "Storico delle corse incassate consultabile dal commercialista, senza fogli in giro per l'auto.",
+      "Storico delle corse incassate sempre a portata di mano, senza fogli in giro per l'auto; export CSV per il commercialista sul piano Pro.",
     ],
     faq: [
       {
@@ -627,7 +625,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Perfetto per l'attività stagionale: paghi il periodo in cui lavori, senza ammortizzare un registratore.",
       "Asporto e delivery: emetti lo scontrino al momento dell'ordine e lo invii via link o WhatsApp col sacchetto.",
       "Zero hardware sul chiosco: basta lo smartphone, anche con sola connessione 4G.",
-      "Storico digitale di tutte le vendite, consultabile dal commercialista.",
+      "Storico digitale di tutte le vendite; export CSV per il commercialista sul piano Pro.",
     ],
     faq: [
       {
@@ -638,7 +636,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Che aliquota IVA uso per l'asporto?",
         answer:
-          "La cessione di alimenti e bevande da asporto sconta in generale l'IVA del 10% (somministrazione); alcuni prodotti confezionati seguono l'aliquota propria del bene. In ScontrinoZero configuri le aliquote per prodotto nel catalogo e le richiami in due tap.",
+          "L'asporto non è somministrazione ma cessione di beni: ogni prodotto segue la propria aliquota, che per piatti pronti e alimenti preparati è in genere il 10%, mentre alcune bevande e prodotti confezionati ne hanno una diversa. In ScontrinoZero configuri le aliquote per prodotto nel catalogo e le richiami in due tap.",
       },
       {
         question: "Posso usarlo solo per la stagione estiva?",
@@ -659,7 +657,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "piccoli negozi di abbigliamento e accessori, atelier, boutique, showroom, negozi con vendite poco frequenti ma di valore",
     useCase:
-      "In un piccolo negozio di abbigliamento, un atelier o uno showroom si fanno poche vendite al giorno, spesso di importo alto: tenere un registratore telematico per 5-10 scontrini quotidiani significa hardware sul banco, canoni di verifica e un costo fisso sproporzionato. Con ScontrinoZero emetti il Documento Commerciale Online dal tablet o dallo smartphone, con il catalogo dei tuoi articoli configurato, e trasmetti automaticamente i corrispettivi. Se il cliente vuole la carta, stampi su una termica Bluetooth; altrimenti invii lo scontrino via email o QR.",
+      "In un piccolo negozio di abbigliamento, un atelier o uno showroom si fanno poche vendite al giorno, spesso di importo alto: tenere un registratore telematico per 5-10 scontrini quotidiani significa hardware sul banco, verificazioni periodiche e un costo fisso sproporzionato. Con ScontrinoZero emetti il Documento Commerciale Online dal tablet o dallo smartphone, con il catalogo dei tuoi articoli configurato, e trasmetti automaticamente i corrispettivi. Se il cliente vuole la carta, stampi su una termica Bluetooth; altrimenti invii lo scontrino via email o QR.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni vendita B2C (art. 22 DPR 633/72).",
       "Applicazione dell'aliquota IVA propria dei beni venduti (22% per abbigliamento e accessori).",
@@ -676,7 +674,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Come gestisco un reso o un cambio merce?",
         answer:
-          "Per un errore o un ripensamento immediato annulli lo scontrino dallo storico e, se serve, ne emetti uno corretto. Per il cambio con differenza di prezzo emetti un nuovo scontrino per la differenza. La catena resta tracciata verso l'Agenzia delle Entrate.",
+          "Se il cliente restituisce un articolo, dallo storico tocchi «Fai un reso» e scegli i pezzi: il documento di reso cita lo scontrino originale e può essere anche parziale. L'annullo resta per l'errore o il ripensamento immediato. Per un cambio con differenza di prezzo puoi emettere uno scontrino per la sola differenza, se l'aliquota è la stessa, oppure il reso del capo restituito e uno scontrino per quello nuovo.",
       },
       {
         question: "Posso emettere fattura se il cliente la chiede?",
@@ -885,6 +883,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emissione del Documento Commerciale Online per ogni incasso da cliente privato (art. 22 DPR 633/72).",
       "Certificazione di acconti e saldi al momento dell'incasso, non alla consegna.",
       "Aliquota IVA al 22% su servizi fotografici, stampe e album.",
+      "Se eserciti come libero professionista anziché come impresa, fatturi ogni servizio, anche al privato: l'inquadramento dipende da come è aperta la partita IVA.",
       "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
     ],
     benefits: [
@@ -966,7 +965,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "noleggi di bici ed e-bike, sup e canoe, sci e ciaspole, attrezzature per eventi e giardinaggio, attività stagionali",
     useCase:
-      "Il noleggio è spesso un'attività stagionale e all'aperto: il banco è un gazebo sul lungomare, un container alla pista o un furgone all'evento. Con ScontrinoZero emetti il Documento Commerciale Online dallo smartphone al momento dell'incasso — tariffa oraria, mezza giornata, giornata intera nel catalogo — e trasmetti automaticamente i corrispettivi. Il piano mensile si attiva per la stagione e si sospende quando chiudi, e la cauzione non incassata non va certificata: solo il corrispettivo del noleggio.",
+      "Il noleggio è spesso un'attività stagionale e all'aperto: il banco è un gazebo sul lungomare, un container alla pista o un furgone all'evento. Con ScontrinoZero emetti il Documento Commerciale Online dallo smartphone al momento dell'incasso — tariffa oraria, mezza giornata, giornata intera nel catalogo — e trasmetti automaticamente i corrispettivi. Il piano mensile lo attivi per la stagione e lo disdici quando chiudi, e la cauzione non incassata non va certificata: solo il corrispettivo del noleggio.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni noleggio B2C incassato (art. 22 DPR 633/72).",
       "Aliquota IVA al 22% sui corrispettivi di noleggio di beni mobili.",
@@ -988,7 +987,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Apro solo 4 mesi l'anno: conviene comunque?",
         answer:
-          "È il caso ideale: attivi il piano mensile (da €4,99/mese) per i mesi di apertura e lo sospendi a fine stagione, senza ammortizzare un registratore che resta fermo 8 mesi. Alla riapertura ritrovi catalogo e storico.",
+          "È il caso ideale: attivi il piano mensile (da €4,99/mese) per i mesi di apertura e lo disdici a fine stagione, senza ammortizzare un registratore che resta fermo 8 mesi. Alla riapertura ritrovi catalogo e storico.",
       },
       {
         question: "Il turista straniero può ricevere lo scontrino?",
@@ -1009,7 +1008,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "stabilimenti balneari, lidi, spiagge attrezzate, chioschi con noleggio ombrelloni e lettini, attività stagionali su concessione demaniale",
     useCase:
-      "Lo stabilimento balneare certifica con documento commerciale ogni incasso da cliente privato: ombrellone giornaliero, abbonamento settimanale o stagionale, cabina, doccia, ingresso. Con ScontrinoZero lo emetti dallo smartphone mentre giri fra le file, nel momento in cui incassi, e i corrispettivi partono verso l'Agenzia delle Entrate a ogni emissione — senza chiusura di fine giornata. Le righe portano aliquote diverse nello stesso scontrino: servizi di spiaggia al 22%, somministrazione al bar al 10%. A fine stagione sospendi il piano mensile e alla riapertura ritrovi catalogo e storico. Sul bancone del bar in agosto, con la fila, un registratore telematico resta più rapido: qui ScontrinoZero è il punto cassa mobile in spiaggia, o la cassa del lido piccolo.",
+      "Lo stabilimento balneare certifica con documento commerciale ogni incasso da cliente privato: ombrellone giornaliero, abbonamento settimanale o stagionale, cabina, doccia, ingresso. Con ScontrinoZero lo emetti dallo smartphone mentre giri fra le file, nel momento in cui incassi, e i corrispettivi partono verso l'Agenzia delle Entrate a ogni emissione — senza chiusura di fine giornata. Le righe portano aliquote diverse nello stesso scontrino: servizi di spiaggia al 22%, somministrazione al bar al 10%. A fine stagione disdici il piano mensile e alla riapertura lo riattivi, con catalogo e storico intatti. Sul bancone del bar in agosto, con la fila, un registratore telematico resta più rapido: qui ScontrinoZero è il punto cassa mobile in spiaggia, o la cassa del lido piccolo.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni incasso da privato: ombrellone, lettino, cabina, doccia, ingresso giornaliero (art. 22 DPR 633/72).",
       "Servizi di spiaggia con IVA ordinaria al 22%: il noleggio di ombrelloni, sdraio e cabine non rientra fra le prestazioni agevolate della Tabella A, parte III, del DPR 633/72 — a differenza di alberghi e campeggi, che applicano il 10%.",
@@ -1022,7 +1021,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Punto cassa mobile: incassi fra gli ombrelloni e consegni lo scontrino via QR o WhatsApp, senza far camminare il cliente fino alla cassa.",
       "Aliquote per riga: ombrellone al 22% e caffè al 10% in un unico documento, senza battere due scontrini.",
       "Catalogo con le voci della stagione — giornaliero, weekend, abbonamento quindicinale, cabina — così la descrizione obbligatoria è già pronta: fino a 5 voci sul piano Starter, illimitate sul Pro.",
-      "Stagionalità: attivi il piano nei mesi di apertura e lo sospendi a fine stagione, senza ammortizzare un registratore fermo otto mesi.",
+      "Stagionalità: attivi il piano nei mesi di apertura e lo disdici a fine stagione, senza ammortizzare un registratore fermo otto mesi.",
       "Storico incassi per giornata, utile per pesare weekend e picchi di agosto e per il commercialista a fine stagione.",
     ],
     faq: [

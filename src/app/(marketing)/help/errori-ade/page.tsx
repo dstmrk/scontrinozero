@@ -136,8 +136,9 @@ export default function ErroriAdePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Attenzione: dopo 8 tentativi consecutivi con password errata, la
-          password viene bloccata sul portale AdE. Vedi la sezione successiva.
+          Attenzione: dopo ripetuti tentativi consecutivi con password errata,
+          la password viene bloccata sul portale AdE. Vedi la sezione
+          successiva.
         </p>
 
         {/* ─── Credenziali di un'altra partita IVA ─── */}
@@ -312,14 +313,16 @@ export default function ErroriAdePage() {
           Password Fisconline bloccata per troppi tentativi
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong> il portale AdE mostra un messaggio del tipo
-          &quot;la password è stata bloccata poiché è stato superato il numero
-          di tentativi di accesso&quot;.
+          <strong>Sintomo:</strong> ScontrinoZero mostra &quot;La tua utenza
+          dell&apos;Agenzia delle Entrate risulta bloccata&quot;, e il portale
+          AdE un messaggio del tipo &quot;la password è stata bloccata poiché è
+          stato superato il numero di tentativi di accesso&quot;. I dati che hai
+          inserito sono giusti: riscriverli non sblocca nulla.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> 8 tentativi consecutivi con password errata
-          attivano il blocco automatico della password sui Servizi Telematici
-          dell&apos;AdE.
+          <strong>Causa:</strong> ripetuti tentativi consecutivi con password
+          errata attivano il blocco automatico della password sui Servizi
+          Telematici dell&apos;AdE.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Soluzione:

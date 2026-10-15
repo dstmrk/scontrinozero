@@ -65,9 +65,9 @@ export default function ApiDocsPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le API REST di ScontrinoZero permettono di integrare l&apos;emissione
           di scontrini elettronici direttamente nel tuo gestionale, POS o
-          e-commerce. Ogni chiamata usa le credenziali Fisconline del tuo
-          esercente e trasmette il documento all&apos;Agenzia delle Entrate in
-          tempo reale.
+          e-commerce. Ogni chiamata usa il collegamento all&apos;Agenzia delle
+          Entrate del tuo esercente (Fisconline o CIE) e trasmette il documento
+          in tempo reale.
         </p>
 
         {/* ─── Prerequisiti ─── */}
@@ -83,8 +83,11 @@ export default function ApiDocsPage() {
             }
           </li>
           <li>
-            {"Credenziali Fisconline configurate nella sezione "}
-            <em>Configurazione attività</em>.
+            {"Credenziali AdE collegate in "}
+            <em>Impostazioni → Credenziali AdE</em>
+            {
+              ": Fisconline oppure CIE. Con la CIE la sessione va rinnovata di tanto in tanto dall'app; finché non lo fai, l'API risponde 409 ADE_REAUTH_REQUIRED."
+            }
           </li>
           <li>
             {"Una chiave API di tipo "}
@@ -881,7 +884,11 @@ export default function ApiDocsPage() {
             <tbody>
               {[
                 ["4", "4%", "Ridotta (es. beni di prima necessità)"],
-                ["5", "5%", "Ridotta (es. alcuni prodotti farmaceutici)"],
+                [
+                  "5",
+                  "5%",
+                  "Ridotta (es. erbe aromatiche fresche, tartufi, cooperative sociali)",
+                ],
                 ["10", "10%", "Ridotta (es. alimenti, ristorazione, turismo)"],
                 ["22", "22%", "Ordinaria"],
                 ["N1", "0%", "Art. 15 DPR 633/72 — Escluso da IVA"],
@@ -906,7 +913,9 @@ export default function ApiDocsPage() {
         {/* ─── Idempotenza ─── */}
         <h2 className="mt-12 text-xl font-semibold">Idempotenza</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          {"Ogni richiesta di emissione e annullamento richiede un campo "}
+          {
+            "Ogni richiesta di emissione, annullamento e reso richiede un campo "
+          }
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             idempotencyKey
           </code>

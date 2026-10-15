@@ -39,10 +39,11 @@ export default function CredenzialiPage() {
           <Badge variant="secondary">Fiscalizzazione</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Per trasmettere scontrini elettronici all&apos;Agenzia delle Entrate
-          servono le credenziali <strong>Fisconline</strong> del titolare
-          dell&apos;attività. Questa guida spiega cosa sono, chi può ottenerle e
-          come verificare che funzionino.
+          Per collegare ScontrinoZero all&apos;Agenzia delle Entrate puoi usare
+          le credenziali <strong>Fisconline</strong> del titolare
+          dell&apos;attività oppure, in alternativa, la CIE. Questa guida spiega
+          cosa sono le credenziali Fisconline, chi può ottenerle e come
+          verificare che funzionino.
         </p>
         <HelpArticleUpdatedAt slug="credenziali-fisconline" />
         <figure className="mt-6">
@@ -74,7 +75,7 @@ export default function CredenzialiPage() {
           }
           <strong>SPID, CIE o CNS</strong>
           {
-            ". Fisconline resta disponibile per i titolari di partita IVA attiva e per gli operatori autorizzati a operare per conto di società, enti o professionisti — ed è proprio questo il canale che ScontrinoZero utilizza per trasmettere gli scontrini."
+            ". Fisconline resta disponibile per imprese e professionisti titolari di partita IVA e per chi è autorizzato a operare per conto di società o enti — ed è uno dei due canali con cui ScontrinoZero si collega all'Agenzia: l'altro è la CIE."
           }
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -119,20 +120,21 @@ export default function CredenzialiPage() {
           <li>
             {"Vai su "}
             <strong>agenziaentrate.gov.it</strong>
-            {" e accedi all'area riservata con SPID, CIE o CNS."}
-          </li>
-          <li>
-            Nel menu dei servizi telematici seleziona{" "}
-            <strong>Richiesta credenziali Fisconline</strong>.
+            {", apri l'area riservata, scegli la scheda "}
+            <strong>Credenziali</strong>
+            {" e poi "}
+            <strong>Non sei ancora registrato?</strong>
+            {" → Registrazione a Fisconline → Richiesta del PIN."}
           </li>
           <li>
             {
-              "Il sistema mostra immediatamente le prime 4 cifre del PIN e la password di primo accesso."
+              "Compila il modulo con i dati richiesti, fra cui alcuni dati dell'ultima dichiarazione dei redditi."
             }
           </li>
+          <li>{"Il sistema mostra subito le prime 4 cifre del PIN."}</li>
           <li>
             {
-              "Le restanti 6 cifre del PIN arrivano per posta al tuo domicilio fiscale entro "
+              "Le restanti 6 cifre del PIN e la password per il primo accesso arrivano per posta al tuo domicilio fiscale entro "
             }
             <strong>15 giorni</strong>
             {"."}
@@ -150,9 +152,12 @@ export default function CredenzialiPage() {
           Opzione B — Ufficio dell&apos;Agenzia delle Entrate
         </h3>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Presentandoti a uno sportello AdE con un documento d&apos;identità e
-          l&apos;attestazione di partita IVA, ricevi in giornata il PIN completo
-          (tutte e 10 le cifre) e la password di primo accesso.
+          Presentandoti di persona a un ufficio territoriale dell&apos;AdE con
+          un documento d&apos;identità, ricevi subito la prima parte del PIN e
+          la password iniziale. La seconda parte del PIN la prelevi poi dal sito
+          dell&apos;Agenzia: area riservata → scheda Credenziali →{" "}
+          <em>Non sei ancora registrato?</em> → Registrazione a Fisconline →{" "}
+          <em>Per coloro che hanno richiesto il PIN a un Ufficio</em>.
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           Se hai un commercialista o un intermediario abilitato, può attivare le

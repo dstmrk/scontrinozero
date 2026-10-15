@@ -132,9 +132,9 @@ export default function CollegareAdeConCie() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dalla dashboard vai su <strong>Impostazioni → Credenziali AdE</strong>{" "}
-          (su mobile: tocca l&apos;icona ☰ in alto a sinistra). Nel modulo di
-          collegamento trovi il selettore del metodo: seleziona{" "}
-          <strong>CIE</strong> al posto di Fisconline.
+          (su mobile: tocca l&apos;icona a forma di ingranaggio in alto a
+          destra). Nel modulo di collegamento trovi il selettore del metodo:
+          seleziona <strong>CIE</strong> al posto di Fisconline.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">

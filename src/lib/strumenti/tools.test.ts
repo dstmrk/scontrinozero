@@ -149,3 +149,39 @@ describe("relatedHelp slugs point to real help articles", () => {
     }
   });
 });
+
+/**
+ * Il calcolatore RT spiegava il proprio conto con "€150 all'anno di canone,
+ * manutenzione e verifica biennale": il canone è il contratto di assistenza
+ * facoltativo di `rt-costs.ts`. Il copy deve descrivere le stesse voci che
+ * `computeRtSavings` somma, con le cifre della fonte unica.
+ */
+describe("calcolatore-risparmio-rt: copy allineato a RT_COSTS", () => {
+  const t = tools["calcolatore-risparmio-rt"];
+  const testo = [
+    t.metaDescription,
+    t.heroIntro,
+    ...t.howItWorks,
+    ...t.faq.map((f) => f.answer),
+  ].join(" ");
+
+  it("non presenta un canone fra i costi del registratore", () => {
+    expect(testo).not.toMatch(/canon[ei]/i);
+  });
+
+  it("cita le fasce di acquisto, installazione e verificazione", async () => {
+    const { RT_COSTS } = await import("@/lib/marketing/rt-costs");
+    for (const range of [
+      RT_COSTS.purchase,
+      RT_COSTS.installation,
+      RT_COSTS.periodicVerification,
+    ]) {
+      expect(testo).toContain(`${range.min}-${range.max} €`);
+    }
+  });
+
+  it("dichiara escluso il contratto di assistenza facoltativo", () => {
+    expect(testo).toMatch(/contratto di assistenza/i);
+    expect(testo).toMatch(/facoltativo/i);
+  });
+});

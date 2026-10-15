@@ -37,9 +37,10 @@ export default function CassettoFiscalePage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dopo aver emesso uno scontrino con ScontrinoZero, i dati arrivano
-          all&apos;Agenzia delle Entrate e sono consultabili nel{" "}
-          <strong>cassetto fiscale</strong> del portale Fatture e Corrispettivi.
-          Questa guida spiega dove cercarli e cosa fare se qualcosa non torna.
+          all&apos;Agenzia delle Entrate e sono consultabili nel portale{" "}
+          <strong>Fatture e Corrispettivi</strong>, che molti chiamano «cassetto
+          fiscale». Questa guida spiega dove cercarli e cosa fare se qualcosa
+          non torna.
         </p>
         <HelpArticleUpdatedAt slug="cassetto-fiscale" />
 
@@ -48,12 +49,13 @@ export default function CassettoFiscalePage() {
           Cos&apos;è il cassetto fiscale
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il cassetto fiscale è l&apos;area riservata del portale dell&apos;AdE
-          dove confluiscono tutte le informazioni tributarie a te intestate:
-          dichiarazioni, fatture, corrispettivi, rimborsi e molto altro. Nella
-          sezione <strong>Corrispettivi</strong> trovi i documenti commerciali
-          emessi tramite la procedura online — inclusi quelli inviati da
-          ScontrinoZero.
+          Il cassetto fiscale vero e proprio è l&apos;area dell&apos;AdE con
+          dichiarazioni, versamenti, rimborsi e dati anagrafici. I documenti
+          commerciali emessi con la procedura online — inclusi quelli inviati da
+          ScontrinoZero — stanno invece nel portale{" "}
+          <strong>Fatture e Corrispettivi</strong>, un servizio separato dello
+          stesso sito, nella sezione <strong>Corrispettivi</strong>. È lì che li
+          cerchi.
         </p>
 
         {/* ─── Come accedere ─── */}
@@ -66,8 +68,9 @@ export default function CassettoFiscalePage() {
             Fatture e Corrispettivi).
           </li>
           <li>
-            Accedi con le tue credenziali <strong>Fisconline</strong>, SPID o
-            CIE — le stesse usate per collegare ScontrinoZero all&apos;AdE.
+            Accedi con SPID, CIE o le credenziali <strong>Fisconline</strong>:
+            va bene anche un metodo diverso da quello con cui hai collegato
+            ScontrinoZero.
           </li>
           <li>
             Dal menu principale seleziona <strong>Corrispettivi</strong>, poi{" "}
@@ -95,7 +98,7 @@ export default function CassettoFiscalePage() {
             un numero progressivo visibile nel dettaglio dello scontrino.
           </li>
           <li>
-            <strong>Tipo documento</strong> — Vendita o Annullamento.
+            <strong>Tipo documento</strong> — vendita, annullo o reso.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -108,9 +111,9 @@ export default function CassettoFiscalePage() {
           Tempistiche di visibilità
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          I documenti trasmessi da ScontrinoZero compaiono nel cassetto fiscale
-          in genere entro <strong>pochi minuti</strong>. In alcuni casi,
-          soprattutto nelle ore di punta del portale AdE, possono volerci fino a{" "}
+          I documenti trasmessi da ScontrinoZero compaiono nel portale in genere
+          entro <strong>pochi minuti</strong>. In alcuni casi, soprattutto nelle
+          ore di punta del portale AdE, possono volerci fino a{" "}
           <strong>24 ore</strong>. Se uno scontrino risulta{" "}
           <strong>Emesso</strong> in ScontrinoZero ma non compare ancora nel
           cassetto, attendi qualche ora prima di preoccuparti.

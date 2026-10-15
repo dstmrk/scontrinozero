@@ -43,7 +43,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "Il metodo scelto influisce sulla Lotteria degli Scontrini?",
     answer:
-      "Sì. Il campo per il codice lotteria sta nel riepilogo, sotto «Altre opzioni», e accetta un codice solo quando l'incasso è tutto elettronico: alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il campo resta disattivato e ti scrive perché, e lo stesso vale per un pagamento misto: basta una quota in contanti perché il documento non sia più pagato esclusivamente con mezzi elettronici.",
+      "Sì. Il campo per il codice lotteria sta nel riepilogo, sotto «Altre opzioni», e accetta un codice solo quando l'incasso è tutto elettronico: alla Lotteria degli Scontrini partecipano soltanto gli acquisti da 1 € in su pagati con strumenti elettronici. Con pagamento in contanti il campo resta disattivato e ti scrive perché, e lo stesso vale per un pagamento misto: basta una quota in contanti perché il documento non sia più pagato esclusivamente con mezzi elettronici.",
   },
 ];
 
@@ -192,7 +192,7 @@ export default function MetodiDiPagamentoPage() {
           in cassa. Il campo <strong>codice Lotteria degli Scontrini</strong>,
           nel riepilogo sotto <strong>Altre opzioni</strong>, accetta un codice
           soltanto se hai scelto Elettronico, perché alla Lotteria partecipano
-          solo gli acquisti sopra <strong>1 €</strong> pagati con strumenti
+          solo gli acquisti da <strong>1 €</strong> in su pagati con strumenti
           elettronici. Se registri come Contanti un incasso ricevuto con
           bonifico, oltre a trasmettere un dato inesatto togli al cliente la
           possibilità di partecipare.

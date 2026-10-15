@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { RT_COSTS, formatRtCostRange } from "@/lib/marketing/rt-costs";
 import {
   JsonLd,
   helpArticleBreadcrumb,
@@ -128,7 +129,9 @@ export default function ChiusuraGiornalieraPage() {
                 <td className="text-foreground py-2 font-medium">
                   Hardware richiesto
                 </td>
-                <td className="py-2">RT certificato (€300-800)</td>
+                <td className="py-2">
+                  RT certificato ({formatRtCostRange(RT_COSTS.purchase)})
+                </td>
                 <td className="py-2">Smartphone o PC</td>
               </tr>
             </tbody>
@@ -182,13 +185,16 @@ export default function ChiusuraGiornalieraPage() {
               Devo tenere un registro cartaceo dei corrispettivi?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. I corrispettivi sono già registrati nel cassetto fiscale
-              dell&apos;AdE e nello Storico di ScontrinoZero. Per dare i dati al
-              commercialista puoi filtrare lo Storico per il mese di riferimento
-              oppure scaricare l&apos;archivio completo dei tuoi dati (profilo,
-              scontrini, catalogo) dalle{" "}
-              <strong>Impostazioni → Portabilità dati</strong> — la funzione
-              prevista dall&apos;art. 20 GDPR produce un file JSON strutturato.
+              No. I corrispettivi sono già registrati sul portale Fatture e
+              Corrispettivi dell&apos;AdE e nello Storico di ScontrinoZero. Per
+              dare i dati al commercialista puoi filtrare lo Storico per il mese
+              di riferimento oppure scaricare l&apos;archivio completo dei tuoi
+              dati (profilo, scontrini, catalogo) dalle{" "}
+              <strong>
+                Impostazioni → Altre impostazioni → Portabilità dati
+              </strong>{" "}
+              — la funzione prevista dall&apos;art. 20 GDPR produce un file JSON
+              strutturato.
             </p>
           </div>
         </div>

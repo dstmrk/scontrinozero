@@ -41,11 +41,11 @@ export default function IntestazioneScontrinoPage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;intestazione dello scontrino mostra i tuoi dati fiscali —
-          ragione sociale, indirizzo dell&apos;attività e partita IVA. Durante
-          il primo collegamento all&apos;AdE, ScontrinoZero pre-popola questi
-          campi leggendoli dal portale Fatture e Corrispettivi; in seguito puoi
-          modificarli direttamente in app, eccetto P.IVA e codice fiscale che
-          restano gestiti dall&apos;Agenzia delle Entrate.
+          ragione sociale, indirizzo dell&apos;attività e partita IVA. Ragione
+          sociale e indirizzo li inserisci tu nella prima configurazione e li
+          puoi modificare in app quando vuoi; partita IVA e codice fiscale
+          invece ScontrinoZero li legge dall&apos;Agenzia delle Entrate al primo
+          collegamento, e non si modificano dall&apos;app.
         </p>
         <HelpArticleUpdatedAt slug="intestazione-scontrino" />
         <figure className="mt-6">

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RT_COSTS } from "@/lib/marketing/rt-costs";
 import { computeRtSavings } from "./risparmio-rt";
 
 describe("computeRtSavings", () => {
@@ -54,15 +55,65 @@ describe("computeRtSavings", () => {
     ).toBe(false);
   });
 
-  it("breakdown RT include hardware iniziale + canone annuo × 5", () => {
+  it("breakdown RT = spesa iniziale + verificazioni periodiche", () => {
     const result = computeRtSavings({ receiptsPerMonth: 100 });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.breakdown.rt.hardware).toBeGreaterThan(0);
-    expect(result.breakdown.rt.annualFees5y).toBeGreaterThan(0);
+    expect(result.breakdown.rt.upfront).toBeGreaterThan(0);
+    expect(result.breakdown.rt.periodicVerifications5y).toBeGreaterThan(0);
     expect(
-      result.breakdown.rt.hardware + result.breakdown.rt.annualFees5y,
+      result.breakdown.rt.upfront + result.breakdown.rt.periodicVerifications5y,
     ).toBe(result.rtCost5y);
+  });
+
+  /**
+   * Il calcolatore contava 150 €/anno di "canone + manutenzione": la cifra
+   * che `rt-costs.ts` classifica come contratto di assistenza FACOLTATIVO e
+   * che home e guide avevano già ritirato. I costi RT ora vengono da lì.
+   */
+  describe("costi RT derivati da RT_COSTS (nessun canone annuo)", () => {
+    const mid = (r: { min: number; max: number }) => (r.min + r.max) / 2;
+
+    it("spesa iniziale = punto medio di acquisto + installazione", () => {
+      const result = computeRtSavings({ receiptsPerMonth: 100 });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.breakdown.rt.upfront).toBe(
+        mid(RT_COSTS.purchase) + mid(RT_COSTS.installation),
+      );
+    });
+
+    it("ricorrente = solo le verificazioni che cadono nei 5 anni", () => {
+      const result = computeRtSavings({ receiptsPerMonth: 100 });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const verifications = Math.floor(
+        result.horizonYears / RT_COSTS.periodicVerification.everyYears,
+      );
+      expect(verifications).toBe(2);
+      expect(result.breakdown.rt.periodicVerifications5y).toBe(
+        verifications * mid(RT_COSTS.periodicVerification),
+      );
+    });
+
+    it("non conta il contratto di assistenza facoltativo", () => {
+      const result = computeRtSavings({ receiptsPerMonth: 100 });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // 5 anni di contratto al minimo bastano a superare l'intero ricorrente.
+      expect(result.breakdown.rt.periodicVerifications5y).toBeLessThan(
+        RT_COSTS.assistanceContract.min * result.horizonYears,
+      );
+    });
+
+    it("con lo Starter il risparmio a 5 anni è 750,05 €", () => {
+      const result = computeRtSavings({ receiptsPerMonth: 100 });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.rtCost5y).toBe(900);
+      expect(result.scontrinozeroCost5y).toBe(149.95);
+      expect(result.savings).toBe(750.05);
+    });
   });
 
   it("breakdown SZ include solo canone annuo × 5 (no hardware)", () => {

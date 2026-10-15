@@ -58,7 +58,7 @@ export const confrontoContent: ConfrontoContent = {
       id: "registratore-telematico",
       title: "Registratore telematico (hardware)",
       intro:
-        "È la soluzione classica: stampante fiscale fisica sul bancone, certificata e collaudata periodicamente. Resta un'ottima scelta per attività con flusso costante di clienti al banco.",
+        "È la soluzione classica: stampante fiscale fisica sul bancone, certificata e sottoposta a verificazione periodica. Resta un'ottima scelta per attività con flusso costante di clienti al banco.",
       whenItFits: [
         "Volumi elevati di scontrini al giorno con coda al banco.",
         "Punto vendita fisso dove il cliente si aspetta lo scontrino di carta stampato sul momento.",
@@ -66,7 +66,7 @@ export const confrontoContent: ConfrontoContent = {
       ],
       whenWeFit: [
         "Attività mobile, stagionale o di piccole dimensioni: ambulanti, B&B, artigiani in cantiere, food truck.",
-        "Vuoi evitare l'investimento iniziale per l'hardware e i canoni di manutenzione/verifica periodica.",
+        "Vuoi evitare l'investimento iniziale per l'hardware, l'installazione e la verificazione periodica.",
         "Ti basta uno smartphone connesso a internet per emettere e trasmettere lo scontrino.",
         "Vuoi avere lo storico digitale degli scontrini sempre accessibile, anche da PC.",
       ],
@@ -163,7 +163,7 @@ export const confrontoContent: ConfrontoContent = {
   ],
   ourPositioning: {
     bestFor: [
-      "Micro-attività, ambulanti, professionisti e B&B che emettono pochi scontrini al giorno.",
+      "Micro-attività, ambulanti, artigiani e B&B che emettono pochi scontrini al giorno.",
       "Chi cerca il costo annuale più basso e vuole un trial senza obblighi.",
       "Chi apprezza la trasparenza dell'open source e/o vuole l'opzione self-hosted.",
     ],
@@ -195,7 +195,7 @@ export const confrontoContent: ConfrontoContent = {
     {
       question: "Posso migrare da un altro software a ScontrinoZero?",
       answer:
-        "Sì. Le credenziali AdE restano le tue: basta crearle in ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile nel cassetto fiscale dell'Agenzia delle Entrate, indipendentemente dal software che hai usato prima.",
+        "Sì. Le credenziali AdE restano le tue: basta collegarle a ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile sul portale Fatture e Corrispettivi dell'Agenzia delle Entrate, indipendentemente dal software che hai usato prima.",
     },
   ],
   relatedHelp: [

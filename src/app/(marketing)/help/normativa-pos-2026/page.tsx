@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { RT_COSTS } from "@/lib/marketing/rt-costs";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
@@ -127,9 +128,12 @@ export default function NormativaPos2026Page() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Esenzione</strong> — è prevista solo per chi dedica un POS{" "}
           <em>esclusivamente</em> a operazioni esonerate dall&apos;obbligo di
-          scontrino (es. ricariche telefoniche, marche da bollo, multe).
-          L&apos;uso esclusivo va dichiarato nel portale AdE: senza la
-          dichiarazione il POS resta soggetto all&apos;obbligo di collegamento.
+          scontrino (es. tabacchi e generi di monopolio, carburanti, ricariche
+          telefoniche). Quel POS non va collegato; nella procedura puoi
+          segnalarlo con la funzione <em>POS non collegati</em>, così non
+          compare più fra quelli da collegare. La segnalazione è irreversibile:
+          da lì in poi quel POS non va usato, nemmeno di rado, per incassi
+          certificati con documento commerciale.
         </p>
 
         {/* ─── Cosa fare con ScontrinoZero ─── */}
@@ -138,21 +142,22 @@ export default function NormativaPos2026Page() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La procedura DCO usata da ScontrinoZero è soggetta all&apos;obbligo
-          come gli RT fisici, ma il collegamento è significativamente più
-          semplice perché si fa tutto via web:
+          come gli RT fisici, e anche qui il collegamento si fa tutto via web:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Nessun firmware o hardware da aggiornare.</strong> Non devi
-            attendere release del produttore di un RT, né far intervenire un
-            tecnico per certificarlo.
+            <strong>Nessun firmware o hardware da aggiornare.</strong> Il
+            collegamento è logico per tutti, RT compresi: una comunicazione via
+            web, non un cavo fra POS e cassa.
           </li>
           <li>
             <strong>L&apos;abbinamento si fa nel portale AdE.</strong> Accedi a
-            Fatture e Corrispettivi con le tue credenziali Fisconline (le stesse
-            che già usi con ScontrinoZero), individui il POS nell&apos;elenco
-            dei terminali associati alla tua P.IVA e lo abbini al tuo sistema
-            DCO.
+            Fatture e Corrispettivi (SPID, CIE, CNS o Fisconline), apri{" "}
+            <em>Documento Commerciale on line</em> e, nel riquadro{" "}
+            <em>Funzionalità di supporto</em>, scegli{" "}
+            <em>Associazione strumenti di pagamento elettronico</em>.
+            L&apos;elenco mostra già i POS a tuo nome comunicati dagli operatori
+            finanziari: li selezioni e premi <em>Collega</em>.
           </li>
           <li>
             <strong>L&apos;operazione va fatta personalmente.</strong> Per chi
@@ -172,25 +177,28 @@ export default function NormativaPos2026Page() {
         <h2 className="mt-10 text-xl font-semibold">Sanzioni</h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Omessa o incompleta trasmissione dei corrispettivi</strong>{" "}
-            — 100 € per ogni operazione (D.Lgs. 471/1997, art. 11, comma
-            2-quinquies).
+            <strong>
+              Omessa, tardiva o errata trasmissione di corrispettivi e dati dei
+              pagamenti, senza effetti sull&apos;imposta
+            </strong>{" "}
+            — 100 € per trasmissione, fino a 1.000 € a trimestre (D.Lgs.
+            471/1997, art. 11, comma 2-quinquies).
           </li>
           <li>
             <strong>Omessa installazione o mancato collegamento</strong> — da
             1.000 € a 4.000 €, con possibile sospensione della licenza o
             autorizzazione da 15 giorni a 2 mesi (D.Lgs. 471/1997, art. 11,
-            comma 5).
+            comma 5, e art. 12, comma 3).
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Alla data di questo aggiornamento (2 agosto 2026) è in discussione, in
-          sede di conversione del decreto fiscale, un emendamento che
-          introdurrebbe una <strong>franchigia del 5%</strong>: sotto questa
-          soglia di operazioni non collegate non scatterebbe la sanzione. Finché
-          non è approvato resta applicabile la disciplina vigente. Verifica gli
-          aggiornamenti sul sito dell&apos;Agenzia delle Entrate o con il tuo
-          commercialista.
+          Dal 12 agosto 2026 vale una <strong>tolleranza del 5%</strong> (D.Lgs.
+          7 agosto 2026 n. 148, art. 33): la sanzione da 100 € non si applica se
+          lo scarto fra le operazioni con pagamento elettronico registrate e i
+          pagamenti elettronici accettati non supera il 5% del loro numero. La
+          tolleranza non copre il mancato collegamento del POS, che resta punito
+          da 1.000 a 4.000 €. Per una violazione già commessa valuta con il
+          commercialista il ravvedimento operoso.
         </p>
 
         {/* ─── Differenze RT vs DCO ─── */}
@@ -218,7 +226,10 @@ export default function NormativaPos2026Page() {
             <tbody className="divide-border divide-y">
               <tr>
                 <td className="text-foreground py-2 font-medium">Hardware</td>
-                <td className="py-2">RT certificato (€200-800+)</td>
+                <td className="py-2">
+                  RT certificato (€{RT_COSTS.purchase.min}-
+                  {RT_COSTS.purchase.max})
+                </td>
                 <td className="py-2">Smartphone o PC</td>
               </tr>
               <tr>
@@ -226,10 +237,11 @@ export default function NormativaPos2026Page() {
                   Modalità di abbinamento POS (2026)
                 </td>
                 <td className="py-2">
-                  Firmware RT certificato + intervento tecnico
+                  Servizio web «Gestione collegamenti», anche tramite
+                  intermediario delegato
                 </td>
-                <td className="py-2 font-semibold text-green-600">
-                  Registrazione nel portale AdE (no hardware)
+                <td className="py-2">
+                  Funzione nella procedura DCO, solo l&apos;esercente
                 </td>
               </tr>
               <tr>
@@ -252,7 +264,12 @@ export default function NormativaPos2026Page() {
                 <td className="text-foreground py-2 font-medium">
                   Costo annuo
                 </td>
-                <td className="py-2">€150-400+ (canone + manutenzione)</td>
+                <td className="py-2">
+                  Verificazione ogni {RT_COSTS.periodicVerification.everyYears}{" "}
+                  anni (€{RT_COSTS.periodicVerification.min}-
+                  {RT_COSTS.periodicVerification.max}); assistenza facoltativa a
+                  parte
+                </td>
                 <td className="py-2">Da €29,99/anno</td>
               </tr>
             </tbody>
@@ -272,9 +289,10 @@ export default function NormativaPos2026Page() {
               elettronici e sia tenuto alla trasmissione telematica dei
               corrispettivi, indipendentemente dal sistema di cassa. La
               registrazione del POS avviene nel portale AdE Fatture e
-              Corrispettivi. L&apos;unica esenzione è per POS dedicati
-              esclusivamente a operazioni esonerate dall&apos;obbligo di
-              scontrino, da dichiarare nel portale stesso.
+              Corrispettivi, dentro la procedura Documento Commerciale Online.
+              L&apos;unica esenzione è per POS dedicati esclusivamente a
+              operazioni esonerate dall&apos;obbligo di scontrino, che non vanno
+              collegati.
             </p>
           </div>
           <div>
@@ -294,12 +312,12 @@ export default function NormativaPos2026Page() {
               Cosa succede se non comunico il POS entro il 20 aprile 2026?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Si applicano le sanzioni del D.Lgs. 471/1997, art. 11: da 1.000 €
-              a 4.000 € con possibile sospensione della licenza per omessa
-              installazione o mancato collegamento; 100 € per operazione per
-              omessa trasmissione dei corrispettivi. Verifica con il tuo
-              commercialista il quadro sanzionatorio aggiornato e
-              l&apos;eventuale franchigia del 5% in discussione.
+              Il mancato collegamento è punito da 1.000 € a 4.000 €, con
+              possibile sospensione della licenza (D.Lgs. 471/1997, art. 11,
+              comma 5): la tolleranza del 5% introdotta dal D.Lgs. 148/2026
+              riguarda le trasmissioni, non questa violazione. Se sei fuori
+              termine, registra il collegamento subito e valuta con il tuo
+              commercialista il ravvedimento operoso.
             </p>
           </div>
           <div>
@@ -309,12 +327,12 @@ export default function NormativaPos2026Page() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Il vantaggio principale di ScontrinoZero non è l&apos;esenzione
-              dall&apos;obbligo POS-cassa (entrambi soggetti), ma il fatto che
-              non ci sono firmware né hardware da aggiornare e i costi fissi
-              sono molto più bassi. Se hai un RT da rinnovare o un contratto di
-              manutenzione costoso, il passaggio può essere interessante. Puoi
-              provare la prova gratuita di 30 giorni senza inserire la carta di
-              credito.
+              dall&apos;obbligo POS-cassa (entrambi soggetti), ma l&apos;assenza
+              di hardware da comprare, installare e verificare ogni due anni, e
+              costi fissi molto più bassi. Se hai un RT da rinnovare o un
+              contratto di manutenzione costoso, il passaggio può essere
+              interessante. Puoi provare la prova gratuita di 30 giorni senza
+              inserire la carta di credito.
             </p>
           </div>
         </div>

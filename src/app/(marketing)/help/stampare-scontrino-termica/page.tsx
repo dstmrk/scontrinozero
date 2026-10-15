@@ -355,10 +355,10 @@ export default function StampareScontrinoTermicaPage() {
               archivio?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Non serve archiviare la copia cartacea: tutti gli scontrini emessi
-              restano nel tuo Storico ScontrinoZero a tempo indeterminato e li
-              trovi anche nel cassetto fiscale dell&apos;AdE. Per esportarli in
-              un foglio Excel vedi{" "}
+              Non serve archiviare la copia cartacea: gli scontrini emessi
+              restano nel tuo Storico ScontrinoZero finché il tuo account è
+              attivo, e li trovi anche sul portale Fatture e Corrispettivi
+              dell&apos;AdE. Per esportarli in un foglio Excel vedi{" "}
               <Link
                 href="/help/storico-ed-esportazione"
                 className="text-primary hover:underline"
@@ -404,7 +404,7 @@ export default function StampareScontrinoTermicaPage() {
               No. La stampante termica usata da ScontrinoZero è una normale
               periferica di stampa, non un registratore telematico né un
               misuratore fiscale: l&apos;AdE non richiede alcuna registrazione
-              del dispositivo. Diverso il caso del POS, che invece va censito
+              del dispositivo. Diverso il caso del POS, che invece va collegato
               sul portale Fatture e Corrispettivi — vedi{" "}
               <Link
                 href="/help/registrare-pos-portale-ade"

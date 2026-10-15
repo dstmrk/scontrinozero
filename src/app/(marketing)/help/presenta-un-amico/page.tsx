@@ -54,7 +54,7 @@ export default function PresentaUnAmicoPage() {
             className="mx-auto max-w-[240px]"
           />
           <figcaption className="text-muted-foreground mt-2 text-center text-xs">
-            Il tuo codice referral nella sezione Piano e Abbonamento.
+            Il tuo codice referral nella card Referral delle Impostazioni.
           </figcaption>
         </figure>
 
@@ -82,12 +82,12 @@ export default function PresentaUnAmicoPage() {
         </h2>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
-            Accedi a ScontrinoZero e vai su{" "}
-            <strong>Dashboard → Impostazioni → Piano e Abbonamento</strong>.
+            Accedi a ScontrinoZero e vai su <strong>Impostazioni</strong>.
           </li>
           <li>
-            Nella sezione <strong>Presenta un amico</strong> trovi il tuo{" "}
-            <strong>codice referral</strong> personale.
+            Nella card <strong>Referral</strong>, subito sotto Piano e
+            Abbonamento, trovi il tuo <strong>codice referral</strong>{" "}
+            personale.
           </li>
           <li>
             Tocca <strong>Condividi codice referral</strong>: l&apos;app prepara
