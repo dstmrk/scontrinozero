@@ -468,7 +468,7 @@ export default function Home() {
                 imgHeight: 1860,
                 title: "Sai sempre come sta andando",
                 description:
-                  "Incassi, scontrino medio e andamento giornaliero a colpo d'occhio, con grafici chiari. Consultabili anche dal computer.",
+                  "Ricavi, scontrini emessi e scontrino medio degli ultimi 30 giorni a colpo d'occhio; con il piano Pro anche l'andamento giornaliero in grafici e periodi più lunghi, fino all'anno in corso. Consultabili anche dal computer.",
               },
             ].map((item, index) => (
               <div

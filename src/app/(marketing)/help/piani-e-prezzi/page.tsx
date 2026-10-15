@@ -170,6 +170,11 @@ export default function PianiEPrezziPage() {
             scaricarli nel CSV di riepilogo. Sono di sola lettura: non vengono
             copiati nel tuo archivio e non si possono annullare da qui
           </li>
+          <li>
+            <strong>Developer API</strong>: emetti, annulli e rendi scontrini
+            dal tuo gestionale, POS o e-commerce, con fino a 3 chiavi attive (1
+            durante la prova gratuita)
+          </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           A <strong>€49,99/anno</strong> Pro è più conveniente di Starter su
@@ -311,6 +316,13 @@ export default function PianiEPrezziPage() {
                 </td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>
+              </tr>
+              <tr>
+                <td className="text-foreground py-2 font-medium">
+                  Developer API
+                </td>
+                <td className="py-2">—</td>
+                <td className="py-2">Fino a 3 chiavi</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">

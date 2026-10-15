@@ -160,10 +160,11 @@ export default function CredenzialiPage() {
           <em>Per coloro che hanno richiesto il PIN a un Ufficio</em>.
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Se hai un commercialista o un intermediario abilitato, può attivare le
-          credenziali per la tua attività come{" "}
-          <strong>gestore incaricato</strong>
-          {": il canale è quello corretto per una società."}
+          Per una società le credenziali Fisconline sono personali: le usa il
+          legale rappresentante oppure una persona che lui nomina{" "}
+          <strong>gestore incaricato</strong> dall&apos;area riservata AdE
+          (Profilo utente → Incarichi). Chi è incaricato accede con codice
+          fiscale, password e PIN propri e poi opera per conto della società.
         </p>
 
         {/* ─── Password + PIN ─── */}
@@ -175,11 +176,11 @@ export default function CredenzialiPage() {
             <p className="font-medium">PIN (10 cifre)</p>
             <p className="text-muted-foreground mt-1 leading-relaxed">
               {
-                "Assegnato dall'Agenzia: prime 4 cifre subito (via portale o email), ultime 6 cifre per posta entro 15 giorni. Il PIN è fisso, "
+                "Assegnato dall'Agenzia: con la richiesta online le prime 4 cifre compaiono subito a video e le ultime 6 arrivano per posta entro 15 giorni; allo sportello ricevi subito la prima parte e prelevi la seconda dal sito dell'Agenzia. Il PIN è fisso, "
               }
               <strong>non scade</strong>
               {
-                " e non si cambia. Finché non arriva la parte postale il PIN è incompleto e non funziona con ScontrinoZero."
+                " e non si cambia. Finché non hai anche la seconda parte il PIN è incompleto e non funziona con ScontrinoZero."
               }
             </p>
           </div>
@@ -265,11 +266,11 @@ export default function CredenzialiPage() {
               delegato?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. Le credenziali devono essere del{" "}
-              <strong>titolare dell&apos;attività</strong> (o del legale
-              rappresentante, se si tratta di una società). Usare le credenziali
-              di un terzo non è previsto da ScontrinoZero e potrebbe violare le
-              condizioni d&apos;uso del portale AdE.
+              Solo se sono credenziali personali di chi può operare per
+              l&apos;attività: il titolare, il legale rappresentante o una
+              persona nominata gestore o operatore incaricato della società.
+              Credenziali di altri, usate al posto tuo, non sono previste da
+              ScontrinoZero.
             </p>
           </div>
           <div>

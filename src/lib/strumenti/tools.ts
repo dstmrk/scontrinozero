@@ -184,7 +184,7 @@ export const tools: Record<ToolSlug, ToolContent> = {
         question:
           "Va bene anche la formula «operazione senza applicazione dell'IVA»?",
         answer:
-          'Sì. Varianti come "Operazione senza applicazione dell\'IVA ai sensi dell\'art. 1, commi 54-89, della Legge 190/2014" o "Operazione in franchigia da IVA" sono equivalenti: ciò che conta è il richiamo esplicito all\'articolo 1, commi da 54 a 89, della Legge 190/2014, che identifica il regime forfettario.',
+          "Sì. Varianti come \"Operazione senza applicazione dell'IVA ai sensi dell'art. 1, commi 54-89, della Legge 190/2014\" o \"Operazione in franchigia da IVA ai sensi dell'art. 1, commi 54-89, della Legge 190/2014\" sono equivalenti: ciò che conta è il richiamo esplicito all'articolo 1, commi da 54 a 89, della Legge 190/2014, che identifica il regime forfettario.",
       },
       {
         question: "Quando serve la marca da bollo da 2 euro?",

@@ -42,7 +42,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "reso-merce": {
     slug: "reso-merce",
     datePublished: "2026-10-02",
-    dateModified: "2026-10-03",
+    dateModified: "2026-10-15",
     title: "Reso merce: emettere il documento di reso",
     metaTitle: "Fare un reso merce da ScontrinoZero: il documento di reso",
     description:
@@ -56,7 +56,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "analytics-e-report": {
     slug: "analytics-e-report",
     datePublished: "2026-07-13",
-    dateModified: "2026-10-02",
+    dateModified: "2026-10-15",
     title: "Analytics e report: ricavi, scontrini e prodotti",
     metaTitle: "Analytics e report: ricavi, scontrini e prodotti più venduti",
     description:
@@ -198,7 +198,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "messaggio-personalizzato-scontrino": {
     slug: "messaggio-personalizzato-scontrino",
     datePublished: "2026-08-20",
-    dateModified: "2026-08-20",
+    dateModified: "2026-10-15",
     title: "Messaggio personalizzato sullo scontrino",
     metaTitle: "Messaggio personalizzato in fondo allo scontrino",
     description:
@@ -246,7 +246,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-27",
+    dateModified: "2026-10-15",
     title: "Piani disponibili: Starter, Pro e self-hosted",
     metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
     description:
@@ -346,7 +346,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "storico-ed-esportazione": {
     slug: "storico-ed-esportazione",
     datePublished: "2026-04-17",
-    dateModified: "2026-10-02",
+    dateModified: "2026-10-15",
     title: "Storico scontrini: filtri, ricerca ed esportazione",
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:

@@ -124,7 +124,8 @@ export default function ResoMercePage() {
           <li>
             Tocca <strong>Conferma reso</strong>. A trasmissione avvenuta vedi
             il <strong>progressivo del reso</strong> e puoi consegnare al
-            cliente la ricevuta: link, QR code o stampa termica.
+            cliente la ricevuta di reso, con il link o la stampa; il QR code lo
+            trovi riaprendo il reso dallo Storico.
           </li>
         </ol>
         <figure className="mt-6">

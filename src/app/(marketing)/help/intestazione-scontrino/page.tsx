@@ -81,8 +81,9 @@ export default function IntestazioneScontrinoPage() {
           </li>
           <li>
             <strong>Non modificabili in app</strong> — partita IVA e codice
-            fiscale. Sono gestiti dall&apos;Agenzia delle Entrate: per cambiarli
-            serve una variazione anagrafica formale (vedi sotto).
+            fiscale. Sono gestiti dall&apos;Agenzia delle Entrate e il numero di
+            partita IVA non cambia nemmeno con una variazione anagrafica (vedi
+            sotto).
           </li>
         </ul>
 
@@ -121,14 +122,19 @@ export default function IntestazioneScontrinoPage() {
           subito dopo aver emesso lo scontrino.
         </p>
 
-        {/* ─── Variazione P.IVA / CF ─── */}
+        {/* ─── Variazioni dei dati fiscali ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Modificare partita IVA o codice fiscale
+          Variazioni dei dati fiscali
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           P.IVA e codice fiscale non sono modificabili dall&apos;app perché
           identificano fiscalmente la tua attività presso l&apos;Agenzia delle
-          Entrate. Per cambiarli devi presentare una variazione anagrafica:
+          Entrate. Il numero di partita IVA, del resto, non cambia nemmeno con
+          una variazione anagrafica: resta lo stesso fino alla cessazione
+          dell&apos;attività, anche se sposti il domicilio fiscale (art. 35 DPR
+          633/1972). Con la variazione comunichi all&apos;Agenzia, entro 30
+          giorni, il cambio degli altri dati collegati alla partita IVA, come
+          denominazione, sede o attività:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>

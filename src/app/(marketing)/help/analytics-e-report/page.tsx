@@ -110,16 +110,20 @@ export default function AnalyticsEReportPage() {
           <div>
             <p className="text-sm font-medium">Scontrino medio</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              L&apos;importo medio per scontrino, cioè i ricavi divisi per il
-              numero di scontrini emessi. Utile per capire il valore tipico di
-              una vendita.
+              L&apos;importo medio per scontrino: il totale degli scontrini
+              emessi nel periodo diviso per il loro numero, calcolato prima di
+              sottrarre i resi. Per questo, se nel periodo hai fatto dei resi,
+              non coincide con Ricavi diviso Scontrini emessi. Utile per capire
+              il valore tipico di una vendita.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">Scontrini annullati</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Quanti scontrini hai annullato nel periodo. Sono contati a parte:
-              non entrano nei ricavi né nel conteggio degli emessi.
+              Quanti degli scontrini emessi nel periodo risultano annullati:
+              conta la data della vendita, non quella dell&apos;annullo. Sono
+              contati a parte: non entrano nei ricavi né nel conteggio degli
+              emessi.
             </p>
           </div>
         </div>

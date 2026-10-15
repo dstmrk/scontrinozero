@@ -79,7 +79,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     useCase:
       "Se vendi al mercato settimanale, alle fiere, in spiaggia o porta a porta, il registratore di cassa fisso è scomodo: pesa, va alimentato, va portato dietro. ScontrinoZero ti permette di emettere lo scontrino elettronico (Documento Commerciale Online) direttamente dallo smartphone, anche con connessione mobile: il corrispettivo parte verso l'Agenzia delle Entrate a ogni singola emissione, quindi non c'è nessuna chiusura di fine giornata da ricordare.",
     obligations: [
-      "Emissione del Documento Commerciale Online per ogni vendita B2C, anche di piccolo importo (DPR 633/72 art. 22).",
+      "Emissione del Documento Commerciale Online per ogni vendita B2C, anche di piccolo importo (DPR 633/72 art. 22). Fanno eccezione solo alcune vendite ambulanti elencate dall'art. 2, comma 1, DPR 696/1996 (richiamato dal DM 10 maggio 2019): palloncini, piccola oggettistica per bambini, gelati, dolciumi, caldarroste, olive e sementi venduti senza attrezzature motorizzate e, in genere, il commercio senza attrezzature di beni di modico valore (lett. bb, che esclude chi opera nei mercati rionali); cartoline e souvenir venduti senza strutture motorizzate (lett. dd).",
       "Trasmissione telematica dei corrispettivi all'Agenzia delle Entrate entro 12 giorni dalla data dell'operazione.",
       "Conservazione del documento per 10 anni (in versione digitale è sufficiente).",
       "Indicazione del codice lotteria se richiesto dal cliente (Lotteria degli Scontrini).",
@@ -234,9 +234,9 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
       {
         question:
-          "Va bene per affittacamere non imprenditoriale (codice ATECO 55.20.51, il codice di attività delle case e camere per vacanze)?",
+          "Gestisco un affittacamere o un B&B in forma non imprenditoriale: mi serve?",
         answer:
-          "Sì, purché tu sia titolare di partita IVA e abbia le credenziali AdE attive (Fisconline o CIE). L'obbligo di emissione del documento commerciale dipende dalla forma di esercizio: verifica con il commercialista se rientri nei casi obbligati.",
+          "Dipende dalla partita IVA. ScontrinoZero richiede partita IVA attiva e credenziali AdE (Fisconline o CIE): se affitti camere in forma occasionale, senza partita IVA, il documento commerciale non è previsto e lo strumento non fa per te. Se invece hai aperto partita IVA per la struttura, emetti il documento commerciale per i soggiorni pagati da privati che non chiedono fattura. Nel dubbio sull'inquadramento, verifica con il commercialista.",
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "metodi-di-pagamento"],
@@ -260,10 +260,10 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Limite di ricavi €85.000/anno per restare nel regime forfettario.",
     ],
     benefits: [
-      "Natura N2 impostabile come aliquota prevalente in onboarding, così è già pre-compilata sugli scontrini.",
+      "Natura N2 impostabile come aliquota prevalente in onboarding, così è già pre-compilata sulle righe a importo libero; i prodotti del catalogo hanno un'aliquota propria, da mettere su N2 quando li crei.",
       "Costo mensile più basso del mercato: a partire da €2,50/mese (annuale).",
       "Zero hardware da acquistare: solo lo smartphone che già hai.",
-      "Storico ordinato e ricercabile; export CSV sul piano Pro.",
+      "Storico filtrabile per data; export CSV sul piano Pro.",
     ],
     faq: [
       {
@@ -438,13 +438,13 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     obligations: [
       "Emissione del Documento Commerciale Online per abbonamenti, ingressi e lezioni pagati da privati (DPR 633/72 art. 22).",
       "IVA al 22% sui servizi fitness resi in forma d'impresa (ditta individuale o società); il personal trainer che lavora come libero professionista fattura ogni seduta.",
-      "Regole proprie per ASD/SSD in regime L. 398/91: i corrispettivi istituzionali verso i tesserati seguono una disciplina diversa — verifica con il commercialista.",
+      "ASD/SSD in regime L. 398/91: cessioni e prestazioni esonerate dalla certificazione dei corrispettivi (art. 2, comma 1, lett. hh, DPR 696/1996). Verifica con il commercialista.",
       "Trasmissione telematica dei corrispettivi entro 12 giorni dall'incasso.",
     ],
     benefits: [
       "Abbonamenti, ingressi singoli e pacchetti lezioni configurati una volta a catalogo, scontrino in 2 tap.",
       "Il personal trainer emette ovunque si alleni il cliente: parco, domicilio, studio.",
-      "Storico incassi per giorno e, sul piano Pro, i prodotti più venduti in Analytics.",
+      "Storico filtrabile per data e, sul piano Pro, ricavi giornalieri e prodotti più venduti in Analytics.",
       "Zero hardware al front desk: niente registratore, solo il tablet o lo smartphone.",
     ],
     faq: [
@@ -457,7 +457,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Gestisco una ASD/SSD: devo emettere scontrino?",
         answer:
-          "Dipende. I corrispettivi istituzionali incassati dai tesserati in regime L. 398/91 possono essere decommercializzati e non richiedere il documento commerciale; le attività commerciali (es. servizi a non tesserati, vendita di prodotti) vanno invece certificate. Verifica il tuo caso con il commercialista.",
+          "Dipende dal regime. Se l'ASD/SSD applica la L. 398/91, tutte le sue cessioni e prestazioni, comprese quelle commerciali (servizi a non tesserati, vendita di prodotti), sono esonerate dalla certificazione dei corrispettivi (art. 2, comma 1, lett. hh, DPR 696/1996) e quindi anche da memorizzazione e invio telematico (DM 10 maggio 2019): il documento commerciale resta facoltativo. Fuori dalla 398/91, invece, le attività commerciali vanno certificate con il documento commerciale. Verifica il tuo caso con il commercialista.",
       },
       {
         question: "Posso vendere pacchetti da 10 lezioni?",
@@ -489,7 +489,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Menu a catalogo: panino, fritto e bibita già configurati, scontrino in 2 tap anche con la fila.",
       "Aliquote diverse nella stessa vendita: somministrazione al 10% e prodotti al 22% convivono nello stesso scontrino.",
       "Funziona con la connessione 4G/5G del telefono: nessuna linea fissa, nessun hardware dedicato.",
-      "Storico per giornata: sai subito quanto ha incassato ogni piazza o evento.",
+      "Storico filtrabile per data, per ritrovare gli scontrini di ogni piazza o evento; sul piano Pro, Analytics mostra i ricavi giorno per giorno.",
     ],
     faq: [
       {
@@ -500,7 +500,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "A fine serata devo fare la chiusura di cassa?",
         answer:
-          "No. Con il Documento Commerciale Online i corrispettivi vengono trasmessi all'Agenzia delle Entrate a ogni emissione: non c'è la chiusura giornaliera obbligatoria del registratore telematico. Nello storico vedi comunque il totale incassato per giornata.",
+          "No. Con il Documento Commerciale Online i corrispettivi vengono trasmessi all'Agenzia delle Entrate a ogni emissione: non c'è la chiusura giornaliera obbligatoria del registratore telematico. Nello storico ritrovi, filtrando per data, gli scontrini della serata; il totale incassato giorno per giorno lo trovi nel grafico «Ricavi giornalieri» di Analytics, sul piano Pro.",
       },
       {
         question: "Serve una stampante o basta il QR?",
@@ -525,7 +525,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     obligations: [
       "Corse urbane in taxi: prestazioni esenti IVA (art. 10, n. 14, DPR 633/72 — trasporto urbano di persone con veicoli da piazza).",
       "Servizio NCC: IVA al 10% come trasporto di persone (Tab. A, parte III, DPR 633/72).",
-      "Il trasporto di persone rientra in specifici esoneri dalla certificazione dei corrispettivi (DPR 696/1996): verifica con il commercialista se e come il tuo servizio vi ricade.",
+      "Taxi: corse esonerate dalla certificazione dei corrispettivi e dall'invio telematico (art. 2, comma 1, lett. l, DPR 696/1996; DM 10 maggio 2019), quindi il documento commerciale è facoltativo. NCC: nessun esonero (salvo il servizio senza fini di lucro reso solo a persone con disabilità), quindi ogni corsa pagata da un privato che non chiede fattura va certificata con il documento commerciale (art. 22, comma 1, n. 3, DPR 633/72).",
       "Fattura elettronica quando il cliente la richiede (trasferte aziendali, deducibilità dei costi).",
     ],
     benefits: [
@@ -538,7 +538,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Taxi e NCC non sono esonerati dallo scontrino?",
         answer:
-          "In molti casi sì: il trasporto di persone rientra negli esoneri dalla certificazione dei corrispettivi previsti dal DPR 696/1996. L'esonero però è una facoltà, non un divieto: puoi comunque emettere il documento commerciale per dare al cliente una ricevuta immediata e tenere uno storico incassi ordinato. Verifica il tuo inquadramento con il commercialista.",
+          "Il taxi sì, l'NCC no. Le corse in taxi sono esonerate dalla certificazione dei corrispettivi (art. 2, comma 1, lett. l, DPR 696/1996) e quindi anche da memorizzazione e invio telematico (DM 10 maggio 2019, art. 1). L'esonero è una facoltà, non un divieto: puoi comunque emettere il documento commerciale per dare al cliente una ricevuta immediata e tenere uno storico incassi ordinato. Il noleggio con conducente invece non rientra negli esoneri (salvo il servizio reso senza fini di lucro solo a persone con disabilità): ogni corsa pagata da un privato che non chiede fattura va certificata con il documento commerciale.",
       },
       {
         question: "Come consegno la ricevuta al cliente in auto?",
@@ -840,7 +840,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emissione del Documento Commerciale Online per ogni vendita o servizio B2C incassato (art. 22 DPR 633/72).",
       "Aliquote IVA corrette per riga: 22% sul vino, 4-10% su olio, miele e conserve, 10% su alloggio e somministrazione.",
       "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
-      "Per i produttori agricoli in regime speciale (art. 34 DPR 633/72), verifica col commercialista il corretto inquadramento delle vendite.",
+      "Produttori agricoli in regime speciale (art. 34, comma 1, DPR 633/72): le cessioni dei propri prodotti agricoli sono esonerate dalla certificazione dei corrispettivi (art. 2, comma 1, lett. c, DPR 696/1996), mentre alloggio e somministrazione restano da certificare. Verifica col commercialista l'inquadramento delle singole vendite.",
     ],
     benefits: [
       "Funziona in vigna e in campagna: basta la connessione 4G dello smartphone.",
@@ -862,7 +862,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Il regime speciale agricolo cambia qualcosa?",
         answer:
-          "Il regime speciale IVA agricolo (art. 34 DPR 633/72) riguarda la detrazione, non l'obbligo di certificare i corrispettivi: le vendite al dettaglio a privati vanno comunque documentate. L'inquadramento corretto delle singole attività (agricola, connessa, commerciale) va verificato col commercialista.",
+          "Sì, sulle vendite dei tuoi prodotti. Se sei produttore agricolo in regime speciale IVA (art. 34, comma 1, DPR 633/72), le cessioni dei prodotti agricoli sono esonerate dalla certificazione dei corrispettivi (art. 2, comma 1, lett. c, DPR 696/1996) e quindi anche da memorizzazione e invio telematico (DM 10 maggio 2019): per quelle vendite il documento commerciale è facoltativo. Restano invece da certificare i servizi (alloggio, somministrazione, degustazioni) e le vendite che non rientrano nel regime speciale. L'inquadramento corretto delle singole attività (agricola, connessa, commerciale) va verificato col commercialista.",
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "installare-app"],
@@ -925,7 +925,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Nella toelettatura la giornata è fatta di appuntamenti: bagno e tosatura, ritiro a fine seduta, incasso singolo per cliente. Con ScontrinoZero configuri il listino dei servizi (bagno taglia piccola, tosatura completa, unghie) nel catalogo ed emetti il Documento Commerciale Online in due tap al ritiro dell'animale, dallo smartphone o dal tablet. Chi lavora a domicilio emette direttamente dal telefono a fine servizio. Il registratore telematico, per pochi incassi al giorno, è un costo che puoi evitare.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni servizio B2C incassato (art. 22 DPR 633/72).",
-      "Aliquota IVA al 22% sui servizi di toelettatura e sulla vendita di prodotti per animali.",
+      "Aliquota IVA al 22% sui servizi di toelettatura e, in genere, sui prodotti per animali; al 10% i medicinali veterinari, compresi gli antiparassitari autorizzati come medicinali (Tab. A, parte III, n. 114, DPR 633/72).",
       "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
       "Conservazione dei documenti emessi per 10 anni.",
     ],
@@ -944,7 +944,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Posso vendere prodotti insieme al servizio?",
         answer:
-          "Sì, nello stesso scontrino: righe separate per il servizio di toelettatura e per i prodotti venduti, ciascuna con la propria aliquota (in genere 22% per entrambi). Il documento trasmesso all'AdE riporta il dettaglio per riga.",
+          "Sì, nello stesso scontrino: righe separate per il servizio di toelettatura e per i prodotti venduti, ciascuna con la propria aliquota (in genere 22%; 10% per gli antiparassitari che sono medicinali veterinari). Il documento trasmesso all'AdE riporta il dettaglio per riga.",
       },
       {
         question: "Faccio anche pet sitting a domicilio: come mi regolo?",
@@ -976,7 +976,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Tariffe orarie e giornaliere nel catalogo: scontrino in due tap al ritiro.",
       "Attività stagionale: piano mensile attivabile solo nei mesi di apertura.",
       "Scontrino via QR o WhatsApp al turista, anche straniero, senza stampante.",
-      "Storico incassi per giornata, utile per capire le punte di stagione.",
+      "Storico filtrabile per data e, sul piano Pro, ricavi giorno per giorno in Analytics per capire le punte di stagione.",
     ],
     faq: [
       {
@@ -1022,7 +1022,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Aliquote per riga: ombrellone al 22% e caffè al 10% in un unico documento, senza battere due scontrini.",
       "Catalogo con le voci della stagione — giornaliero, weekend, abbonamento quindicinale, cabina — così la descrizione obbligatoria è già pronta: fino a 5 voci sul piano Starter, illimitate sul Pro.",
       "Stagionalità: attivi il piano nei mesi di apertura e lo disdici a fine stagione, senza ammortizzare un registratore fermo otto mesi.",
-      "Storico incassi per giornata, utile per pesare weekend e picchi di agosto e per il commercialista a fine stagione.",
+      "Storico filtrabile per data, utile per il commercialista a fine stagione; sul piano Pro, il grafico dei ricavi giornalieri in Analytics ti fa pesare weekend e picchi di agosto.",
     ],
     faq: [
       {

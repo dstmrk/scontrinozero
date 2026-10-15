@@ -79,9 +79,9 @@ const sections = [
       },
       {
         icon: BarChart3,
-        title: "Storico e totali",
+        title: "Storico scontrini",
         description:
-          "Visualizza il totale giornaliero, filtra per data e consulta lo storico completo dei tuoi scontrini. Disponibile anche da desktop.",
+          "Filtra per periodo e stato e consulta lo storico completo dei tuoi scontrini, con importo e stato di ciascuno. Disponibile anche da desktop.",
       },
       {
         icon: Share2,

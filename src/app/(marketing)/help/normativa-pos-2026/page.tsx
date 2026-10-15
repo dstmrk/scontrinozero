@@ -52,11 +52,11 @@ export default function NormativaPos2026Page() {
         <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950">
           <strong>In breve:</strong> se usi ScontrinoZero e accetti pagamenti
           con POS, devi registrare il POS nel portale Fatture e Corrispettivi
-          dell&apos;AdE. Per i POS già attivi al 1° gennaio 2026 il termine
-          della prima comunicazione è il <strong>20 aprile 2026</strong>. Non
-          servono firmware né hardware aggiuntivi: l&apos;abbinamento è una
-          procedura web, da fare personalmente nell&apos;area riservata
-          dell&apos;AdE.
+          dell&apos;AdE. Per i POS già attivi al 1° gennaio 2026 o attivati nel
+          corso di gennaio, il termine della prima comunicazione è il{" "}
+          <strong>20 aprile 2026</strong>. Non servono firmware né hardware
+          aggiuntivi: l&apos;abbinamento è una procedura web, da fare
+          personalmente nell&apos;area riservata dell&apos;AdE.
         </div>
 
         {/* ─── La normativa in sintesi ─── */}
@@ -94,14 +94,17 @@ export default function NormativaPos2026Page() {
           </li>
           <li>
             <strong>20 aprile 2026</strong> — termine per la prima comunicazione
-            obbligatoria. Per i POS già in uso al 1° gennaio 2026, la regola è
-            45 giorni dalla disponibilità del servizio online (5 marzo 2026).
+            obbligatoria. Per i POS già attivi al 1° gennaio 2026 o attivati nel
+            corso di gennaio, la regola è 45 giorni dalla disponibilità del
+            servizio online (5 marzo 2026).
           </li>
           <li>
-            <strong>POS attivati dopo il 1° gennaio 2026</strong> —
+            <strong>POS attivati da febbraio 2026 in poi</strong> —
             comunicazione a partire dal sesto giorno del secondo mese successivo
             all&apos;attivazione del POS, ed entro l&apos;ultimo giorno
-            lavorativo dello stesso mese.
+            lavorativo dello stesso mese. I POS già attivi al 1° gennaio 2026 o
+            attivati nel corso di gennaio seguono invece la scadenza del 20
+            aprile 2026.
           </li>
         </ul>
 
@@ -155,9 +158,10 @@ export default function NormativaPos2026Page() {
             Fatture e Corrispettivi (SPID, CIE, CNS o Fisconline), apri{" "}
             <em>Documento Commerciale on line</em> e, nel riquadro{" "}
             <em>Funzionalità di supporto</em>, scegli{" "}
-            <em>Associazione strumenti di pagamento elettronico</em>.
-            L&apos;elenco mostra già i POS a tuo nome comunicati dagli operatori
-            finanziari: li selezioni e premi <em>Collega</em>.
+            <em>Associazione strumenti di pagamento elettronico</em> e premi{" "}
+            <em>Inserisci collegamento</em>: l&apos;elenco mostra già i POS a
+            tuo nome comunicati dagli operatori finanziari, li selezioni e premi{" "}
+            <em>Collega</em>.
           </li>
           <li>
             <strong>L&apos;operazione va fatta personalmente.</strong> Per chi
@@ -167,10 +171,10 @@ export default function NormativaPos2026Page() {
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per la prima comunicazione il termine è il{" "}
-          <strong>20 aprile 2026</strong> per i POS già in uso al 1° gennaio
-          2026. ScontrinoZero non gestisce questa registrazione al posto tuo
-          perché l&apos;AdE richiede che l&apos;esercente la faccia
-          direttamente.
+          <strong>20 aprile 2026</strong> per i POS già attivi al 1° gennaio
+          2026 o attivati nel corso di gennaio. ScontrinoZero non gestisce
+          questa registrazione al posto tuo perché l&apos;AdE richiede che
+          l&apos;esercente la faccia direttamente.
         </p>
 
         {/* ─── Sanzioni ─── */}
@@ -300,11 +304,14 @@ export default function NormativaPos2026Page() {
               Sono un ambulante: mi riguarda?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Dipende dal tuo regime. Alcune categorie di venditori ambulanti
-              rientrano in esoneri specifici previsti dal D.Lgs. 127/2015 e dai
-              provvedimenti AdE. Se sei esonerato dall&apos;obbligo di
-              scontrino, lo sei anche dal collegamento POS-cassa. Verifica con
-              il tuo commercialista quale obbligo si applica alla tua attività.
+              Dipende da cosa vendi, non dal regime fiscale. Alcune operazioni,
+              anche svolte in forma ambulante, sono esonerate dall&apos;obbligo
+              di memorizzazione e trasmissione dei corrispettivi (DM 10 maggio
+              2019, emanato in base all&apos;art. 2 D.Lgs. 127/2015): se il POS
+              incassa solo quelle, non va collegato. Se invece emetti documenti
+              commerciali, anche da ambulante, il POS con cui li incassi va
+              collegato. Verifica con il tuo commercialista quale obbligo si
+              applica alla tua attività.
             </p>
           </div>
           <div>

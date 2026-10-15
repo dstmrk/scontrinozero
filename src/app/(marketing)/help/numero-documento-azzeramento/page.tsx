@@ -200,8 +200,9 @@ export default function NumeroDocumentoAzzeramentoPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               È il modo più rapido per identificare la vendita originale. In
-              ScontrinoZero però non devi cercarlo a mano: trovi lo scontrino
-              nello Storico (per data, importo o numero) e dal dettaglio tocchi{" "}
+              ScontrinoZero però non devi cercarlo a mano: filtri lo Storico per
+              data, riconosci lo scontrino dall&apos;importo o dal numero
+              nell&apos;elenco e dal dettaglio tocchi{" "}
               <strong>Fai un reso</strong>: il documento di reso cita da solo lo
               scontrino originale.
             </p>

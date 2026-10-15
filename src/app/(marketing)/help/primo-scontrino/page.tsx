@@ -54,8 +54,10 @@ export default function PrimoScontrinoPage() {
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Onboarding completato (P.IVA, ragione sociale e dati attività
-            inseriti).
+            Onboarding completato: dati dell&apos;attività e indirizzo inseriti
+            (partita IVA e codice fiscale dell&apos;attività li legge
+            ScontrinoZero dall&apos;Agenzia delle Entrate quando colleghi
+            l&apos;account).
           </li>
           <li>
             Credenziali AdE collegate e verificate. Non le hai ancora?{" "}
@@ -68,8 +70,11 @@ export default function PrimoScontrinoPage() {
             .
           </li>
           <li>
-            Regime fiscale configurato correttamente (es. regime forfettario,
-            IVA ordinaria).
+            Aliquota IVA prevalente scelta in base al tuo regime (per il
+            forfettario «0% – Non soggette», in regime ordinario l&apos;aliquota
+            che applichi più spesso). È facoltativa: la imposti nella prima
+            configurazione e la cambi quando vuoi da{" "}
+            <strong>Impostazioni → Attività</strong>.
           </li>
         </ul>
 
@@ -220,8 +225,10 @@ export default function PrimoScontrinoPage() {
           </li>
           <li>
             <strong>Stampa</strong> — su Android, con una stampante termica
-            Bluetooth collegata, stampa lo scontrino al banco; su iPhone e
-            computer apre il PDF già formattato a 58 mm. I dettagli sono in{" "}
+            Bluetooth collegata, stampa lo scontrino al banco; su iPhone e iPad
+            apre il PDF già formattato a 58 mm; su computer apre il PDF oppure,
+            con Chrome o Edge, prima la scelta fra stampante Bluetooth e PDF. I
+            dettagli sono in{" "}
             <Link
               href="/help/stampare-scontrino-termica"
               className="text-primary hover:underline"
@@ -283,7 +290,7 @@ export default function PrimoScontrinoPage() {
               >
                 annullare lo scontrino errato
               </Link>{" "}
-              e emetterne uno corretto.
+              ed emetterne uno corretto.
             </p>
           </div>
           <div>

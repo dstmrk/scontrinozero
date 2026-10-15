@@ -139,13 +139,16 @@ export default function ComeCollegareAde() {
             .
           </li>
           <li>
-            Account ScontrinoZero con onboarding completato (P.IVA e dati
-            attività inseriti).
+            Account ScontrinoZero con i dati dell&apos;attività già inseriti
+            (primo passo del wizard di onboarding): la partita IVA non la scrivi
+            tu, la recuperiamo dall&apos;Agenzia delle Entrate quando verifichi
+            il collegamento.
           </li>
           <li>
-            Essere il <strong>titolare dell&apos;attività</strong> (o il legale
-            rappresentante, in caso di società): le credenziali devono essere
-            personali, non quelle di un commercialista o di un delegato.
+            Usare <strong>credenziali personali</strong> con cui puoi operare
+            per l&apos;attività: le tue se sei il titolare, oppure, per una
+            società, quelle del legale rappresentante o di una persona che lui
+            ha nominato gestore o operatore incaricato della società.
           </li>
         </ul>
 
@@ -171,8 +174,9 @@ export default function ComeCollegareAde() {
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Codice fiscale</strong> — il tuo codice fiscale personale
-            (16 caratteri). Anche per una società si usa il CF del legale
-            rappresentante, non la partita IVA.
+            (16 caratteri). Per una società si usa il codice fiscale personale
+            di chi opera per la società sul portale (legale rappresentante o
+            incaricato), non la partita IVA.
           </li>
           <li>
             <strong>Password Fisconline</strong> — la password che hai scelto al
@@ -183,7 +187,7 @@ export default function ComeCollegareAde() {
             <strong>PIN Fisconline</strong> — il codice di{" "}
             <strong>10 cifre</strong>
             {
-              " assegnato dall'Agenzia (prime 4 cifre ricevute via portale/email + ultime 6 via posta). Il PIN è fisso: non scade e non si cambia."
+              " assegnato dall'Agenzia (con la richiesta online le prime 4 cifre compaiono subito a video e le ultime 6 arrivano per posta; allo sportello ricevi subito la prima parte e prelevi la seconda dal sito). Il PIN è fisso: non scade e non si cambia."
             }
           </li>
         </ul>
@@ -209,11 +213,19 @@ export default function ComeCollegareAde() {
           <li>
             {"«"}
             <strong>
-              Verifica fallita. Controlla le credenziali Fisconline
+              Credenziali Fisconline non valide. Verifica codice fiscale,
+              password e PIN.
             </strong>
             {
-              "» — il login al portale AdE non è riuscito. Il messaggio è unico e non distingue la causa: le possibilità più comuni sono elencate nella sezione successiva."
+              "» — il portale AdE ha rifiutato i dati inseriti. Se invece il messaggio dice che l'utenza è bloccata o che il portale non è raggiungibile o non risponde, oppure si apre la finestra per cambiare la password, la causa è un'altra: trovi i casi più comuni nella sezione successiva e nella "
             }
+            <Link
+              href="/help/errori-ade"
+              className="text-primary hover:underline"
+            >
+              guida agli errori di accesso AdE
+            </Link>
+            {"."}
           </li>
         </ul>
 
@@ -239,12 +251,13 @@ export default function ComeCollegareAde() {
               Il PIN non è completo (hai solo le prime 4 cifre)
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Il PIN Fisconline è di 10 cifre: le prime 4 arrivano subito via
-              portale o email, le ultime 6 per posta ordinaria entro 15 giorni
-              dalla richiesta. Finché non hai ricevuto la parte postale il PIN è
-              incompleto e il login fallisce. Se la lettera non arriva, puoi
-              chiederne la ristampa dall&apos;area riservata AdE (con SPID, CIE
-              o CNS) oppure presso un qualsiasi ufficio territoriale AdE.
+              Il PIN Fisconline è di 10 cifre: con la richiesta online le prime
+              4 compaiono subito a video, le ultime 6 arrivano per posta entro
+              15 giorni dalla richiesta. Finché non hai ricevuto la parte
+              postale il PIN è incompleto e il login fallisce. Se la lettera non
+              arriva, puoi chiederne la ristampa dall&apos;area riservata AdE
+              (con SPID, CIE o CNS) oppure presso un qualsiasi ufficio
+              territoriale AdE.
             </p>
           </div>
           <div>

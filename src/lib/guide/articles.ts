@@ -1,5 +1,6 @@
 import {
   formatRtCostRange,
+  RT_COSTS,
   rtThreeYearTotalRange,
 } from "@/lib/marketing/rt-costs";
 
@@ -96,7 +97,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     sections: [
       {
         heading: "La premessa normativa",
-        body: "Lo scontrino che emetti senza registratore di cassa si chiama, nel linguaggio dell'Agenzia delle Entrate, **documento commerciale online** (DCO): è uno scontrino elettronico emesso dal portale \"Fatture e Corrispettivi\" o da un software collegato, e sostituisce a tutti gli effetti quello del registratore telematico. La base normativa è l'articolo 2 del D.Lgs. 127/2015, che ha introdotto la memorizzazione e trasmissione telematica dei corrispettivi, e il Provvedimento AdE del 28 ottobre 2016 n. 182017. Sull'uso di software che automatizzano la procedura web l'Agenzia si è pronunciata con la risposta a interpello n. 413 del 25 settembre 2020: memorizzazione, emissione del documento e trasmissione devono restare un adempimento unico e contestuale, e né i dati trasmessi né quanto l'Agenzia genera in risposta devono poter essere alterati.",
+        body: "Lo scontrino che emetti senza registratore di cassa si chiama, nel linguaggio dell'Agenzia delle Entrate, documento commerciale online (DCO): è uno scontrino elettronico emesso dal portale \"Fatture e Corrispettivi\" o da un software collegato, e sostituisce a tutti gli effetti quello del registratore telematico. La base normativa è l'articolo 2 del D.Lgs. 127/2015, che ha introdotto la memorizzazione e trasmissione telematica dei corrispettivi, e il Provvedimento AdE del 28 ottobre 2016 n. 182017. Sull'uso di software che automatizzano la procedura web l'Agenzia si è pronunciata con la risposta a interpello n. 413 del 25 settembre 2020: memorizzazione, emissione del documento e trasmissione devono restare un adempimento unico e contestuale, e né i dati trasmessi né quanto l'Agenzia genera in risposta devono poter essere alterati.",
       },
       {
         heading: "Cosa serve",
@@ -245,7 +246,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "E la ricevuta fiscale?",
-        body: "La ricevuta fiscale cartacea (la classica con il bollettario) è ormai un fossile: per i corrispettivi al pubblico va emesso il DCO. Resta in uso solo per alcuni casi specifici (prestazioni di servizi occasionali sotto soglia, ricevute non fiscali per attività non soggette IVA), ma per qualsiasi attività commerciale o professionale il documento corretto è scontrino o fattura.",
+        body: "La ricevuta fiscale cartacea (la classica con il bollettario) è ormai un fossile: per i corrispettivi al pubblico va emesso il DCO. Resta in uso solo per poche operazioni esonerate dalla memorizzazione telematica ma ancora soggette a certificazione, come le vendite a bordo di navi, aerei o treni durante un trasporto internazionale (DM 10 maggio 2019); per qualsiasi altra attività commerciale o professionale il documento corretto è scontrino o fattura.",
       },
       {
         heading: "Riepilogo pratico",
@@ -256,7 +257,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso emettere scontrino E fattura per la stessa vendita?",
         answer:
-          "No. Se emetti fattura per una vendita, NON devi emettere anche scontrino: sarebbe una duplicazione del corrispettivo. La fattura ha già il valore fiscale completo. Su ScontrinoZero, se emetti scontrino e poi il cliente chiede fattura, lo scontrino va annullato prima di emettere la fattura.",
+          "Sì. Se il cliente chiede la fattura per una vendita già documentata con lo scontrino, l'Agenzia delle Entrate ammette entrambi i documenti (FAQ n. 45 del 21 dicembre 2018). Nella fattura elettronica riporti gli estremi del documento commerciale: blocco AltriDatiGestionali, TipoDato «NUMERO DOC. COMMERCIALE», con identificativo, numero e data. L'importo fatturato va poi scorporato dal totale dei corrispettivi giornalieri, così lo stesso incasso non viene contato due volte. ScontrinoZero emette solo lo scontrino: la fattura la prepari con il tuo gestionale.",
       },
       {
         question: 'Il cliente mi chiede uno scontrino "parlante": che faccio?',
@@ -310,7 +311,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Cosa cambia se usi il documento commerciale online",
-        body: "L'obbligo vale anche per te: la FAQ n. 5 dell'Agenzia delle Entrate lo estende espressamente a chi certifica i corrispettivi con la procedura web «Documento Commerciale on line». Il collegamento si registra dentro la procedura stessa: dal portale Fatture e Corrispettivi apri Documento Commerciale Online e, nel riquadro «Funzionalità di supporto», scegli «Associazione strumenti di pagamento elettronico». L'elenco mostra già i POS a tuo nome comunicati dagli operatori finanziari: li selezioni e premi «Collega». A differenza di quanto avviene con l'RT, per il DCO l'operazione non è delegabile al commercialista: la fa solo l'esercente.",
+        body: "L'obbligo vale anche per te: la FAQ n. 5 dell'Agenzia delle Entrate lo estende espressamente a chi certifica i corrispettivi con la procedura web «Documento Commerciale on line». Il collegamento si registra dentro la procedura stessa: dal portale Fatture e Corrispettivi apri Documento Commerciale Online e, nel riquadro «Funzionalità di supporto», scegli «Associazione strumenti di pagamento elettronico». Premi «Inserisci collegamento»: l'elenco mostra i POS a tuo nome comunicati dagli operatori finanziari, li selezioni e premi «Collega». Se un POS non compare, lo aggiungi con «Aggiungi nuovo POS» (Acquirer, tipo di POS, terminal id e numero del contratto di convenzionamento). A differenza di quanto avviene con l'RT, per il DCO l'operazione non è delegabile al commercialista: la fa solo l'esercente.",
       },
       {
         heading: "Come ScontrinoZero gestisce i pagamenti elettronici",
@@ -535,7 +536,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         question:
           "Se il software non trasmette uno scontrino, come faccio la chiusura?",
         answer:
-          "Distingui i due casi. Uno scontrino in sospeso (inviato, ma senza risposta dall'AdE) non va ribattuto alla cieca: prima verifica se l'Agenzia lo ha registrato — in ScontrinoZero lo fai con «Verifica stato» dall'avviso in dashboard. Uno scontrino rifiutato o non partito non è mai stato registrato: leggi il messaggio d'errore, correggi e riemetti. Se l'errore persiste e non hai connessione, applica la procedura di emergenza: emissione manuale e trasmissione entro 12 giorni dalla cessazione del guasto.",
+          "Distingui i due casi. Uno scontrino in sospeso (inviato, ma senza risposta dall'AdE) non va ribattuto alla cieca: prima verifica se l'Agenzia lo ha registrato — in ScontrinoZero lo fai con «Verifica stato» dall'avviso in dashboard. Uno scontrino rifiutato o non partito non è mai stato registrato: leggi il messaggio d'errore, correggi e riemetti. Se l'errore persiste e non hai connessione, applica la procedura di emergenza: annota a mano i corrispettivi e trasmettili appena torna la connessione, comunque entro 12 giorni dall'effettuazione dell'operazione.",
       },
     ],
     relatedHelp: [
@@ -572,7 +573,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Procedura tecnica con il portale AdE",
-        body: 'Dal portale Fatture e Corrispettivi accedi a "Corrispettivi" → "Ricerca documento", trova il DCO da annullare e seleziona l\'operazione di annullamento. Il portale genera un documento di annullo collegato all\'originale, lo trasmette e aggiorna lo stato del documento di partenza a "annullato". Il documento di annullamento ha un proprio progressivo e va conservato come tutti gli altri.',
+        body: 'Dal portale Fatture e Corrispettivi accedi a "Corrispettivi" → "Documento commerciale online" → "Ricerca", trova il DCO da annullare e seleziona l\'operazione di annullamento. Il portale genera un documento di annullo collegato all\'originale, lo trasmette e aggiorna lo stato del documento di partenza a "annullato". Il documento di annullamento ha un proprio progressivo e va conservato come tutti gli altri.',
       },
       {
         heading: "Procedura con software dedicato",
@@ -745,7 +746,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Criterio 5: conformità normativa e supporto fiscale",
-        body: 'Verifica che il software sia esplicitamente conforme al D.Lgs. 127/2015, al Provvedimento AdE del 28 ottobre 2016 n. 182017 e alle modifiche successive. Le pagine di prodotto onesti citano i riferimenti normativi; quelle vaghe parlano solo di "compliance fiscale". Verifica che il software gestisca il regime forfettario (righe a 0% con natura N2 — sullo scontrino la dicitura di esenzione non serve, serve in fattura), l\'obbligo di collegamento POS 2026, le aliquote IVA differenziate. Il supporto deve sapere rispondere a domande fiscali, non solo tecniche.',
+        body: 'Verifica che il software sia esplicitamente conforme al D.Lgs. 127/2015, al Provvedimento AdE del 28 ottobre 2016 n. 182017 e alle modifiche successive. Le pagine di prodotto oneste citano i riferimenti normativi; quelle vaghe parlano solo di "compliance fiscale". Verifica che il software gestisca il regime forfettario (righe a 0% con natura N2 — sullo scontrino la dicitura di esenzione non serve, serve in fattura), l\'obbligo di collegamento POS 2026, le aliquote IVA differenziate. Il supporto deve sapere rispondere a domande fiscali, non solo tecniche.',
       },
       {
         heading: "Criterio 6: lock-in e portabilità dei dati",
@@ -937,12 +938,12 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Per stampare gli scontrini non serve una stampante fiscale: basta una stampante termica generica, da 30-120 € a seconda del modello. La WiFi conviene per la postazione fissa condivisa tra più dispositivi, il Bluetooth per la cassa mobile, l'USB per chi lavora da computer. Prima di comprare verifica tre cose: linguaggio ESC/POS, larghezza carta (58 o 80 mm) e il tipo di connessione adatto a come lavori.",
     publishedAt: "2026-07-12",
-    updatedAt: "2026-07-28",
+    updatedAt: "2026-10-15",
     readingMinutes: 7,
     sections: [
       {
         heading: "Serve una stampante fiscale? No",
-        body: "Con il documento commerciale online lo scontrino ha già valore fiscale nel momento in cui viene trasmesso all'Agenzia delle Entrate: la stampa su carta è solo una copia di cortesia per il cliente, nemmeno obbligatoria (puoi mostrare lo scontrino a schermo o inviarlo via email). Per questo non serve un registratore telematico omologato (400-800 € di hardware, più installazione e verificazione periodica ogni 2 anni), né va dichiarato nulla all'AdE: una qualsiasi stampante termica generica, la stessa usata per le ricevute dei POS bancari, fa il lavoro. È la differenza di costo più grande rispetto alla cassa tradizionale.",
+        body: "Con il documento commerciale online lo scontrino ha già valore fiscale nel momento in cui viene trasmesso all'Agenzia delle Entrate: la stampa su carta termica è il modo più comodo per consegnarlo al cliente, ma se il cliente è d'accordo puoi consegnarlo anche in forma elettronica, con il link alla ricevuta o il QR code. Per questo non serve un registratore telematico omologato (400-800 € di hardware, più installazione e verificazione periodica ogni 2 anni), né va dichiarato nulla all'AdE: una qualsiasi stampante termica generica, la stessa usata per le ricevute dei POS bancari, fa il lavoro. È la differenza di costo più grande rispetto alla cassa tradizionale.",
       },
       {
         heading: "WiFi, Bluetooth o USB: il confronto",
@@ -985,11 +986,11 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Quanto costa: fasce di prezzo",
-        body: "Le portatili Bluetooth da 58 mm partono da 30-60 €. Le stampanti da banco da 80 mm con WiFi o Ethernet stanno tra 60 e 120 €. I marchi premium (Epson TM, Star Micronics) arrivano a 150-250 €, con affidabilità da uso intensivo ma nessuna funzione indispensabile in più per una micro-attività. A questi prezzi va aggiunto solo il consumabile: un rotolo termico costa 0,50-1 € e non esistono cartucce o toner, perché la stampa termica scalda la carta senza inchiostro. In totale, l'intero \"reparto stampa\" di un'attività che emette scontrini da software costa meno di un solo anno di manutenzione di un registratore telematico.",
+        body: `Le portatili Bluetooth da 58 mm partono da 30-60 €. Le stampanti da banco da 80 mm con WiFi o Ethernet stanno tra 60 e 120 €. I marchi premium (Epson TM, Star Micronics) arrivano a 150-250 €, con affidabilità da uso intensivo ma nessuna funzione indispensabile in più per una micro-attività. A questi prezzi va aggiunto solo il consumabile: un rotolo termico costa 0,50-1 € e non esistono cartucce o toner, perché la stampa termica scalda la carta senza inchiostro. In totale, l'intero "reparto stampa" di un'attività che emette scontrini da software costa meno del solo acquisto di un registratore telematico (${formatRtCostRange(RT_COSTS.purchase)}), e non richiede installazione da tecnico né verificazione periodica.`,
       },
       {
         heading: "Come si usa con ScontrinoZero",
-        body: "ScontrinoZero emette lo scontrino in digitale e la stampa è un passaggio opzionale. Da telefono o tablet il percorso supportato è il Bluetooth: abbini la stampante nelle impostazioni e stampi al volo, ovunque tu sia. Da computer la stampa passa dal normale dialogo di stampa del browser: funziona qualsiasi stampante installata nel sistema operativo, comprese le termiche WiFi ed Ethernet condivise in rete e i modelli USB collegati direttamente. La procedura passo-passo di abbinamento e la risoluzione dei problemi più comuni (rotolo al contrario, larghezza carta sbagliata, standby) sono nell'articolo operativo del centro assistenza, linkato in fondo.",
+        body: "ScontrinoZero emette lo scontrino in digitale e la stampa è un passaggio opzionale. Da telefono o tablet Android (Chrome, Edge o Samsung Internet) il percorso supportato è il Bluetooth: abbini la stampante nelle impostazioni e stampi al volo, ovunque tu sia. Su iPhone e iPad la stampa Bluetooth diretta non è disponibile: il tasto Stampa apre il PDF dello scontrino, che mandi con AirPrint a una stampante compatibile. Da computer la stampa passa dal normale dialogo di stampa del browser: funziona qualsiasi stampante installata nel sistema operativo, comprese le termiche WiFi ed Ethernet condivise in rete e i modelli USB collegati direttamente. La procedura passo-passo di abbinamento e la risoluzione dei problemi più comuni (rotolo al contrario, larghezza carta sbagliata, standby) sono nell'articolo operativo del centro assistenza, linkato in fondo.",
       },
     ],
     faq: [
@@ -1057,7 +1058,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Le alternative: SPID e CIE",
-        body: "SPID si richiede gratuitamente (o con costi minimi per il riconoscimento) a uno degli identity provider accreditati — Poste ID è il più diffuso — e vale per tutta la pubblica amministrazione. La CIE (Carta d'Identità Elettronica) si usa con l'app CIE ID sullo smartphone: si accede approvando una notifica push, senza ricordare password che scadono. Entrambe permettono l'accesso completo al portale Fatture e Corrispettivi e alla procedura Documento Commerciale Online.",
+        body: "SPID si richiede a uno degli identity provider accreditati e vale per tutta la pubblica amministrazione; i costi dipendono dal gestore. Poste ID, il più diffuso, è gratuito il primo anno e dal secondo costa 6 € l'anno (dal 2026; restano esenti minorenni, over 75, residenti all'estero e PosteID ad uso professionale), a cui si può aggiungere un costo per il riconoscimento secondo la modalità scelta. La CIE (Carta d'Identità Elettronica) si usa con l'app CIE ID sullo smartphone: si accede approvando una notifica push, senza ricordare password che scadono. Entrambe permettono l'accesso completo al portale Fatture e Corrispettivi e alla procedura Documento Commerciale Online.",
       },
       {
         heading: "Credenziali di una società o di più attività",
@@ -1367,7 +1368,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Il ravvedimento operoso",
-        body: "Se ti accorgi dell'errore prima della contestazione, puoi regolarizzare con il ravvedimento operoso (art. 13 D.Lgs. 472/1997): la sanzione si riduce in misura crescente con il tempo trascorso (da 1/10 a 1/5 del minimo a seconda di quando ravvedi). Serve trasmettere il corrispettivo omesso e versare sanzione ridotta e interessi. Per i casi concreti conviene passare dal commercialista: il calcolo dipende dai tempi e dal tipo di violazione.",
+        body: "Se ti accorgi dell'errore prima della contestazione, puoi regolarizzare con il ravvedimento operoso (art. 13 D.Lgs. 472/1997): più aspetti, meno si riduce la sanzione, che scende a 1/9 del minimo se regolarizzi entro 90 giorni, a 1/8 entro il termine della dichiarazione relativa all'anno della violazione e a 1/7 oltre. Serve trasmettere il corrispettivo omesso e versare sanzione ridotta e interessi. Per i casi concreti conviene passare dal commercialista: il calcolo dipende dai tempi e dal tipo di violazione.",
       },
       {
         heading: "Come azzerare il rischio operativo",
@@ -1410,7 +1411,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     title: "Registratore telematico o documento commerciale online?",
     metaTitle: "Registratore telematico vs documento commerciale online",
     metaDescription:
-      "RT e DCO sono fiscalmente equivalenti: cambiano costi (500-1.000 € vs 0-90 €/anno), velocità al banco e vincoli. La differenza spiegata e quando scegliere cosa.",
+      "RT e DCO sono fiscalmente equivalenti: cambiano costi (500-1.000 € vs 0-100 €/anno), velocità al banco e vincoli. La differenza spiegata e quando scegliere cosa.",
     heroIntro:
       "Registratore telematico (RT) e documento commerciale online (DCO) sono i due modi legali di certificare i corrispettivi, fiscalmente equivalenti: lo scontrino che producono ha lo stesso valore. La differenza sta nel mezzo — hardware certificato contro procedura web dell'Agenzia delle Entrate — e quindi in costi, velocità al banco e vincoli operativi. Ecco il confronto punto per punto.",
     publishedAt: "2026-07-22",
@@ -1487,7 +1488,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         question:
           "Che differenza c'è tra registratore telematico e documento commerciale online?",
         answer:
-          "Il valore fiscale è identico; cambia il mezzo: l'RT è hardware certificato che trasmette con la chiusura giornaliera, il DCO è la procedura web AdE che trasmette ogni scontrino al momento dell'emissione. Ne derivano differenze di costo (500-1.000 € vs 0-90 €/anno), velocità e vincoli di connessione.",
+          "Il valore fiscale è identico; cambia il mezzo: l'RT è hardware certificato che trasmette con la chiusura giornaliera, il DCO è la procedura web AdE che trasmette ogni scontrino al momento dell'emissione. Ne derivano differenze di costo (500-1.000 € per partire con l'RT contro 0 € col portale AdE o 30-100 €/anno con un'app), velocità e vincoli di connessione.",
       },
       {
         question: "Il DCO è legale quanto il registratore telematico?",

@@ -78,10 +78,12 @@ export default function ChiusuraGiornalieraPage() {
           l&apos;app.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se vuoi un riepilogo dei corrispettivi del giorno, puoi consultare lo{" "}
-          <strong>Storico</strong> e filtrare per data odierna: vedrai
-          l&apos;elenco di tutti gli scontrini emessi con importi e metodi di
-          pagamento.
+          Se vuoi un riepilogo dei corrispettivi del giorno, apri lo{" "}
+          <strong>Storico</strong> e filtra per la data di oggi: vedrai
+          l&apos;elenco degli scontrini emessi con numero, importo e stato. Il
+          metodo di pagamento non compare nell&apos;elenco: lo trovi sulla
+          ricevuta del singolo scontrino (<strong>Invia ricevuta</strong> o{" "}
+          <strong>Stampa</strong> dal suo dettaglio).
         </p>
 
         {/* ─── Confronto RT fisico ─── */}
@@ -174,10 +176,10 @@ export default function ChiusuraGiornalieraPage() {
               sull&apos;RT?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì, se usi un RT fisico <em>in parallelo</em> a ScontrinoZero, le
-              obbligazioni dell&apos;RT rimangono invariate. ScontrinoZero non
-              sostituisce un RT già in uso: lo affianca o lo sostituisce
-              completamente a seconda del tuo setup.
+              Sì, se usi un RT fisico <em>in parallelo</em> a ScontrinoZero, gli
+              obblighi dell&apos;RT restano invariati, chiusura giornaliera
+              compresa. ScontrinoZero può affiancare l&apos;RT oppure
+              sostituirlo del tutto, a seconda di come organizzi la cassa.
             </p>
           </div>
           <div>

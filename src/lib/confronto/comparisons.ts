@@ -114,7 +114,7 @@ export const confrontoContent: ConfrontoContent = {
       pricing: "39 €/anno",
       trial: "1° mese gratuito",
       notes:
-        "App web e mobile (Android/iOS). Integrazione con POS SumUp e Nexi. Accesso con credenziali Fisconline o CIE (app CIE ID).",
+        "App web e mobile (Android/iOS). Integrazione con POS SumUp e Nexi. Accesso con credenziali Fisconline.",
     },
     {
       name: "Scontrina",
@@ -123,7 +123,7 @@ export const confrontoContent: ConfrontoContent = {
       pricing: "8,19 €/mese o 65,57 €/anno (IVA esclusa)",
       trial: "Primo scontrino gratis",
       notes:
-        "App mobile per smartphone/tablet. Integra SPID/Fisconline, e-commerce (WooCommerce, Shopify) e diversi POS. Dichiara modalità offline.",
+        "App mobile per smartphone/tablet. Accesso con SPID, Fisconline o Entratel. Integra e-commerce (WooCommerce, Shopify) e i POS SumUp e Viva. Per emettere lo scontrino serve una connessione internet attiva.",
     },
     {
       name: "ScontrinoSenzaCassa (Billy)",
@@ -205,5 +205,5 @@ export const confrontoContent: ConfrontoContent = {
     "come-collegare-ade",
     "credenziali-fisconline",
   ],
-  lastUpdated: "2026-08-24",
+  lastUpdated: "2026-10-15",
 };

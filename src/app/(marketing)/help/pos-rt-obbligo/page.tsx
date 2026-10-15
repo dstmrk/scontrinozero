@@ -99,9 +99,12 @@ export default function PosRtObbligoPage() {
           <strong>esclusivamente</strong> per operazioni esenti
           dall&apos;obbligo di certificazione (es. tabacchi e generi di
           monopolio, vendite a distanza) può dichiararlo come{" "}
-          <em>POS non collegato</em> nel portale AdE, senza associarlo. Se però
-          lo stesso POS viene usato anche occasionalmente per operazioni
-          soggette a certificazione, il collegamento torna obbligatorio.
+          <em>POS non collegato</em> nel portale AdE, senza associarlo. Un POS
+          usato anche solo occasionalmente per operazioni soggette a
+          certificazione va invece collegato, e non può essere dichiarato come
+          non collegato. Attenzione: la dichiarazione di uso esclusivo è
+          irreversibile, e da quel momento quel POS non va più usato, nemmeno di
+          rado, per incassi certificati con documento commerciale.
         </p>
 
         {/* ─── ScontrinoZero e la conformità ─── */}
@@ -130,14 +133,14 @@ export default function PosRtObbligoPage() {
           accedi al portale Fatture e Corrispettivi, apri{" "}
           <em>Documento Commerciale on line</em> e, nel riquadro{" "}
           <em>Funzionalità di supporto</em>, scegli{" "}
-          <em>Associazione strumenti di pagamento elettronico</em>:
-          l&apos;elenco mostra già i POS a tuo nome, selezioni quelli che usi e
-          premi <em>Collega</em>. Per chi usa la procedura DCO
-          l&apos;associazione <strong>non è delegabile</strong> a intermediari
-          (commercialista, CAF): la fa direttamente l&apos;esercente, con le
-          proprie credenziali. Se un POS non compare, lo aggiungi a mano con il
-          Terminal ID, l&apos;operatore finanziario (Acquirer) e il numero del
-          contratto di convenzionamento.
+          <em>Associazione strumenti di pagamento elettronico</em> e premi{" "}
+          <em>Inserisci collegamento</em>: l&apos;elenco mostra già i POS a tuo
+          nome, selezioni quelli che usi e premi <em>Collega</em>. Per chi usa
+          la procedura DCO l&apos;associazione <strong>non è delegabile</strong>{" "}
+          a intermediari (commercialista, CAF): la fa direttamente
+          l&apos;esercente, con le proprie credenziali. Se un POS non compare,
+          lo aggiungi a mano con il Terminal ID, l&apos;operatore finanziario
+          (Acquirer) e il numero del contratto di convenzionamento.
         </div>
 
         {/* ─── Scadenze ─── */}
@@ -194,11 +197,11 @@ export default function PosRtObbligoPage() {
           Per il <strong>mancato collegamento</strong> tra POS e strumento di
           memorizzazione dei corrispettivi si applica la sanzione amministrativa
           da <strong>€1.000 a €4.000</strong> (art. 11 comma 5 D.Lgs. 471/97,
-          richiamato dall&apos;art. 2 comma 6 D.Lgs. 127/2015 nella versione
-          modificata dalla L. 207/2024). È inoltre prevista la sospensione della
-          licenza o dell&apos;autorizzazione all&apos;esercizio
-          dell&apos;attività da <strong>15 giorni a 2 mesi</strong> (art. 12
-          comma 3 D.Lgs. 471/97).
+          esteso al mancato collegamento dall&apos;art. 1 comma 75 della L.
+          207/2024). È inoltre prevista la sospensione della licenza o
+          dell&apos;autorizzazione all&apos;esercizio dell&apos;attività da{" "}
+          <strong>15 giorni a 2 mesi</strong> (art. 12 comma 3 D.Lgs. 471/97,
+          esteso al mancato collegamento dal comma 76 della stessa legge).
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero copre la <em>trasmissione</em> dei corrispettivi

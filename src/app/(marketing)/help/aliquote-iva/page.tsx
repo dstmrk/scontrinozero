@@ -62,10 +62,11 @@ export default function AliquoteIvaPage() {
           Le aliquote IVA in Italia
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il sistema IVA italiano prevede quattro aliquote (definite dal DPR
-          633/72, la legge italiana sull&apos;IVA, Tabella A parti II, II-bis e
-          III) più una serie di operazioni esenti, non soggette o non
-          imponibili:
+          Il sistema IVA italiano prevede quattro aliquote, tutte nel DPR 633/72
+          (la legge italiana sull&apos;IVA): l&apos;ordinaria al 22% (art. 16,
+          primo comma) e le ridotte al 4%, 5% e 10% (Tabella A, parti II, II-bis
+          e III). A queste si aggiunge una serie di operazioni esenti, non
+          soggette o non imponibili:
         </p>
         <div className="mt-3 overflow-x-auto">
           <table className="text-muted-foreground w-full text-sm">
@@ -232,7 +233,7 @@ export default function AliquoteIvaPage() {
             (è la home della dashboard).
           </li>
           <li>
-            Tocca <strong>Modifica</strong>, poi <strong>Aggiungi</strong>.
+            Tocca <strong>Aggiungi</strong> in alto a destra.
           </li>
           <li>
             Inserisci descrizione, prezzo (IVA inclusa) e aliquota IVA
@@ -240,8 +241,10 @@ export default function AliquoteIvaPage() {
             digiti l&apos;importo al volo.
           </li>
           <li>
-            Salva. Da quel momento il prodotto compare in cassa e basta toccarlo
-            per aggiungerlo allo scontrino.
+            Tocca <strong>Aggiungi</strong> per salvarlo. Da quel momento il
+            prodotto compare nel Catalogo: quando lo tocchi si apre la Cassa con
+            la riga già aggiunta allo scontrino (se il prodotto non ha prezzo,
+            con il tastierino pronto per digitare l&apos;importo).
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -299,15 +302,18 @@ export default function AliquoteIvaPage() {
               Sono in regime forfettario ma vedo le opzioni IVA
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              ScontrinoZero non rileva il regime dalla P.IVA: sei tu a impostare
-              il campo <em>IVA prevalente</em> su «0% – Non soggette» (natura
-              N2), in onboarding oppure in <em>Impostazioni → Attività</em>.
-              Finché l&apos;aliquota prevalente non è N2 continui a vedere le
-              opzioni IVA ordinarie. Quando il regime è forfettario, le righe
-              dello scontrino vanno emesse con il codice natura{" "}
-              <strong>N2</strong> (operazioni non soggette). Per il dettaglio
-              del flusso e delle differenze fra N2 sul documento commerciale e
-              N2.2 sulla fattura elettronica vedi la guida{" "}
+              ScontrinoZero non rileva il regime dalla P.IVA e il selettore
+              aliquota mostra sempre tutte le aliquote e le nature. Imposta il
+              campo <em>Aliquota IVA prevalente</em> su «0% – Non soggette»
+              (natura N2), in onboarding oppure in{" "}
+              <em>Impostazioni → Attività</em>: da quel momento ogni nuova riga
+              manuale parte già da N2. Le altre opzioni restano visibili, ma da
+              forfettario non vanno scelte, e i prodotti del catalogo hanno
+              un&apos;aliquota propria da impostare a parte. Quando il regime è
+              forfettario, le righe dello scontrino vanno emesse con il codice
+              natura <strong>N2</strong> (operazioni non soggette). Per il
+              dettaglio del flusso e delle differenze fra N2 sul documento
+              commerciale e N2.2 sulla fattura elettronica vedi la guida{" "}
               <Link
                 href="/help/regime-forfettario"
                 className="text-primary hover:underline"
