@@ -193,7 +193,7 @@ describe("V1_ERROR_CATALOG", () => {
         expect(isRetryableV1Error(code as V1ErrorCode)).toBe(true);
       }
     }
-    // Il rate limit è retryable ma il backoff dipende dalla finestra scorrevole.
+    // Il rate limit è retryable ma il backoff dipende da quanto manca al reset.
     expect(V1_ERROR_CATALOG.RATE_LIMIT_EXCEEDED).not.toHaveProperty(
       "retryAfter",
     );

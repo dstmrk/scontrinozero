@@ -65,9 +65,9 @@ export default function ApiDocsPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le API REST di ScontrinoZero permettono di integrare l&apos;emissione
           di scontrini elettronici direttamente nel tuo gestionale, POS o
-          e-commerce. Ogni chiamata usa le credenziali Fisconline del tuo
-          esercente e trasmette il documento all&apos;Agenzia delle Entrate in
-          tempo reale.
+          e-commerce. Ogni chiamata usa il collegamento all&apos;Agenzia delle
+          Entrate del tuo esercente (Fisconline o CIE) e trasmette il documento
+          in tempo reale.
         </p>
 
         {/* ─── Prerequisiti ─── */}
@@ -83,8 +83,11 @@ export default function ApiDocsPage() {
             }
           </li>
           <li>
-            {"Credenziali Fisconline configurate nella sezione "}
-            <em>Configurazione attività</em>.
+            {"Credenziali AdE collegate in "}
+            <em>Impostazioni → Credenziali AdE</em>
+            {
+              ": Fisconline oppure CIE. Con la CIE la sessione va rinnovata di tanto in tanto dall'app; finché non lo fai, l'API risponde 409 ADE_REAUTH_REQUIRED."
+            }
           </li>
           <li>
             {"Una chiave API di tipo "}
@@ -335,6 +338,19 @@ export default function ApiDocsPage() {
                 </td>
               </tr>
               <tr className="border-b">
+                <td className="py-2 pr-4 pl-4 font-mono text-xs">
+                  lines[].lineDiscount
+                </td>
+                <td className="py-2 pr-4 text-xs">
+                  number (≥ 0, max 2 decimali), opzionale
+                </td>
+                <td className="py-2 text-xs">
+                  {
+                    "Sconto di riga (Pro), in euro, sull'intera riga e non per pezzo: riduce la base imponibile e l'IVA. Non può superare grossUnitPrice × quantity."
+                  }
+                </td>
+              </tr>
+              <tr className="border-b">
                 <td className="py-2 pr-4 font-mono text-xs">paymentMethod</td>
                 <td className="py-2 pr-4 text-xs">string (enum)</td>
                 <td className="py-2 text-xs">
@@ -375,7 +391,7 @@ export default function ApiDocsPage() {
                   Chiave di idempotenza (vedi sezione Idempotenza)
                 </td>
               </tr>
-              <tr>
+              <tr className="border-b">
                 <td className="py-2 pr-4 font-mono text-xs">lotteryCode</td>
                 <td className="py-2 pr-4 text-xs">
                   string (8 char [A-Z0-9]) | null
@@ -390,6 +406,17 @@ export default function ApiDocsPage() {
                     PC
                   </code>
                   {"."}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">globalDiscount</td>
+                <td className="py-2 pr-4 text-xs">
+                  number (≥ 0, max 2 decimali), opzionale
+                </td>
+                <td className="py-2 text-xs">
+                  {
+                    "Sconto a pagare (Pro), in euro: non riduce il corrispettivo né l'IVA, solo l'incassato (total − globalDiscount). Deve lasciare almeno un centesimo da incassare. Senza piano Pro: 402 PLAN_UPGRADE_REQUIRED."
+                  }
                 </td>
               </tr>
             </tbody>
@@ -551,6 +578,7 @@ export default function ApiDocsPage() {
       "adeTransactionId": "151085589",
       "adeProgressive": "DCW2026/5111-2188",
       "lotteryCode": null,
+      "globalDiscount": "0.00",
       "paymentMethod": "PE",
       "payments": null,
       "total": "18.50",
@@ -615,11 +643,13 @@ export default function ApiDocsPage() {
   "voidedDocumentId": null,
   "returnedDocumentId": null,
   "total": "18.50",
+  "globalDiscount": "0.00",
   "lines": [
     {
       "description": "Pizza Margherita",
       "quantity": "2.000",
       "grossUnitPrice": "8.00",
+      "lineDiscount": "0.00",
       "vatCode": "10",
       "returnedQuantity": "1.000"
     },
@@ -627,6 +657,7 @@ export default function ApiDocsPage() {
       "description": "Acqua naturale",
       "quantity": "1.000",
       "grossUnitPrice": "2.50",
+      "lineDiscount": "0.00",
       "vatCode": "10",
       "returnedQuantity": "0.000"
     }
@@ -677,12 +708,20 @@ export default function ApiDocsPage() {
                   'Totale calcolato dalle righe, con 2 decimali (es. "18.50").',
                 ],
                 [
+                  "globalDiscount",
+                  'Sconto a pagare applicato, stringa a 2 decimali, "0.00" se assente. total resta il corrispettivo pieno: l\'incassato è total − globalDiscount.',
+                ],
+                [
                   "lines[].quantity",
                   'Stringa con 3 decimali fissi (es. "2.000").',
                 ],
                 [
                   "lines[].grossUnitPrice",
                   'Stringa con 2 decimali fissi (es. "8.00"), in euro.',
+                ],
+                [
+                  "lines[].lineDiscount",
+                  'Sconto della riga, stringa a 2 decimali ("0.00" senza sconto). total è già al netto degli sconti di riga.',
                 ],
                 [
                   "lines[].returnedQuantity",
@@ -881,7 +920,11 @@ export default function ApiDocsPage() {
             <tbody>
               {[
                 ["4", "4%", "Ridotta (es. beni di prima necessità)"],
-                ["5", "5%", "Ridotta (es. alcuni prodotti farmaceutici)"],
+                [
+                  "5",
+                  "5%",
+                  "Ridotta (es. erbe aromatiche fresche, tartufi, cooperative sociali)",
+                ],
                 ["10", "10%", "Ridotta (es. alimenti, ristorazione, turismo)"],
                 ["22", "22%", "Ordinaria"],
                 ["N1", "0%", "Art. 15 DPR 633/72 — Escluso da IVA"],
@@ -906,7 +949,9 @@ export default function ApiDocsPage() {
         {/* ─── Idempotenza ─── */}
         <h2 className="mt-12 text-xl font-semibold">Idempotenza</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          {"Ogni richiesta di emissione e annullamento richiede un campo "}
+          {
+            "Ogni richiesta di emissione, annullamento e reso richiede un campo "
+          }
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             idempotencyKey
           </code>
@@ -917,7 +962,7 @@ export default function ApiDocsPage() {
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             idempotencyKey
           </code>
-          {" (es. in seguito a un timeout di rete), il sistema restituisce il"}
+          {" (es. in seguito a un timeout di rete), il sistema restituisce il "}
           risultato dell&apos;operazione originale senza emettere un secondo
           scontrino. Genera una nuova chiave per ogni scontrino distinto.
         </p>
@@ -929,7 +974,9 @@ const idempotencyKey = crypto.randomUUID();`}</code>
         {/* ─── Rate limiting ─── */}
         <h2 className="mt-12 text-xl font-semibold">Rate limiting</h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          I limiti sono per chiave API, con finestra scorrevole di 1 ora:
+          I limiti sono per chiave API, su una finestra fissa di 1 ora che parte
+          dalla prima richiesta: raggiunto il tetto, il contatore si azzera allo
+          scadere dell&apos;ora (Retry-After indica i secondi mancanti).
         </p>
         <div className="text-muted-foreground mt-3 overflow-x-auto text-sm">
           <table className="w-full border-collapse">
@@ -1024,7 +1071,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
               documentId
             </code>
             {
-              " — presente solo quando l'errore riguarda uno scontrino il cui esito è ancora aperto (ADE_UNAVAILABLE, DB_TIMEOUT, PENDING_IN_PROGRESS): è l'id da interrogare con GET /v1/receipts/{id} per sapere come è andata a finire. Sugli errori definitivi il campo non c'è."
+              " — presente solo quando l'errore riguarda un documento già scritto: sugli esiti ancora aperti (ADE_UNAVAILABLE, DB_TIMEOUT, PENDING_IN_PROGRESS, VOID_PENDING_IN_PROGRESS, RETURN_PENDING_IN_PROGRESS) è l'id da interrogare con GET /v1/receipts/{id} per sapere come è andata a finire; su RETURN_SYNC_FAILED è l'id del reso, da citare quando ci scrivi. Sugli altri errori il campo non c'è."
             }
           </li>
         </ul>
@@ -1071,7 +1118,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "402",
                   "PLAN_UPGRADE_REQUIRED",
-                  "Il piano attivo non include l'accesso alle API. Passa al Piano Pro.",
+                  "Il piano attivo non include la funzione richiesta: l'accesso alle API oppure, nel corpo di POST /v1/receipts, sconti o pagamento misto. Passa al Piano Pro.",
                 ],
                 [
                   "403",
@@ -1086,12 +1133,12 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "409",
                   "PENDING_IN_PROGRESS · VOID_PENDING_IN_PROGRESS · RETURN_PENDING_IN_PROGRESS",
-                  "Una richiesta con la stessa idempotencyKey è ancora in corso. È temporaneo: attendi i secondi indicati in Retry-After e ripeti la richiesta identica.",
+                  "PENDING_IN_PROGRESS e VOID_PENDING_IN_PROGRESS: una richiesta con la stessa idempotencyKey è ancora in corso. RETURN_PENDING_IN_PROGRESS: un reso sullo stesso scontrino è in corso, con questa chiave o con un'altra; dopo il nuovo tentativo rileggi lo scontrino per il residuo. È temporaneo: attendi i secondi indicati in Retry-After e ripeti la richiesta identica.",
                 ],
                 [
                   "409",
                   "ALREADY_REJECTED · ALREADY_VOIDED · VOID_ALREADY_TARGETED · IDEMPOTENCY_PAYLOAD_MISMATCH",
-                  "Conflitto definitivo sulla chiave di idempotenza: il documento è già stato rifiutato o annullato, c'è un annullo concorrente sullo stesso scontrino, oppure la chiave è stata riusata con un contenuto diverso. Ripetere non aiuta: serve una chiave nuova per una nuova operazione.",
+                  "Conflitto definitivo sulla chiave di idempotenza: il documento è già stato rifiutato o annullato, c'è già un'altra correzione in corso sullo stesso scontrino (un annullo con un'altra chiave oppure un reso), oppure la chiave è stata riusata con un contenuto diverso. Ripetere non aiuta: serve una chiave nuova per una nuova operazione.",
                 ],
                 [
                   "409",
@@ -1101,7 +1148,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "409",
                   "ADE_REAUTH_REQUIRED · ADE_PASSWORD_EXPIRED",
-                  "Serve un intervento dell'esercente in ScontrinoZero: la sessione con l'Agenzia delle Entrate (CIE o SPID) è scaduta e va rinnovata, oppure la password Fisconline è scaduta e va aggiornata. Il retry automatico è inutile finché non lo fa.",
+                  "Serve un intervento dell'esercente in ScontrinoZero: la sessione CIE con l'Agenzia delle Entrate è scaduta e va rinnovata, oppure la password Fisconline è scaduta e va aggiornata. Il retry automatico è inutile finché non lo fa.",
                 ],
                 [
                   "413",
@@ -1172,7 +1219,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
         </pre>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {
-            "Quando all'Agenzia delle Entrate risultano più documenti compatibili — stesso importo, stesso giorno — nessun automatismo sa quale sia il tuo, e lo scontrino resta in sospeso: sceglie l'esercente dall'app web ScontrinoZero, dove il banner in dashboard mostra i candidati e chiede quale riconosce."
+            "Quando all'Agenzia delle Entrate risultano più documenti compatibili — stesso importo, emessi a pochi minuti di distanza da quello in sospeso — nessun automatismo sa quale sia il tuo, e lo scontrino resta in sospeso: sceglie l'esercente dall'app web ScontrinoZero, dove il banner in dashboard mostra i candidati e chiede quale riconosce."
           }
         </p>
 

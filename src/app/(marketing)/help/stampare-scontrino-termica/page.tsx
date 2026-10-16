@@ -43,10 +43,11 @@ export default function StampareScontrinoTermicaPage() {
           ScontrinoZero emette lo scontrino in modo <strong>digitale</strong>:
           quello che ha valore legale è il documento commerciale online (DCO, la
           versione elettronica dello scontrino) trasmesso all&apos;Agenzia delle
-          Entrate. La stampa su carta termica è un&apos;opzione comoda per
-          consegnare una copia fisica al cliente, ma{" "}
-          <strong>non è obbligatoria</strong>: in alternativa puoi mostrare lo
-          scontrino a schermo al cliente.
+          Entrate. La stampa su carta termica è il modo più comodo per
+          consegnare il documento su carta, ma la carta{" "}
+          <strong>non è obbligatoria</strong>: se il cliente è d&apos;accordo
+          puoi consegnarglielo in forma elettronica, con il link alla ricevuta o
+          il QR code da inquadrare.
         </p>
         <HelpArticleUpdatedAt slug="stampare-scontrino-termica" />
         <figure className="mt-6">
@@ -80,9 +81,9 @@ export default function StampareScontrinoTermicaPage() {
           <strong>Bluetooth</strong> (la connessione senza fili a corto raggio).
           Da iPhone, iPad e computer stampi invece il PDF dello scontrino, già
           formattato a 58 mm. Non è richiesto un modello fiscale o omologato:
-          una qualsiasi stampante termica generica va bene, perché lo scontrino
-          legale è già stato registrato all&apos;AdE e qui stiamo solo stampando
-          una copia di cortesia.
+          una qualsiasi stampante termica generica va bene, perché il documento
+          commerciale è già stato registrato all&apos;AdE. La stampante serve
+          solo a metterlo su carta per consegnarlo al cliente.
         </p>
 
         {/* ─── Quale stampante scegliere ─── */}
@@ -175,7 +176,8 @@ export default function StampareScontrinoTermicaPage() {
           <li>
             Tocca <strong>Stampa di prova</strong>. Deve uscire una pagina con
             il righello dei numeri, un campione di lettere accentate e — se hai
-            lasciato attiva l&apos;opzione — un QR code.
+            attivato l&apos;opzione «Stampa il QR della ricevuta», che di
+            partenza è spenta — un QR code.
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -185,8 +187,8 @@ export default function StampareScontrinoTermicaPage() {
           nella stessa schermata. Le <strong>lettere accentate</strong> devono
           essere leggibili. Il <strong>QR code</strong> deve risultare un
           quadrato nitido: se esce una riga di caratteri casuali, la tua
-          stampante non supporta i QR — disattiva l&apos;opzione &quot;Stampa il
-          QR della ricevuta&quot; e il resto continuerà a funzionare.
+          stampante non supporta i QR — lascia spenta l&apos;opzione «Stampa il
+          QR della ricevuta» e il resto continuerà a funzionare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Lasciando attiva la <strong>Stampa automatica</strong>, lo scontrino
@@ -220,7 +222,9 @@ export default function StampareScontrinoTermicaPage() {
           dialogo di stampa su computer) e lo mandi a qualsiasi stampante
           collegata. Funziona bene con le stampanti di rete e WiFi; le
           stampantine Bluetooth economiche, invece, il foglio di stampa del
-          sistema non le raggiunge — su nessuna piattaforma.
+          sistema non le raggiunge — su nessuna piattaforma. Con Chrome o Edge
+          su computer il bottone apre prima la scelta «Come vuoi stampare?»: per
+          il PDF tocca <strong>Stampa il PDF</strong>.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           In pratica: se il tuo lavoro richiede la stampantina Bluetooth al
@@ -244,10 +248,11 @@ export default function StampareScontrinoTermicaPage() {
           </li>
           <li>
             In ScontrinoZero, dopo aver emesso lo scontrino, clicca{" "}
-            <strong>Stampa</strong>: si apre il PDF dello scontrino. Stampalo e
-            seleziona la stampante termica, impostando il formato carta su{" "}
-            <strong>58 mm</strong> o <strong>80 mm</strong> in &quot;Altre
-            impostazioni → Formato carta&quot;.
+            <strong>Stampa</strong> e, se compare la scelta «Come vuoi
+            stampare?», <strong>Stampa il PDF</strong>: si apre il PDF dello
+            scontrino. Stampalo e seleziona la stampante termica, impostando il
+            formato carta su <strong>58 mm</strong> o <strong>80 mm</strong> in
+            &quot;Altre impostazioni → Formato carta&quot;.
           </li>
           <li>
             Margini consigliati: <strong>0 mm</strong> su tutti i lati (la
@@ -342,11 +347,14 @@ export default function StampareScontrinoTermicaPage() {
               Sono obbligato a consegnare lo scontrino stampato al cliente?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. Il documento commerciale online registrato all&apos;AdE è
-              quello che ha valore fiscale. Al cliente puoi consegnare una copia
-              stampata, una via email oppure mostrargli il QR code o il numero a
-              schermo — sta a te decidere. La maggior parte dei clienti
-              preferisce la carta per comodità, ma non è un requisito normativo.
+              Stampato no, consegnato sì. Il documento commerciale va dato al
+              cliente su carta oppure, se il cliente è d&apos;accordo, in forma
+              elettronica: il link alla ricevuta, che invii con{" "}
+              <strong>Invia ricevuta</strong> (WhatsApp, email o un&apos;altra
+              app), o il QR code da fargli inquadrare (DM 7 dicembre 2016, art.
+              1, commi 3 e 4). La stampante termica è il modo più comodo per la
+              consegna su carta; mostrare soltanto il numero a schermo, invece,
+              non vale come consegna.
             </p>
           </div>
           <div>
@@ -355,10 +363,10 @@ export default function StampareScontrinoTermicaPage() {
               archivio?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Non serve archiviare la copia cartacea: tutti gli scontrini emessi
-              restano nel tuo Storico ScontrinoZero a tempo indeterminato e li
-              trovi anche nel cassetto fiscale dell&apos;AdE. Per esportarli in
-              un foglio Excel vedi{" "}
+              Non serve archiviare la copia cartacea: gli scontrini emessi
+              restano nel tuo Storico ScontrinoZero finché il tuo account è
+              attivo, e li trovi anche sul portale Fatture e Corrispettivi
+              dell&apos;AdE. Per esportarli in un foglio Excel vedi{" "}
               <Link
                 href="/help/storico-ed-esportazione"
                 className="text-primary hover:underline"
@@ -404,7 +412,7 @@ export default function StampareScontrinoTermicaPage() {
               No. La stampante termica usata da ScontrinoZero è una normale
               periferica di stampa, non un registratore telematico né un
               misuratore fiscale: l&apos;AdE non richiede alcuna registrazione
-              del dispositivo. Diverso il caso del POS, che invece va censito
+              del dispositivo. Diverso il caso del POS, che invece va collegato
               sul portale Fatture e Corrispettivi — vedi{" "}
               <Link
                 href="/help/registrare-pos-portale-ade"

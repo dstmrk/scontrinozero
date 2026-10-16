@@ -104,7 +104,8 @@ export default function ErroriAdePage() {
           <strong>Sintomo:</strong> il pulsante{" "}
           <strong>Verifica connessione</strong> mostra il messaggio{" "}
           <em>
-            &quot;Verifica fallita. Controlla le credenziali Fisconline.&quot;
+            &quot;Credenziali Fisconline non valide. Verifica codice fiscale,
+            password e PIN.&quot;
           </em>
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
@@ -131,13 +132,16 @@ export default function ErroriAdePage() {
           </li>
           <li>
             {"Per aggiornare le credenziali vai in "}
-            <strong>Impostazioni → Credenziali AdE</strong> e usa il pulsante{" "}
-            <strong>Modifica</strong>.
+            <strong>Impostazioni → Credenziali AdE</strong>
+            {
+              " e tocca l'icona a forma di matita accanto al titolo della card (Modifica credenziali AdE): il modulo si apre vuoto, quindi reinserisci codice fiscale, password e PIN."
+            }
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Attenzione: dopo 8 tentativi consecutivi con password errata, la
-          password viene bloccata sul portale AdE. Vedi la sezione successiva.
+          Attenzione: dopo ripetuti tentativi consecutivi con password errata,
+          la password viene bloccata sul portale AdE. Vedi la sezione
+          successiva.
         </p>
 
         {/* ─── Credenziali di un'altra partita IVA ─── */}
@@ -312,14 +316,16 @@ export default function ErroriAdePage() {
           Password Fisconline bloccata per troppi tentativi
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong> il portale AdE mostra un messaggio del tipo
-          &quot;la password è stata bloccata poiché è stato superato il numero
-          di tentativi di accesso&quot;.
+          <strong>Sintomo:</strong> ScontrinoZero mostra &quot;La tua utenza
+          dell&apos;Agenzia delle Entrate risulta bloccata&quot;, e il portale
+          AdE un messaggio del tipo &quot;la password è stata bloccata poiché è
+          stato superato il numero di tentativi di accesso&quot;. I dati che hai
+          inserito sono giusti: riscriverli non sblocca nulla.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> 8 tentativi consecutivi con password errata
-          attivano il blocco automatico della password sui Servizi Telematici
-          dell&apos;AdE.
+          <strong>Causa:</strong> ripetuti tentativi consecutivi con password
+          errata attivano il blocco automatico della password sui Servizi
+          Telematici dell&apos;AdE.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Soluzione:
@@ -345,9 +351,13 @@ export default function ErroriAdePage() {
             utente per recuperare o reimpostare le credenziali Fisconline.
           </li>
           <li>
-            {"Una volta impostata la nuova password, aggiornala in "}
-            <strong>Impostazioni → Credenziali AdE → Modifica</strong>
-            {" su ScontrinoZero."}
+            {
+              "Una volta impostata la nuova password, aggiornala anche su ScontrinoZero: in "
+            }
+            <strong>Impostazioni → Credenziali AdE</strong>
+            {
+              " tocca l'icona a forma di matita (Modifica credenziali AdE) e reinserisci codice fiscale, nuova password e PIN."
+            }
           </li>
         </ul>
 
@@ -397,7 +407,7 @@ export default function ErroriAdePage() {
             Se il portale mostra &quot;servizio non disponibile per questo
             soggetto&quot;, contatta l&apos;assistenza AdE da rete fissa al
             numero <strong>800.90.96.96</strong> (lun-ven 9-17) oppure da mobile
-            al <strong>06.96668907</strong>, o rivolgiti a uno sportello
+            al <strong>06.97617689</strong>, o rivolgiti a uno sportello
             territoriale per richiedere l&apos;abilitazione.
           </li>
         </ol>
@@ -423,14 +433,12 @@ export default function ErroriAdePage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Importante:</strong> ScontrinoZero non accoda né ritrasmette
-            automaticamente gli scontrini, e l&apos;esito dipende da{" "}
-            <em>quando</em> la comunicazione si interrompe. Se il portale non
-            risponde affatto, l&apos;emissione fallisce subito, lo scontrino non
-            viene generato e lo riemetti quando il portale torna disponibile. Se
-            invece la connessione cade a trasmissione già partita, l&apos;esito
-            resta ignoto e lo scontrino resta <strong>in sospeso</strong>: in
-            quel caso <strong>verifica prima di riemettere</strong>, altrimenti
-            rischi due documenti fiscali sullo stesso incasso. Vedi{" "}
+            automaticamente gli scontrini. Se il portale non risponde (rete,
+            errore del portale, timeout), non possiamo sapere se il documento è
+            stato registrato: lo scontrino resta <strong>in sospeso</strong> e,
+            dopo un po&apos;, compare l&apos;avviso in cima al dashboard.{" "}
+            <strong>Verifica prima di riemettere</strong>, altrimenti rischi due
+            documenti fiscali sullo stesso incasso. Vedi{" "}
             <a
               href="#scontrino-in-sospeso"
               className="text-primary hover:underline"
@@ -481,14 +489,13 @@ export default function ErroriAdePage() {
           Lo scontrino non è nello storico e non entra nel fatturato.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> la comunicazione con il portale si è
-          interrotta <strong>dopo</strong> che la trasmissione era partita —
-          rete che cade, timeout, errore temporaneo dell&apos;AdE. L&apos;esito
-          resta quindi ignoto: il documento potrebbe essere stato registrato
-          dall&apos;Agenzia, oppure il corrispettivo potrebbe non essere mai
-          arrivato. Le due ipotesi non si distinguono senza interrogare il
-          portale, ed è esattamente ciò che fa il pulsante{" "}
-          <strong>Verifica stato</strong>.
+          <strong>Causa:</strong> durante l&apos;emissione il portale non ha
+          risposto o la comunicazione si è interrotta — rete che cade, timeout,
+          errore temporaneo dell&apos;AdE. L&apos;esito resta quindi ignoto: il
+          documento potrebbe essere stato registrato dall&apos;Agenzia, oppure
+          il corrispettivo potrebbe non essere mai arrivato. Le due ipotesi non
+          si distinguono senza interrogare il portale, ed è esattamente ciò che
+          fa il pulsante <strong>Verifica stato</strong>.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Cosa fare:
@@ -496,8 +503,10 @@ export default function ErroriAdePage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             Premi <strong>Verifica stato</strong> nell&apos;avviso: cerchiamo
-            sul portale AdE i documenti emessi nelle 24 ore intorno a quello
-            scontrino e li confrontiamo per importo esatto.
+            sul portale AdE i documenti con lo stesso importo esatto emessi
+            entro 10 minuti da quello scontrino (e con lo stesso codice
+            lotteria, se c&apos;era), esclusi quelli già collegati ad altri
+            scontrini.
           </li>
           <li>
             <strong>Se risulta già registrato</strong>, lo scontrino passa nello
@@ -512,7 +521,7 @@ export default function ErroriAdePage() {
           </li>
           <li>
             <strong>Se i documenti compatibili sono più di uno</strong> — lo
-            stesso importo ricorre più volte nella stessa giornata — te li
+            stesso importo battuto più volte a pochi minuti di distanza — te li
             elenchiamo con progressivo, ora e importo e scegli tu quale
             corrisponde a quella vendita. Non lo decidiamo noi: sei l&apos;unico
             a sapere cosa hai battuto. Se non riconosci nessuno di quei
@@ -592,7 +601,8 @@ export default function ErroriAdePage() {
           Corrispettivi con l&apos;identità del titolare, non con quella di un
           intermediario delegato. Servono quindi le{" "}
           <strong>
-            credenziali del titolare o legale rappresentante dell&apos;attività
+            credenziali del titolare o legale rappresentante dell&apos;attività,
+            o di una persona che lui ha nominato gestore o operatore incaricato
           </strong>
           {": le tue credenziali Fisconline (codice fiscale, password e PIN) "}
           oppure, in alternativa, l&apos;accesso con la <strong>

@@ -150,7 +150,7 @@ export const V1_ERROR_CATALOG = {
   RETURN_INVALID_QUANTITIES: { status: 422, retryable: false },
 
   // ── 429 ───────────────────────────────────────────────────────────────────
-  /** Rate limit superato. `Retry-After` è calcolato sulla finestra scorrevole. */
+  /** Rate limit superato. `Retry-After` è il tempo che manca al reset della finestra fissa. */
   RATE_LIMIT_EXCEEDED: { status: 429, retryable: true },
 
   // ── 500 ───────────────────────────────────────────────────────────────────
@@ -219,7 +219,8 @@ function v1Headers(
  * @param message   - testo per l'umano (non è contratto, non fare parsing)
  * @param requestId - UUID della richiesta corrente
  * @param options.retryAfterSeconds - override del backoff (rate limit: dipende
- *   dalla finestra scorrevole, non è una costante del catalogo)
+ *   da quanto manca al reset della finestra fissa, non è una costante del
+ *   catalogo)
  * @param options.documentId - id del documento con esito ancora aperto, quando
  *   l'errore ne riguarda uno: viene serializzato solo se valorizzato
  */

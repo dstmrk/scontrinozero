@@ -7,13 +7,13 @@ export const faqItems = [
   {
     question: "ScontrinoZero è adatto alla mia attività?",
     answer:
-      "Sì, è pensato per ambulanti, artigiani, professionisti e micro-attività che vogliono una soluzione semplice, economica e utilizzabile da smartphone o PC.",
+      "Sì, se vendi beni o servizi a privati come attività d'impresa: è pensato per ambulanti, artigiani, negozi e micro-attività che vogliono una soluzione semplice, economica e utilizzabile da smartphone o PC. Il libero professionista che lavora in proprio, invece, fattura ogni prestazione anche al privato: per lui lo scontrino non è previsto.",
   },
   {
     question:
       "È davvero legale emettere scontrini senza registratore di cassa?",
     answer:
-      'Sì. L\'Agenzia delle Entrate prevede da anni una procedura ufficiale chiamata Documento Commerciale Online che permette di emettere scontrini elettronici senza un registratore di cassa fisico. ScontrinoZero usa esattamente quella procedura. Spieghiamo nel dettaglio come funziona nella guida "Documento commerciale online".',
+      'Sì. L\'Agenzia delle Entrate prevede da anni una procedura ufficiale chiamata Documento Commerciale Online che permette di emettere scontrini elettronici senza un registratore di cassa fisico. ScontrinoZero usa esattamente quella procedura. Spieghiamo nel dettaglio come funziona nella guida "Emettere scontrino senza registratore di cassa: si può?".',
   },
   {
     question: "Serve una connessione internet per usarlo?",
@@ -53,7 +53,7 @@ export const faqItems = [
   {
     question: "Qual è la differenza concreta tra Starter e Pro?",
     answer:
-      "Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato, analytics avanzata, export CSV degli scontrini, il messaggio personalizzato in fondo allo scontrino e supporto prioritario via email entro 24 ore. Pro include inoltre la ricerca dei documenti commerciali sull'archivio dell'Agenzia delle Entrate: dallo storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola lettura, e li scarichi nel CSV di riepilogo. Entrambi i piani includono 30 giorni di prova gratuita; durante la prova puoi usare anche l'analytics avanzata, l'export CSV e il messaggio personalizzato sullo scontrino per provarli prima di scegliere il piano.",
+      "Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato, analytics avanzata, export CSV degli scontrini, il messaggio personalizzato in fondo allo scontrino, gli sconti (di riga e a pagare), il pagamento misto fra contanti ed elettronico, la Developer API (fino a 3 chiavi) e supporto prioritario via email entro 24 ore lavorative. Pro include inoltre la ricerca dei documenti commerciali sull'archivio dell'Agenzia delle Entrate: dallo storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola lettura, e li scarichi nel CSV di riepilogo. Entrambi i piani includono 30 giorni di prova gratuita. Durante la prova puoi usare anche le funzioni Pro: analytics avanzata, export CSV, messaggio personalizzato, sconti, pagamento misto, ricerca dei documenti sull'archivio AdE e la Developer API con una chiave. Il catalogo invece resta limitato a 5 prodotti, come su Starter.",
   },
   {
     question: "Esiste una versione completamente gratuita?",

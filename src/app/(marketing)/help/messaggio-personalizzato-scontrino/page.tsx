@@ -137,8 +137,9 @@ export default function MessaggioPersonalizzatoScontrinoPage() {
           </li>
           <li>
             <strong>Le righe troppo lunghe vanno a capo da sole</strong>:
-            l&apos;anteprima le spezza esattamente come farà la stampante, così
-            non scopri il taglio sulla carta.
+            l&apos;anteprima, impostata sulla carta da 58 mm, le spezza
+            esattamente come farà una stampante da 58 mm; su carta da 80 mm le
+            righe sono più larghe e vanno a capo meno.
           </li>
           <li>
             <strong>Le accentate maiuscole vengono traslitterate</strong> —{" "}
@@ -199,8 +200,9 @@ export default function MessaggioPersonalizzatoScontrinoPage() {
           <li>
             <strong>Ricorda che è modificabile in ogni momento</strong>:
             ristampando un vecchio scontrino verrà stampato il messaggio{" "}
-            <em>attuale</em>, non quello in vigore il giorno dell&apos;
-            emissione. Vale la stessa logica dell&apos;intestazione, spiegata in{" "}
+            <em>attuale</em>, non quello in vigore il giorno
+            dell&apos;emissione. Vale la stessa logica dell&apos;intestazione,
+            spiegata in{" "}
             <Link
               href="/help/intestazione-scontrino"
               className="text-primary hover:underline"

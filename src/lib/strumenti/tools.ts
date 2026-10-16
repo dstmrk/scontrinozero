@@ -1,3 +1,5 @@
+import { RT_COSTS } from "@/lib/marketing/rt-costs";
+
 export const toolSlugs = [
   "scorporo-iva",
   "verifica-codice-lotteria",
@@ -126,19 +128,18 @@ export const tools: Record<ToolSlug, ToolContent> = {
     title: "Calcolatore risparmio vs registratore telematico",
     metaTitle: "Quanto risparmi senza registratore telematico in 5 anni",
     metaDescription:
-      "Stima il TCO a 5 anni del registratore telematico fisico (hardware + canoni) e confrontalo con ScontrinoZero. Risultato istantaneo, basato sul volume mensile.",
+      "Stima quanto costa in 5 anni un registratore telematico (acquisto, installazione, verificazioni) e confrontalo con ScontrinoZero. Risultato istantaneo.",
     heroIntro:
       "Inserisci quanti scontrini emetti al mese e calcoliamo quanto costa un registratore telematico (RT) fisico nei prossimi 5 anni rispetto al piano ScontrinoZero appropriato. Le stime usano costi medi di mercato aggiornati al 2026.",
     howItWorks: [
       "Indica quanti scontrini emetti mediamente al mese.",
       "Ti suggeriamo il piano ScontrinoZero adatto al volume.",
-      "Confrontiamo il TCO a 5 anni: hardware + canoni RT vs piano annuale ScontrinoZero.",
+      "Confrontiamo il costo a 5 anni: acquisto, installazione e verificazioni periodiche dell'RT contro il piano annuale ScontrinoZero.",
     ],
     faq: [
       {
         question: "Come è calcolato il costo del registratore telematico?",
-        answer:
-          "Stimiamo €500 per acquisto e collaudo iniziale, più €150 all'anno di canone, manutenzione e verifica biennale ammortizzata. Sono valori medi di mercato per un RT entry-level destinato a piccole attività italiane. Il TCO reale può crescere con servizi aggiuntivi (carta termica premium, telecamere, ecc.).",
+        answer: `Usiamo il punto medio di ogni fascia di mercato: acquisto ${RT_COSTS.purchase.min}-${RT_COSTS.purchase.max} €, installazione da tecnico abilitato ${RT_COSTS.installation.min}-${RT_COSTS.installation.max} € e verificazione periodica obbligatoria ${RT_COSTS.periodicVerification.min}-${RT_COSTS.periodicVerification.max} € ogni ${RT_COSTS.periodicVerification.everyYears} anni, che in 5 anni cade due volte. Non contiamo il contratto di assistenza, da ${RT_COSTS.assistanceContract.min} a ${RT_COSTS.assistanceContract.max} € all'anno: è diffuso ma facoltativo. Restano fuori anche carta termica e riparazioni.`,
       },
       {
         question: "Quando conviene ScontrinoZero rispetto a un RT?",
@@ -183,7 +184,7 @@ export const tools: Record<ToolSlug, ToolContent> = {
         question:
           "Va bene anche la formula «operazione senza applicazione dell'IVA»?",
         answer:
-          'Sì. Varianti come "Operazione senza applicazione dell\'IVA ai sensi dell\'art. 1, commi 54-89, della Legge 190/2014" o "Operazione in franchigia da IVA" sono equivalenti: ciò che conta è il richiamo esplicito all\'articolo 1, commi da 54 a 89, della Legge 190/2014, che identifica il regime forfettario.',
+          "Sì. Varianti come \"Operazione senza applicazione dell'IVA ai sensi dell'art. 1, commi 54-89, della Legge 190/2014\" o \"Operazione in franchigia da IVA ai sensi dell'art. 1, commi 54-89, della Legge 190/2014\" sono equivalenti: ciò che conta è il richiamo esplicito all'articolo 1, commi da 54 a 89, della Legge 190/2014, che identifica il regime forfettario.",
       },
       {
         question: "Quando serve la marca da bollo da 2 euro?",

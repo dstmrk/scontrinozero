@@ -808,3 +808,97 @@ describe("instradamento verso le pagine che convertono (funnel Umami 2026-09-17)
     ).toContain("scontrino-senza-registratore-di-cassa");
   });
 });
+
+/**
+ * Audit ottobre 2026: claim falsi o superati trovati nelle guide, verificati
+ * su fonte ufficiale (FAQ AdE "Collegamento POS-RT" del 25 marzo 2026, guida
+ * operativa e manuale della procedura web, D.Lgs. 87/2024, FAQ dei servizi
+ * telematici su Fisconline). Ogni pattern qui sotto è una frase che c'era.
+ */
+describe("audit 2026-10: claim che non devono rientrare", () => {
+  const prosa = (a: (typeof guideArticles)[GuideSlug]) =>
+    [
+      a.metaTitle,
+      a.metaDescription,
+      a.heroIntro,
+      ...a.sections.flatMap((s) => [
+        s.heading,
+        s.body,
+        ...(s.table?.rows.flat() ?? []),
+      ]),
+      ...a.faq.flatMap((f) => [f.question, f.answer]),
+    ].join(" ");
+
+  const VIETATI: readonly [RegExp, string][] = [
+    // FAQ AdE n. 5: obbligati anche gli utenti della procedura web DCO.
+    [/non si applica nei termini classici/i, "DCO esonerato dal POS"],
+    [/non hai un POS "da collegare"/i, "DCO esonerato dal POS"],
+    // FAQ AdE n. 2: l'RT non va cambiato né adeguato, il collegamento è web.
+    [/certificato come compatibile/i, "POS certificato per l'RT"],
+    [/associarlo tecnicamente/i, "collegamento tecnico dell'RT"],
+    // La lotteria istantanea non è mai partita.
+    [/estratta nella lotteria istantanea/i, "lotteria istantanea attiva"],
+    // Il reso cita la vendita e storna i pezzi: non è un DCO negativo.
+    [/DCO negativo/i, "reso come DCO negativo"],
+    // Nessuna coda: uno scontrino in sospeso si verifica, non si ritenta.
+    [/retry automatico/i, "retry automatico dei PENDING"],
+    // Il pagamento misto è spedito (Pro).
+    [/uno per documento/i, "un solo metodo per documento"],
+    // Fisconline non ha domanda segreta: il ripristino usa CF, PIN e
+    // password iniziale.
+    [/domanda segreta/i, "domanda segreta Fisconline"],
+    // AdE: la soglia della lotteria è "importo inferiore ad 1 euro" escluso.
+    [/(sopra|superiore a) 1 €/i, "soglia lotteria"],
+    // Il lavoratore autonomo fattura sempre (art. 22 vale per le imprese).
+    [
+      /professionisti che incassano/i,
+      "professionisti fra chi emette scontrino",
+    ],
+  ];
+
+  for (const slug of guideSlugs) {
+    it(`${slug} non ripete i claim ritirati`, () => {
+      const testo = prosa(guideArticles[slug]);
+      for (const [pattern, motivo] of VIETATI) {
+        expect(testo, `${slug}: ${motivo}`).not.toMatch(pattern);
+      }
+    });
+  }
+
+  it("la guida POS-RT dice dove si collega il POS con il DCO", () => {
+    const testo = prosa(guideArticles["pos-rt-obbligo-2026"]);
+    expect(testo).toContain("Associazione strumenti di pagamento elettronico");
+    expect(testo).toMatch(/non è delegabile/i);
+  });
+
+  it("le sanzioni da 100 € citano il comma giusto e il tetto trimestrale", () => {
+    for (const slug of [
+      "sanzioni-mancato-scontrino",
+      "obbligo-scontrino-elettronico-2026",
+    ] as const) {
+      const testo = prosa(guideArticles[slug]);
+      expect(testo, slug).toContain("1.000 € a trimestre");
+    }
+    expect(prosa(guideArticles["sanzioni-mancato-scontrino"])).toContain(
+      "art. 11, comma 2-quinquies",
+    );
+  });
+
+  it("Fisconline: i titolari di partita IVA possono ancora ottenerle", () => {
+    const testo = prosa(
+      guideArticles["recupero-credenziali-ade-password-scaduta"],
+    );
+    expect(testo).not.toMatch(/anche titolari di partita IVA/i);
+    expect(testo).toMatch(/imprese e professionisti/i);
+  });
+
+  it("guida prezzi: il costo RT a 3 anni coincide con rt-costs", async () => {
+    const { formatRtCostRange, rtThreeYearTotalRange } =
+      await import("@/lib/marketing/rt-costs");
+    const article = guideArticles["registratore-di-cassa-prezzi"];
+    expect(article.metaTitle).not.toMatch(/canone/i);
+    const cells = article.sections.flatMap((s) => s.table?.rows.flat() ?? []);
+    const rtCell = cells.find((c) => c.includes("con verificazioni"));
+    expect(rtCell).toContain(formatRtCostRange(rtThreeYearTotalRange()));
+  });
+});

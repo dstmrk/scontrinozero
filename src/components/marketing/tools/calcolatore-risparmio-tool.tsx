@@ -87,12 +87,12 @@ export function CalcolatoreRisparmioTool() {
                   </span>
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                  {"Dettaglio RT: hardware "}
-                  {formatCurrency(result.breakdown.rt.hardware)}
-                  {" + canoni e manutenzione su 5 anni "}
-                  {formatCurrency(result.breakdown.rt.annualFees5y)}
+                  {"Dettaglio RT: acquisto e installazione "}
+                  {formatCurrency(result.breakdown.rt.upfront)}
+                  {" + verificazioni periodiche obbligatorie su 5 anni "}
+                  {formatCurrency(result.breakdown.rt.periodicVerifications5y)}
                   {
-                    ". Le stime sono basate su valori medi di mercato (gennaio 2026) e non includono carta termica premium, telecamere o servizi aggiuntivi."
+                    ". Valori medi di mercato. Non includono il contratto di assistenza, che è facoltativo, né carta termica e riparazioni."
                   }
                 </p>
               </div>

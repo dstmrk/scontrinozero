@@ -43,7 +43,7 @@ export default function PrimaConfigurazioneePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Questa guida ti accompagna dall&apos;iscrizione al primo accesso in
           dashboard. L&apos;intero processo richiede circa 10 minuti se hai già
-          le credenziali Fisconline a portata di mano.
+          a portata di mano le credenziali Fisconline o l&apos;app CIE ID.
         </p>
         <HelpArticleUpdatedAt slug="prima-configurazione" />
         <figure className="mt-6">
@@ -75,6 +75,13 @@ export default function PrimaConfigurazioneePage() {
             >
               Scopri come ottenerle
             </Link>
+            {", oppure collegati con la "}
+            <Link
+              href="/help/collegare-ade-con-cie"
+              className="text-primary hover:underline"
+            >
+              CIE tramite l&apos;app CIE ID
+            </Link>
             {"."}
           </li>
           <li>
@@ -83,7 +90,7 @@ export default function PrimaConfigurazioneePage() {
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {
-            "Non serve inserire manualmente Partita IVA né codice fiscale dell'attività: ScontrinoZero li recupera automaticamente dall'Agenzia delle Entrate quando verifica le tue credenziali Fisconline."
+            "Non serve inserire manualmente Partita IVA né codice fiscale dell'attività: ScontrinoZero li recupera automaticamente dall'Agenzia delle Entrate quando verifica il collegamento, con Fisconline o con la CIE."
           }
         </p>
 
@@ -206,7 +213,7 @@ export default function PrimaConfigurazioneePage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {
-            'Nell\'ultimo step clicca il bottone "Verifica connessione": ScontrinoZero effettua un login di test sul portale Fisconline e, se tutto funziona, scarica automaticamente Partita IVA e codice fiscale dell\'attività dall\'anagrafica AdE. Se preferisci posticipare, puoi cliccare "Salta per ora" e completare la verifica più tardi da '
+            "Nell'ultimo step clicca il bottone \"Verifica connessione\": ScontrinoZero effettua un login di test sul portale dell'Agenzia delle Entrate e, se tutto funziona, scarica automaticamente Partita IVA e codice fiscale dell'attività dall'anagrafica AdE. Se preferisci posticipare, puoi cliccare \"Salta per ora\" e completare la verifica più tardi da "
           }
           <strong>Impostazioni → Credenziali AdE</strong>
           {"."}

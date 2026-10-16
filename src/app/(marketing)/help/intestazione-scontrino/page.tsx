@@ -41,11 +41,11 @@ export default function IntestazioneScontrinoPage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;intestazione dello scontrino mostra i tuoi dati fiscali —
-          ragione sociale, indirizzo dell&apos;attività e partita IVA. Durante
-          il primo collegamento all&apos;AdE, ScontrinoZero pre-popola questi
-          campi leggendoli dal portale Fatture e Corrispettivi; in seguito puoi
-          modificarli direttamente in app, eccetto P.IVA e codice fiscale che
-          restano gestiti dall&apos;Agenzia delle Entrate.
+          ragione sociale, indirizzo dell&apos;attività e partita IVA. Ragione
+          sociale e indirizzo li inserisci tu nella prima configurazione e li
+          puoi modificare in app quando vuoi; partita IVA e codice fiscale
+          invece ScontrinoZero li legge dall&apos;Agenzia delle Entrate al primo
+          collegamento, e non si modificano dall&apos;app.
         </p>
         <HelpArticleUpdatedAt slug="intestazione-scontrino" />
         <figure className="mt-6">
@@ -81,8 +81,9 @@ export default function IntestazioneScontrinoPage() {
           </li>
           <li>
             <strong>Non modificabili in app</strong> — partita IVA e codice
-            fiscale. Sono gestiti dall&apos;Agenzia delle Entrate: per cambiarli
-            serve una variazione anagrafica formale (vedi sotto).
+            fiscale. Sono gestiti dall&apos;Agenzia delle Entrate e il numero di
+            partita IVA non cambia nemmeno con una variazione anagrafica (vedi
+            sotto).
           </li>
         </ul>
 
@@ -121,14 +122,19 @@ export default function IntestazioneScontrinoPage() {
           subito dopo aver emesso lo scontrino.
         </p>
 
-        {/* ─── Variazione P.IVA / CF ─── */}
+        {/* ─── Variazioni dei dati fiscali ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Modificare partita IVA o codice fiscale
+          Variazioni dei dati fiscali
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           P.IVA e codice fiscale non sono modificabili dall&apos;app perché
           identificano fiscalmente la tua attività presso l&apos;Agenzia delle
-          Entrate. Per cambiarli devi presentare una variazione anagrafica:
+          Entrate. Il numero di partita IVA, del resto, non cambia nemmeno con
+          una variazione anagrafica: resta lo stesso fino alla cessazione
+          dell&apos;attività, anche se sposti il domicilio fiscale (art. 35 DPR
+          633/1972). Con la variazione comunichi all&apos;Agenzia, entro 30
+          giorni, il cambio degli altri dati collegati alla partita IVA, come
+          denominazione, sede o attività:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
@@ -146,14 +152,17 @@ export default function IntestazioneScontrinoPage() {
           <strong>Suggerimento:</strong> per le variazioni anagrafiche
           AdE/Camera di Commercio rivolgiti al tuo commercialista — è la
           procedura più rapida e sicura. Una volta completata la variazione,
-          contattaci scrivendo a{" "}
-          <a
-            href="mailto:info@scontrinozero.it"
+          aggiorna ragione sociale e indirizzo dall&apos;app come spiegato
+          sopra. Se invece chiudi la partita IVA e ne apri una nuova,
+          l&apos;account ScontrinoZero resta legato a quella vecchia: per la
+          nuova registra un account separato con un&apos;altra email (vedi{" "}
+          <Link
+            href="/help/errori-ade"
             className="text-primary hover:underline"
           >
-            info@scontrinozero.it
-          </a>{" "}
-          per allineare i dati nel tuo profilo ScontrinoZero.
+            errori comuni di accesso AdE
+          </Link>
+          ).
         </div>
 
         {/* ─── Dati nel PDF scontrino ─── */}

@@ -130,7 +130,7 @@ export default async function CategoryLandingPage({ params }: PageParams) {
 
           <h2 className="mt-10 text-xl font-semibold">
             {"Come funziona ScontrinoZero per "}
-            {category.audience.split(",")[0]}
+            {category.audience.split(/[,:]/)[0]}
           </h2>
           <ul className="mt-3 space-y-2">
             {category.benefits.map((item) => (

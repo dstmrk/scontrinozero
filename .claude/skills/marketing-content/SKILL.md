@@ -51,6 +51,17 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   personalizzazione di intestazione/logo, che resta fuori dal prodotto: non
   prometterla.
 
+- **Storico e Analytics non sono la stessa cosa.** Lo Storico filtra solo per
+  periodo e stato ed elenca i documenti (data, progressivo, importo, stato):
+  **nessun totale** giornaliero o di periodo, niente metodo di pagamento in
+  elenco, nessuna ricerca per importo o numero. I ricavi giorno per giorno
+  stanno nei grafici di Analytics, che sono Pro (e prova). Audit ottobre 2026:
+  la promessa del "totale per giornata" era in 7 punti fra `/funzionalita`,
+  `/per`, `/help` e `/guide`, e "provi tutto" in prova in altri 3.
+- **La prova non è "tutto Pro".** Sblocca le funzioni Pro e la Developer API
+  con 1 chiave, ma il catalogo resta a 5 prodotti come su Starter
+  (`canAddCatalogItem` in `src/lib/plans-shared.ts`).
+
 - Il **reso merce** (documento commerciale di reso) è **spedito su tutti i
   piani**, Starter compreso: è un adempimento dell'esercente, non una feature
   Pro. Si fa dallo storico ("Fai un reso"), anche parziale e in più volte.
@@ -121,16 +132,28 @@ Le date e le leggi citate vanno verificate su fonte esterna e devono essere
 **identiche** in `/help`, `/guide` e `/per`. Un repo che si contraddice
 perde la citabilità AI che è lo scopo della checklist GEO.
 
-Riferimenti canonici oggi in uso (audit agosto 2026):
+Riferimenti canonici oggi in uso (audit agosto 2026, riverificati su fonte
+AdE e Gazzetta Ufficiale a ottobre 2026):
 
-| Tema                        | Riferimento corretto                                                                                                                                                                                  |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Collegamento POS 2026       | **L. 207/2024** (Bilancio 2025) art. 1 commi **74-77** + Provv. AdE **424470 del 31/10/2025**; servizio "Gestione Collegamenti" dal **5 marzo 2026**, prima comunicazione entro il **20 aprile 2026** |
-| Sanzioni collegamento POS   | 1.000-4.000 € + sospensione 15 gg-2 mesi (art. 11 c. 5 D.Lgs. 471/1997); 100 €/operazione (art. 11 c. 2-quinquies)                                                                                    |
-| Sanzioni corrispettivi      | **70%** dell'imposta, minimo **300 €** (art. 6 c. 2-bis D.Lgs. 471/1997 dopo il D.Lgs. 87/2024, dal 1° settembre 2024)                                                                                |
-| Soglia forfettario 85.000 € | L. 197/2022 (Bilancio 2023) — **non** confonderla con la norma POS                                                                                                                                    |
-| Lotteria scontrini          | solo pagamenti **elettronici** sopra 1 €, 1 biglietto/euro fino a 1.000; estrazioni settimanali 25.000 €, mensili 100.000 €, annuale 5 mln; **istantanea mai avviata**                                |
-| Garanzia legale             | **24 mesi** dalla consegna (art. 133 D.Lgs. 206/2005) — 26 mesi è la prescrizione dell'azione, non la durata                                                                                          |
+| Tema                                     | Riferimento corretto                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collegamento POS 2026                    | **L. 207/2024** (Bilancio 2025) art. 1 commi **74-77** + Provv. AdE **424470 del 31/10/2025**; servizio web dal **5 marzo 2026**, prima comunicazione entro il **20 aprile 2026**                                                                                                                                                                                                                                      |
+| Percorso collegamento POS                | RT: funzione **Gestione collegamenti** (delegabile). DCO: **Documento Commerciale on line** → riquadro _Funzionalità di supporto_ → **Associazione strumenti di pagamento elettronico**, **non delegabile** (FAQ AdE 25/03/2026 n. 4). Non si collegano i POS che incassano solo operazioni esenti/escluse (FAQ 9 e 24). Il bonifico non si collega ma sul documento è elettronico; l'assegno è contante (FAQ 11 e 27) |
+| Sanzioni collegamento POS                | 1.000-4.000 € + sospensione 15 gg-2 mesi (art. 11 c. 5 e art. 12 c. 3 D.Lgs. 471/1997); 100 € per trasmissione, tetto 1.000 € a trimestre (art. 11 c. 2-quinquies). Dal **12/08/2026** tolleranza del **5%** sul numero di operazioni (D.Lgs. 148/2026 art. 33): vale **solo** per il 2-quinquies, **non** per il mancato collegamento                                                                                 |
+| Sanzioni corrispettivi                   | **70%** dell'imposta, minimo **300 €** (art. 6 c. 2-bis D.Lgs. 471/1997 dopo il D.Lgs. 87/2024, dal 1° settembre 2024); sospensione 3 gg-1 mese dopo 4 violazioni in 5 anni (art. 12 c. 2)                                                                                                                                                                                                                             |
+| Soglia forfettario 85.000 €              | L. 197/2022 (Bilancio 2023) — **non** confonderla con la norma POS                                                                                                                                                                                                                                                                                                                                                     |
+| Esonero dallo scontrino                  | L'art. 22 DPR 633/72 riguarda le **imprese** (commercio al minuto e assimilati). I liberi professionisti (lavoro autonomo) fatturano sempre: mai elencarli fra chi emette lo scontrino                                                                                                                                                                                                                                 |
+| Fisconline                               | Dal 1/3/2021 niente credenziali nuove ai cittadini (DL 76/2020); imprese e professionisti con P.IVA possono ancora chiederle. Online: prime 4 cifre del PIN subito, ultime 6 e password iniziale per posta entro 15 giorni. Password da rinnovare ogni 90 giorni. **Nessuna "domanda segreta"**; il numero di tentativi prima del blocco non è documentato, quindi non citarlo                                         |
+| Aliquote ridotte citate                  | Farmaci **10%** (Tab. A p. III n. 114), non 4%; assorbenti e tamponi **10%** dal 1/1/2024 (L. 213/2023), non più 5%; manutenzioni su abitazioni 10% per art. 7 c. 1 lett. b L. 488/1999                                                                                                                                                                                                                                |
+| Lotteria scontrini                       | solo pagamenti **elettronici** da **1 €** in su (l'AdE esclude i documenti sotto 1 €), 1 biglietto/euro fino a 1.000; estrazioni settimanali 25.000 €, mensili 100.000 €, annuale 5 mln; **istantanea mai avviata**                                                                                                                                                                                                    |
+| Esoneri dalla certificazione             | Art. 2 DPR 696/1996, richiamato dal DM 10/5/2019 (esonero anche da memorizzazione e invio): taxi sì (lett. l), **NCC no**; produttori agricoli in regime speciale art. 34 sulle cessioni dei propri prodotti (lett. c); ASD/SSD in L. 398/91 su **tutte** le operazioni, commerciali comprese (lett. hh); solo alcune vendite ambulanti (lett. bb, dd). L'esonero è una facoltà, non un divieto                        |
+| Consegna del documento commerciale       | Su carta oppure, **con l'accordo del cliente**, in forma elettronica (DM 7/12/2016). Mostrare il numero a schermo non è una consegna                                                                                                                                                                                                                                                                                   |
+| Scontrino e fattura sulla stessa vendita | Ammessi entrambi (FAQ AdE n. 45 del 21/12/2018): la fattura richiama il documento commerciale e l'importo si scorpora dai corrispettivi. **Non** serve annullare lo scontrino                                                                                                                                                                                                                                          |
+| Ravvedimento sui corrispettivi           | Prima della contestazione 1/9 (entro 90 gg), 1/8 (entro la dichiarazione dell'anno), 1/7 oltre (art. 13 D.Lgs. 472/1997). L'1/5 dopo il verbale (lett. b-quater) è escluso per l'art. 6 c. 2-bis **solo** per omessa memorizzazione o memorizzazione con dati incompleti o non veritieri, per l'art. 6 c. 3 e per l'art. 11 c. 5: **non** per la sola omessa trasmissione                                              |
+| Forfettario oltre 100.000 €              | IVA dovuta dall'operazione che supera la soglia, **non** retroattiva; retroattivo è solo il passaggio all'ordinario per le imposte sui redditi                                                                                                                                                                                                                                                                         |
+| POS attivati nel 2026                    | Attivati entro gennaio: prima comunicazione entro il 20/4/2026. Da febbraio: dal sesto giorno del secondo mese successivo all'attivazione                                                                                                                                                                                                                                                                              |
+| Garanzia legale                          | **24 mesi** dalla consegna (art. 133 D.Lgs. 206/2005) — 26 mesi è la prescrizione dell'azione, non la durata                                                                                                                                                                                                                                                                                                           |
+| Costi RT                                 | Solo da `RT_COSTS` (`src/lib/marketing/rt-costs.ts`): l'unico costo ricorrente dovuto è la verificazione **biennale**; il "canone annuo" è un contratto di assistenza facoltativo e non entra in nessun totale, calcolatore compreso                                                                                                                                                                                   |
 
 **Ogni riga di questa tabella ha una data di verifica implicita** (l'audit
 citato sopra). Una norma citata senza che nessuno l'abbia riletta dopo un cambio
@@ -142,6 +165,15 @@ Trappola vista sul campo: la guida `/guide/pos-rt-obbligo-2026` citava
 correttamente L. 207/2024 — stesso numero di comma, legge diversa, plausibile
 a occhio. Quando due pagine dello stesso repo divergono su una norma,
 **verifica esternamente**, non scegliere la più recente.
+
+Seconda trappola, audit ottobre 2026: la fonte che decide è il documento
+primario dell'AdE (FAQ in PDF, manuale operativo della procedura, provvedimento),
+non la pagina riassuntiva di un sito di settore né un'altra pagina nostra. Il
+percorso di collegamento del POS per chi usa il DCO era descritto in tre modi
+diversi fra `/help` e `/guide` (Gestione collegamenti, Censimento POS,
+"associa la matricola"), e nessuno dei tre coincideva con il manuale. Quando
+il manuale non basta a confermare un dettaglio (numero di tentativi, tempi
+interni dell'AdE), si toglie il dettaglio invece di stimarlo.
 
 ## Slug separati /help vs /guide (canonical clash)
 
@@ -206,7 +238,9 @@ guida/help/tool nuovo o revisionato rispetta:
    registry; le pagine hub continuano a usare il template.
 7. **Il titolo riprende le parole della query e anticipa la risposta.** Non
    "Registratore di cassa: prezzi e alternative" ma "Quanto costa un
-   registratore di cassa: 400-800 € + canone". Su GSC 2026-08 le pagine col
+   registratore di cassa: 400-800 € + tecnico". Il numero nel titolo segue
+   le stesse regole del corpo: era "+ canone", che presentava come dovuto un
+   costo facoltativo (riga "Costi RT" sopra). Su GSC 2026-08 le pagine col
    titolo che non riprende la query stavano a CTR 0,36-0,99% da posizione
    9-10, cioè un ordine di grandezza sotto la norma per quelle posizioni.
 

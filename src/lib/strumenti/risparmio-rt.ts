@@ -1,18 +1,31 @@
 /**
  * Calcolatore risparmio: registratore telematico (RT) vs ScontrinoZero su 5 anni.
  *
- * Le costanti riflettono il TCO medio di mercato per un RT entry-level destinato
- * a una piccola attività italiana (fonte: listini pubblici dei principali
- * distributori RT, gennaio 2026). Sono stime conservative: il TCO reale di un
- * RT cresce con servizi aggiuntivi (carta termica premium, telecamere, ecc.).
+ * I costi RT vengono da `src/lib/marketing/rt-costs.ts`, la fonte unica del
+ * marketing: punto medio di ogni fascia. Si contano solo le voci dovute —
+ * acquisto, installazione da tecnico abilitato e la verificazione periodica
+ * ogni 2 anni. Il contratto di assistenza resta fuori: è diffuso ma
+ * facoltativo, e contarlo come canone annuo gonfiava il risparmio di circa
+ * 350 € su 5 anni.
  */
 
-const RT_HARDWARE_EUR = 500; // costo medio acquisto + collaudo iniziale
-const RT_ANNUAL_FEE_EUR = 150; // canone + manutenzione + verifica biennale ammortizzata
+import { RT_COSTS, type CostRange } from "@/lib/marketing/rt-costs";
+
 const SZ_ANNUAL_PLAN_STARTER_EUR = 29.99;
 const SZ_ANNUAL_PLAN_PRO_EUR = 49.99;
 const STARTER_RECEIPTS_THRESHOLD = 500; // sopra questa soglia consigliamo Pro per analytics + export
 const HORIZON_YEARS = 5;
+
+const midpoint = (range: CostRange): number => (range.min + range.max) / 2;
+
+/** Acquisto + installazione: la spesa una tantum del primo giorno. */
+const RT_UPFRONT_EUR =
+  midpoint(RT_COSTS.purchase) + midpoint(RT_COSTS.installation);
+
+/** Verificazioni che cadono dentro l'orizzonte (al 24° e al 48° mese). */
+const RT_VERIFICATIONS_IN_HORIZON = Math.floor(
+  HORIZON_YEARS / RT_COSTS.periodicVerification.everyYears,
+);
 
 export interface RtSavingsInput {
   readonly receiptsPerMonth: number;
@@ -20,8 +33,8 @@ export interface RtSavingsInput {
 
 export interface RtSavingsBreakdown {
   readonly rt: {
-    readonly hardware: number;
-    readonly annualFees5y: number;
+    readonly upfront: number;
+    readonly periodicVerifications5y: number;
   };
   readonly scontrinozero: {
     readonly annualPlan5y: number;
@@ -64,9 +77,9 @@ export function computeRtSavings({
       ? SZ_ANNUAL_PLAN_PRO_EUR
       : SZ_ANNUAL_PLAN_STARTER_EUR;
 
-  const rtHardware = RT_HARDWARE_EUR;
-  const rtAnnualFees5y = RT_ANNUAL_FEE_EUR * HORIZON_YEARS;
-  const rtCost5y = round2(rtHardware + rtAnnualFees5y);
+  const rtVerifications5y =
+    RT_VERIFICATIONS_IN_HORIZON * midpoint(RT_COSTS.periodicVerification);
+  const rtCost5y = round2(RT_UPFRONT_EUR + rtVerifications5y);
 
   const szAnnualPlan5y = round2(szAnnualPlan * HORIZON_YEARS);
 
@@ -78,8 +91,8 @@ export function computeRtSavings({
     horizonYears: HORIZON_YEARS,
     breakdown: {
       rt: {
-        hardware: round2(rtHardware),
-        annualFees5y: round2(rtAnnualFees5y),
+        upfront: round2(RT_UPFRONT_EUR),
+        periodicVerifications5y: round2(rtVerifications5y),
       },
       scontrinozero: {
         annualPlan5y: szAnnualPlan5y,

@@ -116,13 +116,16 @@ export default function CollegareAdeConCie() {
             ti sei registrato sull&apos;app CIE ID.
           </li>
           <li>
-            Account ScontrinoZero con onboarding completato (P.IVA e dati
-            attività inseriti).
+            Account ScontrinoZero con i dati dell&apos;attività già inseriti
+            (primo passo del wizard di onboarding): la partita IVA la
+            recuperiamo dall&apos;Agenzia delle Entrate quando completi il
+            collegamento con la CIE.
           </li>
           <li>
-            Essere il <strong>titolare dell&apos;attività</strong> (o il legale
-            rappresentante, in caso di società): l&apos;identità CIE
-            dev&apos;essere quella personale abilitata a operare sul portale.
+            Essere il <strong>titolare dell&apos;attività</strong> (in caso di
+            società, il legale rappresentante o una persona che lui ha nominato
+            gestore o operatore incaricato): l&apos;identità CIE dev&apos;essere
+            quella personale abilitata a operare sul portale.
           </li>
         </ul>
 
@@ -132,9 +135,9 @@ export default function CollegareAdeConCie() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dalla dashboard vai su <strong>Impostazioni → Credenziali AdE</strong>{" "}
-          (su mobile: tocca l&apos;icona ☰ in alto a sinistra). Nel modulo di
-          collegamento trovi il selettore del metodo: seleziona{" "}
-          <strong>CIE</strong> al posto di Fisconline.
+          (su mobile: tocca l&apos;icona a forma di ingranaggio in alto a
+          destra). Nel modulo di collegamento trovi il selettore del metodo:
+          seleziona <strong>CIE</strong> al posto di Fisconline.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
@@ -171,8 +174,9 @@ export default function CollegareAdeConCie() {
           Passaggio 3 — Approva la notifica push e verifica la connessione
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Premi <strong>Verifica connessione</strong>: ScontrinoZero avvia un
-          accesso di prova al portale AdE. In pochi secondi ricevi una{" "}
+          Premi <strong>Collega</strong> (<strong>Ricollega</strong> se
+          l&apos;account era già collegato): ScontrinoZero avvia un accesso di
+          prova al portale AdE. In pochi secondi ricevi una{" "}
           <strong>notifica push sull&apos;app CIE ID</strong> sul telefono:
           approvala entro circa un minuto. A conferma avvenuta il collegamento è
           completo e ScontrinoZero scarica automaticamente Partita IVA e codice

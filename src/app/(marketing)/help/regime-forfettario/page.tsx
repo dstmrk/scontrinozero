@@ -37,7 +37,7 @@ const faqItems: readonly FaqItem[] = [
     question:
       "Ho selezionato «0% – Non soggette» ma uno scontrino mostra ancora IVA al 22% — perché?",
     answer:
-      "Probabilmente hai aggiunto prodotti al catalogo prima di configurare l'aliquota prevalente, e quei prodotti hanno ancora l'aliquota ordinaria. Vai in Catalogo e aggiorna l'aliquota di ciascun prodotto su N2. Le righe manuali (importo libero) usano sempre l'aliquota predefinita dell'attività.",
+      "I prodotti del catalogo hanno un'aliquota propria, che non segue l'aliquota prevalente: ogni nuovo prodotto parte da 22%, che tu l'abbia creato prima o dopo aver configurato l'attività. Vai in Catalogo, tocca Modifica, apri ciascun prodotto con l'icona a matita, imposta l'aliquota su «0% – Non soggette» (N2) e tocca Salva. Le righe manuali (importo libero) partono invece dall'aliquota prevalente dell'attività, ma il selettore resta modificabile riga per riga: controlla di non averlo cambiato.",
   },
   {
     question: "Posso vendere ad aliquote diverse (es. alcune voci a IVA 10%)?",
@@ -53,7 +53,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "Devo emettere scontrini anche come forfettario?",
     answer:
-      "Sì, se svolgi attività al dettaglio o servizi a privati. I forfettari sono obbligati alla trasmissione telematica dei corrispettivi esattamente come i soggetti IVA ordinari. Il regime forfettario riguarda il trattamento dell'IVA, non l'obbligo di certificazione fiscale.",
+      "Sì, se la tua è un'attività d'impresa che vende beni o servizi a privati senza fattura (commercio al minuto e attività assimilate, art. 22 DPR 633/72). I forfettari sono obbligati alla memorizzazione e trasmissione telematica dei corrispettivi esattamente come i soggetti IVA ordinari: il regime forfettario riguarda il trattamento dell'IVA, non l'obbligo di certificazione fiscale. Non vale per il libero professionista, che documenta ogni prestazione con fattura, anche al privato.",
   },
 ];
 
@@ -112,8 +112,8 @@ export default function RegimeForfettarioPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;errore più comune è impostare l&apos;aliquota IVA al 22% (o
           altra aliquota ordinaria) anziché usare una natura N2: lo scontrino
-          risulterebbe fiscalmente scorretto e l&apos;esoneratore si troverebbe
-          ad aver certificato operazioni come imponibili.
+          risulterebbe fiscalmente scorretto e l&apos;esercente si troverebbe ad
+          aver certificato operazioni come imponibili.
         </p>
         {/* ─── Codice e natura IVA: N2 vs N2.2 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
@@ -132,7 +132,7 @@ export default function RegimeForfettarioPage() {
           </li>
           <li>
             <strong>Fattura elettronica B2B:</strong> codice granulare{" "}
-            <strong>N2.2</strong> (in vigore dal 1° luglio 2022), riferito
+            <strong>N2.2</strong> (obbligatorio dal 1° gennaio 2021), riferito
             all&apos;art. 1 commi 54-89 della L. 190/2014.
           </li>
           <li>
@@ -174,20 +174,20 @@ export default function RegimeForfettarioPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero non ha un selettore &quot;Regime forfettario&quot;
           dedicato: la configurazione avviene impostando l&apos;aliquota IVA
-          predefinita della tua attività e, se usi il catalogo rapido, quella
-          dei singoli prodotti.
+          prevalente della tua attività e, se usi il catalogo rapido, quella dei
+          singoli prodotti.
         </p>
         <h3 className="mt-6 text-base font-semibold">
           1. Durante l&apos;onboarding (prima configurazione)
         </h3>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Nello <strong>Step 1 — Attività</strong> del wizard, alla voce{" "}
+            Nel primo step del wizard, <strong>Dati attività</strong>, alla voce{" "}
             <strong>Aliquota IVA prevalente</strong> seleziona{" "}
             <strong>&quot;0% – Non soggette&quot; (codice N2)</strong>.
           </li>
           <li>
-            Completa gli altri step (credenziali AdE, riepilogo) e termina
+            Completa gli altri step (credenziali AdE, verifica) e termina
             l&apos;onboarding.
           </li>
         </ol>
@@ -195,12 +195,14 @@ export default function RegimeForfettarioPage() {
           2. Prodotti del catalogo rapido
         </h3>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Per ogni prodotto che aggiungi da <strong>Catalogo → Nuovo</strong>{" "}
-          (oppure modificando un prodotto esistente), nel campo{" "}
+          Per ogni prodotto che aggiungi con{" "}
+          <strong>Catalogo → Aggiungi</strong> (oppure che modifichi con{" "}
+          <strong>Modifica</strong> e l&apos;icona a matita), nel campo{" "}
           <strong>Aliquota IVA</strong> seleziona anche qui{" "}
-          <strong>&quot;0% – Non soggette&quot; (N2)</strong>. Le righe manuali
-          (importo libero) usano automaticamente l&apos;aliquota predefinita
-          impostata in onboarding.
+          <strong>&quot;0% – Non soggette&quot; (N2)</strong>: i nuovi prodotti
+          partono sempre da 22%, indipendentemente dall&apos;aliquota
+          prevalente. Le righe manuali (importo libero) partono invece
+          dall&apos;aliquota prevalente impostata in onboarding.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {"Puoi modificare l'aliquota IVA prevalente in qualsiasi momento da "}
@@ -231,8 +233,10 @@ export default function RegimeForfettarioPage() {
             &quot;tutto incluso&quot; e non c&apos;è scorporo.
           </li>
           <li>
-            <strong>Natura N2</strong> nel campo aliquota/natura IVA delle
-            righe.
+            <strong>NS*</strong> nella colonna IVA delle righe, con la legenda
+            «*NS = Non soggetta» in fondo al documento: è la resa a stampa del
+            codice natura <strong>N2</strong>, che è quello trasmesso
+            all&apos;AdE.
           </li>
           <li>
             <strong>Nessuna voce &quot;IVA: € 0,00&quot;</strong>: semplicemente
@@ -291,10 +295,12 @@ export default function RegimeForfettarioPage() {
           </li>
           <li>
             <strong>Oltre 100.000 €:</strong> uscita <strong>immediata</strong>{" "}
-            dal regime, con applicazione dell&apos;IVA{" "}
-            <strong>retroattiva</strong> a partire dall&apos;operazione che ha
-            determinato il superamento (art. 1 comma 71, L. 190/2014, come
-            novellato dalla L. 197/2022).
+            dal regime. L&apos;IVA è dovuta a partire dall&apos;operazione che
+            ha determinato il superamento, non sulle vendite precedenti (art. 1
+            comma 71, L. 190/2014, come novellato dalla L. 197/2022). Ai fini
+            delle imposte sui redditi, invece, il regime forfettario cessa di
+            applicarsi dall&apos;inizio dello stesso anno (circolare AdE 32/E
+            del 5 dicembre 2023).
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -339,12 +345,17 @@ export default function RegimeForfettarioPage() {
               mostra ancora IVA al 22% — perché?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Probabilmente hai aggiunto prodotti al catalogo prima di
-              configurare l&apos;aliquota prevalente, e quei prodotti hanno
-              ancora l&apos;aliquota ordinaria. Vai in <strong>Catalogo</strong>{" "}
-              e aggiorna l&apos;aliquota di ciascun prodotto su{" "}
-              <strong>N2</strong>. Le righe manuali (importo libero) usano
-              sempre l&apos;aliquota predefinita dell&apos;attività.
+              I prodotti del catalogo hanno un&apos;aliquota propria, che non
+              segue l&apos;aliquota prevalente: ogni nuovo prodotto parte da
+              22%, che tu l&apos;abbia creato prima o dopo aver configurato
+              l&apos;attività. Vai in <strong>Catalogo</strong>, tocca{" "}
+              <strong>Modifica</strong>, apri ciascun prodotto con l&apos;icona
+              a matita, imposta l&apos;aliquota su{" "}
+              <strong>«0% – Non soggette» (N2)</strong> e tocca{" "}
+              <strong>Salva</strong>. Le righe manuali (importo libero) partono
+              invece dall&apos;aliquota prevalente dell&apos;attività, ma il
+              selettore resta modificabile riga per riga: controlla di non
+              averlo cambiato.
             </p>
           </div>
           <div>
@@ -383,11 +394,14 @@ export default function RegimeForfettarioPage() {
               Devo emettere scontrini anche come forfettario?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì, se svolgi attività al dettaglio o servizi a privati. I
-              forfettari sono obbligati alla trasmissione telematica dei
-              corrispettivi esattamente come i soggetti IVA ordinari. Il regime
-              forfettario riguarda il trattamento dell&apos;IVA, non
-              l&apos;obbligo di certificazione fiscale.
+              Sì, se la tua è un&apos;attività d&apos;impresa che vende beni o
+              servizi a privati senza fattura (commercio al minuto e attività
+              assimilate, art. 22 DPR 633/72). I forfettari sono obbligati alla
+              memorizzazione e trasmissione telematica dei corrispettivi
+              esattamente come i soggetti IVA ordinari: il regime forfettario
+              riguarda il trattamento dell&apos;IVA, non l&apos;obbligo di
+              certificazione fiscale. Non vale per il libero professionista, che
+              documenta ogni prestazione con fattura, anche al privato.
             </p>
           </div>
         </div>

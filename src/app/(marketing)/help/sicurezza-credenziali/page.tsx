@@ -77,10 +77,11 @@ export default function SicurezzaCredenzialiPage() {
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le credenziali restano cifrate e vengono usate solo per le operazioni
-          che avvii tu: emettere uno scontrino, annullarlo, consultare i tuoi
-          documenti sul portale. Non vengono condivise con terzi e nessun
-          processo automatico le usa a tua insaputa — ogni collegamento
-          all&apos;Agenzia parte da una tua azione nell&apos;app.
+          richieste da te: emettere, annullare o rendere uno scontrino,
+          verificare il collegamento e consultare i tuoi documenti sul portale,
+          dall&apos;app oppure dal gestionale a cui hai dato una tua chiave API.
+          Non vengono condivise con terzi e nessun processo automatico le usa
+          per altro.
         </p>
 
         {/* ─── Come sono cifrate ─── */}
@@ -171,8 +172,8 @@ export default function SicurezzaCredenzialiPage() {
           </li>
           <li>
             <strong>Il server applicativo</strong> — usa le credenziali
-            decifrate solo al momento dell&apos;invio degli scontrini,
-            operazione che avviene solo su tua esplicita richiesta.
+            decifrate solo al momento delle operazioni con l&apos;Agenzia
+            richieste da te, dall&apos;app o tramite una tua chiave API.
           </li>
           <li>
             <strong>Nessun altro</strong> — il team ScontrinoZero, i database
@@ -181,15 +182,15 @@ export default function SicurezzaCredenzialiPage() {
           </li>
         </ul>
 
-        {/* ─── Cosa succede se cambi il PIN ─── */}
+        {/* ─── Cosa succede se cambi password o PIN ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Cosa succede se cambi il PIN Fisconline
+          Cosa succede se cambi password o PIN Fisconline
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se cambi il PIN sul portale dell&apos;Agenzia delle Entrate, le
-          credenziali salvate su ScontrinoZero diventano non valide: il sistema
-          ti mostrerà un errore di connessione AdE la prossima volta che emetti
-          uno scontrino.
+          Se cambi la password sul portale dell&apos;Agenzia delle Entrate (lo
+          chiede ogni 90 giorni) o ottieni un nuovo PIN, le credenziali salvate
+          su ScontrinoZero diventano non valide: il sistema ti mostrerà un
+          errore di connessione AdE la prossima volta che emetti uno scontrino.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per aggiornare le credenziali:
@@ -199,9 +200,14 @@ export default function SicurezzaCredenzialiPage() {
             Vai su <strong>Impostazioni → Credenziali AdE</strong>.
           </li>
           <li>
-            Clicca su <strong>Modifica credenziali</strong>.
+            Tocca l&apos;icona a forma di matita accanto al titolo della card
+            (Modifica credenziali AdE).
           </li>
-          <li>Inserisci il nuovo PIN e salva.</li>
+          <li>
+            Reinserisci codice fiscale, password e PIN, con la password o il PIN
+            nuovi (il modulo si apre vuoto e li chiede tutti e tre), salva e poi
+            verifica di nuovo la connessione.
+          </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Gli scontrini emessi prima dell&apos;aggiornamento e rifiutati
@@ -216,24 +222,29 @@ export default function SicurezzaCredenzialiPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per modificare le credenziali AdE salvate vai su{" "}
-          <strong>Impostazioni → Credenziali AdE</strong> e clicca{" "}
-          <strong>Modifica credenziali</strong>: i nuovi valori sostituiscono
-          quelli precedenti, che vengono cifrati di nuovo e sovrascritti nel
-          database.
+          <strong>Impostazioni → Credenziali AdE</strong> e tocca l&apos;icona a
+          forma di matita (Modifica credenziali AdE): i nuovi valori
+          sostituiscono quelli precedenti, che vengono cifrati di nuovo e
+          sovrascritti nel database.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per <strong>revocare completamente</strong> l&apos;accesso e
           cancellare i dati cifrati, puoi eliminare l&apos;account ScontrinoZero
-          da <strong>Impostazioni → Zona pericolosa → Elimina account</strong>:
-          la cancellazione è <strong>immediata</strong> e include credenziali
-          AdE, anagrafica, scontrini e catalogo (cascade delete sul profilo). Il
-          diritto alla cancellazione è garantito dal GDPR art. 17.
+          da{" "}
+          <strong>
+            Impostazioni → Altre impostazioni → Zona pericolosa → Elimina
+            account
+          </strong>
+          {": la cancellazione è "}
+          <strong>immediata</strong> e include credenziali AdE, anagrafica,
+          scontrini e catalogo (cascade delete sul profilo). Il diritto alla
+          cancellazione è garantito dal GDPR art. 17.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Oggi non esiste un pulsante dedicato per rimuovere solo le credenziali
           AdE lasciando attivo l&apos;account: le due strade disponibili sono
-          sovrascriverle da <strong>Modifica credenziali</strong> oppure
-          eliminare l&apos;account.
+          sovrascriverle toccando l&apos;icona a forma di matita (Modifica
+          credenziali AdE) oppure eliminare l&apos;account.
         </p>
 
         {/* ─── FAQ ─── */}
@@ -245,9 +256,12 @@ export default function SicurezzaCredenzialiPage() {
               sezioni del portale AdE?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. Il codice accede esclusivamente alle sezioni necessarie per
-              emettere e annullare documenti commerciali. Non vengono effettuate
-              operazioni su fatture, dichiarazioni, o altri servizi AdE.
+              No. Il codice accede solo alle funzioni del Documento Commerciale
+              Online (emissione, annullo, reso e ricerca dei tuoi documenti
+              commerciali), ai dati anagrafici della tua partita IVA e, se la
+              password Fisconline è scaduta, al cambio password che avvii tu
+              dall&apos;app. Non vengono effettuate operazioni su fatture,
+              dichiarazioni o altri servizi AdE.
             </p>
           </div>
           <div>
@@ -258,8 +272,8 @@ export default function SicurezzaCredenzialiPage() {
               In caso di accesso non autorizzato al database, un attaccante
               otterrebbe solo il testo cifrato, inutilizzabile senza la chiave
               di decifratura (che non è nel database). Come misura aggiuntiva,
-              ti consigliamo di cambiare il PIN Fisconline se ricevi notifiche
-              di sicurezza da parte nostra.
+              ti consigliamo di cambiare la password Fisconline se ricevi
+              notifiche di sicurezza da parte nostra.
             </p>
           </div>
           <div>

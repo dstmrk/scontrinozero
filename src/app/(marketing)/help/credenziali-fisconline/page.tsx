@@ -39,10 +39,11 @@ export default function CredenzialiPage() {
           <Badge variant="secondary">Fiscalizzazione</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Per trasmettere scontrini elettronici all&apos;Agenzia delle Entrate
-          servono le credenziali <strong>Fisconline</strong> del titolare
-          dell&apos;attività. Questa guida spiega cosa sono, chi può ottenerle e
-          come verificare che funzionino.
+          Per collegare ScontrinoZero all&apos;Agenzia delle Entrate puoi usare
+          le credenziali <strong>Fisconline</strong> del titolare
+          dell&apos;attività oppure, in alternativa, la CIE. Questa guida spiega
+          cosa sono le credenziali Fisconline, chi può ottenerle e come
+          verificare che funzionino.
         </p>
         <HelpArticleUpdatedAt slug="credenziali-fisconline" />
         <figure className="mt-6">
@@ -74,7 +75,7 @@ export default function CredenzialiPage() {
           }
           <strong>SPID, CIE o CNS</strong>
           {
-            ". Fisconline resta disponibile per i titolari di partita IVA attiva e per gli operatori autorizzati a operare per conto di società, enti o professionisti — ed è proprio questo il canale che ScontrinoZero utilizza per trasmettere gli scontrini."
+            ". Fisconline resta disponibile per imprese e professionisti titolari di partita IVA e per chi è autorizzato a operare per conto di società o enti — ed è uno dei due canali con cui ScontrinoZero si collega all'Agenzia: l'altro è la CIE."
           }
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -84,7 +85,8 @@ export default function CredenzialiPage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Codice fiscale</strong> — il codice fiscale personale (16
-            caratteri) del titolare o del legale rappresentante.
+            caratteri) di chi accede: il titolare, il legale rappresentante o la
+            persona incaricata di operare per la società.
           </li>
           <li>
             <strong>Password</strong> — scelta dall&apos;utente al primo
@@ -119,20 +121,21 @@ export default function CredenzialiPage() {
           <li>
             {"Vai su "}
             <strong>agenziaentrate.gov.it</strong>
-            {" e accedi all'area riservata con SPID, CIE o CNS."}
-          </li>
-          <li>
-            Nel menu dei servizi telematici seleziona{" "}
-            <strong>Richiesta credenziali Fisconline</strong>.
+            {", apri l'area riservata, scegli la scheda "}
+            <strong>Credenziali</strong>
+            {" e poi "}
+            <strong>Non sei ancora registrato?</strong>
+            {" → Registrazione a Fisconline → Richiesta del PIN."}
           </li>
           <li>
             {
-              "Il sistema mostra immediatamente le prime 4 cifre del PIN e la password di primo accesso."
+              "Compila il modulo con i dati richiesti, fra cui alcuni dati dell'ultima dichiarazione dei redditi."
             }
           </li>
+          <li>{"Il sistema mostra subito le prime 4 cifre del PIN."}</li>
           <li>
             {
-              "Le restanti 6 cifre del PIN arrivano per posta al tuo domicilio fiscale entro "
+              "Le restanti 6 cifre del PIN e la password per il primo accesso arrivano per posta al tuo domicilio fiscale entro "
             }
             <strong>15 giorni</strong>
             {"."}
@@ -150,15 +153,19 @@ export default function CredenzialiPage() {
           Opzione B — Ufficio dell&apos;Agenzia delle Entrate
         </h3>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Presentandoti a uno sportello AdE con un documento d&apos;identità e
-          l&apos;attestazione di partita IVA, ricevi in giornata il PIN completo
-          (tutte e 10 le cifre) e la password di primo accesso.
+          Presentandoti di persona a un ufficio territoriale dell&apos;AdE con
+          un documento d&apos;identità, ricevi subito la prima parte del PIN e
+          la password iniziale. La seconda parte del PIN la prelevi poi dal sito
+          dell&apos;Agenzia: area riservata → scheda Credenziali →{" "}
+          <em>Non sei ancora registrato?</em> → Registrazione a Fisconline →{" "}
+          <em>Per coloro che hanno richiesto il PIN a un Ufficio</em>.
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Se hai un commercialista o un intermediario abilitato, può attivare le
-          credenziali per la tua attività come{" "}
-          <strong>gestore incaricato</strong>
-          {": il canale è quello corretto per una società."}
+          Per una società le credenziali Fisconline sono personali: le usa il
+          legale rappresentante oppure una persona che lui nomina{" "}
+          <strong>gestore incaricato</strong> dall&apos;area riservata AdE
+          (Profilo utente → Incarichi). Chi è incaricato accede con codice
+          fiscale, password e PIN propri e poi opera per conto della società.
         </p>
 
         {/* ─── Password + PIN ─── */}
@@ -170,11 +177,11 @@ export default function CredenzialiPage() {
             <p className="font-medium">PIN (10 cifre)</p>
             <p className="text-muted-foreground mt-1 leading-relaxed">
               {
-                "Assegnato dall'Agenzia: prime 4 cifre subito (via portale o email), ultime 6 cifre per posta entro 15 giorni. Il PIN è fisso, "
+                "Assegnato dall'Agenzia: con la richiesta online le prime 4 cifre compaiono subito a video e le ultime 6 arrivano per posta entro 15 giorni; allo sportello ricevi subito la prima parte e prelevi la seconda dal sito dell'Agenzia. Il PIN è fisso, "
               }
               <strong>non scade</strong>
               {
-                " e non si cambia. Finché non arriva la parte postale il PIN è incompleto e non funziona con ScontrinoZero."
+                " e non si cambia. Finché non hai anche la seconda parte il PIN è incompleto e non funziona con ScontrinoZero."
               }
             </p>
           </div>
@@ -260,11 +267,11 @@ export default function CredenzialiPage() {
               delegato?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. Le credenziali devono essere del{" "}
-              <strong>titolare dell&apos;attività</strong> (o del legale
-              rappresentante, se si tratta di una società). Usare le credenziali
-              di un terzo non è previsto da ScontrinoZero e potrebbe violare le
-              condizioni d&apos;uso del portale AdE.
+              Solo se sono credenziali personali di chi può operare per
+              l&apos;attività: il titolare, il legale rappresentante o una
+              persona nominata gestore o operatore incaricato della società.
+              Credenziali di altri, usate al posto tuo, non sono previste da
+              ScontrinoZero.
             </p>
           </div>
           <div>
@@ -274,10 +281,10 @@ export default function CredenzialiPage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               {"Il "}
               <strong>
-                codice fiscale personale del legale rappresentante
+                codice fiscale personale di chi accede per la società
               </strong>
               {
-                ", non la partita IVA della società. Le credenziali Fisconline sono associate alla persona fisica che risulta abilitata a operare per conto della società (gestore incaricato)."
+                ": il legale rappresentante oppure la persona che lui ha nominato gestore o operatore incaricato. Mai la partita IVA della società: le credenziali Fisconline sono sempre associate a una persona fisica."
               }
             </p>
           </div>

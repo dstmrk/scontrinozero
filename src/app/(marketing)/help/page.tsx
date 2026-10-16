@@ -133,7 +133,9 @@ export default function HelpHomePage() {
             >
               info@scontrinozero.it
             </a>
-            {" e ti rispondiamo entro 24 ore."}
+            {
+              " e ti rispondiamo entro 24 ore lavorative sul piano Pro, 48 sullo Starter."
+            }
           </p>
         </div>
       </div>

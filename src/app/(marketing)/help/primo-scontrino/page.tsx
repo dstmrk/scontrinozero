@@ -54,8 +54,10 @@ export default function PrimoScontrinoPage() {
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Onboarding completato (P.IVA, ragione sociale e dati attività
-            inseriti).
+            Onboarding completato: dati dell&apos;attività e indirizzo inseriti
+            (partita IVA e codice fiscale dell&apos;attività li legge
+            ScontrinoZero dall&apos;Agenzia delle Entrate quando colleghi
+            l&apos;account).
           </li>
           <li>
             Credenziali AdE collegate e verificate. Non le hai ancora?{" "}
@@ -68,8 +70,11 @@ export default function PrimoScontrinoPage() {
             .
           </li>
           <li>
-            Regime fiscale configurato correttamente (es. regime forfettario,
-            IVA ordinaria).
+            Aliquota IVA prevalente scelta in base al tuo regime (per il
+            forfettario «0% – Non soggette», in regime ordinario l&apos;aliquota
+            che applichi più spesso). È facoltativa: la imposti nella prima
+            configurazione e la cambi quando vuoi da{" "}
+            <strong>Impostazioni → Attività</strong>.
           </li>
         </ul>
 
@@ -209,7 +214,7 @@ export default function PrimoScontrinoPage() {
           Passaggio 5 — Condividi lo scontrino col cliente
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dalla schermata di successo hai tre pulsanti:
+          Dalla schermata di successo hai quattro pulsanti:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -217,6 +222,20 @@ export default function PrimoScontrinoPage() {
             condivisione del sistema (WhatsApp, email, SMS…); da desktop copia
             negli appunti il link pubblico della ricevuta, nella forma{" "}
             <code>/r/&lt;id&gt;</code>.
+          </li>
+          <li>
+            <strong>Stampa</strong> — su Android, con una stampante termica
+            Bluetooth collegata, stampa lo scontrino al banco; su iPhone e iPad
+            apre il PDF già formattato a 58 mm; su computer apre il PDF oppure,
+            con Chrome o Edge, prima la scelta fra stampante Bluetooth e PDF. I
+            dettagli sono in{" "}
+            <Link
+              href="/help/stampare-scontrino-termica"
+              className="text-primary hover:underline"
+            >
+              Stampare lo scontrino su carta termica
+            </Link>
+            .
           </li>
           <li>
             <strong>Mostra QR code</strong> — apre un QR code con il link alla
@@ -232,8 +251,7 @@ export default function PrimoScontrinoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Aprendo il link pubblico, tu o il cliente potete scaricare il PDF e
           stamparlo con la funzione di stampa del browser o del sistema
-          operativo (inclusa una stampante termica Bluetooth associata al
-          dispositivo).
+          operativo.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Consegnare il documento commerciale al cliente — in forma cartacea o
@@ -252,10 +270,10 @@ export default function PrimoScontrinoPage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               L&apos;invio all&apos;AdE è sincrono: se qualcosa va storto il
               messaggio compare subito in cassa e lo scontrino non viene chiuso.
-              Le cause più frequenti sono credenziali Fisconline scadute o
-              errate (verifica in{" "}
-              <strong>Impostazioni → Agenzia delle Entrate</strong>), portale
-              AdE momentaneamente non disponibile, oppure codici di errore AdE
+              Le cause più frequenti sono una password Fisconline scaduta o
+              credenziali errate (verifica in{" "}
+              <strong>Impostazioni → Credenziali AdE</strong>), portale AdE
+              momentaneamente non disponibile, oppure codici di errore AdE
               riportati tra parentesi nel messaggio. Correggi l&apos;eventuale
               dato e premi di nuovo <strong>Emetti scontrino</strong>.
             </p>
@@ -272,7 +290,7 @@ export default function PrimoScontrinoPage() {
               >
                 annullare lo scontrino errato
               </Link>{" "}
-              e emetterne uno corretto.
+              ed emetterne uno corretto.
             </p>
           </div>
           <div>

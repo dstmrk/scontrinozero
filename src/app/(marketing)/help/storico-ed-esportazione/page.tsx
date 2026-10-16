@@ -166,8 +166,9 @@ export default function StoricoEdEsportazionePage() {
             scaduta, ti viene chiesto di ricollegarti.
           </li>
           <li>
-            <strong>Puoi arrivare fino a un anno indietro</strong>, quindi anche
-            &quot;da inizio anno&quot; in una ricerca sola. L&apos;archivio
+            <strong>Ogni ricerca copre al massimo 366 giorni</strong>, quindi
+            anche &quot;da inizio anno&quot; sta in una ricerca sola; per un
+            periodo più vecchio basta spostare le date. L&apos;archivio
             dell&apos;Agenzia però si interroga un mese per volta, quindi su
             periodi lunghi l&apos;attesa cresce: se la ricerca non fa in tempo a
             leggere tutto, te lo dice e ti mostra la parte più recente.
@@ -325,7 +326,8 @@ export default function StoricoEdEsportazionePage() {
                   <em>agenzia entrate</em> se viene dall&apos;archivio
                   dell&apos;Agenzia. Su queste ultime righe le colonne che
                   l&apos;archivio non fornisce (descrizione, metodo di
-                  pagamento, sconto, codice lotteria) restano vuote
+                  pagamento, sconto a pagare, incassato, codice lotteria)
+                  restano vuote
                 </td>
               </tr>
               <tr>
@@ -337,8 +339,25 @@ export default function StoricoEdEsportazionePage() {
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">totale</td>
                 <td className="py-2">
-                  Importo complessivo dello scontrino, in negativo sui resi:
-                  sommando la colonna ottieni il netto del periodo
+                  Importo complessivo dello scontrino, in negativo sui resi. Con
+                  il filtro Emesso, quello predefinito, sommando la colonna
+                  ottieni il netto del periodo; con Tutti entrano anche gli
+                  scontrini annullati, con il loro importo in positivo, da
+                  escludere
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">sconto_a_pagare</td>
+                <td className="py-2">
+                  Lo sconto a pagare concesso sul totale (0,00 se non c&apos;è);
+                  vuota sui resi e sulle righe dell&apos;Agenzia
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">incassato</td>
+                <td className="py-2">
+                  Quanto hai effettivamente incassato, cioè totale meno sconto a
+                  pagare; vuota sui resi e sulle righe dell&apos;Agenzia
                 </td>
               </tr>
               <tr>
@@ -346,9 +365,10 @@ export default function StoricoEdEsportazionePage() {
                   metodo_pagamento
                 </td>
                 <td className="py-2">
-                  <em>contanti</em> oppure <em>elettronico</em>; vuota sui resi,
-                  perché il documento di reso non registra come hai rimborsato
-                  il cliente
+                  <em>contanti</em>, <em>elettronico</em> oppure, su un
+                  pagamento misto, <em>contanti + elettronico</em>; vuota sui
+                  resi, perché il documento di reso non registra come hai
+                  rimborsato il cliente
                 </td>
               </tr>
               <tr>
@@ -438,8 +458,10 @@ export default function StoricoEdEsportazionePage() {
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">totale_riga</td>
                 <td className="py-2">
-                  Quantità × prezzo unitario. La somma di questa colonna
-                  coincide al centesimo con il <code>totale</code> del riepilogo
+                  Quantità × prezzo unitario, meno l&apos;eventuale sconto di
+                  riga (che nel file non ha una colonna a sé). La somma di
+                  questa colonna coincide al centesimo con il{" "}
+                  <code>totale</code> del riepilogo
                 </td>
               </tr>
               <tr>

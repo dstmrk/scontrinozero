@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { RT_COSTS, formatRtCostRange } from "@/lib/marketing/rt-costs";
 import {
   JsonLd,
   helpArticleBreadcrumb,
@@ -77,10 +78,12 @@ export default function ChiusuraGiornalieraPage() {
           l&apos;app.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se vuoi un riepilogo dei corrispettivi del giorno, puoi consultare lo{" "}
-          <strong>Storico</strong> e filtrare per data odierna: vedrai
-          l&apos;elenco di tutti gli scontrini emessi con importi e metodi di
-          pagamento.
+          Se vuoi un riepilogo dei corrispettivi del giorno, apri lo{" "}
+          <strong>Storico</strong> e filtra per la data di oggi: vedrai
+          l&apos;elenco degli scontrini emessi con numero, importo e stato. Il
+          metodo di pagamento non compare nell&apos;elenco: lo trovi sulla
+          ricevuta del singolo scontrino (<strong>Invia ricevuta</strong> o{" "}
+          <strong>Stampa</strong> dal suo dettaglio).
         </p>
 
         {/* ─── Confronto RT fisico ─── */}
@@ -128,7 +131,9 @@ export default function ChiusuraGiornalieraPage() {
                 <td className="text-foreground py-2 font-medium">
                   Hardware richiesto
                 </td>
-                <td className="py-2">RT certificato (€300-800)</td>
+                <td className="py-2">
+                  RT certificato ({formatRtCostRange(RT_COSTS.purchase)})
+                </td>
                 <td className="py-2">Smartphone o PC</td>
               </tr>
             </tbody>
@@ -171,10 +176,10 @@ export default function ChiusuraGiornalieraPage() {
               sull&apos;RT?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì, se usi un RT fisico <em>in parallelo</em> a ScontrinoZero, le
-              obbligazioni dell&apos;RT rimangono invariate. ScontrinoZero non
-              sostituisce un RT già in uso: lo affianca o lo sostituisce
-              completamente a seconda del tuo setup.
+              Sì, se usi un RT fisico <em>in parallelo</em> a ScontrinoZero, gli
+              obblighi dell&apos;RT restano invariati, chiusura giornaliera
+              compresa. ScontrinoZero può affiancare l&apos;RT oppure
+              sostituirlo del tutto, a seconda di come organizzi la cassa.
             </p>
           </div>
           <div>
@@ -182,13 +187,16 @@ export default function ChiusuraGiornalieraPage() {
               Devo tenere un registro cartaceo dei corrispettivi?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. I corrispettivi sono già registrati nel cassetto fiscale
-              dell&apos;AdE e nello Storico di ScontrinoZero. Per dare i dati al
-              commercialista puoi filtrare lo Storico per il mese di riferimento
-              oppure scaricare l&apos;archivio completo dei tuoi dati (profilo,
-              scontrini, catalogo) dalle{" "}
-              <strong>Impostazioni → Portabilità dati</strong> — la funzione
-              prevista dall&apos;art. 20 GDPR produce un file JSON strutturato.
+              No. I corrispettivi sono già registrati sul portale Fatture e
+              Corrispettivi dell&apos;AdE e nello Storico di ScontrinoZero. Per
+              dare i dati al commercialista puoi filtrare lo Storico per il mese
+              di riferimento oppure scaricare l&apos;archivio completo dei tuoi
+              dati (profilo, scontrini, catalogo) dalle{" "}
+              <strong>
+                Impostazioni → Altre impostazioni → Portabilità dati
+              </strong>{" "}
+              — la funzione prevista dall&apos;art. 20 GDPR produce un file JSON
+              strutturato.
             </p>
           </div>
         </div>

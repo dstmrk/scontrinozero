@@ -13,7 +13,7 @@ const PAGE_URL = `${SITE_URL}/per`;
 export const metadata: Metadata = {
   title: "Soluzioni per categoria",
   description:
-    "ScontrinoZero adattato per ambulanti, parrucchieri, artigiani, officine, palestre, food truck, NCC, tatuatori, B&B, forfettari e professionisti. Trova la tua categoria.",
+    "ScontrinoZero adattato per ambulanti, parrucchieri, artigiani, officine, palestre, food truck, NCC, tatuatori, B&B e forfettari. Trova la tua categoria.",
   openGraph: {
     title: "Soluzioni per categoria | ScontrinoZero",
     description:
@@ -71,7 +71,7 @@ export default function PerIndexPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm">
               {
-                "ScontrinoZero funziona per qualsiasi partita IVA con vendite o servizi B2C. Inizia i 30 giorni di prova gratuita."
+                "ScontrinoZero funziona per qualsiasi attività d'impresa con vendite o servizi a privati. Inizia i 30 giorni di prova gratuita."
               }
             </p>
             <Button asChild className="mt-3">

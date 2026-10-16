@@ -100,6 +100,12 @@ const comparisonRows: ComparisonRow[] = [
     selfHosted: true,
   },
   {
+    label: "Developer API",
+    starter: false,
+    pro: "Fino a 3 chiavi",
+    selfHosted: true,
+  },
+  {
     label: "Supporto prioritario",
     starter: false,
     pro: true,
@@ -118,7 +124,7 @@ const pricingFaqs: { question: string; answer: string }[] = [
   {
     question: "Che differenza c'è tra Starter e Pro?",
     answer:
-      "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV, il messaggio personalizzato in fondo allo scontrino, gli sconti sullo scontrino, il pagamento misto (un incasso ripartito fra contanti ed elettronico sullo stesso scontrino) e il supporto prioritario.",
+      "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV, il messaggio personalizzato in fondo allo scontrino, gli sconti sullo scontrino, il pagamento misto (un incasso ripartito fra contanti ed elettronico sullo stesso scontrino), la ricerca dei documenti commerciali sull'archivio AdE, la Developer API e il supporto prioritario.",
   },
   {
     question: "Posso cambiare piano in qualsiasi momento?",
@@ -126,7 +132,7 @@ const pricingFaqs: { question: string; answer: string }[] = [
       "Sì. Puoi passare da Starter a Pro o viceversa in qualsiasi momento dal pannello di controllo. Le modifiche entrano in vigore immediatamente.",
   },
   {
-    question: "Emetto fattura o ricevuta del pagamento?",
+    question: "Ricevo fattura o ricevuta del pagamento?",
     answer:
       "Sì. Per ogni addebito ricevi una ricevuta di pagamento via email. Se hai bisogno di fattura, contattaci a info@scontrinozero.it.",
   },
@@ -266,7 +272,7 @@ export default function PrezziPage() {
       <section className="px-4 py-16 text-center">
         <h2 className="text-2xl font-bold">Inizia gratis, senza impegno</h2>
         <p className="text-muted-foreground mt-2">
-          30 giorni per provare tutto. Nessuna carta richiesta.
+          30 giorni di prova gratuita. Nessuna carta richiesta.
         </p>
         <Button asChild size="lg" className="mt-6">
           <a href={registerHref("prezzi")}>
