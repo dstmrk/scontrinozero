@@ -1,15 +1,5 @@
 import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 
-/**
- * Messaggio lanciato da Next.js/undici quando un POST con body non-FormData
- * colpisce l'handler delle Server Actions. In pratica generato solo da bot che
- * sondano path inesistenti (es. `POST /RSC/<random>.txt` → `/_not-found/page`):
- * non è mai un flusso legittimo dell'app, la richiesta finirebbe comunque in
- * 404 e l'errore non è azionabile. Lo filtriamo per non inquinare Sentry
- * (issue SCONTRINOZERO-E).
- */
-const FORMDATA_PARSE_MESSAGE = "Failed to parse body as FormData";
-
 function extractErrorMessage(event: ErrorEvent, hint?: EventHint): string {
   const original = hint?.originalException;
   if (original instanceof Error) {
@@ -424,49 +414,41 @@ export const NEXT_CLIENT_COMPONENT_LOADING_SPAN =
   /^NextNodeServer\.clientComponentLoading$/;
 
 /**
- * True se l'evento è il benigno `TypeError: Failed to parse body as FormData`
- * generato da una richiesta verso la route not-found (sonda bot). Lo scope è
- * volutamente limitato alla transaction `/_not-found`: su una Server Action
- * reale lo stesso messaggio potrebbe segnalare un bug e va lasciato passare.
+ * Errori che Next.js lancia quando un POST colpisce la route not-found. Li
+ * generano solo bot e scanner che sondano path inesistenti: nessun flusso
+ * dell'app fa POST a una route che non esiste, la richiesta finisce comunque
+ * in 404 e l'errore non è azionabile. Uno per issue Sentry:
+ *
+ * - SCONTRINOZERO-E: body non-FormData sull'handler delle Server Action
+ *   (`POST /RSC/<random>.txt`).
+ * - SCONTRINOZERO-T: nessuna Server Action registrata per l'ID del POST
+ *   (scanner Joomla su `/index.php?option=com_sppagebuilder&...`).
+ * - SCONTRINOZERO-17: Next si aspetta un payload RSC e trova `text/plain`
+ *   (`POST /api` da UA `com/bot`). L'invariant si dichiara "bug in Next.js":
+ *   non è codice nostro.
+ *
+ * Si confronta il messaggio intero, non un prefisso come `Invariant:`: un
+ * invariant diverso sulla stessa route può essere un bug vero.
  */
-export function isBenignFormDataParseError(
+const NOT_FOUND_PROBE_MESSAGES = [
+  "Failed to parse body as FormData",
+  "Failed to find Server Action",
+  "Invariant: Expected RSC response, got text/plain",
+];
+
+/**
+ * True se l'evento è una sonda bot sulla route not-found (vedi
+ * `NOT_FOUND_PROBE_MESSAGES`). Lo scope è volutamente limitato alla
+ * transaction `/_not-found`: sulle route reali gli stessi messaggi possono
+ * segnalare un bug o un deploy skew genuino (client vecchio verso build
+ * nuova, skill `sentry-hygiene`) e vanno lasciati passare.
+ */
+export function isBenignNotFoundProbeError(
   event: ErrorEvent,
   hint?: EventHint,
 ): boolean {
   const message = extractErrorMessage(event, hint);
-  if (!message.includes(FORMDATA_PARSE_MESSAGE)) {
-    return false;
-  }
-
-  const transaction = event.transaction ?? "";
-  return transaction.includes("/_not-found");
-}
-
-/**
- * Messaggio lanciato dall'App Router di Next.js quando un POST con body
- * colpisce la route not-found: non trovando una Server Action registrata,
- * l'handler lancia questo errore. Come per il FormData sopra, è generato solo
- * da bot/scanner che sondano path inesistenti con POST (es. Python Requests su
- * `/index.php?option=com_sppagebuilder&task=asset.uploadCustomIcon`, uno
- * scanner di vulnerabilità Joomla). Non è mai un flusso legittimo dell'app: la
- * richiesta finisce comunque in 404 e l'errore non è azionabile. Lo filtriamo
- * per non inquinare Sentry (issue SCONTRINOZERO-T).
- */
-const SERVER_ACTION_NOT_FOUND_MESSAGE = "Failed to find Server Action";
-
-/**
- * True se l'evento è il benigno `Failed to find Server Action` generato da un
- * POST verso la route not-found (sonda bot). Lo scope è volutamente limitato
- * alla transaction `/_not-found`: sulle Server Action reali lo stesso messaggio
- * può segnalare un deploy skew genuino (client vecchio verso build nuova) e va
- * lasciato passare per essere investigato.
- */
-export function isBenignServerActionNotFound(
-  event: ErrorEvent,
-  hint?: EventHint,
-): boolean {
-  const message = extractErrorMessage(event, hint);
-  if (!message.includes(SERVER_ACTION_NOT_FOUND_MESSAGE)) {
+  if (!NOT_FOUND_PROBE_MESSAGES.some((probe) => message.includes(probe))) {
     return false;
   }
 
