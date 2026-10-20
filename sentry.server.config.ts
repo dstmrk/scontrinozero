@@ -1,7 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import {
-  isBenignFormDataParseError,
-  isBenignServerActionNotFound,
+  isBenignNotFoundProbeError,
   isForeignHostEvent,
   NEXT_CLIENT_COMPONENT_LOADING_SPAN,
   SENTRY_DATA_COLLECTION,
@@ -50,12 +49,9 @@ Sentry.init({
     if (isForeignHostEvent(event)) {
       return null;
     }
-    // Rumore da bot che fanno POST a path inesistenti (issue SCONTRINOZERO-E)
-    if (isBenignFormDataParseError(event, hint)) {
-      return null;
-    }
-    // Scanner che fanno POST alla route not-found (issue SCONTRINOZERO-T)
-    if (isBenignServerActionNotFound(event, hint)) {
+    // Bot e scanner che fanno POST alla route not-found (issue
+    // SCONTRINOZERO-E, SCONTRINOZERO-T, SCONTRINOZERO-17)
+    if (isBenignNotFoundProbeError(event, hint)) {
       return null;
     }
     return event;

@@ -55,12 +55,22 @@ l'ID issue:
 
 ```typescript
 beforeSend(event, hint) {
-  if (isBenignFormDataParseError(event, hint)) {
-    return null; // SCONTRINOZERO-E: bot POST a /_not-found/page
+  if (isBenignNotFoundProbeError(event, hint)) {
+    return null; // SCONTRINOZERO-E, -T, -17: bot POST a /_not-found/page
   }
   return event;
 }
 ```
+
+**Sonde POST sulla route not-found: un predicato solo, una riga per issue.**
+Uno scanner che fa POST a un path inesistente finisce su `/_not-found/page`,
+e Next lancia un errore diverso a seconda di cosa trova nel body: body non
+FormData (E), ID di Server Action sconosciuto (T), `text/plain` dove si
+aspetta RSC (17). La prossima variante si aggiunge a
+`NOT_FOUND_PROBE_MESSAGES`, con l'ID nel commento, **non** come quarta
+funzione gemella. Due vincoli: il messaggio va citato intero (mai un
+prefisso come `Invariant:`, che ingoierebbe bug veri), e lo scope resta la
+transaction `/_not-found`.
 
 Mai un filtro generico tipo "scarta tutto ciò che non ha stack utile":
 ogni filter va con un predicato dedicato + commento che cita l'issue.
@@ -304,7 +314,7 @@ serviamo da un container solo. Le normali navigazioni invece si auto-guariscono
 sono un vicolo cieco**.
 
 **Cosa NON fare**: filtrarlo in `beforeSend`. Il commento di
-`isBenignServerActionNotFound` (`src/lib/sentry-filters.ts`, SCONTRINOZERO-T)
+`isBenignNotFoundProbeError` (`src/lib/sentry-filters.ts`, SCONTRINOZERO-T)
 lo dice già — su `/_not-found` è un bot, sul path reale è skew genuino e va
 lasciato passare. È anche l'unica misura di quanti utenti prende lo skew a ogni
 release.
@@ -632,7 +642,7 @@ l'ID Sentry che ha originato il fix. Esempi già in repo:
 - `src/lib/safe-storage.ts` → cita `SCONTRINOZERO-H`
 - `src/lib/trusted-app-url.ts` → cita `SCONTRINOZERO-F` + regola 18
 - `sentry.server.config.ts:beforeSend` + `src/lib/sentry-filters.ts` →
-  cita `SCONTRINOZERO-E`
+  cita `SCONTRINOZERO-E`, `-T`, `-17`
 - `src/lib/ade/log-failure.ts` → cita `SCONTRINOZERO-7` (regola 20)
 - `src/instrumentation-node.ts` → cita `SCONTRINOZERO-F` + regola 24
 - `src/lib/deploy-skew.ts` → cita `SCONTRINOZERO-Z`

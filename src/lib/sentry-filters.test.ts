@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 import {
   clientBeforeSend,
-  isBenignFormDataParseError,
-  isBenignServerActionNotFound,
+  isBenignNotFoundProbeError,
   isBluetoothGattFailure,
   isBraveIosInjectedScriptError,
   isClientNetworkFailure,
@@ -58,94 +57,55 @@ function makeStreamEvent(
   } as ErrorEvent;
 }
 
-describe("isBenignFormDataParseError", () => {
-  it("scarta il TypeError FormData sulla route not-found (sonda bot)", () => {
-    const event = makeEvent("POST /_not-found/page");
-    const hint: EventHint = {
-      originalException: new TypeError("Failed to parse body as FormData."),
-    };
+describe("isBenignNotFoundProbeError", () => {
+  // Un caso per issue: il messaggio esatto visto in Sentry.
+  const probes = [
+    ["SCONTRINOZERO-E", "Failed to parse body as FormData."],
+    [
+      "SCONTRINOZERO-T",
+      "Failed to find Server Action. This request might be from an older or newer deployment.",
+    ],
+    [
+      "SCONTRINOZERO-17",
+      "Invariant: Expected RSC response, got text/plain. This is a bug in Next.js.",
+    ],
+  ] as const;
 
-    expect(isBenignFormDataParseError(event, hint)).toBe(true);
-  });
+  describe.each(probes)("%s", (_issue, message) => {
+    it("scarta l'errore sulla route not-found (sonda bot)", () => {
+      const event = makeEvent("POST /_not-found/page");
+      const hint: EventHint = { originalException: new Error(message) };
 
-  it("legge il messaggio dall'exception dell'evento se manca originalException", () => {
-    const event = makeEvent(
-      "POST /_not-found/page",
-      "Failed to parse body as FormData.",
-    );
+      expect(isBenignNotFoundProbeError(event, hint)).toBe(true);
+    });
 
-    expect(isBenignFormDataParseError(event)).toBe(true);
-  });
+    it("legge il messaggio dall'exception dell'evento se manca originalException", () => {
+      const event = makeEvent("POST /_not-found/page", message);
 
-  it("non scarta lo stesso errore su una transaction reale (possibile bug)", () => {
-    const event = makeEvent("POST /api/v1/receipts");
-    const hint: EventHint = {
-      originalException: new TypeError("Failed to parse body as FormData."),
-    };
+      expect(isBenignNotFoundProbeError(event)).toBe(true);
+    });
 
-    expect(isBenignFormDataParseError(event, hint)).toBe(false);
-  });
+    it("gestisce originalException stringa", () => {
+      const event = makeEvent("POST /_not-found/page");
 
-  it("non scarta altri errori sulla route not-found", () => {
-    const event = makeEvent("POST /_not-found/page");
-    const hint: EventHint = {
-      originalException: new Error("Database connection refused"),
-    };
+      expect(
+        isBenignNotFoundProbeError(event, { originalException: message }),
+      ).toBe(true);
+    });
 
-    expect(isBenignFormDataParseError(event, hint)).toBe(false);
-  });
+    it("non scarta lo stesso errore su una route reale (possibile bug o deploy skew)", () => {
+      const event = makeEvent("POST /dashboard/receipts");
+      const hint: EventHint = { originalException: new Error(message) };
 
-  it("gestisce transaction mancante senza lanciare", () => {
-    const event = makeEvent(undefined);
-    const hint: EventHint = {
-      originalException: new TypeError("Failed to parse body as FormData."),
-    };
+      expect(isBenignNotFoundProbeError(event, hint)).toBe(false);
+    });
 
-    expect(isBenignFormDataParseError(event, hint)).toBe(false);
-  });
+    it("gestisce transaction mancante senza lanciare", () => {
+      const event = makeEvent(undefined);
+      const hint: EventHint = { originalException: new Error(message) };
 
-  it("gestisce originalException stringa", () => {
-    const event = makeEvent("POST /_not-found/page");
-    const hint: EventHint = {
-      originalException: "Failed to parse body as FormData.",
-    };
-
-    expect(isBenignFormDataParseError(event, hint)).toBe(true);
-  });
-
-  it("non scarta eventi senza messaggio di errore", () => {
-    const event = makeEvent("POST /_not-found/page");
-
-    expect(isBenignFormDataParseError(event)).toBe(false);
-  });
-});
-
-describe("isBenignServerActionNotFound", () => {
-  const message =
-    "Failed to find Server Action. This request might be from an older or newer deployment.";
-
-  it("scarta l'errore Server Action sulla route not-found (sonda bot)", () => {
-    const event = makeEvent("POST /_not-found/page");
-    const hint: EventHint = {
-      originalException: new Error(message),
-    };
-
-    expect(isBenignServerActionNotFound(event, hint)).toBe(true);
-  });
-
-  it("legge il messaggio dall'exception dell'evento se manca originalException", () => {
-    const event = makeEvent("POST /_not-found/page", message);
-
-    expect(isBenignServerActionNotFound(event)).toBe(true);
-  });
-
-  it("non scarta lo stesso errore su una Server Action reale (possibile deploy skew)", () => {
-    const event = makeEvent("POST /dashboard/receipts");
-    const hint: EventHint = {
-      originalException: new Error(message),
-    };
-
-    expect(isBenignServerActionNotFound(event, hint)).toBe(false);
+      expect(isBenignNotFoundProbeError(event, hint)).toBe(false);
+    });
   });
 
   it("non scarta altri errori sulla route not-found", () => {
@@ -154,31 +114,26 @@ describe("isBenignServerActionNotFound", () => {
       originalException: new Error("Database connection refused"),
     };
 
-    expect(isBenignServerActionNotFound(event, hint)).toBe(false);
+    expect(isBenignNotFoundProbeError(event, hint)).toBe(false);
   });
 
-  it("gestisce transaction mancante senza lanciare", () => {
-    const event = makeEvent(undefined);
-    const hint: EventHint = {
-      originalException: new Error(message),
-    };
-
-    expect(isBenignServerActionNotFound(event, hint)).toBe(false);
-  });
-
-  it("gestisce originalException stringa", () => {
+  it("non scarta un altro invariant di Next sulla route not-found", () => {
+    // Lo scope è il singolo invariant RSC visto nella sonda, non la famiglia:
+    // un invariant diverso può essere un bug vero (nostro o di Next).
     const event = makeEvent("POST /_not-found/page");
     const hint: EventHint = {
-      originalException: message,
+      originalException: new Error(
+        "Invariant: missing bailout reason. This is a bug in Next.js.",
+      ),
     };
 
-    expect(isBenignServerActionNotFound(event, hint)).toBe(true);
+    expect(isBenignNotFoundProbeError(event, hint)).toBe(false);
   });
 
   it("non scarta eventi senza messaggio di errore", () => {
     const event = makeEvent("POST /_not-found/page");
 
-    expect(isBenignServerActionNotFound(event)).toBe(false);
+    expect(isBenignNotFoundProbeError(event)).toBe(false);
   });
 });
 
