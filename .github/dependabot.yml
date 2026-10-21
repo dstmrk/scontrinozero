@@ -39,3 +39,18 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+
+  # Immagine base Node del Dockerfile (pinnata a patch esatta). La linea
+  # major resta una scelta esplicita (CI e runtime su 22): niente salti di
+  # major automatici, solo le patch/minor della 22.x.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
