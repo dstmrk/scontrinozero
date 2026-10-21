@@ -28,7 +28,7 @@ export default defineConfig({
     // Storage di jsdom non verrebbe mai installato e i test vedrebbero lo
     // stub di Node (senza --localstorage-file è un oggetto senza metodi →
     // "localStorage.clear is not a function"). Il flag — accettato anche da
-    // Node 22 — riporta i worker al comportamento pre-25. Guard fail-fast:
+    // Node 22 e 26 — riporta i worker al comportamento pre-25. Guard fail-fast:
     // tests/setup.ts → tests/_helpers/assert-functional-web-storage.ts.
     execArgv: ["--no-experimental-webstorage"],
     coverage: {

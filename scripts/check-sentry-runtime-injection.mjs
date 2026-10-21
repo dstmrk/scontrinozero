@@ -5,7 +5,8 @@
  *
  * Da `@sentry/nextjs` 11 le integrazioni channel-based passano per un loader
  * che Sentry registra con `Module.register()` su Node < 24.13 (la nostra
- * immagine è `node:22-alpine`). Il loader è
+ * immagine è `node:26-alpine`: lì il loader potrebbe non essere registrato,
+ * ma il check sull'artefatto resta valido per ogni runtime). Il loader è
  * `@sentry/server-runtime-injection/build/esm/hook.js`, caricato per path a
  * runtime: il file tracing di Next ha copiato `hook.js` nella standalone ma
  * non i suoi import `./vendored/...`. In v1.9.0 il loader falliva, Sentry
