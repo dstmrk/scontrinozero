@@ -41,8 +41,8 @@ updates:
     open-pull-requests-limit: 5
 
   # Immagine base Node del Dockerfile (pinnata a patch esatta). La linea
-  # major resta una scelta esplicita (CI e runtime su 22): niente salti di
-  # major automatici, solo le patch/minor della 22.x.
+  # major resta una scelta esplicita (CI e runtime su 26): niente salti di
+  # major automatici, solo le patch/minor della 26.x.
   - package-ecosystem: docker
     directory: /
     schedule:

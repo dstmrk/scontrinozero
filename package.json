@@ -3,7 +3,7 @@
   "version": "1.9.3",
   "packageManager": "npm@11.12.1",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=26.0.0"
   },
   "private": true,
   "scripts": {
@@ -25,7 +25,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.9.1",
+    "@hookform/resolvers": "^6.0.0",
     "@marsidev/react-turnstile": "^1.6.2",
     "@point-of-sale/receipt-printer-encoder": "^4.0.1",
     "@point-of-sale/webbluetooth-receipt-printer": "^2.1.0",
@@ -48,9 +48,9 @@
     "postgres": "^3.4.9",
     "qrcode-generator": "^2.0.4",
     "radix-ui": "^1.8.0",
-    "react": "19.3.0",
+    "react": "19.3.1",
     "react-day-picker": "^10.0.2",
-    "react-dom": "19.3.0",
+    "react-dom": "19.3.1",
     "react-hook-form": "^7.90.0",
     "react-joyride": "^3.2.0",
     "react-qr-code": "^2.2.0",
