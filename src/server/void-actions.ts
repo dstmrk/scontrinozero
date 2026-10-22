@@ -74,5 +74,7 @@ export async function voidReceipt(
   );
   if (ownershipError) return ownershipError;
 
-  return voidReceiptForBusiness(input);
+  // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
+  // controllato e ciò che il servizio usa devono essere la stessa cosa.
+  return voidReceiptForBusiness(validation.data);
 }

@@ -116,5 +116,7 @@ export async function emitReceipt(
   );
   if (ownershipError) return ownershipError;
 
-  return emitReceiptForBusiness(input);
+  // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
+  // controllato e ciò che il servizio usa devono essere la stessa cosa.
+  return emitReceiptForBusiness(validation.data);
 }

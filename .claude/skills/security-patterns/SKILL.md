@@ -578,3 +578,21 @@ esistono su Postgres self-hosted). Non tocca SELECT. Gate:
 Se aggiungi codice che usa il client Supabase con la publishable key per
 scrivere su `public`, questa migrazione lo rompe: fallo passare da una server
 action con Drizzle.
+
+---
+
+## Server action: al servizio va `validation.data`, non l'input grezzo
+
+`emitReceipt`, `voidReceipt` e `returnReceipt` validano con Zod e poi chiamano il
+servizio con **`validation.data`**. Passare l'`input` del client lascia arrivare
+al servizio un campo che lo schema non conosce e fa divergere "ciò che è stato
+controllato" da "ciò che viene usato" alla prima trasformazione aggiunta allo
+schema (`.default()`, `.transform()`, `.trim()`). Oggi i due coincidono, perciò
+non c'era un bug: era un guasto in attesa. Gate:
+`src/server/action-input-forwarding.test.ts`. Una nuova server action fiscale
+che valida e poi delega segue lo stesso schema.
+
+Lo stesso vale per la sessione AdE in cache: ogni scrittura che cambia le
+credenziali (`saveAdeCredentials`, `verifyAdeCredentials`, `changeAdePassword`)
+chiude `adeSessionCache` e `adeInteractiveSessionStore` del business, solo sul
+ramo in cui la riga è stata davvero scritta.

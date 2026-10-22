@@ -2060,6 +2060,14 @@ export async function changeAdePassword(
     };
   }
 
+  // La sessione in cache è stata aperta con la password vecchia: va chiusa
+  // insieme alla riga aggiornata, non lasciata al TTL (10 minuti). Stessa
+  // coppia di `saveAdeCredentials` e `verifyAdeCredentials`. Solo qui, sul
+  // ramo in cui la riga è stata scritta: se il lock ottimistico ha mancato,
+  // sopra, si esce prima.
+  await adeSessionCache.invalidate(businessId);
+  await adeInteractiveSessionStore.invalidate(businessId);
+
   revalidatePath("/dashboard", "layout");
   logger.info({ businessId }, "Password Fisconline aggiornata con successo");
   return { businessId };

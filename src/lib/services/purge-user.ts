@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { profiles, subscriptions } from "@/db/schema";
+import { apiKeys, profiles, subscriptions } from "@/db/schema";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
@@ -41,7 +41,8 @@ export type PurgeUserResult = {
  * subscription su Stripe è invece responsabilità del chiamante self-service
  * (deleteAccount): lo sweep GDPR agisce solo su account non paganti.
  *
- * Ordine auth-first: l'auth user è cancellato PRIMA della riga applicativa, con
+ * Ordine: prima si revocano le chiavi API (nessun dato cancellato se fallisce),
+ * poi auth-first: l'auth user è cancellato PRIMA della riga applicativa, con
  * retry + backoff. Se la delete auth fallisce dopo i retry, `profiles` resta
  * intatto e si ritorna `{ authDeleted: false }` — il chiamante può ripresentare
  * un errore all'utente o ritentare più tardi. Se la delete auth riesce ma la
@@ -58,6 +59,39 @@ export type PurgeUserResult = {
 export async function purgeUserById(
   authUserId: string,
 ): Promise<PurgeUserResult> {
+  const db = getDb();
+
+  // 0. Revoca le chiavi API dell'utente PRIMA di qualunque passo distruttivo.
+  //    L'autenticazione API legge solo `api_keys` + `profiles`, mai
+  //    `auth.users`: se la delete del profilo fallisse DOPO quella dell'auth
+  //    user (caso previsto, vedi sotto), le chiavi di un piano a pagamento o
+  //    developer resterebbero valide fino al retry dello sweep. Revocate per
+  //    prime, quella finestra non esiste. Se la revoca stessa fallisce non è
+  //    stato cancellato nulla: si ritorna come per un fallimento dell'auth
+  //    delete, e il chiamante può ritentare con tutto intatto. Un profilo già
+  //    assente (retry di un purge parziale) non ha chiavi da revocare.
+  try {
+    const [profile] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.authUserId, authUserId))
+      .limit(1);
+    if (profile) {
+      await db
+        .update(apiKeys)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(eq(apiKeys.profileId, profile.id), isNull(apiKeys.revokedAt)),
+        );
+    }
+  } catch (err) {
+    logger.error(
+      { userId: authUserId, err, critical: true },
+      "purgeUserById: revoca delle chiavi API fallita — nessun dato cancellato, da ritentare",
+    );
+    return { authDeleted: false, profileDeleted: false };
+  }
+
   // 1. Delete auth user via admin API (service role). Retry con backoff.
   const adminClient = createAdminSupabaseClient();
   let deleteAuthError: Error | null = null;
@@ -98,7 +132,6 @@ export async function purgeUserById(
   //    tutto il collegato). L'auth entry è già andata: un fallimento qui lascia
   //    dati orfani da pulire a mano. La subscription è cancellata PRIMA così che
   //    `profileDeleted` rifletta esattamente l'esito della delete del profilo.
-  const db = getDb();
   try {
     await db.delete(subscriptions).where(eq(subscriptions.userId, authUserId));
 
