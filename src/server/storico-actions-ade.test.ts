@@ -213,6 +213,29 @@ describe("searchReceiptsIncludingAde — guardie", () => {
     expect(result.error).toBe("Non autorizzato.");
   });
 
+  it("status fuori dall'enum → rifiuto prima di interrogare AdE", async () => {
+    const result = await searchReceiptsIncludingAde(BIZ, {
+      ...RANGE,
+      status: "PENDING",
+    } as never);
+
+    expect(result.error).toBe("Filtro stato non valido.");
+    expect(mockResolveAdeUserSession).not.toHaveBeenCalled();
+  });
+
+  it.each([[Number.NaN], [Number.POSITIVE_INFINITY], [1.5], ["2"]])(
+    "page %s non valida → rifiuto prima di interrogare AdE",
+    async (page) => {
+      const result = await searchReceiptsIncludingAde(BIZ, {
+        ...RANGE,
+        page,
+      } as never);
+
+      expect(result.error).toBe("Paginazione non valida.");
+      expect(mockResolveAdeUserSession).not.toHaveBeenCalled();
+    },
+  );
+
   it("periodo assente → rifiuto, non una ricerca sull'archivio intero", async () => {
     const result = await searchReceiptsIncludingAde(BIZ, {});
 

@@ -1217,6 +1217,22 @@ async function fetchFiscalData(
 }
 
 /**
+ * Chiude, best-effort, una sessione AdE che nessuno userà più. Un `logout` che
+ * lancia (o ritorna `undefined`, come nei mock) non cambia l'esito di chi
+ * chiama: la sessione scade comunque da sola, questo la chiude prima.
+ */
+async function closeUnusedAdeSession(
+  client: ReturnType<typeof createAdeClient>,
+  businessId: string,
+): Promise<void> {
+  try {
+    await client.logout();
+  } catch (err) {
+    logger.warn({ err, businessId }, "AdE logout failed");
+  }
+}
+
+/**
  * Tetto all'header Cookie di una sessione SPID adottata. Quello reale del
  * portale (docs/mobile-v2.md punto 5) sta in pochi KB: 16 KB lasciano margine
  * senza accettare un payload arbitrario (regola 9).
@@ -1336,6 +1352,9 @@ export async function connectAdeWithSpid(
     "spid",
   );
   if (identityError) {
+    // L'adozione ha già aperto la sessione: con un'identità diversa non va
+    // allo store né alla verifica, quindi a chiuderla è questo ramo.
+    await closeUnusedAdeSession(adeClient, businessId);
     await recordVerifyOutcome(db, businessId, identityError.outcome);
     return identityError.result;
   }
@@ -1586,8 +1605,16 @@ async function runAdeVerification(params: {
     wasAlreadyOnboarded,
     fiscalData,
   });
-  if (keepsSession && step.outcome === "success") {
-    adeInteractiveSessionStore.set(businessId, adeClient);
+  if (keepsSession) {
+    if (step.outcome === "success") {
+      adeInteractiveSessionStore.set(businessId, adeClient);
+    } else {
+      // Il login ha aperto una sessione sul portale e il logout è stato
+      // saltato perché, a verifica riuscita, andrebbe nello store. Se non è
+      // riuscita non va in nessun posto: senza chiuderla qui resterebbe aperta
+      // fino alla scadenza del portale, e nessuno potrebbe più chiuderla.
+      await closeUnusedAdeSession(adeClient, businessId);
+    }
   }
   return step;
 }

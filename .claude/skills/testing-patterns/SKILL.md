@@ -373,8 +373,12 @@ Safe ordering per account deletion: **auth-first**.
 1. Delete Supabase Auth user (admin API, 3 retries × backoff)
 2. Auth deletion fails → return `{ error }` immediatamente; profile intatto,
    user può fare login e ritentare
-3. Auth deletion succeeds → delete profile (FK cascade)
-4. Profile deletion fails → log `critical: true`, manual cleanup needed
+3. Auth deletion succeeds → chiudi le due cache AdE in memoria del business
+   (`adeSessionCache`, `adeInteractiveSessionStore`, best-effort, con logout
+   sul portale): l'id del business si legge al passo 0, prima che la cascata
+   lo porti via
+4. Delete profile (FK cascade)
+5. Profile deletion fails → log `critical: true`, manual cleanup needed
    (ma auth entry già rimosso, quindi nessun login possibile, e le chiavi API
    sono già revocate: l'autenticazione API legge `api_keys` + `profiles`, mai
    `auth.users`, quindi senza il passo 0 sarebbero rimaste valide fino al retry)
@@ -383,7 +387,8 @@ Inverting fix: o nulla è eliminato (safe), o solo orphan profile (less harmful)
 
 I test di `account-actions.test.ts` e `purge-user.test.ts` usano il vero
 `purgeUserById` su un DB mockato: un passo nuovo che chiama `db.select`/`db.update`
-va aggiunto a **entrambi** i mock, altrimenti il purge ritorna
+va aggiunto a **entrambi** i mock (anche `businesses` nello schema finto e le due
+cache AdE), altrimenti il purge ritorna
 `authDeleted: false` per un TypeError inghiottito dal catch.
 
 ---

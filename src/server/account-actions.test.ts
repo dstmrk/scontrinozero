@@ -47,6 +47,17 @@ vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   subscriptions: { userId: "user_id", stripeCustomerId: "stripe_customer_id" },
   apiKeys: { profileId: "profile_id", revokedAt: "revoked_at" },
+  businesses: { id: "id", profileId: "profile_id" },
+}));
+
+// `purgeUserById` chiude anche le sessioni AdE in memoria del business.
+vi.mock("@/lib/ade/session-cache", () => ({
+  adeSessionCache: { invalidate: vi.fn().mockResolvedValue(undefined) },
+}));
+vi.mock("@/lib/ade/interactive-session-store", () => ({
+  adeInteractiveSessionStore: {
+    invalidate: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 const mockCustomersDel = vi.fn();

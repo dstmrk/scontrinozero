@@ -1,6 +1,8 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { apiKeys, profiles, subscriptions } from "@/db/schema";
+import { apiKeys, businesses, profiles, subscriptions } from "@/db/schema";
+import { adeInteractiveSessionStore } from "@/lib/ade/interactive-session-store";
+import { adeSessionCache } from "@/lib/ade/session-cache";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
@@ -16,6 +18,22 @@ function isUserNotFoundError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const { status, code } = error as { status?: unknown; code?: unknown };
   return status === 404 || code === "user_not_found";
+}
+
+/** Chiude le due sessioni AdE in memoria di un business. Mai propaga. */
+async function evictAdeSessions(
+  authUserId: string,
+  businessId: string,
+): Promise<void> {
+  try {
+    await adeSessionCache.invalidate(businessId);
+    await adeInteractiveSessionStore.invalidate(businessId);
+  } catch (err) {
+    logger.warn(
+      { userId: authUserId, err },
+      "purgeUserById: chiusura delle sessioni AdE fallita — scadranno da sole",
+    );
+  }
 }
 
 export type PurgeUserResult = {
@@ -70,6 +88,7 @@ export async function purgeUserById(
   //    stato cancellato nulla: si ritorna come per un fallimento dell'auth
   //    delete, e il chiamante può ritentare con tutto intatto. Un profilo già
   //    assente (retry di un purge parziale) non ha chiavi da revocare.
+  let businessId: string | undefined;
   try {
     const [profile] = await db
       .select({ id: profiles.id })
@@ -83,6 +102,14 @@ export async function purgeUserById(
         .where(
           and(eq(apiKeys.profileId, profile.id), isNull(apiKeys.revokedAt)),
         );
+      // L'id del business si legge ORA: la cascata della delete del profilo lo
+      // porta via, e le cache AdE sono chiavi per businessId.
+      const [business] = await db
+        .select({ id: businesses.id })
+        .from(businesses)
+        .where(eq(businesses.profileId, profile.id))
+        .limit(1);
+      businessId = business?.id;
     }
   } catch (err) {
     logger.error(
@@ -127,6 +154,14 @@ export async function purgeUserById(
     );
     return { authDeleted: false, profileDeleted: false };
   }
+
+  // 1b. L'auth user non esiste più: si chiudono le sessioni AdE in memoria del
+  //     suo business (Fisconline 10 minuti, CIE/SPID 6 ore), con il logout sul
+  //     portale. Nessun lettore le raggiungerebbe — ogni consumatore rilegge
+  //     prima la riga credenziali, che sta per sparire — ma resterebbero in
+  //     memoria e aperte sul portale fino al TTL. Best-effort e prima della
+  //     delete del profilo, così vale anche se quella fallisce.
+  if (businessId) await evictAdeSessions(authUserId, businessId);
 
   // 2. Delete subscription (leaf, nessuna cascata) + profile (FK cascade rimuove
   //    tutto il collegato). L'auth entry è già andata: un fallimento qui lascia

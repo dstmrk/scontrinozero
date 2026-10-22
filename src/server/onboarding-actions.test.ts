@@ -3204,6 +3204,24 @@ describe("onboarding-actions", () => {
         storeSet.mockRestore();
       });
 
+      it("un'utenza SPID con un'altra P.IVA chiude la sessione adottata, che nessuno userà", async () => {
+        // Il client ha già una sessione aperta sul portale: se l'identità non
+        // coincide non entra nello store e non va alla verifica, quindi la
+        // chiusura spetta a questo ramo.
+        mockLogout.mockResolvedValue(undefined);
+        mockLimit
+          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([ONBOARDED]);
+        mockAdoptSession.mockResolvedValue(adopted("99999999999"));
+
+        const { connectAdeWithSpid } = await import("./onboarding-actions");
+        const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+        expect(result.pivaMismatch).toBe(true);
+        expect(mockLogout).toHaveBeenCalledTimes(1);
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
       it("senza P.IVA registrata confronta il codice fiscale, sempre prima di scrivere", async () => {
         mockLimit
           .mockResolvedValueOnce([{ id: BIZ }])
@@ -3394,6 +3412,73 @@ describe("onboarding-actions", () => {
       expect(result.businessId).toBe(BIZ);
       expect(storeSet).not.toHaveBeenCalled();
       storeSet.mockRestore();
+    });
+
+    describe("a verifica non riuscita la sessione tenuta aperta viene chiusa", () => {
+      // CIE e SPID (real) saltano il logout dopo il login perché, se la verifica
+      // riesce, la sessione va nello store. Se NON riesce non va in nessun
+      // posto: senza logout resterebbe aperta sul portale fino alla sua
+      // scadenza naturale, senza che nessuno la usi né la possa chiudere.
+      it("credenziali cambiate durante la verifica → logout, niente store", async () => {
+        const storeSet = await spyStoreSet();
+        queueFirstOnboarding(CIE_ROW);
+        mockUpdateReturning.mockReset().mockResolvedValue([]);
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(BIZ);
+
+        expect(storeSet).not.toHaveBeenCalled();
+        expect(mockLogout).toHaveBeenCalledTimes(1);
+        storeSet.mockRestore();
+      });
+
+      it("altra P.IVA (identity guard) → logout, niente store", async () => {
+        const storeSet = await spyStoreSet();
+        mockLimit
+          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([CIE_ROW])
+          .mockResolvedValueOnce([
+            { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+          ]);
+        mockGetFiscalData.mockResolvedValue(fiscal("99999999999"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(BIZ);
+
+        expect(result.pivaMismatch).toBe(true);
+        expect(storeSet).not.toHaveBeenCalled();
+        expect(mockLogout).toHaveBeenCalledTimes(1);
+        storeSet.mockRestore();
+      });
+
+      it("salvataggio finale fallito → logout, niente store", async () => {
+        const storeSet = await spyStoreSet();
+        queueFirstOnboarding(CIE_ROW);
+        mockTransaction.mockRejectedValueOnce(new Error("db down"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(BIZ);
+
+        expect(result.error).toBeDefined();
+        expect(storeSet).not.toHaveBeenCalled();
+        expect(mockLogout).toHaveBeenCalledTimes(1);
+        storeSet.mockRestore();
+      });
+
+      it("un logout che fallisce non cambia l'esito (best-effort)", async () => {
+        const storeSet = await spyStoreSet();
+        queueFirstOnboarding(CIE_ROW);
+        mockUpdateReturning.mockReset().mockResolvedValue([]);
+        mockLogout.mockRejectedValue(new Error("portale giù"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(BIZ);
+
+        expect(result.businessId).toBe(BIZ);
+        expect(result.error).toBeUndefined();
+        expect(mockLogout).toHaveBeenCalledTimes(1);
+        storeSet.mockRestore();
+      });
     });
 
     it("Fisconline non tiene la sessione: logout e niente store", async () => {

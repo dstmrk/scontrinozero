@@ -596,3 +596,30 @@ Lo stesso vale per la sessione AdE in cache: ogni scrittura che cambia le
 credenziali (`saveAdeCredentials`, `verifyAdeCredentials`, `changeAdePassword`)
 chiude `adeSessionCache` e `adeInteractiveSessionStore` del business, solo sul
 ramo in cui la riga è stata davvero scritta.
+
+---
+
+## Server action di ricerca: `status` e paginazione si validano a runtime
+
+I tipi di TypeScript non esistono a runtime: una server action riceve qualunque
+valore. In `storico-actions.ts` un `status` fuori dall'enum arrivava a Postgres
+come cast fallito (22P02) e un `page` NaN/Infinity/frazionario passava per
+`Math.max/min` fino a LIMIT/OFFSET: un throw al posto di `{ error }` (regola 19).
+Ora `resolvePaging` richiede interi sicuri (`Number.isSafeInteger`; 0, negativi
+e `pageSize` enorme restano un clamp, come prima) e `buildStoricoConditions`
+ammette solo i valori di `STATUS_FILTERS`, con `""` e `null` equivalenti a
+omesso (semantica di `StatusFilter`). Il rifiuto ha la forma già usata per i
+filtri di data: `{ error, items: [], total: 0 }`, prima di ogni query e prima di
+interrogare l'AdE. Una nuova action di ricerca usa gli stessi due helper.
+
+## Sessione AdE aperta e mai usata: chiudila
+
+CIE e SPID (real) saltano il logout dopo il login perché, a verifica riuscita,
+la sessione entra in `adeInteractiveSessionStore`. Se la verifica **non** riesce
+(identità diversa, credenziali cambiate durante la verifica, salvataggio
+fallito) la sessione non va in nessun posto: senza `closeUnusedAdeSession` resta
+aperta sul portale fino alla sua scadenza e nessuno può più chiuderla. Vale
+anche per `connectAdeWithSpid`, dove l'adozione apre la sessione prima del
+controllo d'identità. Il logout è best-effort: un errore si logga e non cambia
+l'esito. Alla cancellazione dell'utente `purgeUserById` chiude le due cache del
+suo business per lo stesso motivo.
