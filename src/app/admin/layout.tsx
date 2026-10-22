@@ -1,20 +1,17 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 
-import { isAdminEmail } from "@/lib/admin-gate";
-import { logger } from "@/lib/logger";
-import { getAuthenticatedUser } from "@/lib/server-auth";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
+import { requireAdminOrNotFound } from "@/server/admin-guard";
 
 /**
  * Shell del pannello amministratore.
  *
- * È l'**unico** gate di `/admin/*`: le funzioni che leggono le metriche non
- * sono server action e non hanno un endpoint proprio, quindi passare di qui è
- * l'unico modo per raggiungerle. Il middleware (`src/proxy.ts`) tratta
- * `/admin` come route protetta e rimbalza al login chi non ha sessione, ma il
- * controllo va rifatto qui: il middleware garantisce l'autenticazione, non
+ * Primo gate di `/admin/*`, **non l'unico**: un layout non gira a ogni
+ * richiesta (vedi `src/server/admin-guard.ts`), quindi lo stesso controllo è
+ * ripetuto in `page.tsx` e in `runAdminRead`, dove il dato viene letto. Il
+ * middleware (`src/proxy.ts`) tratta `/admin` come route protetta e rimbalza
+ * al login chi non ha sessione, ma garantisce l'autenticazione, non
  * l'autorizzazione.
  *
  * Un utente autenticato ma fuori allowlist riceve **404, non 403**: un 403
@@ -27,23 +24,7 @@ import { APP_VERSION, getBuildLabel } from "@/lib/version";
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  let user;
-  try {
-    user = await getAuthenticatedUser();
-  } catch {
-    redirect("/login");
-  }
-
-  if (!isAdminEmail(user.email)) {
-    // warn e non error (regola 20): è una condizione prevedibile — un URL
-    // indovinato o condiviso — non un guasto. Solo lo user id, mai l'email
-    // (denylist telemetria di src/lib/logger.ts).
-    logger.warn(
-      { errorClass: "admin_forbidden", userId: user.id },
-      "admin: accesso negato, email fuori allowlist",
-    );
-    notFound();
-  }
+  await requireAdminOrNotFound();
 
   return (
     <div className="container mx-auto min-h-screen px-4 py-6">

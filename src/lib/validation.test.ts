@@ -270,6 +270,31 @@ describe("isSafeRelativeRedirect", () => {
   it("rejects the empty string", () => {
     expect(isSafeRelativeRedirect("")).toBe(false);
   });
+
+  // Il parser URL WHATWG elimina TAB, LF e CR dall'input prima di risolverlo:
+  // "/\t/evil.com" supera il controllo sul secondo carattere ma
+  // `new URL("/\t/evil.com", base)` diventa `https://evil.com/`.
+  it.each([
+    ["TAB", "/\t/evil.com"],
+    ["LF", "/\n/evil.com"],
+    ["CR", "/\r/evil.com"],
+    ["TAB in the middle", "/dashboard\t/x"],
+    ["NUL", "/\u0000/evil.com"],
+    ["DEL", "/\u007f/evil.com"],
+  ])("rejects control characters (%s)", (_label, value) => {
+    expect(isSafeRelativeRedirect(value)).toBe(false);
+  });
+
+  it("every accepted path resolves to the same origin", () => {
+    const base = "https://app.example";
+    for (const value of [
+      "/dashboard",
+      "/dashboard/storico?from=1&to=2",
+      "/a/b#c",
+    ]) {
+      expect(new URL(value, base).origin).toBe(base);
+    }
+  });
 });
 
 describe("italianZipCodeSchema", () => {

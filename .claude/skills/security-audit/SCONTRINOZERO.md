@@ -87,3 +87,31 @@ una per issue, con test di regressione (regola 2).
 Report breve in chat: profilo, scope, budget speso e residuo, copertura
 dichiarata (mai "il resto è sicuro"), numero di record per verdetto, link alle
 issue. Il percorso della directory di output, non i file.
+
+## Lezioni dalle prime due run
+
+- **Un Postgres 16 locale esiste.** I binari sono in `/usr/lib/postgresql/16/bin`
+  (nessun server in esecuzione, nessun docker). `initdb` rifiuta root e la
+  scratchpad è accessibile solo a root: avvia il cluster usa e getta come utente
+  `postgres` in `/var/lib/postgresql/<nome>`, porta non standard, solo socket
+  unix, e cancellalo a fine prova. Basta a riprodurre i lead sul DB (RLS, grant,
+  migrazioni) con ruoli `anon`/`authenticated`/`service_role` e `auth.uid()`
+  emulati. È il "bounded local check" che la skill chiede, ma solo per SQL
+  scritto da noi: non è un sandbox per eseguire codice del target.
+- **Forma dei record.** Gli hunter dimenticano `method` nei check (lo aggiunge il
+  parent: in una run source-only è sempre `source`). I verifier lasciano nel
+  record `confirmed` campi da `needs_validation` (`claimed_root_cause`) e
+  mettono più di un `sink` nella traccia: lo schema ammette `sink` solo come
+  ultimo elemento. `validate-findings.cjs` lo dice subito; correggi la forma, non
+  il significato.
+- **Una promozione a `confirmed` fatta leggendo il sorgente** (senza eseguire)
+  va comunque rimandata a un secondo verifier indipendente (Phase 5). Se quel
+  verifier non produce un verdetto (è successo con un classificatore di
+  sicurezza che ha interrotto la risposta), il record esce da `findings.json` e la
+  run resta `incomplete`: non rilanciare con un'altra formulazione per aggirare
+  lo stop, e non fare la verifica al suo posto.
+- **Run mirata sui gap del critic.** Le unità `deferred` con motivo
+  `quick_profile_final_critic` sono il backlog della run successiva. Riusa
+  `architecture.md` se il source ref non è cambiato (risparmia i 4 agenti di
+  recon) e riporta i record precedenti come unità `planned` con `prior_status`:
+  il verifier che li ricontrolla ne diventa il proprietario.

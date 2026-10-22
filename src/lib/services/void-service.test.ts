@@ -655,6 +655,44 @@ describe("voidReceiptForBusiness", () => {
     expect(updateStatuses).not.toContain("VOID_ACCEPTED");
   });
 
+  it.each(["ACCEPTED", "PENDING", "ERROR"])(
+    "void con la key di un reso (RETURN %s) → IDEMPOTENCY_PAYLOAD_MISMATCH, nessun falso annullo",
+    async (returnStatus) => {
+      mockReturning.mockResolvedValue([]); // INSERT VOID conflict sulla key
+      // Stesso difetto di PR #704, lato reso: l'unique su (business_id,
+      // idempotency_key) è unico per tutti i kind, quindi la key di un RETURN
+      // vecchio (stale) entrava nel recovery. Con adeTransactionId valorizzato
+      // finalizeVoidOnly marcava il SALE bersaglio VOID_ACCEPTED senza mai
+      // chiamare AdE; senza, il recovery riusava la riga RETURN come riga VOID.
+      mockSelectLimit
+        .mockResolvedValueOnce([FAKE_SALE_DOC]) // fetch del SALE da annullare
+        .mockResolvedValueOnce([
+          {
+            id: "return-collision",
+            kind: "RETURN",
+            status: returnStatus,
+            adeTransactionId: returnStatus === "ACCEPTED" ? "trx-return" : null,
+            adeProgressive: returnStatus === "ACCEPTED" ? "prog-return" : null,
+            voidedDocumentId: null,
+            createdAt: new Date(Date.now() - 35 * 60 * 1000),
+            updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+          },
+        ]);
+
+      const { voidReceiptForBusiness } = await import("./void-service");
+      const result = await voidReceiptForBusiness(VALID_INPUT);
+
+      expect((result as { code?: string }).code).toBe(
+        "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      );
+      // CRITICO: nessuna chiamata AdE e nessuna riga toccata.
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockSubmitVoid).not.toHaveBeenCalled();
+      const updateStatuses = mockUpdateSet.mock.calls.map((c) => c[0].status);
+      expect(updateStatuses).not.toContain("VOID_ACCEPTED");
+    },
+  );
+
   it("idempotency: ritorna errore se il documento VOID esistente è PENDING", async () => {
     mockReturning.mockResolvedValue([]); // conflict
 

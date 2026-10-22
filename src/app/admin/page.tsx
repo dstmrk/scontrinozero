@@ -12,6 +12,7 @@ import {
   AdminTrialExpiringSkeleton,
 } from "@/components/admin/admin-directory-tables";
 import { AdminKpiCardsSkeleton } from "@/components/admin/admin-skeletons";
+import { requireAdminOrNotFound } from "@/server/admin-guard";
 import {
   type AnalyticsRange,
   parseAnalyticsRange,
@@ -94,6 +95,10 @@ export default async function AdminPage({
 }: {
   readonly searchParams: Promise<{ range?: string }>;
 }) {
+  // Prima di qualunque altra cosa: non dipende dal layout (vedi
+  // `src/server/admin-guard.ts`). Costa una chiamata già in `cache()`.
+  await requireAdminOrNotFound();
+
   const range = parseAnalyticsRange(
     (await searchParams).range,
     DEFAULT_ADMIN_RANGE,
