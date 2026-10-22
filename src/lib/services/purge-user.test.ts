@@ -39,6 +39,22 @@ vi.mock("@/db/schema", () => ({
   profiles: { id: "id", authUserId: "auth_user_id" },
   subscriptions: { userId: "user_id" },
   apiKeys: { profileId: "profile_id", revokedAt: "revoked_at" },
+  businesses: { id: "id", profileId: "profile_id" },
+}));
+
+// Le due cache in memoria delle sessioni AdE (Fisconline e CIE/SPID), chiavi
+// per businessId. `purgeUserById` le svuota dopo aver tolto l'auth user.
+const mockInvalidateCache = vi.fn();
+const mockInvalidateStore = vi.fn();
+vi.mock("@/lib/ade/session-cache", () => ({
+  adeSessionCache: {
+    invalidate: (...a: unknown[]) => mockInvalidateCache(...a),
+  },
+}));
+vi.mock("@/lib/ade/interactive-session-store", () => ({
+  adeInteractiveSessionStore: {
+    invalidate: (...a: unknown[]) => mockInvalidateStore(...a),
+  },
 }));
 
 const mockAdminDeleteUser = vi.fn();
@@ -61,6 +77,125 @@ describe("purgeUserById", () => {
     mockDeleteReturning.mockResolvedValue([{ id: "profile-1" }]);
     mockSelectLimit.mockResolvedValue([{ id: "profile-1" }]);
     mockUpdateWhere.mockResolvedValue(undefined);
+    mockInvalidateCache.mockResolvedValue(undefined);
+    mockInvalidateStore.mockResolvedValue(undefined);
+  });
+
+  describe("sessioni AdE in memoria", () => {
+    // Le due cache tengono la sessione loggata di un business (10 minuti la
+    // Fisconline, 6 ore la CIE/SPID). Nessun lettore le raggiunge una volta
+    // cancellate le credenziali, ma restano in memoria e sul portale fino al
+    // TTL: alla cancellazione si chiudono, con il logout.
+    const BIZ_ID = "biz-9";
+
+    function arrangeProfileAndBusiness() {
+      mockSelectLimit
+        .mockReset()
+        .mockResolvedValueOnce([{ id: "profile-1" }]) // profilo
+        .mockResolvedValueOnce([{ id: BIZ_ID }]); // business del profilo
+    }
+
+    it("svuota entrambe le cache del business dopo aver rimosso l'auth user", async () => {
+      arrangeProfileAndBusiness();
+      const order: string[] = [];
+      mockAdminDeleteUser.mockImplementation(async () => {
+        order.push("auth");
+        return { error: null };
+      });
+      mockInvalidateCache.mockImplementation(async () => {
+        order.push("cache");
+      });
+      mockInvalidateStore.mockImplementation(async () => {
+        order.push("store");
+      });
+      mockDeleteReturning.mockImplementation(async () => {
+        order.push("profilo");
+        return [{ id: "profile-1" }];
+      });
+
+      const { purgeUserById } = await import("./purge-user");
+      await purgeUserById(USER_ID);
+
+      expect(mockInvalidateCache).toHaveBeenCalledWith(BIZ_ID);
+      expect(mockInvalidateStore).toHaveBeenCalledWith(BIZ_ID);
+      expect(order).toEqual(["auth", "cache", "store", "profilo"]);
+    });
+
+    it("l'id del business si legge PRIMA della cascata che lo cancella", async () => {
+      arrangeProfileAndBusiness();
+      const order: string[] = [];
+      mockSelectLimit.mockReset();
+      mockSelectLimit.mockImplementation(async () => {
+        order.push("lettura");
+        return [{ id: "x" }];
+      });
+      mockDeleteReturning.mockImplementation(async () => {
+        order.push("profilo");
+        return [{ id: "profile-1" }];
+      });
+
+      const { purgeUserById } = await import("./purge-user");
+      await purgeUserById(USER_ID);
+
+      expect(order.indexOf("lettura")).toBeLessThan(order.indexOf("profilo"));
+    });
+
+    it("le svuota anche se la delete del profilo fallisce dopo quella dell'auth user", async () => {
+      arrangeProfileAndBusiness();
+      mockDeleteReturning.mockRejectedValue(new Error("db down"));
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(result).toEqual({ authDeleted: true, profileDeleted: false });
+      expect(mockInvalidateCache).toHaveBeenCalledWith(BIZ_ID);
+      expect(mockInvalidateStore).toHaveBeenCalledWith(BIZ_ID);
+    });
+
+    it("se l'auth delete fallisce non tocca le cache: nulla è stato cancellato", async () => {
+      vi.useFakeTimers();
+      arrangeProfileAndBusiness();
+      mockAdminDeleteUser.mockResolvedValue({ error: new Error("auth down") });
+
+      const { purgeUserById } = await import("./purge-user");
+      const pending = purgeUserById(USER_ID);
+      await vi.runAllTimersAsync();
+      const result = await pending;
+      vi.useRealTimers();
+
+      expect(result.authDeleted).toBe(false);
+      expect(mockInvalidateCache).not.toHaveBeenCalled();
+      expect(mockInvalidateStore).not.toHaveBeenCalled();
+    });
+
+    it("un utente senza business non invalida nulla", async () => {
+      mockSelectLimit
+        .mockReset()
+        .mockResolvedValueOnce([{ id: "profile-1" }])
+        .mockResolvedValueOnce([]);
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(result.authDeleted).toBe(true);
+      expect(mockInvalidateCache).not.toHaveBeenCalled();
+      expect(mockInvalidateStore).not.toHaveBeenCalled();
+    });
+
+    it("un'invalidazione che lancia non ferma la cancellazione (best-effort)", async () => {
+      arrangeProfileAndBusiness();
+      mockInvalidateCache.mockRejectedValue(new Error("logout giù"));
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(result).toEqual({ authDeleted: true, profileDeleted: true });
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER_ID }),
+        expect.stringContaining("sessioni AdE"),
+      );
+    });
   });
 
   describe("revoca delle chiavi API", () => {

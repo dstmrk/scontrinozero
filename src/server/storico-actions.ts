@@ -250,6 +250,35 @@ async function authorizeStorico(
  * righe del portale con **gli stessi** confini che il DB applica alle nostre,
  * altrimenti le due sorgenti mostrerebbero due giornate diverse.
  */
+const STATUS_FILTERS = ["ACCEPTED", "VOID_ACCEPTED"] as const;
+
+function isStatusFilter(
+  value: unknown,
+): value is (typeof STATUS_FILTERS)[number] {
+  return (STATUS_FILTERS as readonly unknown[]).includes(value);
+}
+
+/**
+ * Pagina e dimensione pagina di una richiesta, o `{ error }` se non sono interi
+ * sicuri. I tipi di TypeScript non esistono a runtime: una server action può
+ * ricevere NaN, Infinity, una frazione o una stringa, e `Math.max/min` li
+ * lascia passare (NaN) fino a LIMIT/OFFSET. Valori fuori scala ma interi
+ * (0, negativi, pageSize enorme) restano un clamp, come prima.
+ */
+function resolvePaging(
+  params: Pick<SearchReceiptsParams, "page" | "pageSize">,
+): { page: number; pageSize: number } | { error: string } {
+  const rawPage: unknown = params.page ?? 1;
+  const rawSize: unknown = params.pageSize ?? STORICO_PAGE_SIZE;
+  if (!Number.isSafeInteger(rawPage) || !Number.isSafeInteger(rawSize)) {
+    return { error: "Paginazione non valida." };
+  }
+  return {
+    page: Math.max(1, rawPage as number),
+    pageSize: Math.min(MAX_PAGE_SIZE, Math.max(1, rawSize as number)),
+  };
+}
+
 function buildStoricoConditions(
   businessId: string,
   params: SearchReceiptsParams,
@@ -296,8 +325,17 @@ function buildStoricoConditions(
     conditions.push(lt(commercialDocuments.adeRegisteredAt, toExclusive));
   }
 
-  if (params.status) {
-    conditions.push(eq(commercialDocuments.status, params.status));
+  // `|| undefined`: "" (tutti, vedi `StatusFilter`) e null valgono come omesso,
+  // come prima. Qualunque altro valore deve essere nell'enum: una server action
+  // è raggiungibile con un valore qualsiasi, e una stringa estranea arrivava a
+  // Postgres come cast di enum fallito (22P02), un throw al posto di `{ error }`.
+  const status: unknown = params.status || undefined;
+  if (status !== undefined && !isStatusFilter(status)) {
+    return { error: "Filtro stato non valido." };
+  }
+
+  if (status) {
+    conditions.push(eq(commercialDocuments.status, status));
   } else {
     // "Tutti" means only successfully processed documents — never show failed attempts
     conditions.push(
@@ -319,13 +357,11 @@ export async function searchReceipts(
   );
   if ("error" in auth) return { error: auth.error, items: [], total: 0 };
 
+  const paging = resolvePaging(params);
+  if ("error" in paging) return { error: paging.error, items: [], total: 0 };
+  const { page, pageSize } = paging;
+
   const db = getDb();
-  // Clamp page/pageSize: prevents large queries from tampered server action calls.
-  const page = Math.max(1, params.page ?? 1);
-  const pageSize = Math.min(
-    MAX_PAGE_SIZE,
-    Math.max(1, params.pageSize ?? STORICO_PAGE_SIZE),
-  );
   const offset = (page - 1) * pageSize;
 
   const built = buildStoricoConditions(businessId, params);
@@ -531,12 +567,11 @@ export async function searchReceiptsIncludingAde(
   const ranges = buildAdeSearchRanges(params.dateFrom, params.dateTo);
   if ("error" in ranges) return { error: ranges.error, items: [], total: 0 };
 
+  const paging = resolvePaging(params);
+  if ("error" in paging) return { error: paging.error, items: [], total: 0 };
+  const { page, pageSize } = paging;
+
   const db = getDb();
-  const page = Math.max(1, params.page ?? 1);
-  const pageSize = Math.min(
-    MAX_PAGE_SIZE,
-    Math.max(1, params.pageSize ?? STORICO_PAGE_SIZE),
-  );
 
   // L'indice locale è l'elenco COMPLETO del periodo, ma con due sole colonne:
   // serve a sapere quante righe nostre precedono ciascuna riga AdE, e senza di

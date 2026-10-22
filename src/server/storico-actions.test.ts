@@ -607,6 +607,99 @@ describe("storico-actions", () => {
       expect(docsBuilder.offset).toHaveBeenCalledWith(10); // (2-1) * 10
     });
 
+    // Una server action è raggiungibile con qualunque valore: i tipi di
+    // TypeScript non esistono a runtime. Un `status` fuori dall'enum faceva
+    // lanciare Postgres (22P02) e un `page` NaN/Infinity/frazionario arrivava
+    // a LIMIT/OFFSET: in entrambi i casi un throw al posto di `{ error }`
+    // (regola 19), con l'error boundary al posto della pagina.
+    describe("validazione runtime di status e paginazione", () => {
+      const BIZ = "11111111-1111-4111-8111-111111111111";
+
+      it.each([["PENDING"], ["DROP TABLE"], [42], [{}]])(
+        "status %j non ammesso → { error } senza toccare il DB",
+        async (status) => {
+          const { searchReceipts } = await import("./storico-actions");
+          const result = await searchReceipts(BIZ, { status } as never);
+
+          expect(result.error).toBe("Filtro stato non valido.");
+          expect(result.items).toEqual([]);
+          expect(result.total).toBe(0);
+          expect(mockSelect).not.toHaveBeenCalled();
+        },
+      );
+
+      it.each([
+        ["page", Number.NaN],
+        ["page", Number.POSITIVE_INFINITY],
+        ["page", 1.5],
+        ["page", "2"],
+        ["page", Number.MAX_VALUE],
+        ["pageSize", Number.NaN],
+        ["pageSize", Number.POSITIVE_INFINITY],
+        ["pageSize", 2.5],
+        ["pageSize", "10"],
+      ])(
+        "%s = %s non valido → { error } senza toccare il DB",
+        async (key, v) => {
+          const { searchReceipts } = await import("./storico-actions");
+          const result = await searchReceipts(BIZ, { [key]: v } as never);
+
+          expect(result.error).toBe("Paginazione non valida.");
+          expect(result.total).toBe(0);
+          expect(mockSelect).not.toHaveBeenCalled();
+        },
+      );
+
+      it("page 0, negativa e pageSize fuori scala restano un clamp, non un errore", async () => {
+        // Comportamento già in uso (client e test): non si rompe.
+        const docsBuilder = makeDocsBuilder([]);
+        mockSelect
+          .mockReturnValueOnce(makeCountBuilder(0))
+          .mockReturnValueOnce(docsBuilder);
+
+        const { searchReceipts } = await import("./storico-actions");
+        const result = await searchReceipts(BIZ, {
+          page: -5,
+          pageSize: 100000,
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(docsBuilder.offset).toHaveBeenCalledWith(0);
+        expect(docsBuilder.limit).toHaveBeenCalledWith(expect.any(Number));
+        expect(docsBuilder.limit.mock.calls[0][0]).toBeLessThanOrEqual(100);
+      });
+
+      it("status vuoto o null valgono come omesso, come prima (semantica di StatusFilter)", async () => {
+        // "" = tutti gli stati nel tipo `StatusFilter`; null arriva da un
+        // client che serializza il campo assente. Entrambi erano falsy.
+        for (const status of ["", null]) {
+          mockSelect.mockReset();
+          mockSelect
+            .mockReturnValueOnce(makeCountBuilder(0))
+            .mockReturnValueOnce(makeDocsBuilder([]));
+          const { searchReceipts } = await import("./storico-actions");
+          const result = await searchReceipts(BIZ, { status } as never);
+          expect(result.error).toBeUndefined();
+        }
+      });
+
+      it("status ammessi (ACCEPTED, VOID_ACCEPTED) e omesso funzionano come prima", async () => {
+        for (const status of [
+          "ACCEPTED",
+          "VOID_ACCEPTED",
+          undefined,
+        ] as const) {
+          mockSelect.mockReset();
+          mockSelect
+            .mockReturnValueOnce(makeCountBuilder(0))
+            .mockReturnValueOnce(makeDocsBuilder([]));
+          const { searchReceipts } = await import("./storico-actions");
+          const result = await searchReceipts(BIZ, { status });
+          expect(result.error).toBeUndefined();
+        }
+      });
+    });
+
     it("uses page 1 and default pageSize when not specified", async () => {
       const docsBuilder = makeDocsBuilder([FAKE_SALE_DOC]);
       mockSelect
