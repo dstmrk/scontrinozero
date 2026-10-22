@@ -34,12 +34,19 @@ vi.mock("@/db", () => ({
       }),
     }),
     delete: mockDbDelete,
+    // `purgeUserById` revoca le chiavi API prima di cancellare qualunque cosa.
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      }),
+    }),
   }),
 }));
 
 vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   subscriptions: { userId: "user_id", stripeCustomerId: "stripe_customer_id" },
+  apiKeys: { profileId: "profile_id", revokedAt: "revoked_at" },
 }));
 
 const mockCustomersDel = vi.fn();

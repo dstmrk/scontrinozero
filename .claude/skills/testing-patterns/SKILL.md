@@ -368,14 +368,23 @@ dal call site.
 
 Safe ordering per account deletion: **auth-first**.
 
+0. Revoca le chiavi API del profilo (`api_keys.revoked_at`). Se fallisce →
+   return `{ authDeleted: false }`, **nulla è stato cancellato**, ritentabile
 1. Delete Supabase Auth user (admin API, 3 retries × backoff)
 2. Auth deletion fails → return `{ error }` immediatamente; profile intatto,
    user può fare login e ritentare
 3. Auth deletion succeeds → delete profile (FK cascade)
 4. Profile deletion fails → log `critical: true`, manual cleanup needed
-   (ma auth entry già rimosso, quindi nessun login possibile)
+   (ma auth entry già rimosso, quindi nessun login possibile, e le chiavi API
+   sono già revocate: l'autenticazione API legge `api_keys` + `profiles`, mai
+   `auth.users`, quindi senza il passo 0 sarebbero rimaste valide fino al retry)
 
 Inverting fix: o nulla è eliminato (safe), o solo orphan profile (less harmful).
+
+I test di `account-actions.test.ts` e `purge-user.test.ts` usano il vero
+`purgeUserById` su un DB mockato: un passo nuovo che chiama `db.select`/`db.update`
+va aggiunto a **entrambi** i mock, altrimenti il purge ritorna
+`authDeleted: false` per un TypeError inghiottito dal catch.
 
 ---
 

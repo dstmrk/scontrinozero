@@ -14,15 +14,31 @@ const mockDbDelete = vi.fn(() => ({
     return chain;
   },
 }));
+// Revoca delle chiavi API (prima di ogni passo distruttivo): lookup del profilo
+// (`select…from…where…limit`) e `update(apiKeys).set(...).where(...)`.
+const mockSelectLimit = vi.fn();
+const mockUpdateSet = vi.fn();
+const mockUpdateWhere = vi.fn();
+const mockDbUpdate = vi.fn(() => ({
+  set: (values: unknown) => {
+    mockUpdateSet(values);
+    return { where: mockUpdateWhere };
+  },
+}));
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     delete: mockDbDelete,
+    update: mockDbUpdate,
+    select: () => ({
+      from: () => ({ where: () => ({ limit: mockSelectLimit }) }),
+    }),
   }),
 }));
 
 vi.mock("@/db/schema", () => ({
-  profiles: { authUserId: "auth_user_id" },
+  profiles: { id: "id", authUserId: "auth_user_id" },
   subscriptions: { userId: "user_id" },
+  apiKeys: { profileId: "profile_id", revokedAt: "revoked_at" },
 }));
 
 const mockAdminDeleteUser = vi.fn();
@@ -43,6 +59,65 @@ describe("purgeUserById", () => {
     vi.clearAllMocks();
     mockAdminDeleteUser.mockResolvedValue({ error: null });
     mockDeleteReturning.mockResolvedValue([{ id: "profile-1" }]);
+    mockSelectLimit.mockResolvedValue([{ id: "profile-1" }]);
+    mockUpdateWhere.mockResolvedValue(undefined);
+  });
+
+  describe("revoca delle chiavi API", () => {
+    // Se la delete del profilo fallisce DOPO quella dell'auth user, le chiavi
+    // di un piano a pagamento o developer restano valide fino al retry dello
+    // sweep: l'autenticazione API legge solo `api_keys` + `profiles`, non
+    // `auth.users`. Revocarle per prime chiude la finestra.
+    it("revoca le chiavi PRIMA di cancellare l'auth user e il profilo", async () => {
+      const order: string[] = [];
+      mockUpdateWhere.mockImplementation(async () => {
+        order.push("revoca");
+      });
+      mockAdminDeleteUser.mockImplementation(async () => {
+        order.push("auth");
+        return { error: null };
+      });
+      mockDeleteReturning.mockImplementation(async () => {
+        order.push("profilo");
+        return [{ id: "profile-1" }];
+      });
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(order).toEqual(["revoca", "auth", "profilo"]);
+      expect(mockUpdateSet).toHaveBeenCalledWith({
+        revokedAt: expect.any(Date),
+      });
+      expect(result).toEqual({ authDeleted: true, profileDeleted: true });
+    });
+
+    it("se la revoca fallisce non cancella nulla: auth user e profilo restano, ritentabile", async () => {
+      mockUpdateWhere.mockRejectedValue(new Error("db down"));
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(result).toEqual({ authDeleted: false, profileDeleted: false });
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(mockDbDelete).not.toHaveBeenCalled();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER_ID, critical: true }),
+        expect.stringContaining("revoca delle chiavi API"),
+      );
+    });
+
+    it("profilo già assente (retry di un purge parziale): niente revoca e procede", async () => {
+      mockSelectLimit.mockResolvedValue([]);
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).toHaveBeenCalledWith(USER_ID);
+      expect(result.authDeleted).toBe(true);
+    });
   });
 
   it("cancella auth PRIMA del profilo e ritorna authDeleted+profileDeleted", async () => {

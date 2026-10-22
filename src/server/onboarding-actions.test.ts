@@ -3782,6 +3782,50 @@ describe("onboarding-actions", () => {
       );
     });
 
+    it("successo: invalida la sessione Fisconline in cache e quella interattiva del business", async () => {
+      // La sessione in cache è stata aperta con la password vecchia: lasciarla
+      // viva fino al TTL (10 minuti) significa continuare a usare un login che
+      // il portale ha appena superato. Stessa coppia di invalidazioni di
+      // `saveAdeCredentials` e `verifyAdeCredentials`.
+      const { adeSessionCache } = await import("@/lib/ade/session-cache");
+      const { adeInteractiveSessionStore } =
+        await import("@/lib/ade/interactive-session-store");
+      const invalidateCache = vi
+        .spyOn(adeSessionCache, "invalidate")
+        .mockResolvedValue(undefined);
+      const invalidateStore = vi
+        .spyOn(adeInteractiveSessionStore, "invalidate")
+        .mockResolvedValue(undefined);
+      arrangeChangePassword();
+
+      const result = await runChangePassword();
+
+      expect(result.businessId).toBe(CHANGE_PW_BUSINESS_ID);
+      expect(invalidateCache).toHaveBeenCalledWith(CHANGE_PW_BUSINESS_ID);
+      expect(invalidateStore).toHaveBeenCalledWith(CHANGE_PW_BUSINESS_ID);
+    });
+
+    it("cambio password fallito sul portale: la sessione in cache non si tocca", async () => {
+      const { adeSessionCache } = await import("@/lib/ade/session-cache");
+      const { adeInteractiveSessionStore } =
+        await import("@/lib/ade/interactive-session-store");
+      const invalidateCache = vi
+        .spyOn(adeSessionCache, "invalidate")
+        .mockResolvedValue(undefined);
+      const invalidateStore = vi
+        .spyOn(adeInteractiveSessionStore, "invalidate")
+        .mockResolvedValue(undefined);
+      arrangeChangePassword();
+      mockChangePasswordFisconline.mockRejectedValue(new Error("portale giù"));
+
+      const result = await runChangePassword();
+
+      expect(result.error).toBeDefined();
+      // Con la password invariata sul portale la sessione resta valida.
+      expect(invalidateCache).not.toHaveBeenCalled();
+      expect(invalidateStore).not.toHaveBeenCalled();
+    });
+
     it("ri-cifra TUTTI i campi della riga con la chiave corrente e allinea key_version (PR #782)", async () => {
       // Rotazione in corso: env a v2, riga ancora a v1.
       process.env.ENCRYPTION_KEY_VERSION = "2";
