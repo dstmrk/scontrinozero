@@ -1,8 +1,15 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockWithStatementTimeout } = vi.hoisted(() => ({
+const { mockWithStatementTimeout, mockRequireAdmin } = vi.hoisted(() => ({
   mockWithStatementTimeout: vi.fn(),
+  mockRequireAdmin: vi.fn(),
+}));
+
+// Il gate di richiesta ha i suoi test in `admin-guard.test.ts`: qui basta
+// poterlo far passare o fallire.
+vi.mock("./admin-guard", () => ({
+  requireAdmin: () => mockRequireAdmin(),
 }));
 
 // Passthrough: qui interessa il TETTO di concorrenza, non la transazione.
@@ -130,6 +137,41 @@ describe("ADMIN_QUERY_TIMEOUT_MS", () => {
 describe("runAdminRead", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireAdmin.mockResolvedValue({ id: "u-admin" });
+  });
+
+  it("non esegue la query se il chiamante non è admin", async () => {
+    // Difesa in profondità: l'unico gate di /admin era il layout, che Next può
+    // non rieseguire quando una richiesta RSC dichiara il layout già
+    // renderizzato. Il controllo qui sta sul dato, non sul percorso di render.
+    mockRequireAdmin.mockRejectedValue(new Error("admin access denied"));
+    const fn = vi.fn(async () => "dati di tutti i tenant");
+
+    await expect(runAdminRead(fn)).rejects.toThrow("admin access denied");
+
+    expect(fn).not.toHaveBeenCalled();
+    expect(mockWithStatementTimeout).not.toHaveBeenCalled();
+  });
+
+  it("un rifiuto non lascia occupato l'unico posto di lettura", async () => {
+    mockRequireAdmin.mockRejectedValueOnce(new Error("admin access denied"));
+
+    await expect(runAdminRead(async () => "x")).rejects.toThrow();
+
+    await expect(runAdminRead(async () => "dopo")).resolves.toBe("dopo");
+  });
+
+  it("verifica l'admin prima di accodarsi per il posto", async () => {
+    const first = deferred<string>();
+    const a = runAdminRead(async () => first.promise);
+    await flush();
+
+    mockRequireAdmin.mockRejectedValueOnce(new Error("admin access denied"));
+    // Non deve restare in coda dietro `a`: viene respinto subito.
+    await expect(runAdminRead(async () => "b")).rejects.toThrow();
+
+    first.resolve("a");
+    await expect(a).resolves.toBe("a");
   });
 
   it("tiene una sola lettura per volta", () => {

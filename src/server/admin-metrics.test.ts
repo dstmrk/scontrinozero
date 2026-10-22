@@ -24,6 +24,12 @@ vi.mock("@/lib/db-timeout", () => ({
   },
 }));
 
+// Il gate di richiesta (`requireAdmin`) ha i suoi test in `admin-guard.test.ts`
+// e in `admin-sql.test.ts`: qui interessano le query.
+vi.mock("./admin-guard", () => ({
+  requireAdmin: async () => ({ id: "u-admin" }),
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: { warn: mockLoggerWarn, error: vi.fn(), info: vi.fn() },
 }));

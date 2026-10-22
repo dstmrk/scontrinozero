@@ -25,8 +25,10 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - UPDATE dopo I/O esterno lungo: optimistic lock su `updatedAt` — e le
   scritture accessorie sulla stessa riga vanno in SQL raw, o muovono il lock
 - `setInterval` + `.unref?.()`
-- Redirect param con querystring
+- Redirect param con querystring (e caratteri di controllo)
 - Turnstile hostname check a lista
+- Autorizzazione mai solo in un layout (`/admin`): ripeterla dove il dato si legge
+- RLS `FOR ALL` non limita le colonne: togliere la scrittura ai ruoli API
 - Sentry Logs: denylist + `release`
 
 ---
@@ -415,10 +417,16 @@ deve essere `pathname + search`, NON solo `pathname`. Deep link tipo
 `/dashboard/storico?from=2024-01-01&to=2024-01-31` altrimenti perde i filtri
 post-login.
 
-Consumer (`(auth)/callback/route.ts`): sanificare come path relativa
-(`startsWith("/")` ma NON `startsWith("//")` per bloccare protocol-relative
-URLs di open redirect), poi `new URL(redirect, origin)` parsifica il
-querystring senza rischi.
+Consumer (`(auth)/callback/route.ts`): sanificare come path relativa con
+`isSafeRelativeRedirect()` (`src/lib/validation.ts`), poi `new URL(redirect,
+origin)` parsifica il querystring senza rischi. Il predicato rifiuta:
+protocol-relative (`//evil.com`, `/\evil.com`) **e ogni carattere di controllo**
+(U+0000–U+001F, U+007F). Il parser URL WHATWG elimina TAB/LF/CR _prima_ di
+risolvere, quindi `/<TAB>/evil.com` supera un controllo sul secondo carattere e
+diventa `//evil.com` dopo la risoluzione: la stringa che controlli e quella che
+poi segui devono essere la stessa. Quando validi qualcosa che un parser
+normalizza, controlla l'input _dopo_ la normalizzazione o rifiuta ciò che la
+normalizzazione cancellerebbe.
 
 ---
 
@@ -519,3 +527,54 @@ e da `logger.ts` (runtime, Node), **ma non** dal bundle client: per taggare con
 la release anche gli errori browser servirebbe spostare `BUILD_SHA` allo stage
 di build ed esporlo come `NEXT_PUBLIC_*`. Gli errori che identificano "che
 codice gira" (AdE, Stripe, DB, webhook) sono comunque tutti server-side.
+
+---
+
+## Autorizzazione: mai solo in un layout
+
+Un `layout.tsx` **non è garantito girare a ogni richiesta**. Se una richiesta RSC
+porta un `Next-Router-State-Tree` che dichiara il layout già renderizzato, il
+server rende solo il sottoalbero che differisce (la pagina) e il `notFound()` del
+layout non viene mai eseguito; l'header lo sceglie il client. La documentazione
+di Next sconsiglia l'auth nel solo layout per questo motivo. Il middleware
+(`proxy.ts`) non rimedia: autentica, non autorizza.
+
+Regola per `/admin` (e per ogni area con dati cross-tenant): il controllo sta
+**dove il dato viene letto**, non solo sul percorso di render che passa dal
+layout. `src/server/admin-guard.ts` ha `requireAdmin()` (lancia
+`AdminAccessError`, per le letture) e `requireAdminOrNotFound()` (login / 404,
+per i server component); è chiamato da `layout.tsx`, da `page.tsx` e da
+`runAdminRead()`, prima di acquisire il posto in coda. `getAuthenticatedUser` è
+in `cache()`: il controllo ripetuto costa una sola chiamata a Supabase Auth per
+render. Una nuova pagina o lettura admin eredita il gate passando da
+`runAdminRead`; una nuova pagina sotto `/admin` che legge il dato in altro modo
+deve chiamare `requireAdminOrNotFound()` per prima cosa.
+
+Origine: audit `security-audit` run-1 (candidato letto dal sorgente di Next
+16.4.1: `walk-tree-with-flight-router-state` salta i layout dei segmenti già
+presenti nello state tree). Non riprodotto a runtime: il fix è difesa in
+profondità e vale a prescindere.
+
+---
+
+## RLS `FOR ALL USING (proprietario)` non limita le colonne
+
+Postgres riusa `USING` come controllo di scrittura per `FOR ALL`: la policy
+garantisce che la **riga** sia dell'utente, non quali **colonne** possa
+scrivere. Con i grant di default di Supabase (anon e authenticated hanno
+INSERT/UPDATE/DELETE su `public`), chi ha un account e la publishable key può
+fare `PATCH /rest/v1/profiles` sulla propria riga e impostare `plan`, che
+`fetchPlan` legge come fonte di verità per ogni gate: bypass del paywall a costo
+zero. Riprodotto in locale su Postgres 16 con i grant emulati.
+
+L'app non scrive mai come questi ruoli (Drizzle usa l'owner `postgres`, il client
+service-role ha i propri privilegi), quindi la scrittura si toglie a livello di
+**privilegio**, dove RLS non arriva: migrazione `0043_revoke_api_role_writes.sql`
+(`REVOKE INSERT, UPDATE, DELETE, TRUNCATE` + `ALTER DEFAULT PRIVILEGES` per le
+tabelle future, in un DO block guardato su `pg_roles` perché i ruoli non
+esistono su Postgres self-hosted). Non tocca SELECT. Gate:
+`src/db/rls-coverage.test.ts` ("privilegi di scrittura dei ruoli API").
+
+Se aggiungi codice che usa il client Supabase con la publishable key per
+scrivere su `public`, questa migrazione lo rompe: fallo passare da una server
+action con Drizzle.

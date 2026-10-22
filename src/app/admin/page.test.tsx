@@ -2,7 +2,7 @@
 import { Suspense, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Le sezioni sono server component asincroni: `react-dom` lato client non sa
@@ -27,8 +27,23 @@ vi.mock("./sections", () => ({
   AdminRecentProfilesSection: () => mockInvoked.push("registrati") && null,
 }));
 
+// Il gate di richiesta ha i suoi test in `src/server/admin-guard.test.ts`: qui
+// interessa solo che la pagina lo chiami e che, se rifiuta, non parta nulla.
+const { mockRequireAdminOrNotFound } = vi.hoisted(() => ({
+  mockRequireAdminOrNotFound: vi.fn(),
+}));
+
+vi.mock("@/server/admin-guard", () => ({
+  requireAdminOrNotFound: () => mockRequireAdminOrNotFound(),
+}));
+
 import * as sections from "./sections";
 import AdminPage from "./page";
+
+beforeEach(() => {
+  mockRequireAdminOrNotFound.mockReset();
+  mockRequireAdminOrNotFound.mockResolvedValue({ id: "u-admin" });
+});
 
 const SECTION_NAMES = new Map<unknown, string>(
   Object.entries(sections).map(([name, component]) => [component, name]),
@@ -96,6 +111,45 @@ async function sectionsOf(range?: string): Promise<FoundSection[]> {
   const tree = await AdminPage({ searchParams: Promise.resolve({ range }) });
   return collectSections(tree);
 }
+
+describe("AdminPage — gate di richiesta", () => {
+  // Il layout è stato per molto tempo l'unico gate di /admin. Next può però
+  // renderizzare solo il segmento pagina quando una richiesta RSC dichiara il
+  // layout già presente (`Next-Router-State-Tree` è scelto dal client), e in
+  // quel caso `notFound()` del layout non gira mai. La pagina ripete il
+  // controllo: il costo è nullo, `getAuthenticatedUser` è in `cache()`.
+  it("verifica l'admin una volta per render", async () => {
+    await AdminPage({ searchParams: Promise.resolve({}) });
+
+    expect(mockRequireAdminOrNotFound).toHaveBeenCalledTimes(1);
+  });
+
+  it("se il gate rifiuta non produce alcun albero né invoca sezioni", async () => {
+    mockInvoked.length = 0;
+    mockRequireAdminOrNotFound.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+
+    await expect(
+      AdminPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(mockInvoked).toEqual([]);
+  });
+
+  it("controlla l'admin prima di leggere i parametri di ricerca", async () => {
+    mockRequireAdminOrNotFound.mockRejectedValue(new Error("NEXT_NOT_FOUND"));
+    let searchParamsRead = false;
+    const searchParams = {
+      then: (resolve: (value: { range?: string }) => void) => {
+        searchParamsRead = true;
+        resolve({});
+      },
+    } as unknown as Promise<{ range?: string }>;
+
+    await expect(AdminPage({ searchParams })).rejects.toThrow();
+
+    expect(searchParamsRead).toBe(false);
+  });
+});
 
 describe("AdminPage — streaming", () => {
   it("monta tutte e dieci le letture, ognuna dietro un proprio Suspense", async () => {

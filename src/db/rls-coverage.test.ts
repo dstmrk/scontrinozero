@@ -84,3 +84,67 @@ describe("RLS coverage delle migrazioni", () => {
     expect(enablesRls(sql, "__applied_migrations")).toBe(true);
   });
 });
+
+/**
+ * Le policy `_own` sono `FOR ALL USING (proprietario)`: Postgres riusa USING
+ * come controllo di scrittura, quindi garantiscono la proprietà della RIGA ma
+ * non quali COLONNE un proprietario può scrivere. Con i grant di default di
+ * Supabase (anon/authenticated hanno INSERT/UPDATE/DELETE su public), chi ha
+ * un account e la publishable key potrebbe riscrivere `profiles.plan` o
+ * `subscriptions.status` sulla propria riga via PostgREST. L'app non passa mai
+ * di lì — Drizzle usa l'owner `postgres` e il client service-role — quindi la
+ * scrittura diretta dei ruoli API non serve a nessuno e si toglie a livello di
+ * privilegio, dove RLS non arriva.
+ */
+describe("privilegi di scrittura dei ruoli API", () => {
+  const WRITE_PRIVILEGES = String.raw`INSERT\s*,\s*UPDATE\s*,\s*DELETE\s*,\s*TRUNCATE`;
+
+  /** Il file di migrazione che revoca la scrittura su tutte le tabelle di public. */
+  function revokingMigration(): { file: string; sql: string } | undefined {
+    const pattern = new RegExp(
+      String.raw`REVOKE\s+${WRITE_PRIVILEGES}\s+ON\s+ALL\s+TABLES\s+IN\s+SCHEMA\s+public\s+FROM`,
+      "i",
+    );
+    for (const file of readdirSync(MIGRATIONS_DIR).filter((f) =>
+      f.endsWith(".sql"),
+    )) {
+      const body = readFileSync(path.join(MIGRATIONS_DIR, file), "utf-8");
+      if (pattern.test(body)) return { file, sql: body };
+    }
+    return undefined;
+  }
+
+  it("una migrazione revoca INSERT/UPDATE/DELETE/TRUNCATE su tutte le tabelle di public", () => {
+    expect(revokingMigration()).toBeDefined();
+  });
+
+  it("la revoca riguarda sia anon sia authenticated", () => {
+    const migration = revokingMigration();
+    expect(migration?.sql).toMatch(/['"]anon['"]/);
+    expect(migration?.sql).toMatch(/['"]authenticated['"]/);
+  });
+
+  it("la revoca è guardata sull'esistenza dei ruoli (Postgres self-hosted)", () => {
+    // Su un Postgres senza anon/authenticated una REVOKE secca abortirebbe la
+    // migrazione, e con lei il boot (`node migrate.js && node server.js`).
+    expect(revokingMigration()?.sql).toMatch(/pg_roles/i);
+  });
+
+  it("imposta anche i default privileges, per le tabelle create dopo", () => {
+    const defaults = new RegExp(
+      String.raw`ALTER\s+DEFAULT\s+PRIVILEGES\s+IN\s+SCHEMA\s+public\s+REVOKE\s+${WRITE_PRIVILEGES}\s+ON\s+TABLES\s+FROM`,
+      "i",
+    );
+    expect(revokingMigration()?.sql).toMatch(defaults);
+  });
+
+  it("non toglie SELECT: la lettura resta governata dalle policy", () => {
+    const revokes = [
+      ...(revokingMigration()?.sql.matchAll(/REVOKE\s+[^;]*?\s+FROM/gi) ?? []),
+    ].map((m) => m[0]);
+    expect(revokes.length).toBeGreaterThan(0);
+    for (const statement of revokes) {
+      expect(statement).not.toMatch(/\bSELECT\b/i);
+    }
+  });
+});

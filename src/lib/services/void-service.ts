@@ -123,6 +123,27 @@ function resolveExistingVoidByKey(
     };
   }
 
+  // Stesso difetto lato reso: RETURN condivide lo spazio di key con VOID, e un
+  // reso ACCEPTED vecchio ha già adeTransactionId/adeProgressive, quindi il ramo
+  // stale sotto lo avrebbe trattato come "il mio annullo da completare" e
+  // finalizeVoidOnly avrebbe marcato il SALE VOID_ACCEPTED senza alcun annullo
+  // su AdE. Speculare a `resolveExistingByKey` di return-service, che rifiuta
+  // ogni riga di altro kind.
+  if (existing.kind === "RETURN") {
+    logger.warn(
+      { businessId, returnDocumentId: existing.id },
+      "Void idempotency key already used for a RETURN",
+    );
+    return {
+      kind: "done",
+      result: {
+        error:
+          "La chiave di idempotenza è già stata usata per un reso. Usa una nuova chiave per annullare.",
+        code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      },
+    };
+  }
+
   // P1.4: stessa idempotencyKey ma SALE annullato diverso → 409. Evita di
   // ritornare il risultato di un annullo che non corrisponde alla richiesta.
   if (

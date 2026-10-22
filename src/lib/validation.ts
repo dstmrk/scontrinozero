@@ -207,9 +207,19 @@ export function validateBusinessOptionalFields(fields: {
  * a `//`) — entrambi erediterebbero il protocollo dell'origin puntando a un
  * host esterno. URL assoluti (`https://evil.com`), stringhe vuote e path senza
  * leading slash cadono nel `false` → il caller fa fallback a `/dashboard`.
+ *
+ * Rifiuta anche ogni carattere di controllo (U+0000–U+001F, U+007F): il parser
+ * URL WHATWG elimina TAB, LF e CR dall'input *prima* di risolverlo, quindi
+ * `/<TAB>/evil.com` supera il controllo sul secondo carattere e diventa
+ * `//evil.com` nel momento in cui viene risolto. La stringa controllata e
+ * l'URL risolto devono coincidere, e un path legittimo non ne contiene.
  */
 export function isSafeRelativeRedirect(path: string): boolean {
   if (!path.startsWith("/")) return false;
+  for (const char of path) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code <= 0x1f || code === 0x7f) return false;
+  }
   const second = path[1];
   return second !== "/" && second !== "\\";
 }

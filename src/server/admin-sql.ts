@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 
 import { type DrizzleTx, withStatementTimeout } from "@/lib/db-timeout";
 import { TRIAL_DAYS } from "@/lib/plans";
+import { requireAdmin } from "./admin-guard";
 import { type AnalyticsRange, rangeToBounds } from "./analytics-helpers";
 
 /**
@@ -222,7 +223,8 @@ function releaseSlot(): void {
 
 /**
  * Esegue UNA query di lettura del pannello dentro il budget di timeout, dopo
- * aver ottenuto l'unico posto disponibile (`ADMIN_MAX_CONCURRENT_READS`).
+ * aver verificato che il chiamante sia un amministratore e ottenuto l'unico
+ * posto disponibile (`ADMIN_MAX_CONCURRENT_READS`).
  *
  * Il contatore è di modulo, quindi il tetto vale per l'intera istanza server e
  * non per la singola richiesta: due operatori collegati insieme condividono lo
@@ -234,6 +236,10 @@ function releaseSlot(): void {
 export async function runAdminRead<T>(
   fn: (tx: DrizzleTx) => Promise<T>,
 ): Promise<T> {
+  // Il controllo sta sul dato e PRIMA della coda: un chiamante non admin non
+  // occupa il posto e non arriva a Postgres, qualunque percorso di render lo
+  // abbia portato qui (vedi `admin-guard.ts`).
+  await requireAdmin();
   await acquireSlot();
   try {
     return await withStatementTimeout(ADMIN_QUERY_TIMEOUT_MS, fn);
