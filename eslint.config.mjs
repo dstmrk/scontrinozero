@@ -61,6 +61,9 @@ const eslintConfig = defineConfig([
     "mobile/ios/**",
     "mobile/android/**",
     "public/sw.js.map",
+    // Copia vendorizzata di cloudflare/security-audit-skill (MIT): i validator
+    // .cjs restano identici all'upstream, vedi UPSTREAM.md nella directory.
+    ".claude/skills/security-audit/**",
   ]),
 ]);
 
