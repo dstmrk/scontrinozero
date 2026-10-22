@@ -283,8 +283,20 @@ function buildStoricoConditions(
   businessId: string,
   params: SearchReceiptsParams,
 ):
-  | { conditions: SQL[]; from: Date | null; toExclusive: Date | null }
+  | {
+      conditions: SQL[];
+      from: Date | null;
+      toExclusive: Date | null;
+      page: number;
+      pageSize: number;
+    }
   | { error: string } {
+  // Paginazione e filtri si validano insieme, nello stesso punto: i chiamanti
+  // hanno un solo ramo `{ error }` da gestire (e restano sotto la soglia di
+  // Cognitive Complexity di SonarCloud).
+  const paging = resolvePaging(params);
+  if ("error" in paging) return paging;
+
   const conditions: SQL[] = [
     eq(commercialDocuments.businessId, businessId),
     // Vendite e resi: il reso è un documento fiscale con la sua data, e un
@@ -343,7 +355,7 @@ function buildStoricoConditions(
     );
   }
 
-  return { conditions, from, toExclusive };
+  return { conditions, from, toExclusive, ...paging };
 }
 
 export async function searchReceipts(
@@ -357,15 +369,12 @@ export async function searchReceipts(
   );
   if ("error" in auth) return { error: auth.error, items: [], total: 0 };
 
-  const paging = resolvePaging(params);
-  if ("error" in paging) return { error: paging.error, items: [], total: 0 };
-  const { page, pageSize } = paging;
-
   const db = getDb();
-  const offset = (page - 1) * pageSize;
 
   const built = buildStoricoConditions(businessId, params);
   if ("error" in built) return { error: built.error, items: [], total: 0 };
+  const { page, pageSize } = built;
+  const offset = (page - 1) * pageSize;
   const { conditions } = built;
 
   // Total count + page (same conditions, no data-dependency) → in parallelo.
@@ -567,9 +576,7 @@ export async function searchReceiptsIncludingAde(
   const ranges = buildAdeSearchRanges(params.dateFrom, params.dateTo);
   if ("error" in ranges) return { error: ranges.error, items: [], total: 0 };
 
-  const paging = resolvePaging(params);
-  if ("error" in paging) return { error: paging.error, items: [], total: 0 };
-  const { page, pageSize } = paging;
+  const { page, pageSize } = built;
 
   const db = getDb();
 
