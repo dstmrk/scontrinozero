@@ -200,8 +200,8 @@ project, leggero sulle risorse):
 
 - **Prescrittivo per dominio** → `.claude/skills/` (ade-integration,
   db-migrations, deploy-release, marketing-content, money-rounding,
-  playwright-verify, pwa-serwist, react-patterns, security-patterns,
-  sentry-hygiene, sonar-quality-gate, stripe-webhooks, testing-patterns)
+  playwright-verify, pwa-serwist, react-patterns, security-audit,
+  security-patterns, sentry-hygiene, sonar-quality-gate, stripe-webhooks, testing-patterns)
 - **Comportamento sempre-attivo** → `CLAUDE.md`
 - **Backlog (bug, tech debt, roadmap)** → issue GitHub, label `P1`/`P2`/`P3` e
   `nice-to-have` (regola 33) · **Rischi accettati** →

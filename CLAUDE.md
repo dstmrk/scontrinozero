@@ -240,8 +240,8 @@ carta all'iscrizione: include le feature Pro visibili **e** la Developer API
 Si auto-attivano quando il task matcha la `description` (non serve elencarle
 qui: il harness le inietta già): `ade-integration`, `db-migrations`,
 `decision-ledger`, `deploy-release`, `marketing-content`, `money-rounding`,
-`playwright-verify`, `pwa-serwist`, `react-patterns`, `security-patterns`,
-`sentry-hygiene`, `sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
+`playwright-verify`, `pwa-serwist`, `react-patterns`, `security-audit`,
+`security-patterns`, `sentry-hygiene`, `sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
 
 Sono anche la **destinazione** delle regole non sempre-attive (regola 7): la
 prosa di dominio vive qui, non in `CLAUDE.md`.

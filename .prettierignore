@@ -3,3 +3,5 @@ out
 build
 node_modules
 package-lock.json
+# Copia vendorizzata di cloudflare/security-audit-skill: identica all'upstream.
+.claude/skills/security-audit
