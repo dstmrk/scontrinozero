@@ -220,7 +220,7 @@ describe("fetchAdeSaleRows", () => {
       .fn()
       .mockResolvedValue({ totalCount: 1, elencoRisultati: [saleDoc()] });
 
-    await fetchAdeSaleRows({ searchDocuments }, [
+    await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -246,7 +246,7 @@ describe("fetchAdeSaleRows", () => {
         elencoRisultati: [saleDoc({ idtrx: "3" })],
       });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, [
+    const result = await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -264,7 +264,7 @@ describe("fetchAdeSaleRows", () => {
           : [saleDoc({ idtrx: "3" }), saleDoc({ idtrx: "4" })],
     }));
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, [
+    const result = await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -280,7 +280,7 @@ describe("fetchAdeSaleRows", () => {
       })
       .mockResolvedValueOnce({ totalCount: 99, elencoRisultati: [] });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, [
+    const result = await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -297,7 +297,7 @@ describe("fetchAdeSaleRows", () => {
       elencoRisultati: page,
     });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, [
+    const result = await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -310,7 +310,7 @@ describe("fetchAdeSaleRows", () => {
       .fn()
       .mockResolvedValue({ totalCount: 1, elencoRisultati: [saleDoc()] });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, [
+    const result = await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -320,7 +320,7 @@ describe("fetchAdeSaleRows", () => {
   it("regge un elencoRisultati assente senza esplodere", async () => {
     const searchDocuments = vi.fn().mockResolvedValue({ totalCount: 0 });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, [
+    const result = await fetchAdeSaleRows(searchDocuments, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
     ]);
 
@@ -339,7 +339,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
       .fn()
       .mockResolvedValue({ totalCount: 1, elencoRisultati: [saleDoc()] });
 
-    await fetchAdeSaleRows({ searchDocuments }, RANGES);
+    await fetchAdeSaleRows(searchDocuments, RANGES);
 
     expect(searchDocuments).toHaveBeenCalledTimes(2);
     expect(searchDocuments.mock.calls[0][0]).toMatchObject({
@@ -362,7 +362,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
         elencoRisultati: [saleDoc({ idtrx: "luglio" })],
       });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES);
+    const result = await fetchAdeSaleRows(searchDocuments, RANGES);
 
     expect(result.rows.map((r) => r.idtrx)).toEqual(["agosto", "luglio"]);
     expect(result.truncated).toBe(false);
@@ -377,7 +377,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
       return { totalCount: 1, elencoRisultati: [saleDoc({ idtrx: "agosto" })] };
     });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES, {
+    const result = await fetchAdeSaleRows(searchDocuments, RANGES, {
       now: () => clock,
     });
 
@@ -393,7 +393,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
       return { totalCount: 1, elencoRisultati: [saleDoc()] };
     });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES, {
+    const result = await fetchAdeSaleRows(searchDocuments, RANGES, {
       now: () => clock,
     });
 
@@ -409,7 +409,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
       elencoRisultati: page,
     });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES);
+    const result = await fetchAdeSaleRows(searchDocuments, RANGES);
 
     expect(result.rows.length).toBeLessThanOrEqual(MAX_ADE_SEARCH_DOCUMENTS);
     expect(result.truncated).toBe(true);
@@ -427,7 +427,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
       elencoRisultati: page,
     });
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES);
+    const result = await fetchAdeSaleRows(searchDocuments, RANGES);
 
     expect(result.truncated).toBe(true);
     expect(result.rows.every((r) => r.idtrx.startsWith("agosto-"))).toBe(true);
@@ -436,7 +436,7 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
   it("nessuna finestra da interrogare: nessuna chiamata", async () => {
     const searchDocuments = vi.fn();
 
-    const result = await fetchAdeSaleRows({ searchDocuments }, []);
+    const result = await fetchAdeSaleRows(searchDocuments, []);
 
     expect(searchDocuments).not.toHaveBeenCalled();
     expect(result).toEqual({ rows: [], truncated: false });

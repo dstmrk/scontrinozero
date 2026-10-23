@@ -78,8 +78,15 @@ export async function fetchForeignAdeRows(
 
   let fetched: Awaited<ReturnType<typeof fetchAdeSaleRows>>;
   try {
-    fetched = await withAdeSession(session.params, (client) =>
-      fetchAdeSaleRows(client, params.ranges),
+    // Una sessione per pagina, non una per la ricerca intera (issue #1099):
+    // dentro una sola `withAdeSession` la ricerca teneva il lock per attività
+    // fino a 45 s, e nessuna emissione dell'attività poteva partire.
+    fetched = await fetchAdeSaleRows(
+      (query) =>
+        withAdeSession(session.params, (client) =>
+          client.searchDocuments(query),
+        ),
+      params.ranges,
     );
   } catch (err) {
     // Credenziali sbagliate, portale giù, timeout: condizioni previste dal

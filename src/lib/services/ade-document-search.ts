@@ -74,6 +74,16 @@ const MAX_ADE_SEARCH_PAGES = 50;
  */
 const ADE_SEARCH_DEADLINE_MS = 45_000;
 
+/**
+ * Una ricerca sull'archivio AdE, con la firma di `AdeClient.searchDocuments`.
+ *
+ * Il modulo riceve la funzione e non il client perché il chiamante la fa
+ * girare in una sessione **per pagina** (issue #1099): il lock per attività
+ * di `withAdeSession` si libera fra una richiesta e l'altra, e un'emissione
+ * arrivata durante una ricerca aspetta una pagina, non l'intero periodo.
+ */
+export type AdeSearchPage = AdeClient["searchDocuments"];
+
 export type AdeSaleRowsResult = {
   readonly rows: AdeReceiptListItem[];
   /**
@@ -243,14 +253,14 @@ export function toAdeReceiptListItem(
  * per cui questa funzione esiste separata — il budget globale non la riguarda.
  */
 async function readOneWindow(
-  client: Pick<AdeClient, "searchDocuments">,
+  search: AdeSearchPage,
   range: AdeSearchRange,
   limits: { maxDocuments: number; deadline: number; now: () => number },
 ): Promise<{ docs: AdeDocumentSummary[]; incomplete: boolean }> {
   const docs: AdeDocumentSummary[] = [];
 
   for (let page = 1; page <= MAX_ADE_SEARCH_PAGES; page++) {
-    const list: AdeDocumentList = await client.searchDocuments({
+    const list: AdeDocumentList = await search({
       dataDal: range.dataDal,
       dataInvioAl: range.dataInvioAl,
       tipoOperazione: "V",
@@ -298,14 +308,17 @@ function toReceiptRows(
  *
  * **Le finestre girano in sequenza, non in parallelo.** Condividono una sola
  * sessione AdE, e dodici richieste concorrenti a nome dell'esercente sono il
- * modo di fargli bloccare l'utenza sul portale.
+ * modo di fargli bloccare l'utenza sul portale. Ogni pagina però rientra nella
+ * sessione da sola (`AdeSearchPage`), così fra una richiesta e l'altra passano
+ * le emissioni in coda. Il deadline conta anche quell'attesa: è un limite di
+ * tempo reale, quello che il proxy davanti all'app farebbe rispettare.
  *
  * **La prima finestra incompleta ferma tutto.** Le finestre sono ordinate dalla
  * piu' recente: proseguire dopo un troncamento darebbe un elenco con un buco
  * in mezzo, che e' peggio di un elenco che finisce prima e lo dichiara.
  */
 export async function fetchAdeSaleRows(
-  client: Pick<AdeClient, "searchDocuments">,
+  search: AdeSearchPage,
   ranges: readonly AdeSearchRange[],
   options: { now?: () => number } = {},
 ): Promise<AdeSaleRowsResult> {
@@ -323,7 +336,7 @@ export async function fetchAdeSaleRows(
       break;
     }
 
-    const read = await readOneWindow(client, range, {
+    const read = await readOneWindow(search, range, {
       maxDocuments: MAX_ADE_SEARCH_DOCUMENTS - collected.length,
       deadline,
       now,
