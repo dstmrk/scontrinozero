@@ -14,6 +14,12 @@
    `src/lib/supabase/middleware.ts`.
 4. Errori d'input prevedibili (password sbagliata, P.IVA già usata) → `warn`,
    non Sentry (regola 20).
+5. L'accesso a un'attività passa da `checkBusinessMembership`, che legge
+   `business_members` (issue #1099): una riga per persona, ruolo `owner` o
+   `collaborator`, al più un titolare per attività. Il collaboratore non ha
+   una riga `profiles`; il piano lo prende dal titolare
+   (`planOwnerAuthUserId` in `src/lib/plans.ts`). La riga `owner` nasce con
+   l'attività in `saveBusiness` (`src/server/onboarding-actions.ts`).
 
 ## Emissione scontrino (cassa)
 
@@ -23,7 +29,11 @@
    `src/lib/receipts/document-lines.ts` (regola 17): l'importo trasmesso ad AdE
    e quello mostrato al cliente devono coincidere.
 3. Orchestrazione in `src/lib/services/receipt-service.ts`: idempotency
-   (`src/lib/services/request-hash.ts`), chiamata AdE, transazione DB.
+   (`src/lib/services/request-hash.ts`), chiamata AdE, transazione DB. La
+   riga registra chi l'ha prodotta (`DocumentOrigin`,
+   `src/lib/services/document-origin.ts`): `created_by` col membro dalla web
+   app, `api_key_id` con la chiave dalla Developer API. Vale anche per annullo
+   e reso.
 4. Client AdE risolto da `src/lib/ade/index.ts` (reale `src/lib/ade/real-client.ts`
    vs mock `src/lib/ade/mock-client.ts` secondo `ADE_MODE`). La sessione Fisconline
    è riusata fra operazioni ravvicinate dello stesso business via
@@ -130,7 +140,7 @@ Documento commerciale di reso (`HAR.md` #19), su tutti i piani (gate
 storico → "Fai un reso" (`src/components/storico/return-receipt-panel.tsx`,
 quantità per riga con tetto = venduti − già resi, anteprima dell'importo con
 `buildReturnLines`) → `returnReceipt` (`src/server/return-actions.ts`: auth,
-rate limit `return:<userId>`, zod, ownership) →
+rate limit `return:<userId>`, zod, appartenenza all'attività) →
 `src/lib/services/return-service.ts`. A reso registrato il pannello rilegge il
 RETURN per la stampa termica e lo storico rilegge la vendita (già-reso).
 Dalla Developer API: `POST /api/v1/receipts/{id}/return` (stesso servizio,

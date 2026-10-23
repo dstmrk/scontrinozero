@@ -6,11 +6,11 @@ import { logger } from "@/lib/logger";
 // --- Mocks ---
 
 const mockGetAuthenticatedUser = vi.fn();
-const mockCheckBusinessOwnership = vi.fn();
+const mockCheckBusinessMembership = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
 }));
 
 const mockOrderBy = vi.fn().mockResolvedValue([]);
@@ -129,12 +129,15 @@ const VALID_ADD_INPUT = {
 
 // --- Tests ---
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("catalog-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
 
     mockOrderBy.mockResolvedValue([]);
     mockLimit.mockResolvedValue([]);
@@ -172,7 +175,7 @@ describe("catalog-actions", () => {
     });
 
     it("restituisce lista vuota se business non appartiene all'utente", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
@@ -189,7 +192,7 @@ describe("catalog-actions", () => {
 
       expect(result).toEqual([]);
       expect(mockGetAuthenticatedUser).not.toHaveBeenCalled();
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockSelect).not.toHaveBeenCalled();
       // Input prevedibile (regola 20): niente logger.error → niente issue Sentry.
       expect(logger.error).not.toHaveBeenCalled();
@@ -255,12 +258,12 @@ describe("catalog-actions", () => {
       });
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
     it("ritorna errore se business non appartiene all'utente", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
@@ -724,7 +727,7 @@ describe("catalog-actions", () => {
     });
 
     it("ritorna errore se business non appartiene all'utente", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
@@ -762,7 +765,7 @@ describe("catalog-actions", () => {
       const result = await deleteCatalogItem("abc", FAKE_BUSINESS_ID);
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockDelete).not.toHaveBeenCalled();
     });
 
@@ -771,7 +774,7 @@ describe("catalog-actions", () => {
       const result = await deleteCatalogItem(FAKE_ITEM_ID, "abc");
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockDelete).not.toHaveBeenCalled();
     });
   });
@@ -800,7 +803,7 @@ describe("catalog-actions", () => {
     });
 
     it("ritorna errore se business non appartiene all'utente", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
@@ -819,7 +822,7 @@ describe("catalog-actions", () => {
       });
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 
@@ -831,7 +834,7 @@ describe("catalog-actions", () => {
       });
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 

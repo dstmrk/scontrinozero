@@ -4,7 +4,7 @@ import { and, asc, count, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, catalogItems } from "@/db/schema";
 import {
-  checkBusinessOwnership,
+  checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
@@ -51,7 +51,7 @@ function toCatalogItem(row: {
   };
 }
 
-/** Autentica l'utente e verifica l'ownership del business. Ritorna null se OK. */
+/** Autentica l'utente e verifica che appartenga al business. Ritorna null se OK. */
 async function authenticateAndAuthorize(
   businessId: string,
 ): Promise<CatalogActionResult | null> {
@@ -61,7 +61,8 @@ async function authenticateAndAuthorize(
   } catch (err) {
     return authErrorResult(err, "authenticateAndAuthorize");
   }
-  return checkBusinessOwnership(user.id, businessId);
+  const membership = await checkBusinessMembership(user.id, businessId);
+  return "error" in membership ? membership : null;
 }
 
 // Criterio fiscale allineato a `saleLineSchema` (receipt-schema.ts) e alla
@@ -128,14 +129,14 @@ export async function getCatalogItems(
   businessId: string,
 ): Promise<CatalogItem[]> {
   // Guard UUID (regola 9): un businessId malformato farebbe lanciare 22P02 a
-  // Postgres in checkBusinessOwnership → degradiamo a lista vuota senza toccare
+  // Postgres in checkBusinessMembership → degradiamo a lista vuota senza toccare
   // il DB (input prevedibile, nessun rumore Sentry — regola 20).
   if (!isValidUuid(businessId)) return [];
 
   try {
     const user = await getAuthenticatedUser();
-    const ownershipError = await checkBusinessOwnership(user.id, businessId);
-    if (ownershipError) return [];
+    const membership = await checkBusinessMembership(user.id, businessId);
+    if ("error" in membership) return [];
 
     const db = getDb();
     const items = await db
@@ -197,11 +198,8 @@ export async function addCatalogItem(
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(
-    user.id,
-    input.businessId,
-  );
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, input.businessId);
+  if ("error" in membership) return membership;
 
   const validated = validateItemInput(
     input.description,

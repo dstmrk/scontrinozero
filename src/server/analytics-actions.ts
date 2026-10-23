@@ -4,7 +4,7 @@ import { cache } from "react";
 import { and, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
 import {
-  checkBusinessOwnership,
+  checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
@@ -86,17 +86,17 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
       error: "Troppe richieste. Riprova tra qualche minuto.",
     };
   }
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { ok: false, error: "Identificativo non valido." };
   }
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) {
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) {
     logger.warn(
       { userId: user.id, businessId },
       "analytics: ownership check failed",
     );
-    return { ok: false, error: ownershipError.error };
+    return { ok: false, error: membership.error };
   }
   // La classificazione degli errori di lettura del piano vive in @/lib/plans:
   // qui era duplicata (PR #804).

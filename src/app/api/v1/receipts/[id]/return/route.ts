@@ -95,7 +95,7 @@ export async function POST(
   // ── Return ────────────────────────────────────────────────────────────────
   const result = await returnReceiptForBusiness(
     { documentId, idempotencyKey, businessId: auth.businessId, quantities },
-    auth.apiKey.id,
+    { apiKeyId: auth.apiKey.id },
   );
 
   if (result.reauthRequired) {

@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { eq } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles, subscriptions } from "@/db/schema";
 import {
@@ -62,7 +62,29 @@ export class ProfileNotFoundError extends Error {
 // ---------------------------------------------------------------------------
 
 /**
- * Recupera le informazioni sul piano dell'utente dal profilo.
+ * L'auth user del **titolare** dell'attività a cui appartiene `authUserId`, o
+ * `authUserId` stesso finché non appartiene a nessuna attività (chi si è
+ * iscritto e non ha ancora finito l'onboarding: un futuro titolare).
+ *
+ * Il piano è dell'attività, non di chi è loggato (issue #1099): un
+ * collaboratore non ha un profilo suo, e il suo piano è quello del titolare.
+ * Subquery e non una lettura separata, così ogni gate di piano resta una query
+ * sola; per un titolare restituisce sé stesso, quindi oggi non cambia nulla.
+ */
+function planOwnerAuthUserId(authUserId: string): SQL {
+  return sql`COALESCE((
+    SELECT o.auth_user_id
+      FROM business_members m
+      JOIN business_members o
+        ON o.business_id = m.business_id AND o.role = 'owner'
+     WHERE m.auth_user_id = ${authUserId}::uuid
+     LIMIT 1
+  ), ${authUserId}::uuid)`;
+}
+
+/**
+ * Recupera le informazioni sul piano dell'attività dell'utente, dal profilo
+ * del titolare (`planOwnerAuthUserId`).
  * Lancia `ProfileNotFoundError` se il profilo non viene trovato.
  *
  * Wrappato con `react/cache` per deduplicare le chiamate concorrenti nello
@@ -82,7 +104,7 @@ async function fetchPlan(authUserId: string): Promise<PlanInfo> {
       referralBonusDays: profiles.referralBonusDays,
     })
     .from(profiles)
-    .where(eq(profiles.authUserId, authUserId))
+    .where(eq(profiles.authUserId, planOwnerAuthUserId(authUserId)))
     .limit(1);
 
   if (!profile) {
@@ -150,7 +172,7 @@ export async function getEffectivePlan(userId: string): Promise<Plan> {
       status: subscriptions.status,
     })
     .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
+    .where(eq(subscriptions.userId, planOwnerAuthUserId(userId)))
     .limit(1);
 
   // Only derive plan from subscription when payment is confirmed (active).

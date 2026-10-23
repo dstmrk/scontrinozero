@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockVerifyPendingSale,
   mockConfirmPendingSaleCandidate,
   mockLoggerWarn,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi.fn(),
   mockVerifyPendingSale: vi.fn(),
   mockConfirmPendingSaleCandidate: vi.fn(),
   mockLoggerWarn: vi.fn(),
@@ -17,7 +17,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/lib/services/pending-verification", () => ({
@@ -37,6 +37,9 @@ import {
 const BIZ = "11111111-1111-4111-8111-111111111111";
 const DOC = "22222222-2222-4222-8222-222222222222";
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("verifyPendingDocument", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,7 +48,7 @@ describe("verifyPendingDocument", () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       id: `user-${Math.random()}`,
     });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockVerifyPendingSale.mockResolvedValue({
       outcome: "accepted",
       documentId: DOC,
@@ -63,7 +66,7 @@ describe("verifyPendingDocument", () => {
   });
 
   it("rifiuta un business che non è dell'utente", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({
+    mockCheckBusinessMembership.mockResolvedValue({
       error: "Business non trovato o non autorizzato.",
     });
 
@@ -79,7 +82,7 @@ describe("verifyPendingDocument", () => {
     const result = await verifyPendingDocument(BIZ, "non-un-uuid");
 
     expect(result).toEqual({ error: "Richiesta non valida." });
-    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     expect(mockVerifyPendingSale).not.toHaveBeenCalled();
   });
 
@@ -115,7 +118,7 @@ describe("confirmPendingDocument", () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       id: `user-${Math.random()}`,
     });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockConfirmPendingSaleCandidate.mockResolvedValue({
       outcome: "accepted",
       documentId: DOC,
@@ -148,7 +151,9 @@ describe("confirmPendingDocument", () => {
   });
 
   it("richiede comunque l'ownership del business", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
 
     const result = await confirmPendingDocument(BIZ, DOC, "IDTRX-1");
 

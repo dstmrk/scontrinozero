@@ -21,7 +21,7 @@ import {
 } from "@/lib/receipts/receipt-schema";
 import {
   getAuthenticatedUser,
-  checkBusinessOwnership,
+  checkBusinessMembership,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
@@ -110,13 +110,13 @@ export async function emitReceipt(
   const mixedPaymentError = mixedPaymentGateError(planInfo, input);
   if (mixedPaymentError) return { error: mixedPaymentError };
 
-  const ownershipError = await checkBusinessOwnership(
-    user.id,
-    input.businessId,
-  );
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, input.businessId);
+  if ("error" in membership) return membership;
 
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.
-  return emitReceiptForBusiness(validation.data);
+  // Il membro che opera firma il documento (`created_by`, issue #1099).
+  return emitReceiptForBusiness(validation.data, {
+    memberId: membership.memberId,
+  });
 }

@@ -152,7 +152,9 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ── Emit ──────────────────────────────────────────────────────────────────
-  const result = await emitReceiptForBusiness(input, auth.apiKey.id);
+  const result = await emitReceiptForBusiness(input, {
+    apiKeyId: auth.apiKey.id,
+  });
 
   if (result.reauthRequired) {
     // Sessione AdE interattiva (CIE o SPID) scaduta: richiede un ri-collegamento

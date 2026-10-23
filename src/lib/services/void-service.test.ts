@@ -205,6 +205,9 @@ const VALID_INPUT: VoidReceiptInput = {
 
 // --- Tests ---
 
+/** Origine dalla web app: il titolare, oggi l'unico membro (issue #1099). */
+const UI_ORIGIN = { memberId: "member-owner" };
+
 describe("voidReceiptForBusiness", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -249,7 +252,7 @@ describe("voidReceiptForBusiness", () => {
 
   it("happy path: annulla scontrino e ritorna voidDocumentId + adeTransactionId", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeUndefined();
     expect(result.voidDocumentId).toBe("void-doc-uuid");
@@ -270,7 +273,7 @@ describe("voidReceiptForBusiness", () => {
   // autorevole dell'AdE, che finira' nel footer della ricevuta di annullamento.
   it("scrive adeRegisteredAt dal registeredAt della risposta AdE", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const voidSet = mockUpdateSet.mock.calls
       .map((c) => c[0])
@@ -292,7 +295,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const voidSet = mockUpdateSet.mock.calls
       .map((c) => c[0])
@@ -318,7 +321,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ALREADY_RETURNED");
     expect(result.error).toMatch(/reso/i);
@@ -336,7 +339,7 @@ describe("voidReceiptForBusiness", () => {
     ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ALREADY_RETURNED");
     expect(result.error).toMatch(/reso/i);
@@ -348,7 +351,7 @@ describe("voidReceiptForBusiness", () => {
 
   it("legge i resi accettati nella stessa SELECT della vendita", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockSelect.mock.calls[0]![0]).toHaveProperty("hasAcceptedReturn");
   });
@@ -361,7 +364,7 @@ describe("voidReceiptForBusiness", () => {
       .mockResolvedValueOnce([{ id: "return-pending" }]); // reso PENDING
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("VOID_ALREADY_TARGETED");
     expect(result.error).toMatch(/reso/i);
@@ -376,7 +379,7 @@ describe("voidReceiptForBusiness", () => {
       .mockResolvedValueOnce([]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("VOID_ALREADY_TARGETED");
     expect(result.error).toMatch(/annullo/i);
@@ -390,7 +393,7 @@ describe("voidReceiptForBusiness", () => {
     mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("cie");
     // Early-check: nessun insert VOID né submitVoid.
@@ -406,7 +409,7 @@ describe("voidReceiptForBusiness", () => {
     mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("spid");
     expect(mockInsertValues).not.toHaveBeenCalled();
@@ -421,7 +424,7 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("spid"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("spid");
   });
@@ -435,7 +438,7 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("cie"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("cie");
     // submitVoid tentato ma AdE ha rifiutato la sessione (401 = annullo NON
@@ -458,7 +461,7 @@ describe("voidReceiptForBusiness", () => {
     mockUpdateWhere.mockRejectedValueOnce(new Error("db down"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("cie");
     const { logger } = await import("@/lib/logger");
@@ -470,25 +473,29 @@ describe("voidReceiptForBusiness", () => {
 
   it("salva apiKeyId nel documento VOID quando fornito", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT, "api-key-uuid-123");
+    await voidReceiptForBusiness(VALID_INPUT, { apiKeyId: "api-key-uuid-123" });
 
     const insertValuesArg = mockInsertValues.mock.calls[0][0];
     expect(insertValuesArg.apiKeyId).toBe("api-key-uuid-123");
+    // Via API l'autore è la chiave: nessun membro (issue #1099).
+    expect(insertValuesArg.createdBy).toBeNull();
   });
 
-  it("salva apiKeyId null quando non fornito (UI session)", async () => {
+  it("dalla web app salva il membro come autore e apiKeyId null", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const insertValuesArg = mockInsertValues.mock.calls[0][0];
     expect(insertValuesArg.apiKeyId).toBeNull();
+    // Dalla web app l'autore è il membro che opera (issue #1099).
+    expect(insertValuesArg.createdBy).toBe("member-owner");
   });
 
   it("ritorna errore se il documento SALE non è trovato", async () => {
     mockSelectLimit.mockResolvedValue([]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toMatch(/non trovato/i);
     expect(mockLogin).not.toHaveBeenCalled();
@@ -499,10 +506,9 @@ describe("voidReceiptForBusiness", () => {
 
     const { voidReceiptForBusiness } = await import("./void-service");
     const { logger } = await import("@/lib/logger");
-    const result = await voidReceiptForBusiness(
-      VALID_INPUT,
-      "api-key-uuid-123",
-    );
+    const result = await voidReceiptForBusiness(VALID_INPUT, {
+      apiKeyId: "api-key-uuid-123",
+    });
 
     expect(result.error).toMatch(/non trovato/i);
     expect(logger.warn).toHaveBeenCalledWith(
@@ -521,7 +527,7 @@ describe("voidReceiptForBusiness", () => {
 
     const { voidReceiptForBusiness } = await import("./void-service");
     const { logger } = await import("@/lib/logger");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(logger.warn).not.toHaveBeenCalledWith(
       expect.objectContaining({ errorClass: "v1_document_not_found" }),
@@ -533,7 +539,7 @@ describe("voidReceiptForBusiness", () => {
     mockSelectLimit.mockResolvedValue([{ ...FAKE_SALE_DOC, kind: "VOID" }]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toMatch(/vendita/i);
     expect(mockLogin).not.toHaveBeenCalled();
@@ -545,7 +551,7 @@ describe("voidReceiptForBusiness", () => {
     ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeDefined();
     expect(mockLogin).not.toHaveBeenCalled();
@@ -557,7 +563,7 @@ describe("voidReceiptForBusiness", () => {
     ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toMatch(/Dati AdE/i);
     expect(mockLogin).not.toHaveBeenCalled();
@@ -569,7 +575,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toMatch(/Credenziali/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -591,7 +597,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeUndefined();
     expect(result.voidDocumentId).toBe("void-doc-uuid");
@@ -614,7 +620,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect((result as { code?: string }).code).toBe(
       "IDEMPOTENCY_PAYLOAD_MISMATCH",
@@ -643,7 +649,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect((result as { code?: string }).code).toBe(
       "IDEMPOTENCY_PAYLOAD_MISMATCH",
@@ -680,7 +686,7 @@ describe("voidReceiptForBusiness", () => {
         ]);
 
       const { voidReceiptForBusiness } = await import("./void-service");
-      const result = await voidReceiptForBusiness(VALID_INPUT);
+      const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
       expect((result as { code?: string }).code).toBe(
         "IDEMPOTENCY_PAYLOAD_MISMATCH",
@@ -711,7 +717,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeDefined();
     expect(mockLogin).not.toHaveBeenCalled();
@@ -737,7 +743,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
     // La riga di annullo è ancora aperta: il client deve poterla seguire.
@@ -763,7 +769,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // Claim vinto → lookup AdE (default vuoto → none) → riesegue submitVoid.
     expect(mockSearchDocuments).toHaveBeenCalledWith(
@@ -804,7 +810,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // finalize-only con gli ID dell'annullo recuperato da AdE.
     expect(result.voidDocumentId).toBe("void-doc-uuid");
@@ -846,7 +852,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const voidSet = mockUpdateSet.mock.calls
       .map((c) => c[0])
@@ -897,7 +903,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // L'annullo si finalizza comunque: il timestamp è un di più, non un gate.
     expect(result.adeTransactionId).toBe("trx-void-found");
@@ -945,7 +951,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
     expect(result.voidDocumentId).toBe("void-doc-uuid");
@@ -969,7 +975,7 @@ describe("voidReceiptForBusiness", () => {
     mockSearchDocuments.mockRejectedValueOnce(new Error("network down"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // Non sappiamo se AdE aveva registrato l'annullo → mai re-submit.
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
@@ -998,7 +1004,7 @@ describe("voidReceiptForBusiness", () => {
       ]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockUpdateSet.mock.calls[0]![0]).toEqual({
       updatedAt: expect.any(Date),
@@ -1028,7 +1034,7 @@ describe("voidReceiptForBusiness", () => {
     );
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("VOID_ALREADY_TARGETED");
     expect(result.error).toMatch(/reso/i);
@@ -1053,7 +1059,9 @@ describe("voidReceiptForBusiness", () => {
     mockClaimReturning.mockRejectedValueOnce(new Error("boom"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await expect(voidReceiptForBusiness(VALID_INPUT)).rejects.toThrow("boom");
+    await expect(
+      voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN),
+    ).rejects.toThrow("boom");
     expect(mockSubmitVoid).not.toHaveBeenCalled();
   });
 
@@ -1075,7 +1083,7 @@ describe("voidReceiptForBusiness", () => {
     mockClaimReturning.mockResolvedValueOnce([]);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
     expect(result.voidDocumentId).toBe("void-doc-uuid");
@@ -1094,7 +1102,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain(
       "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1129,7 +1137,7 @@ describe("voidReceiptForBusiness", () => {
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain(
       "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1147,7 +1155,7 @@ describe("voidReceiptForBusiness", () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeDefined();
     const setArg = mockUpdateSet.mock.calls[0][0];
@@ -1161,7 +1169,7 @@ describe("voidReceiptForBusiness", () => {
     );
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain(
       "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1177,7 +1185,7 @@ describe("voidReceiptForBusiness", () => {
     );
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const { logger } = await import("@/lib/logger");
     expect(logger.warn).toHaveBeenCalledWith(
@@ -1195,7 +1203,7 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new Error("unexpected boom"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const { logger } = await import("@/lib/logger");
     expect(logger.error).toHaveBeenCalledWith(
@@ -1212,14 +1220,14 @@ describe("voidReceiptForBusiness", () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockLogout).not.toHaveBeenCalled();
   });
 
   it("aggiorna VOID doc a VOID_ACCEPTED e segna SALE come VOID_ACCEPTED", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const firstSet = mockUpdateSet.mock.calls[0][0];
     expect(firstSet.status).toBe("VOID_ACCEPTED");
@@ -1233,14 +1241,14 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new Error("network error"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockLogout).toHaveBeenCalled();
   });
 
   it("chiama logout anche nel happy path", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockLogout).toHaveBeenCalled();
   });
@@ -1254,7 +1262,7 @@ describe("voidReceiptForBusiness", () => {
     mockSelectLimit.mockRejectedValueOnce(timeoutErr);
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect((result as { code?: string }).code).toBe("DB_TIMEOUT");
     // Non viene mai chiamato AdE login
@@ -1271,7 +1279,7 @@ describe("voidReceiptForBusiness", () => {
     mockTransaction.mockRejectedValue(new Error("DB transaction failed"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeDefined();
     expect((result as { code?: string }).code).toBe("VOID_SYNC_FAILED");
@@ -1292,7 +1300,7 @@ describe("voidReceiptForBusiness", () => {
     );
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(statusUpdates).not.toContain("ERROR");
@@ -1303,7 +1311,7 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(statusUpdates).not.toContain("ERROR");
@@ -1316,7 +1324,7 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    const result = await voidReceiptForBusiness(VALID_INPUT);
+    const result = await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ADE_UNAVAILABLE");
     expect(result.error).toBeTruthy();
@@ -1332,7 +1340,7 @@ describe("voidReceiptForBusiness", () => {
     );
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(statusUpdates).not.toContain("ERROR");
@@ -1345,7 +1353,7 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockRejectedValue(new Error("permanent failure"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
-    await voidReceiptForBusiness(VALID_INPUT);
+    await voidReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(statusUpdates).toContain("ERROR");

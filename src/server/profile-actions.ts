@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   getAuthenticatedUser,
-  checkBusinessOwnership,
+  checkBusinessMembership,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
@@ -194,13 +194,13 @@ export async function updateBusiness(
 
   const businessId = getFormString(formData, "businessId");
   if (!businessId) return { error: "Business ID mancante." };
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   const businessName = getFormStringOrNull(formData, "businessName");
   const address = getFormString(formData, "address");
@@ -314,13 +314,13 @@ async function readAdeIdentityContext(
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   // Quali colonne servono ai predicati lo sa `readAdeIdentityRow`, condivisa
   // con l'avviso nello shell del dashboard: due copie della stessa SELECT si
@@ -436,11 +436,11 @@ export async function updateReceiptFooterNote(
 
   const businessId = getFormString(formData, "businessId");
   if (!businessId) return { error: "Business ID mancante." };
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) return { error: "Identificativo non valido." };
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   // `getPlanSafe` e non `getPlan`: su profilo orfano o timeout DB si degrada
   // al messaggio, mai a un throw che porterebbe la pagina impostazioni

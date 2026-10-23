@@ -246,12 +246,23 @@ chiamano (anche indirettamente) la funzione devono aggiornare i mock. Pattern
 da cercare:
 
 - Mock di `@/db` con chain `select().from().where().limit()` senza `innerJoin`
-- Funzioni nel codice sotto test che chiamano `checkBusinessOwnership` o simili
-  **senza mockare `@/lib/server-auth`** → usano la funzione reale, che ora usa JOIN
+- Funzioni nel codice sotto test che chiamano `checkBusinessMembership` o simili
+  **senza mockare `@/lib/server-auth`** → usano la funzione reale, quindi la
+  sua query e il mock di `@/db/schema` del test (spesso tabelle-stringa)
 
-Fix: aggiungere `innerJoin` al mock chain E ridurre le `mockLimit.mockResolvedValueOnce`
-da 2 (profile + business separati) a 1 (risultato JOIN). In alternativa: mockare
-sempre `@/lib/server-auth` nei test delle server actions che usano ownership check.
+Fix: allineare il mock chain alla query nuova (`innerJoin` sì o no, quante
+`mockLimit.mockResolvedValueOnce`) e aggiungere al mock di `@/db/schema` ogni
+tabella che la funzione reale ora legge. In alternativa: mockare sempre
+`@/lib/server-auth` nei test delle server actions che usano il controllo.
+
+**Cerca in `src/` e in `tests/`.** I test non stanno tutti accanto al codice:
+`tests/unit/` ha file con mock propri di `@/lib/server-auth` e `@/db/schema`.
+Quando `checkBusinessOwnership` è diventato `checkBusinessMembership` (issue
+#1099) un grep limitato a `src/` ne ha lasciati indietro sei, emersi solo al
+giro completo della suite. Un mock senza default (`vi.fn()`) che rispondeva
+`undefined`, trattato come "autorizzato" dal vecchio `if (error)`, con un
+controllo che restituisce un oggetto va invece sostituito con un default
+esplicito.
 
 Cerca file affetti con:
 `grep -rn "FAKE_PROFILE\|Ownership check" tests/ src/ --include="*.test.ts"`

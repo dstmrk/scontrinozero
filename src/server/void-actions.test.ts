@@ -14,12 +14,12 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 const mockGetAuthenticatedUser = vi.fn();
-const mockCheckBusinessOwnership = vi.fn();
+const mockCheckBusinessMembership = vi.fn();
 const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
   // PR #752: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
@@ -229,6 +229,9 @@ const VALID_VOID_INPUT: VoidReceiptInput = {
 // Tests
 // ---------------------------------------------------------------------------
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("void-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -240,7 +243,7 @@ describe("void-actions", () => {
       resetAt: 0,
     });
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
     mockGetPlanSafe.mockResolvedValue({
       ok: true,
@@ -395,7 +398,7 @@ describe("void-actions", () => {
       });
 
       expect(result.error).toMatch(/Documento non valido/i);
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockSelect).not.toHaveBeenCalled();
       expect(mockLogin).not.toHaveBeenCalled();
     });
@@ -408,7 +411,7 @@ describe("void-actions", () => {
       });
 
       expect(result.error).toMatch(/Business ID non valido/i);
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("returns error when SALE document is not found (also covers IDOR: wrong businessId)", async () => {
@@ -607,7 +610,7 @@ describe("void-actions", () => {
     });
 
     it("returns error when business ownership check fails", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 

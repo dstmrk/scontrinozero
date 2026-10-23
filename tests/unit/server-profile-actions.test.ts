@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockNextHeaders,
   mockGetClientIp,
   mockCheck,
@@ -27,7 +27,9 @@ const {
   mockTransaction,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi
+    .fn()
+    .mockResolvedValue({ memberId: "member-owner", role: "owner" }),
   mockNextHeaders: vi.fn(),
   mockGetClientIp: vi.fn(),
   mockCheck: vi.fn(),
@@ -51,7 +53,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("next/headers", () => ({
@@ -324,7 +326,10 @@ describe("updateBusiness server action", () => {
       id: USER_ID,
       email: USER_EMAIL,
     });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     mockIsValidItalianZipCode.mockReturnValue(true);
     mockCheck.mockReturnValue({ success: true });
 
@@ -432,18 +437,20 @@ describe("updateBusiness server action", () => {
 
   it("rate-limit blocca PRIMA della ownership query (CLAUDE.md regola 29)", async () => {
     // Un attaccante autenticato che martella con businessId arbitrari NON
-    // deve raggiungere checkBusinessOwnership: il rate-limit deve scattare
+    // deve raggiungere checkBusinessMembership: il rate-limit deve scattare
     // prima, evitando di esporre query DB a brute-force.
     mockCheck.mockReturnValue({ success: false });
 
     await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
 
-    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("blocks the update when ownership check fails", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
 
     const result = await updateBusiness(
       makeBusinessFormData({ preferredVatCode: "22" }),

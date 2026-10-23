@@ -7,11 +7,11 @@ import { UnauthenticatedError } from "@/lib/auth-errors";
 // ---------------------------------------------------------------------------
 
 const mockGetAuthenticatedUser = vi.fn();
-const mockCheckBusinessOwnership = vi.fn();
+const mockCheckBusinessMembership = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
 }));
 
 const mockSelect = vi.fn();
@@ -169,6 +169,9 @@ const FAKE_DOC_LINES = [
 // Tests
 // ---------------------------------------------------------------------------
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("storico-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -177,7 +180,7 @@ describe("storico-actions", () => {
     mockSelect.mockImplementation(() => makeReturnsBuilder([]));
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
   });
 
   describe("searchReceipts", () => {
@@ -444,11 +447,11 @@ describe("storico-actions", () => {
       expect(result.error).toBe("Non autenticato.");
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("returns error envelope when business ownership check fails", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
@@ -468,7 +471,7 @@ describe("storico-actions", () => {
       expect(result.error).toBe("Identificativo non valido.");
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("filters by status when provided", async () => {
@@ -899,7 +902,7 @@ describe("storico-actions", () => {
 
       expect(result.error).toBe("Non autenticato.");
       expect(result.item).toBeNull();
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("guard UUID (regola 9): documentId malformato → error envelope senza query", async () => {
@@ -908,12 +911,12 @@ describe("storico-actions", () => {
 
       expect(result.error).toBe("Identificativo non valido.");
       expect(result.item).toBeNull();
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockSelect).not.toHaveBeenCalled();
     });
 
     it("non serve il documento di un altro business (ownership)", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 

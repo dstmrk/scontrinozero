@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockGetDb,
   mockGetEncryptionKey,
   mockGetEncryptionKeys,
@@ -29,7 +29,9 @@ const {
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi
+    .fn()
+    .mockResolvedValue({ memberId: "member-owner", role: "owner" }),
   mockGetDb: vi.fn(),
   mockGetEncryptionKey: vi.fn(),
   mockGetEncryptionKeys: vi.fn(),
@@ -55,7 +57,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/db", () => ({
@@ -65,6 +67,7 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
   businesses: "businesses-table",
+  businessMembers: "business-members-table",
   profiles: "profiles-table",
   trialVatLedger: "trial-vat-ledger-table",
 }));
@@ -198,7 +201,10 @@ describe("verifyAdeCredentials", () => {
       id: USER_ID,
       email: "user@example.com",
     });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     mockGetEncryptionKey.mockReturnValue(Buffer.from("a".repeat(32)));
     mockGetEncryptionKeys.mockReturnValue(
       new Map([[1, Buffer.from("a".repeat(32))]]),

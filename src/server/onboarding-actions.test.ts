@@ -82,6 +82,12 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   businesses: "businesses-table",
+  businessMembers: {
+    id: "id",
+    role: "role",
+    authUserId: "auth_user_id",
+    businessId: "business_id",
+  },
   adeCredentials: "ade-credentials-table",
   trialVatLedger: "trial-vat-ledger-table",
   referralRedemptions: "referral-redemptions-table",
@@ -290,6 +296,37 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(mockInsert).toHaveBeenCalled();
       expect(mockUpdate).toHaveBeenCalled(); // profiles firstName/lastName update
+    });
+
+    // Issue #1099: l'accesso passa da business_members. Un'attività senza la
+    // riga del suo titolare lo chiuderebbe fuori da ogni azione, quindi la
+    // riga nasce nella stessa transazione dell'attività.
+    it("crea il titolare in business_members insieme all'attività", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      await saveBusiness(formData(VALID_DATA));
+
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
+      expect(mockInsertValues).toHaveBeenCalledWith({
+        businessId: "new-biz-id",
+        authUserId: FAKE_USER.id,
+        role: "owner",
+      });
+    });
+
+    it("aggiornando un'attività esistente non crea un secondo titolare", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      await saveBusiness(formData(VALID_DATA));
+
+      expect(mockInsertValues).not.toHaveBeenCalledWith(
+        expect.objectContaining({ role: "owner" }),
+      );
     });
 
     it("updates existing business", async () => {

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockRateLimiterCheck,
   mockGetDb,
   mockSelect,
@@ -27,7 +27,9 @@ const {
   mockRevalidatePath,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi
+    .fn()
+    .mockResolvedValue({ memberId: "member-owner", role: "owner" }),
   mockRateLimiterCheck: vi.fn(),
   mockGetDb: vi.fn(),
   mockSelect: vi.fn(),
@@ -51,7 +53,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -157,7 +159,10 @@ describe("changeAdePassword", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);
     mockGetEncryptionKeys.mockReturnValue(new Map([[1, FAKE_KEY]]));
@@ -328,8 +333,10 @@ describe("verifyAdeCredentials — AdePasswordExpiredError", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
-    // verifyAdeCredentials ora ha un rate limit (PR #671): senza questo
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     // default check() ritorna undefined dopo resetAllMocks → crash su .success.
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);

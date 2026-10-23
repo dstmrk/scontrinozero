@@ -32,6 +32,11 @@ import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocumentLines, commercialDocuments } from "@/db/schema";
 import { withAdeSession, isInteractiveSessionMissing } from "@/lib/ade";
+import {
+  documentOriginColumns,
+  type DocumentOrigin,
+  type DocumentOriginColumns,
+} from "./document-origin";
 import type { AdeClient } from "@/lib/ade/client";
 import { AdeReauthRequiredError } from "@/lib/ade/errors";
 import {
@@ -108,6 +113,8 @@ type SaleRef = {
 type ReturnContext = {
   input: ReturnReceiptInput;
   apiKeyId: string | null;
+  /** Il membro che rende dalla web app; NULL via Developer API (issue #1099). */
+  createdBy: string | null;
   requestHash: string;
   sale: SaleRef;
   saleLines: SaleLineRow[];
@@ -279,8 +286,9 @@ function loadSaleLines(saleId: string): Promise<SaleLineRow[]> {
 
 async function prepareReturn(
   input: ReturnReceiptInput,
-  apiKeyId: string | null,
+  author: DocumentOriginColumns,
 ): Promise<PrepareOutcome> {
+  const { apiKeyId } = author;
   let sale: SaleRef;
   let saleLines: SaleLineRow[];
   try {
@@ -304,8 +312,10 @@ async function prepareReturn(
   }
 
   const prerequisites = await fetchAdePrerequisites(input.businessId);
+  // L'errore intero, non il solo messaggio: con la password scaduta porta
+  // `ADE_PASSWORD_EXPIRED`, contratto pubblico di `/api/v1` (DEVELOPER.md).
   if ("error" in prerequisites) {
-    return { kind: "done", result: { error: prerequisites.error } };
+    return { kind: "done", result: prerequisites };
   }
   // CIE: sessione interattiva assente/scaduta → rinnovo PRIMA della riga
   // PENDING (stessa regola di emissione e annullo, skill ade-integration).
@@ -322,6 +332,7 @@ async function prepareReturn(
   const ctx: ReturnContext = {
     input,
     apiKeyId,
+    createdBy: author.createdBy,
     requestHash: hashReturnRequest({
       documentId: input.documentId,
       quantities: input.quantities,
@@ -516,6 +527,7 @@ async function insertReturnRow(ctx: ReturnContext): Promise<Claim> {
       publicRequest,
       requestHash: ctx.requestHash,
       apiKeyId: ctx.apiKeyId,
+      createdBy: ctx.createdBy,
       status: "PENDING",
     })
     .onConflictDoNothing()
@@ -967,14 +979,14 @@ async function runReturn(
 /**
  * Emette un documento commerciale di reso per la vendita indicata.
  *
- * @param input    vendita, idempotencyKey, business e quantità per riga
- * @param apiKeyId UUID della API key usata, o null/undefined per UI session
+ * @param input  vendita, idempotencyKey, business e quantità per riga
+ * @param origin Il membro che rende dalla web app o la chiave della Developer API
  */
 export async function returnReceiptForBusiness(
   input: ReturnReceiptInput,
-  apiKeyId?: string | null,
+  origin: DocumentOrigin,
 ): Promise<ReturnReceiptResult> {
-  const prep = await prepareReturn(input, apiKeyId ?? null);
+  const prep = await prepareReturn(input, documentOriginColumns(origin));
   if (prep.kind === "done") return prep.result;
   const { ctx, claim } = prep;
 

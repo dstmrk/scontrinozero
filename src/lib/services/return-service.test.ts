@@ -8,6 +8,7 @@ import {
 } from "@/lib/ade/errors";
 import type { AdeDocumentDetail } from "@/lib/ade/types";
 import type { ReturnReceiptInput } from "@/types/storico";
+import type { DocumentOrigin } from "./document-origin";
 import {
   serie1Reso1,
   serie1Reso2,
@@ -218,10 +219,16 @@ function updateSets(): Record<string, unknown>[] {
   return mockUpdateSet.mock.calls.map((call) => call[0]);
 }
 
-async function run(input: ReturnReceiptInput = INPUT, apiKeyId?: string) {
+async function run(
+  input: ReturnReceiptInput = INPUT,
+  origin: DocumentOrigin = UI_ORIGIN,
+) {
   const { returnReceiptForBusiness } = await import("./return-service");
-  return returnReceiptForBusiness(input, apiKeyId);
+  return returnReceiptForBusiness(input, origin);
 }
+
+/** Origine dalla web app: il titolare, oggi l'unico membro (issue #1099). */
+const UI_ORIGIN = { memberId: "member-owner" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -288,6 +295,7 @@ describe("returnReceiptForBusiness — percorso normale", () => {
       status: "PENDING",
       idempotencyKey: INPUT.idempotencyKey,
       apiKeyId: null,
+      createdBy: "member-owner",
       requestHash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
   });
@@ -347,19 +355,40 @@ describe("returnReceiptForBusiness — percorso normale", () => {
   });
 
   it("porta l'apiKeyId sulla riga quando arriva dalla Developer API", async () => {
-    await run(INPUT, "api-key-1");
+    await run(INPUT, { apiKeyId: "api-key-1" });
     expect(mockInsertValues.mock.calls[0]![0]).toMatchObject({
       apiKeyId: "api-key-1",
+      createdBy: null,
     });
   });
 });
 
 describe("returnReceiptForBusiness — rifiuti prima dell'AdE", () => {
+  // Fix alla #1100: dopo lo stop dei login per password scaduta,
+  // `fetchAdePrerequisites` porta il codice, e il reso lo perdeva. Sulla
+  // Developer API diventava `422 ADE_REJECTED` invece di `409
+  // ADE_PASSWORD_EXPIRED`, che DEVELOPER.md promette.
+  it("passa al chiamante il codice di password scaduta dei prerequisiti", async () => {
+    const expired = {
+      error: "La password Fisconline è scaduta.",
+      code: "ADE_PASSWORD_EXPIRED",
+      passwordExpired: true,
+    };
+    mockFetchAdePrerequisites.mockResolvedValue(expired);
+
+    const result = await run();
+
+    expect(result).toEqual(expired);
+    expect(mockInsertValues).not.toHaveBeenCalled();
+  });
+
   it("vendita inesistente → NOT_FOUND, warn anti-enumerazione solo via API", async () => {
     mockLimitResults = [[]];
     const { logger } = await import("@/lib/logger");
 
-    expect((await run(INPUT, "api-key-1")).code).toBe("NOT_FOUND");
+    expect((await run(INPUT, { apiKeyId: "api-key-1" })).code).toBe(
+      "NOT_FOUND",
+    );
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ errorClass: "v1_document_not_found" }),
       expect.any(String),

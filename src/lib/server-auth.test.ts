@@ -23,7 +23,9 @@ vi.mock("@/lib/supabase/server", () => ({
 const mockLimit = vi.fn();
 const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
 const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
-const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+const mockFrom = vi
+  .fn()
+  .mockReturnValue({ innerJoin: mockInnerJoin, where: mockWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 
 // Touch di `last_seen_at` (GDPR pruning, REVIEW audit 2026-07-07): raw SQL
@@ -37,6 +39,12 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
   businesses: "businesses-table",
+  businessMembers: {
+    id: "id",
+    role: "role",
+    authUserId: "auth_user_id",
+    businessId: "business_id",
+  },
   profiles: { authUserId: "auth_user_id", lastSeenAt: "last_seen_at" },
 }));
 
@@ -249,25 +257,42 @@ describe("server-auth", () => {
     });
   });
 
-  describe("checkBusinessOwnership", () => {
-    it("returns null when business belongs to the user", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+  // Issue #1099: l'accesso a un'attività passa dall'appartenenza, non dalla
+  // proprietà del profilo. Oggi i membri sono solo titolari, quindi per chi
+  // usa l'app non cambia nulla; l'id del membro serve a firmare i documenti.
+  describe("checkBusinessMembership", () => {
+    it("restituisce il membro e il ruolo quando l'utente appartiene all'attività", async () => {
+      mockLimit.mockResolvedValueOnce([
+        { memberId: "member-1", role: "owner" },
+      ]);
 
-      const { checkBusinessOwnership } = await import("./server-auth");
-      const result = await checkBusinessOwnership("user-123", "biz-789");
+      const { checkBusinessMembership } = await import("./server-auth");
+      const result = await checkBusinessMembership("user-123", "biz-789");
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ memberId: "member-1", role: "owner" });
     });
 
-    it("returns error when business is not found or not authorized", async () => {
+    it("rifiuta chi non appartiene all'attività, con lo stesso messaggio di prima", async () => {
       mockLimit.mockResolvedValueOnce([]);
 
-      const { checkBusinessOwnership } = await import("./server-auth");
-      const result = await checkBusinessOwnership("user-123", "other-biz");
+      const { checkBusinessMembership } = await import("./server-auth");
+      const result = await checkBusinessMembership("user-123", "other-biz");
 
       expect(result).toEqual({
         error: "Business non trovato o non autorizzato.",
       });
+    });
+
+    it("legge solo business_members, con una query sola", async () => {
+      mockLimit.mockResolvedValueOnce([
+        { memberId: "member-1", role: "owner" },
+      ]);
+
+      const { checkBusinessMembership } = await import("./server-auth");
+      await checkBusinessMembership("user-123", "biz-789");
+
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+      expect(mockInnerJoin).not.toHaveBeenCalled();
     });
   });
 

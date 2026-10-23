@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockGetPlanSafe,
   mockSelect,
   mockFetchLinesByDocIds,
   mockRateLimitCheck,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi.fn(),
   mockGetPlanSafe: vi.fn(),
   mockSelect: vi.fn(),
   mockFetchLinesByDocIds: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@/lib/rate-limit", () => ({
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/lib/plans", async () => {
@@ -170,10 +170,13 @@ function makeSelectBuilder(result: unknown[]) {
   return builder;
 }
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
-  mockCheckBusinessOwnership.mockResolvedValue(null);
+  mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
   mockPlanInfo({
     plan: "pro",
     trialStartedAt: null,
@@ -323,7 +326,9 @@ describe("fillMissingDays", () => {
 
 describe("getAnalyticsKpis", () => {
   it("returns an error when ownership check fails", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
     const res = await getAnalyticsKpis(
       "11111111-1111-4111-8111-111111111111",
       "30d",
@@ -334,7 +339,7 @@ describe("getAnalyticsKpis", () => {
   it("guard UUID (regola 9): businessId malformato → { error } senza ownership check", async () => {
     const res = await getAnalyticsKpis("abc", "30d");
     expect(res).toEqual({ error: "Identificativo non valido." });
-    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
@@ -823,7 +828,9 @@ describe("getPaymentBreakdown", () => {
 
 describe("getProductBreakdown", () => {
   it("returns an error when ownership check fails", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
     const res = await getProductBreakdown(
       "11111111-1111-4111-8111-111111111111",
       "30d",
@@ -995,7 +1002,9 @@ describe("getAnalyticsBundle", () => {
   });
 
   it("returns { error } when auth fails (single error path for the whole bundle)", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
     const res = await getAnalyticsBundle(
       "11111111-1111-4111-8111-111111111111",
       "30d",
@@ -1163,7 +1172,9 @@ describe("getStarterKpis", () => {
   });
 
   it("returns an error when ownership check fails", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({ error: "Non autorizzato." });
     expect(mockSelect).not.toHaveBeenCalled();

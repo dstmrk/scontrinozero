@@ -14,11 +14,11 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 const mockGetAuthenticatedUser = vi.fn();
-const mockCheckBusinessOwnership = vi.fn();
+const mockCheckBusinessMembership = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
 }));
 
 const mockGetPlanSafe = vi.fn();
@@ -44,6 +44,9 @@ const INPUT = {
   quantities: [1, 0],
 };
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
@@ -53,7 +56,7 @@ beforeEach(() => {
     info: { plan: "starter", trialStartedAt: null, planExpiresAt: null },
   });
   mockCanEmit.mockReturnValue(true);
-  mockCheckBusinessOwnership.mockResolvedValue(null);
+  mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
   mockReturnReceiptForBusiness.mockResolvedValue({
     returnDocumentId: "return-1",
     adeProgressive: "DCW2026/5111-2190",
@@ -66,8 +69,11 @@ describe("returnReceipt", () => {
 
     expect(result.returnDocumentId).toBe("return-1");
     // Nessuna API key: il reso dalla cassa non è un reso della Developer API.
-    expect(mockReturnReceiptForBusiness).toHaveBeenCalledWith(INPUT);
-    expect(mockCheckBusinessOwnership).toHaveBeenCalledWith(
+    // Il membro che opera firma il reso (`created_by`, issue #1099).
+    expect(mockReturnReceiptForBusiness).toHaveBeenCalledWith(INPUT, {
+      memberId: OWNER_MEMBERSHIP.memberId,
+    });
+    expect(mockCheckBusinessMembership).toHaveBeenCalledWith(
       "user-1",
       INPUT.businessId,
     );
@@ -131,12 +137,14 @@ describe("returnReceipt", () => {
     const result = await returnReceipt({ ...INPUT, ...patch });
 
     expect(result.error).toBeTruthy();
-    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     expect(mockReturnReceiptForBusiness).not.toHaveBeenCalled();
   });
 
   it("business di un altro utente: errore di ownership", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
 
     const result = await returnReceipt(INPUT);
 

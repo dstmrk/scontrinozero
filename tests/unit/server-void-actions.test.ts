@@ -10,14 +10,16 @@ import {
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockGetPlanSafe,
   mockCanEmit,
   mockRateLimiterCheck,
   mockVoidReceiptForBusiness,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi
+    .fn()
+    .mockResolvedValue({ memberId: "member-owner", role: "owner" }),
   mockGetPlanSafe: vi.fn(),
   mockCanEmit: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
@@ -26,7 +28,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/lib/plans", () => ({
@@ -93,7 +95,10 @@ describe("voidReceipt server action", () => {
       planExpiresAt: null,
     });
     mockCanEmit.mockReturnValue(true);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     mockVoidReceiptForBusiness.mockResolvedValue({
       voidDocumentId: "void-doc-1",
       adeTransactionId: "tx-void",
@@ -174,7 +179,7 @@ describe("voidReceipt server action", () => {
 
   describe("ownership check", () => {
     it("returns error when user does not own the business", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Non autorizzato.",
         status: 403,
       });

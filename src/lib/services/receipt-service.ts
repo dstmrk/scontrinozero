@@ -5,13 +5,15 @@
  * chiamante (server action o API route) abbia già verificato identità e
  * ownership del business.
  *
- * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
- * commercial_documents per tracciare le emissioni via Developer API.
+ * Richiede l'origine del documento (`DocumentOrigin`): il membro dell'attività
+ * che emette dalla web app, salvato su `created_by`, o la chiave della
+ * Developer API, salvata su `api_key_id`.
  */
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { withAdeSession, isInteractiveSessionMissing } from "@/lib/ade";
+import { documentOriginColumns, type DocumentOrigin } from "./document-origin";
 import {
   AdePasswordExpiredError,
   AdeReauthRequiredError,
@@ -159,13 +161,14 @@ function resolveLotteryCode(input: SubmitReceiptInput): {
  * - che `input.lines` non è vuoto
  * - che l'utente/key è autorizzato ad operare su questo business
  *
- * @param input   Dati dello scontrino (businessId incluso)
- * @param apiKeyId UUID della API key usata, o null/undefined per UI session
+ * @param input  Dati dello scontrino (businessId incluso)
+ * @param origin Il membro che emette dalla web app o la chiave della Developer API
  */
 export async function emitReceiptForBusiness(
   input: SubmitReceiptInput,
-  apiKeyId?: string | null,
+  origin: DocumentOrigin,
 ): Promise<SubmitReceiptResult> {
+  const { apiKeyId, createdBy } = documentOriginColumns(origin);
   const { lotteryCode, error: lotteryCodeError } = resolveLotteryCode(input);
   if (lotteryCodeError) return { error: lotteryCodeError };
 
@@ -232,7 +235,8 @@ export async function emitReceiptForBusiness(
           publicRequest,
           requestHash,
           lotteryCode,
-          apiKeyId: apiKeyId ?? null,
+          apiKeyId,
+          createdBy,
           status: "PENDING",
         })
         .onConflictDoNothing()

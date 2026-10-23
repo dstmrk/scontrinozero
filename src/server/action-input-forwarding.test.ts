@@ -26,11 +26,11 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 const mockGetAuthenticatedUser = vi.fn();
-const mockCheckBusinessOwnership = vi.fn();
+const mockCheckBusinessMembership = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
 }));
 
 const mockGetPlanSafe = vi.fn();
@@ -74,6 +74,9 @@ const KEY = "33333333-3333-4333-8333-333333333333";
 /** Campo che nessuno schema dichiara: non deve mai superare la validazione. */
 const EXTRA = { notInSchema: "campo-in-piu" };
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
@@ -83,7 +86,7 @@ beforeEach(() => {
     info: { plan: "pro", trialStartedAt: null, planExpiresAt: null },
   });
   mockCanEmit.mockReturnValue(true);
-  mockCheckBusinessOwnership.mockResolvedValue(null);
+  mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
   mockEmitReceiptForBusiness.mockResolvedValue({ documentId: "doc-1" });
   mockVoidReceiptForBusiness.mockResolvedValue({ voidDocumentId: "void-1" });
   mockReturnReceiptForBusiness.mockResolvedValue({
@@ -173,7 +176,60 @@ describe("le server action passano al servizio il valore validato", () => {
       idempotencyKey: KEY,
     });
 
-    expect(mockCheckBusinessOwnership).toHaveBeenCalledWith("user-1", BIZ_ID);
+    expect(mockCheckBusinessMembership).toHaveBeenCalledWith("user-1", BIZ_ID);
     expect(mockVoidReceiptForBusiness.mock.calls[0][0].businessId).toBe(BIZ_ID);
+  });
+});
+
+// Issue #1099: il documento è firmato dal membro trovato dal controllo di
+// appartenenza, non da un id che arriva dal client.
+describe("le server action firmano il documento col membro che opera", () => {
+  it.each([
+    [
+      "emitReceipt",
+      () =>
+        emitReceipt({
+          businessId: BIZ_ID,
+          lines: [
+            {
+              id: "line-1",
+              description: "Pizza",
+              quantity: 1,
+              grossUnitPrice: 5,
+              vatCode: "10",
+            },
+          ],
+          paymentMethod: "PC",
+          idempotencyKey: KEY,
+        } as never),
+      () => mockEmitReceiptForBusiness,
+    ],
+    [
+      "voidReceipt",
+      () =>
+        voidReceipt({
+          businessId: BIZ_ID,
+          documentId: DOC_ID,
+          idempotencyKey: KEY,
+        }),
+      () => mockVoidReceiptForBusiness,
+    ],
+    [
+      "returnReceipt",
+      () =>
+        returnReceipt({
+          businessId: BIZ_ID,
+          documentId: DOC_ID,
+          idempotencyKey: KEY,
+          quantities: [1, 0],
+        }),
+      () => mockReturnReceiptForBusiness,
+    ],
+  ])("%s passa l'id del membro come origine", async (_name, act, service) => {
+    await act();
+
+    expect(service().mock.calls[0][1]).toEqual({
+      memberId: OWNER_MEMBERSHIP.memberId,
+    });
   });
 });
