@@ -6,7 +6,7 @@ import { UnauthenticatedError } from "@/lib/auth-errors";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockGetEffectivePlan,
   mockGetPlan,
   mockCanUseApi,
@@ -16,7 +16,7 @@ const {
   mockApiKeysTable,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi.fn(),
   mockGetEffectivePlan: vi.fn(),
   mockGetPlan: vi.fn(),
   mockCanUseApi: vi.fn(),
@@ -41,7 +41,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 // `classifyPlanReadError` resta l'implementazione reale (PR #804): qui
@@ -159,11 +159,14 @@ const FAKE_KEY_LIST = [
 
 // --- Tests ---
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("listApiKeys", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockGetEffectivePlan.mockResolvedValue("pro");
     mockGetPlan.mockResolvedValue({
       plan: "pro",
@@ -184,7 +187,7 @@ describe("listApiKeys", () => {
   });
 
   it("ritorna errore se ownership check fallisce", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({
+    mockCheckBusinessMembership.mockResolvedValue({
       error: "Business non trovato.",
     });
 
@@ -202,7 +205,7 @@ describe("listApiKeys", () => {
     const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toBe("Non autenticato.");
-    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
   });
 
   it("ritorna errore se piano non supporta API", async () => {
@@ -295,7 +298,7 @@ describe("createApiKey", () => {
     vi.clearAllMocks();
     setupPassthroughTransaction();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockGetEffectivePlan.mockResolvedValue("pro");
     mockGetPlan.mockResolvedValue({
       plan: "pro",
@@ -357,7 +360,7 @@ describe("createApiKey", () => {
   });
 
   it("ritorna errore se ownership check fallisce", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({
+    mockCheckBusinessMembership.mockResolvedValue({
       error: "Business non trovato.",
     });
 
@@ -375,7 +378,7 @@ describe("createApiKey", () => {
     const result = await createApiKey(BIZ_ID, "Test Key");
 
     expect(result.error).toBe("Non autenticato.");
-    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
@@ -420,7 +423,7 @@ describe("createApiKey — limite per piano", () => {
     vi.clearAllMocks();
     setupPassthroughTransaction();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockGetEffectivePlan.mockResolvedValue("pro");
     mockCanUseApi.mockReturnValue(true);
     mockGenerateApiKey.mockReturnValue({
@@ -600,7 +603,7 @@ describe("guard isValidUuid al boundary (regola 9)", () => {
     vi.clearAllMocks();
     setupPassthroughTransaction();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockGetEffectivePlan.mockResolvedValue("pro");
     mockGetPlan.mockResolvedValue({
       plan: "pro",
@@ -618,7 +621,7 @@ describe("guard isValidUuid al boundary (regola 9)", () => {
       const result = await listApiKeys(badId);
 
       expect(result).toEqual({ error: "Identificativo non valido." });
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockSelect).not.toHaveBeenCalled();
     },
   );
@@ -630,7 +633,7 @@ describe("guard isValidUuid al boundary (regola 9)", () => {
       const result = await createApiKey(badId, "Test Key");
 
       expect(result).toEqual({ error: "Identificativo non valido." });
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockTransaction).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     },
@@ -655,7 +658,7 @@ describe("guard isValidUuid al boundary (regola 9)", () => {
     const result = await listApiKeys(BIZ_ID.toUpperCase());
 
     expect(result.error).toBeUndefined();
-    expect(mockCheckBusinessOwnership).toHaveBeenCalled();
+    expect(mockCheckBusinessMembership).toHaveBeenCalled();
   });
 
   it("il guard sta DOPO l'auth: sessione scaduta + id invalido → 'Non autenticato.'", async () => {

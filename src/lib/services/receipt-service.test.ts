@@ -182,6 +182,9 @@ const VALID_INPUT: SubmitReceiptInput = {
 
 // --- Tests ---
 
+/** Origine dalla web app: il titolare, oggi l'unico membro (issue #1099). */
+const UI_ORIGIN = { memberId: "member-owner" };
+
 describe("emitReceiptForBusiness", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -221,7 +224,7 @@ describe("emitReceiptForBusiness", () => {
 
   it("happy path: emette scontrino e ritorna documentId e adeTransactionId", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeUndefined();
     expect(result.documentId).toBe("doc-123");
@@ -242,7 +245,7 @@ describe("emitReceiptForBusiness", () => {
   // annulli: il timestamp fiscale non e' mai il nostro createdAt.
   it("scrive adeRegisteredAt dal registeredAt della risposta AdE", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const acceptedSet = mockUpdateSet.mock.calls
       .map((c) => c[0])
@@ -258,7 +261,7 @@ describe("emitReceiptForBusiness", () => {
   // orario diverso dal PDF e dalla ricevuta pubblica, che leggono la colonna.
   it("restituisce adeRegisteredAt, non il createdAt della riga", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.adeRegisteredAt).toBe("2026-08-18T17:05:10.000Z");
     expect(result).not.toHaveProperty("createdAt");
@@ -275,7 +278,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const acceptedSet = mockUpdateSet.mock.calls
       .map((c) => c[0])
@@ -292,7 +295,7 @@ describe("emitReceiptForBusiness", () => {
     mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("cie");
     expect(result.documentId).toBeUndefined();
@@ -311,7 +314,7 @@ describe("emitReceiptForBusiness", () => {
     mockIsInteractiveSessionMissing.mockReturnValue(true);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("spid");
     expect(mockDocumentInsertValues).not.toHaveBeenCalled();
@@ -326,7 +329,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("spid"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("spid");
   });
@@ -340,7 +343,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("cie"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("cie");
     // submitSale tentato ma AdE ha rifiutato la sessione (401). A differenza dei
@@ -364,7 +367,7 @@ describe("emitReceiptForBusiness", () => {
     mockUpdateWhere.mockRejectedValueOnce(new Error("db down"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.reauthRequired).toBe("cie");
     const { logger } = await import("@/lib/logger");
@@ -381,7 +384,7 @@ describe("emitReceiptForBusiness", () => {
     mockDocumentReturning.mockResolvedValue([{} as { id?: string }]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain("Errore interno");
     expect(mockSubmitSale).not.toHaveBeenCalled();
@@ -399,18 +402,22 @@ describe("emitReceiptForBusiness", () => {
 
   it("salva apiKeyId nel documento quando fornito", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT, "api-key-uuid-123");
+    await emitReceiptForBusiness(VALID_INPUT, { apiKeyId: "api-key-uuid-123" });
 
     const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
     expect(insertValuesArg.apiKeyId).toBe("api-key-uuid-123");
+    // Via API l'autore è la chiave: nessun membro (issue #1099).
+    expect(insertValuesArg.createdBy).toBeNull();
   });
 
-  it("salva apiKeyId null quando non fornito (UI session)", async () => {
+  it("dalla web app salva il membro come autore e apiKeyId null", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
     expect(insertValuesArg.apiKeyId).toBeNull();
+    // Dalla web app l'autore è il membro che opera (issue #1099).
+    expect(insertValuesArg.createdBy).toBe("member-owner");
   });
 
   it("ritorna errore se le credenziali AdE non sono trovate", async () => {
@@ -419,7 +426,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain("Credenziali");
     expect(mockInsert).not.toHaveBeenCalled();
@@ -437,7 +444,7 @@ describe("emitReceiptForBusiness", () => {
     mockFetchAdePrerequisites.mockResolvedValue(expired);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result).toEqual(expired);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -445,11 +452,14 @@ describe("emitReceiptForBusiness", () => {
 
   it("ritorna errore se il codice lotteria non rispetta il formato", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      paymentMethod: "PE",
-      lotteryCode: "TOOLONG99",
-    });
+    const result = await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "TOOLONG99",
+      },
+      UI_ORIGIN,
+    );
 
     expect(result.error).toMatch(/lotteria/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -457,20 +467,23 @@ describe("emitReceiptForBusiness", () => {
 
   it("ritorna errore se importo < €1 con codice lotteria PE", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      paymentMethod: "PE",
-      lotteryCode: "YYWLR30G",
-      lines: [
-        {
-          id: "l1",
-          description: "Caramella",
-          quantity: 1,
-          grossUnitPrice: 0.5,
-          vatCode: "22",
-        },
-      ],
-    });
+    const result = await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+        lines: [
+          {
+            id: "l1",
+            description: "Caramella",
+            quantity: 1,
+            grossUnitPrice: 0.5,
+            vatCode: "22",
+          },
+        ],
+      },
+      UI_ORIGIN,
+    );
 
     expect(result.error).toMatch(/importo minimo/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -479,20 +492,23 @@ describe("emitReceiptForBusiness", () => {
   it("accetta esattamente €1,00 con codice lotteria (no IEEE-754 falso negativo)", async () => {
     // 0.1 * 10 = 0.9999999999999999 in IEEE-754; Math.round(0.9999... * 100) = 100 → accettato
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      paymentMethod: "PE",
-      lotteryCode: "YYWLR30G",
-      lines: [
-        {
-          id: "l1",
-          description: "Prodotto",
-          quantity: 10,
-          grossUnitPrice: 0.1, // 10 × 0.1 = 1.00 nominalmente (float instabile)
-          vatCode: "22",
-        },
-      ],
-    });
+    const result = await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+        lines: [
+          {
+            id: "l1",
+            description: "Prodotto",
+            quantity: 10,
+            grossUnitPrice: 0.1, // 10 × 0.1 = 1.00 nominalmente (float instabile)
+            vatCode: "22",
+          },
+        ],
+      },
+      UI_ORIGIN,
+    );
 
     // Should NOT be rejected by the lottery threshold (€1.00 is the minimum)
     expect(result.error).not.toBe(
@@ -512,7 +528,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeUndefined();
     expect(result.documentId).toBe("doc-existing");
@@ -532,7 +548,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
     // Nessun ritorno fuorviante del documento precedente.
@@ -567,7 +583,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(input);
+    const result = await emitReceiptForBusiness(input, UI_ORIGIN);
 
     expect(result.code).toBeUndefined();
     expect(result.documentId).toBe("doc-existing");
@@ -596,10 +612,13 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 5 }],
-    });
+    const result = await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 5 }],
+      },
+      UI_ORIGIN,
+    );
 
     expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
     expect(result.documentId).toBeUndefined();
@@ -622,7 +641,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBeUndefined();
     expect(result.documentId).toBe("doc-existing");
@@ -641,7 +660,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBeUndefined();
     expect(result.documentId).toBe("doc-old");
@@ -662,7 +681,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.error).toBeDefined();
@@ -691,7 +710,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     // CRITICO: nessun secondo claim, nessun doppio submitSale ad AdE.
@@ -714,7 +733,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // Recovery completata: ritorna ACCEPTED via submitSaleToAde
     expect(result.error).toBeUndefined();
@@ -739,7 +758,7 @@ describe("emitReceiptForBusiness", () => {
     mockClaimReturning.mockResolvedValueOnce([]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.documentId).toBe("doc-123");
@@ -762,7 +781,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeUndefined();
     expect(result.documentId).toBe("doc-456");
@@ -803,7 +822,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.documentId).toBe("doc-match");
     expect(result.adeTransactionId).toBe("154294949");
@@ -843,7 +862,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -891,7 +910,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.documentId).toBe("doc-amb");
@@ -914,7 +933,7 @@ describe("emitReceiptForBusiness", () => {
     mockSearchDocuments.mockRejectedValueOnce(new Error("network down"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // Non sappiamo se AdE aveva accettato → mai re-submit (rischio duplicato).
     expect(result.code).toBe("PENDING_IN_PROGRESS");
@@ -938,7 +957,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(mockSubmitSale).not.toHaveBeenCalled();
@@ -957,7 +976,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ALREADY_REJECTED");
     expect(mockLogin).not.toHaveBeenCalled();
@@ -980,7 +999,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
     // CRITICO: la riga VOID non viene finalizzata come SALE.
@@ -1009,7 +1028,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ALREADY_VOIDED");
     expect(result.documentId).toBeUndefined();
@@ -1038,7 +1057,7 @@ describe("emitReceiptForBusiness", () => {
     mockClaimReturning.mockResolvedValueOnce([]); // UPDATE finalize matcha 0 righe
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeDefined();
     expect(result.documentId).toBeUndefined();
@@ -1069,7 +1088,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(mockLogin).not.toHaveBeenCalled();
@@ -1085,7 +1104,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain(
       "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1118,7 +1137,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain(
       "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1155,7 +1174,7 @@ describe("emitReceiptForBusiness", () => {
     };
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(fractionalInput);
+    await emitReceiptForBusiness(fractionalInput, UI_ORIGIN);
 
     // Il rifiuto resta anche a warn (invariato), ma la quantità frazionaria
     // apre in più una Sentry issue con fingerprint stabile.
@@ -1178,7 +1197,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT); // quantity: 2 (intera)
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN); // quantity: 2 (intera)
 
     expect(logger.error).not.toHaveBeenCalledWith(
       expect.anything(),
@@ -1198,7 +1217,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1215,7 +1234,7 @@ describe("emitReceiptForBusiness", () => {
     const { logger } = await import("@/lib/logger");
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(logger.error).not.toHaveBeenCalledWith(
       expect.anything(),
@@ -1227,7 +1246,7 @@ describe("emitReceiptForBusiness", () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toBeDefined();
     const setArg = mockUpdateSet.mock.calls[0][0];
@@ -1241,7 +1260,7 @@ describe("emitReceiptForBusiness", () => {
     );
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.error).toContain(
       "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1257,7 +1276,7 @@ describe("emitReceiptForBusiness", () => {
     );
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const { logger } = await import("@/lib/logger");
     expect(logger.warn).toHaveBeenCalledWith(
@@ -1278,7 +1297,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const { logger } = await import("@/lib/logger");
     expect(logger.warn).toHaveBeenCalledWith(
@@ -1298,7 +1317,7 @@ describe("emitReceiptForBusiness", () => {
     );
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(updateSets).not.toContain("ERROR");
@@ -1309,7 +1328,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(updateSets).not.toContain("ERROR");
@@ -1323,7 +1342,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ADE_UNAVAILABLE");
     expect(result.error).toBeTruthy();
@@ -1337,7 +1356,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("ADE_UNAVAILABLE");
     expect(result.documentId).toBe("doc-123");
@@ -1349,7 +1368,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new Error("documento non valido"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.documentId).toBeUndefined();
   });
@@ -1361,7 +1380,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new Error("documento non valido"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBeUndefined();
     expect(result.error).toBeTruthy();
@@ -1377,7 +1396,7 @@ describe("emitReceiptForBusiness", () => {
     );
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(updateSets).not.toContain("ERROR");
@@ -1391,7 +1410,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new AdeAuthError());
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const { logger } = await import("@/lib/logger");
     expect(logger.warn).toHaveBeenCalledWith(
@@ -1408,7 +1427,7 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new Error("unexpected boom"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     const { logger } = await import("@/lib/logger");
     expect(logger.error).toHaveBeenCalledWith(
@@ -1425,17 +1444,20 @@ describe("emitReceiptForBusiness", () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockLogout).not.toHaveBeenCalled();
   });
 
   it("usa ELECTRONIC come tipo pagamento per PE", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      paymentMethod: "PE",
-    });
+    await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+      },
+      UI_ORIGIN,
+    );
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1449,7 +1471,7 @@ describe("emitReceiptForBusiness", () => {
 
   it("usa CASH come tipo pagamento per PC", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1466,14 +1488,17 @@ describe("emitReceiptForBusiness", () => {
     // Il vecchio per-documento dava round(148.5) = 149 → €1,49, divergente dal
     // totale stampato su PDF/pagina pubblica (computeReceiptTotals, per-riga).
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      lines: [
-        { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
-        { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
-        { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
-      ],
-    });
+    await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        lines: [
+          { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
+          { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
+          { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
+        ],
+      },
+      UI_ORIGIN,
+    );
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1489,10 +1514,13 @@ describe("emitReceiptForBusiness", () => {
     // Lo sconto di riga riduce il corrispettivo (HAR.md voce #3a), quindi
     // scende anche l'importo del pagamento: 20,00 − 4,00 = 16,00.
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
-    });
+    await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
+      },
+      UI_ORIGIN,
+    );
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1509,11 +1537,14 @@ describe("emitReceiptForBusiness", () => {
     // Il primo abbassa il corrispettivo a 16,00, il secondo toglie 1,00 da
     // ciò che si incassa: nel pagamento va 15,00.
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
-      globalDiscount: 1,
-    });
+    await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
+        globalDiscount: 1,
+      },
+      UI_ORIGIN,
+    );
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1531,7 +1562,10 @@ describe("emitReceiptForBusiness", () => {
     // riduce il corrispettivo (voce #3b) — ma nello slot di pagamento va
     // 19,60, altrimenti il portale rifiuta l'invio per sbilancio.
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness({ ...VALID_INPUT, globalDiscount: 0.4 });
+    await emitReceiptForBusiness(
+      { ...VALID_INPUT, globalDiscount: 0.4 },
+      UI_ORIGIN,
+    );
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1546,11 +1580,16 @@ describe("emitReceiptForBusiness", () => {
     // `19.99 - 0.1` in float è 19.889999999999997: trasmesso così, l'importo
     // non quadra col corrispettivo e l'invio salta su un documento fiscale.
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness({
-      ...VALID_INPUT,
-      lines: [{ ...VALID_INPUT.lines[0], quantity: 1, grossUnitPrice: 19.99 }],
-      globalDiscount: 0.1,
-    });
+    await emitReceiptForBusiness(
+      {
+        ...VALID_INPUT,
+        lines: [
+          { ...VALID_INPUT.lines[0], quantity: 1, grossUnitPrice: 19.99 },
+        ],
+        globalDiscount: 0.1,
+      },
+      UI_ORIGIN,
+    );
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1564,7 +1603,7 @@ describe("emitReceiptForBusiness", () => {
     // Regressione: `globalDiscount` assente deve produrre `0` e il pagamento
     // pieno, così nessuno scontrino senza abbuono cambia comportamento.
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1579,14 +1618,14 @@ describe("emitReceiptForBusiness", () => {
     mockSubmitSale.mockRejectedValue(new Error("network error"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockLogout).toHaveBeenCalled();
   });
 
   it("chiama logout anche nel happy path", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    await emitReceiptForBusiness(VALID_INPUT);
+    await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(mockLogout).toHaveBeenCalled();
   });
@@ -1601,7 +1640,7 @@ describe("emitReceiptForBusiness", () => {
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("DB_TIMEOUT");
     expect(result.error).toMatch(/sovracc/i);
@@ -1624,7 +1663,7 @@ describe("emitReceiptForBusiness", () => {
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     // CRITICO: submitSale NON deve essere ri-chiamato (doppio doc fiscale)
     expect(mockLogin).not.toHaveBeenCalled();
@@ -1657,7 +1696,7 @@ describe("emitReceiptForBusiness", () => {
     mockClaimReturning.mockRejectedValue(timeoutErr);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("DB_TIMEOUT");
     // submitSale è stata chiamata (path fresh, no recovery)
@@ -1694,7 +1733,7 @@ describe("emitReceiptForBusiness", () => {
     mockClaimReturning.mockRejectedValue(timeoutErr);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
-    const result = await emitReceiptForBusiness(VALID_INPUT);
+    const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
 
     expect(result.code).toBe("DB_TIMEOUT");
     // AdE ha già accettato e la riga non porta ancora gli id: è il caso in cui

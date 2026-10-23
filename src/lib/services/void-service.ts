@@ -5,13 +5,19 @@
  * chiamante (server action o API route) abbia già verificato identità e
  * ownership del business.
  *
- * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
- * commercial_documents per tracciare le emissioni via Developer API.
+ * Richiede l'origine del documento (`DocumentOrigin`): il membro dell'attività
+ * che annulla dalla web app, salvato su `created_by`, o la chiave della
+ * Developer API, salvata su `api_key_id`.
  */
 import { and, eq, getTableColumns } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { withAdeSession, isInteractiveSessionMissing } from "@/lib/ade";
+import {
+  documentOriginColumns,
+  type DocumentOrigin,
+  type DocumentOriginColumns,
+} from "./document-origin";
 import { AdeReauthRequiredError } from "@/lib/ade/errors";
 import type { AdeClient } from "@/lib/ade/client";
 import {
@@ -522,8 +528,8 @@ async function processVoidAdeResponse(args: {
  * - che `input.businessId` è non vuoto
  * - che l'utente/key è autorizzato ad operare su questo business
  *
- * @param input    Dati dell'annullo (documentId + idempotencyKey + businessId)
- * @param apiKeyId UUID della API key usata, o null/undefined per UI session
+ * @param input  Dati dell'annullo (documentId + idempotencyKey + businessId)
+ * @param origin Il membro che annulla dalla web app o la chiave della Developer API
  */
 type SaleDoc = typeof commercialDocuments.$inferSelect & {
   hasAcceptedReturn: boolean;
@@ -569,8 +575,9 @@ const dbTimeoutResult: VoidReceiptResult = {
  */
 async function prepareVoidDocument(
   input: VoidReceiptInput,
-  apiKeyId: string | null | undefined,
+  author: DocumentOriginColumns,
 ): Promise<PrepareVoidOutcome> {
+  const { apiKeyId } = author;
   const db = getDb();
 
   let saleDoc: SaleDoc | undefined;
@@ -675,7 +682,7 @@ async function prepareVoidDocument(
     };
   }
 
-  const insertOutcome = await insertOrResolveVoid(input, apiKeyId);
+  const insertOutcome = await insertOrResolveVoid(input, author);
   if (insertOutcome.kind === "done") return insertOutcome;
 
   return {
@@ -696,7 +703,7 @@ async function prepareVoidDocument(
  */
 async function insertOrResolveVoid(
   input: VoidReceiptInput,
-  apiKeyId: string | null | undefined,
+  author: DocumentOriginColumns,
 ): Promise<
   | { kind: "done"; result: VoidReceiptResult }
   | {
@@ -715,7 +722,8 @@ async function insertOrResolveVoid(
         kind: "VOID",
         idempotencyKey: input.idempotencyKey,
         voidedDocumentId: input.documentId,
-        apiKeyId: apiKeyId ?? null,
+        apiKeyId: author.apiKeyId,
+        createdBy: author.createdBy,
         status: "PENDING",
       })
       .onConflictDoNothing()
@@ -900,11 +908,13 @@ async function reconcileVoidBeforeResubmit(
 
 export async function voidReceiptForBusiness(
   input: VoidReceiptInput,
-  apiKeyId?: string | null,
+  origin: DocumentOrigin,
 ): Promise<VoidReceiptResult> {
   const db = getDb();
+  const author = documentOriginColumns(origin);
+  const { apiKeyId } = author;
 
-  const prep = await prepareVoidDocument(input, apiKeyId);
+  const prep = await prepareVoidDocument(input, author);
   if (prep.kind === "done") return prep.result;
   const {
     saleAdeTransactionId,

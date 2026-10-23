@@ -6,14 +6,16 @@ import { TEST_BUSINESS_ID, TEST_BUSINESS_ID_2 } from "../_helpers/fixtures";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockGetPlanSafe,
   mockCanEmit,
   mockRateLimiterCheck,
   mockEmitReceiptForBusiness,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi
+    .fn()
+    .mockResolvedValue({ memberId: "member-owner", role: "owner" }),
   mockGetPlanSafe: vi.fn(),
   mockCanEmit: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
@@ -22,7 +24,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/lib/plans", () => ({
@@ -99,7 +101,10 @@ describe("emitReceipt server action", () => {
       planExpiresAt: null,
     });
     mockCanEmit.mockReturnValue(true); // trial active by default
-    mockCheckBusinessOwnership.mockResolvedValue(null); // authorized
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     mockEmitReceiptForBusiness.mockResolvedValue({
       documentId: "doc-1",
       adeTransactionId: "tx-1",
@@ -281,7 +286,7 @@ describe("emitReceipt server action", () => {
 
   describe("ownership check", () => {
     it("returns error when user does not own the business", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Non autorizzato.",
         status: 403,
       });

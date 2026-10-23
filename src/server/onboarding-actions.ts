@@ -6,6 +6,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   businesses,
+  businessMembers,
   adeCredentials,
   profiles,
   trialVatLedger,
@@ -52,7 +53,7 @@ import { WelcomeEmail } from "@/emails/welcome";
 import { notifyOperatorOfNewSignup } from "@/lib/operator-notification";
 import {
   getAuthenticatedUser,
-  checkBusinessOwnership,
+  checkBusinessMembership,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
@@ -331,6 +332,15 @@ export async function saveBusiness(
       })
       .returning({ id: businesses.id });
 
+    // L'accesso all'attività passa da `business_members` (issue #1099):
+    // senza la riga del titolare, nata qui nella stessa transazione,
+    // `checkBusinessMembership` lo chiuderebbe fuori da ogni azione.
+    await tx.insert(businessMembers).values({
+      businessId: newBiz.id,
+      authUserId: user.id,
+      role: "owner",
+    });
+
     return { businessId: newBiz.id };
   });
 }
@@ -450,7 +460,7 @@ export async function saveAdeCredentials(
   if (!businessId) {
     return { error: "Business ID mancante." };
   }
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
   }
@@ -494,8 +504,8 @@ export async function saveAdeCredentials(
 
   if ("error" in values) return values;
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   const db = getDb();
 
@@ -1301,8 +1311,8 @@ export async function connectAdeWithSpid(
     return { error: "Sessione SPID non valida. Accedi di nuovo con SPID." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   // Stesso limiter e stessa chiave della verifica: collegare con SPID È una
   // verifica, e i due percorsi non devono sommare i tentativi.
@@ -1399,13 +1409,13 @@ export async function verifyAdeCredentials(
     return authErrorResult(err, "verifyAdeCredentials");
   }
 
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   // Rate limit DOPO l'ownership gate, PRIMA del decrypt/login AdE: degradare
   // con un messaggio standard (regola 19), warn senza Sentry (input prevedibile,
@@ -1962,13 +1972,13 @@ export async function changeAdePassword(
     return authErrorResult(err, "changeAdePassword");
   }
 
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   const rateLimitResult = changePasswordLimiter.check(
     `change-ade-pw:${user.id}`,

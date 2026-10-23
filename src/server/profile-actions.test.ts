@@ -111,15 +111,15 @@ vi.mock("@/lib/plans", () => ({
   getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
 }));
 
-// checkBusinessOwnership mock: null = ownership confirmed
-const mockCheckBusinessOwnership = vi.fn().mockResolvedValue(null);
+// checkBusinessMembership mock: null = ownership confirmed
+const mockCheckBusinessMembership = vi.fn().mockResolvedValue(null);
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: vi.fn().mockImplementation(async () => {
     const result = await mockGetUser();
     if (!result?.data?.user) throw new Error("Not authenticated");
     return result.data.user;
   }),
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -152,6 +152,9 @@ const FAKE_HEADERS = {} as Parameters<typeof mockHeaders>[0];
 
 // --- Tests ---
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("profile-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -159,7 +162,7 @@ describe("profile-actions", () => {
     mockCheck.mockReturnValue({ success: true });
     mockHeaders.mockResolvedValue(FAKE_HEADERS);
     mockDbUpdate.mockReturnValue({ set: mockDbUpdateSet });
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
   });
 
   // ---------------------------------------------------------------------------
@@ -253,7 +256,7 @@ describe("profile-actions", () => {
       );
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("returns error for missing address", async () => {
@@ -318,8 +321,8 @@ describe("profile-actions", () => {
       );
     });
 
-    it("returns ownership error when checkBusinessOwnership fails", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+    it("returns ownership error when checkBusinessMembership fails", async () => {
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
       const { updateBusiness } = await import("./profile-actions");
@@ -339,7 +342,7 @@ describe("profile-actions", () => {
       const { updateBusiness } = await import("./profile-actions");
       const result = await updateBusiness(formData(VALID));
       expect(result.error).toBe("Non autenticato.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
   });
 
@@ -458,7 +461,7 @@ describe("profile-actions", () => {
       );
 
       expect(result.error).toBe("Identificativo non valido.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("returns error for missing businessId", async () => {
@@ -469,8 +472,8 @@ describe("profile-actions", () => {
       expect(result.error).toMatch(/business id/i);
     });
 
-    it("returns ownership error when checkBusinessOwnership fails", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+    it("returns ownership error when checkBusinessMembership fails", async () => {
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
       const { updateReceiptFooterNote } = await import("./profile-actions");
@@ -486,7 +489,7 @@ describe("profile-actions", () => {
       const result = await updateReceiptFooterNote(formData(VALID));
 
       expect(result.error).toMatch(/troppi/i);
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
 
     it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
@@ -495,7 +498,7 @@ describe("profile-actions", () => {
       const result = await updateReceiptFooterNote(formData(VALID));
 
       expect(result.error).toBe("Non autenticato.");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
     });
   });
 
@@ -842,7 +845,7 @@ describe("profile-actions", () => {
     });
 
     it("rifiuta un business non posseduto dall'utente", async () => {
-      mockCheckBusinessOwnership.mockResolvedValueOnce({
+      mockCheckBusinessMembership.mockResolvedValueOnce({
         error: "Business non trovato o non autorizzato.",
       });
       const { applyAdeDenominazione } = await import("./profile-actions");
@@ -1014,7 +1017,7 @@ describe("profile-actions", () => {
     });
 
     it("rifiuta un business non posseduto dall'utente", async () => {
-      mockCheckBusinessOwnership.mockResolvedValueOnce({
+      mockCheckBusinessMembership.mockResolvedValueOnce({
         error: "Business non trovato o non autorizzato.",
       });
       const { applyAdeSedeLegale } = await import("./profile-actions");

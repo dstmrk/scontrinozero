@@ -139,7 +139,7 @@ describe("POST /api/v1/receipts", () => {
     await POST(makeRequest());
     expect(mockEmitReceiptForBusiness).toHaveBeenCalledWith(
       expect.objectContaining({ businessId: "biz-uuid" }),
-      "key-uuid-123",
+      { apiKeyId: "key-uuid-123" },
     );
   });
 
@@ -274,7 +274,7 @@ describe("POST /api/v1/receipts", () => {
     );
     expect(mockEmitReceiptForBusiness).toHaveBeenCalledWith(
       expect.objectContaining({ lotteryCode: "YYWLR30G" }),
-      "key-uuid-123",
+      { apiKeyId: "key-uuid-123" },
     );
   });
 

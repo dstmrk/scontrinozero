@@ -113,7 +113,7 @@ describe("POST /api/v1/receipts/[id]/return", () => {
         businessId: "biz-uuid",
         quantities: [1, 0],
       },
-      "key-uuid-123",
+      { apiKeyId: "key-uuid-123" },
     );
   });
 

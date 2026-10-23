@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockGetDb,
   mockCountWhere,
   mockDocsOffset,
@@ -18,7 +18,9 @@ const {
   mockSelect,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi
+    .fn()
+    .mockResolvedValue({ memberId: "member-owner", role: "owner" }),
   mockGetDb: vi.fn(),
   mockCountWhere: vi.fn(),
   mockDocsOffset: vi.fn(),
@@ -33,7 +35,7 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: mockCheckBusinessOwnership,
+  checkBusinessMembership: mockCheckBusinessMembership,
 }));
 
 vi.mock("@/db", () => ({
@@ -105,7 +107,10 @@ describe("searchReceipts server action", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
-    mockCheckBusinessOwnership.mockResolvedValue(null); // null = authorized
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-owner",
+      role: "owner",
+    });
     setupDbMocksEmpty();
   });
 
@@ -293,7 +298,7 @@ describe("searchReceipts server action", () => {
 
   describe("auth and ownership", () => {
     it("ritorna error envelope quando l'utente non è owner del business", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Non autorizzato.",
         status: 403,
       });

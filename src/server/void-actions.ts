@@ -5,7 +5,7 @@ import { logger } from "@/lib/logger";
 import { getPlanSafe, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import {
-  checkBusinessOwnership,
+  checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
@@ -68,13 +68,13 @@ export async function voidReceipt(
     };
   }
 
-  const ownershipError = await checkBusinessOwnership(
-    user.id,
-    input.businessId,
-  );
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, input.businessId);
+  if ("error" in membership) return membership;
 
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.
-  return voidReceiptForBusiness(validation.data);
+  // Il membro che opera firma il documento (`created_by`, issue #1099).
+  return voidReceiptForBusiness(validation.data, {
+    memberId: membership.memberId,
+  });
 }

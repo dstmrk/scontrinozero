@@ -71,7 +71,7 @@ export async function POST(
   // ── Void ──────────────────────────────────────────────────────────────────
   const result = await voidReceiptForBusiness(
     { documentId, idempotencyKey, businessId: auth.businessId },
-    auth.apiKey.id,
+    { apiKeyId: auth.apiKey.id },
   );
 
   if (result.reauthRequired) {

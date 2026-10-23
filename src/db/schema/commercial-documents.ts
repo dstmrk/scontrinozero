@@ -15,6 +15,7 @@ import type { AdeResponse } from "@/lib/ade/types";
 
 import { businesses } from "./businesses";
 import { apiKeys } from "./api-keys";
+import { businessMembers } from "./business-members";
 
 export const documentKindEnum = pgEnum("document_kind", [
   "SALE",
@@ -68,6 +69,14 @@ export const commercialDocuments = pgTable(
     apiKeyId: uuid("api_key_id").references(() => apiKeys.id, {
       onDelete: "set null",
     }),
+    /**
+     * Il membro dell'attività che ha emesso, annullato o reso il documento
+     * (migrazione 0044, issue #1099). NULL sui documenti della Developer API,
+     * attribuiti via `apiKeyId`. FK senza ON DELETE, definita nella table
+     * config: un membro non si cancella finché ha documenti, e una cascata
+     * cancellerebbe documenti fiscali.
+     */
+    createdBy: uuid("created_by"),
     /**
      * Per documenti VOID: UUID del SALE annullato.
      * Vincolo UNIQUE (parziale, WHERE NOT NULL) nel DB previene doppi VOID sullo stesso SALE.
@@ -127,6 +136,16 @@ export const commercialDocuments = pgTable(
       table.adeRegisteredAt,
     ),
     index("idx_commercial_documents_api_key").on(table.apiKeyId),
+    // Filtro e totali per collaboratore nello storico del titolare (0044).
+    index("idx_commercial_documents_business_created_by").on(
+      table.businessId,
+      table.createdBy,
+    ),
+    foreignKey({
+      name: "fk_comm_docs_created_by",
+      columns: [table.createdBy],
+      foreignColumns: [businessMembers.id],
+    }),
     // Composite unique: idempotency scoped per business (migration 0009)
     uniqueIndex("idx_commercial_documents_business_idempotency").on(
       table.businessId,

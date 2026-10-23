@@ -3,7 +3,12 @@ import * as Sentry from "@sentry/nextjs";
 import { and, eq, sql } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
-import { adeCredentials, businesses, profiles } from "@/db/schema";
+import {
+  adeCredentials,
+  businesses,
+  businessMembers,
+  type MemberRole,
+} from "@/db/schema";
 import { decrypt, getEncryptionKeys } from "@/lib/crypto";
 import { buildCedenteFromBusiness } from "@/lib/ade/mapper";
 import { UnauthenticatedError } from "@/lib/auth-errors";
@@ -15,7 +20,14 @@ import type { LoginRejectionOutcome } from "@/lib/ade/verify-outcome";
 import { PASSWORD_EXPIRED_MESSAGE } from "@/lib/ade/error-messages";
 export type { User } from "@supabase/supabase-js";
 
-export type BusinessOwnershipError = { error: string };
+export type BusinessAccessError = { error: string };
+
+/**
+ * L'appartenenza dell'utente all'attività richiesta (issue #1099). `memberId`
+ * firma i documenti che emette (`commercial_documents.created_by`); `role`
+ * decide cosa può vedere e fare.
+ */
+export type BusinessMembership = { memberId: string; role: MemberRole };
 
 export type AdePrerequisites =
   | {
@@ -238,33 +250,39 @@ export async function touchLastSeen(authUserId: string): Promise<void> {
 }
 
 /**
- * Checks that businessId belongs to the authenticated user's profile.
- * Returns an error object if the check fails, or null if ownership is confirmed.
+ * Verifica che l'utente appartenga all'attività e restituisce con che ruolo,
+ * o l'errore da rimandare al client.
  *
- * Uses a single JOIN query instead of two sequential queries to reduce DB roundtrips.
+ * L'accesso passa da `business_members`, non dalla proprietà del profilo
+ * (issue #1099): così lo stesso controllo vale per il titolare e, quando ci
+ * saranno, per i collaboratori. Una query sola, indicizzata su
+ * `(auth_user_id)`, e dedupata per richiesta con `react/cache`.
  */
-export async function checkBusinessOwnership(
-  userId: string,
-  businessId: string,
-): Promise<BusinessOwnershipError | null> {
-  const db = getDb();
+export const checkBusinessMembership = cache(
+  async (
+    userId: string,
+    businessId: string,
+  ): Promise<BusinessMembership | BusinessAccessError> => {
+    const db = getDb();
 
-  const [result] = await db
-    .select({ id: businesses.id })
-    .from(profiles)
-    .innerJoin(
-      businesses,
-      and(eq(businesses.profileId, profiles.id), eq(businesses.id, businessId)),
-    )
-    .where(eq(profiles.authUserId, userId))
-    .limit(1);
+    const [membership] = await db
+      .select({ memberId: businessMembers.id, role: businessMembers.role })
+      .from(businessMembers)
+      .where(
+        and(
+          eq(businessMembers.authUserId, userId),
+          eq(businessMembers.businessId, businessId),
+        ),
+      )
+      .limit(1);
 
-  if (!result) {
-    return { error: "Business non trovato o non autorizzato." };
-  }
+    if (!membership) {
+      return { error: "Business non trovato o non autorizzato." };
+    }
 
-  return null;
-}
+    return membership;
+  },
+);
 
 /**
  * True se l'ultimo esito registrato è una password scaduta **e** descrive le

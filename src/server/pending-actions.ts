@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import {
   getAuthenticatedUser,
-  checkBusinessOwnership,
+  checkBusinessMembership,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
@@ -70,8 +70,8 @@ async function authorize(
     return { done: RATE_LIMITED };
   }
 
-  const ownership = await checkBusinessOwnership(user.id, businessId);
-  if (ownership) return { done: { error: ownership.error } };
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return { done: { error: membership.error } };
 
   return null;
 }

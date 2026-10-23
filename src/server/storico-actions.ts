@@ -9,7 +9,7 @@ import type {
   SelectCommercialDocumentLine,
 } from "@/db/schema";
 import {
-  checkBusinessOwnership,
+  checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
@@ -227,8 +227,8 @@ async function authorizeStorico(
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) {
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) {
     // Allinea il contratto a tutte le altre server actions: error envelope
     // invece di throw. Evita che la pagina RSC mostri il fallback error.tsx
     // su un IDOR e permette messaggi inline gestiti.
@@ -236,7 +236,7 @@ async function authorizeStorico(
       { userId: user.id, businessId },
       `${action}: ownership check failed`,
     );
-    return { error: ownershipError.error };
+    return { error: membership.error };
   }
 
   return { userId: user.id };

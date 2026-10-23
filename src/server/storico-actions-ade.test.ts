@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockCheckBusinessOwnership,
+  mockCheckBusinessMembership,
   mockAssertProPlan,
   mockResolveAdeUserSession,
   mockWithAdeSession,
@@ -17,7 +17,7 @@ const {
   mockWhereResults,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockCheckBusinessOwnership: vi.fn(),
+  mockCheckBusinessMembership: vi.fn(),
   mockAssertProPlan: vi.fn(),
   mockResolveAdeUserSession: vi.fn(),
   mockWithAdeSession: vi.fn(),
@@ -29,8 +29,8 @@ const {
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
 }));
 
 vi.mock("@/lib/plans", () => ({ assertProPlan: mockAssertProPlan }));
@@ -163,11 +163,14 @@ function adeRow(
   };
 }
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockWhereResults.length = 0;
   mockGetAuthenticatedUser.mockResolvedValue(nextUser());
-  mockCheckBusinessOwnership.mockResolvedValue(null);
+  mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
   mockAssertProPlan.mockResolvedValue({ ok: true, plan: "pro" });
   mockResolveAdeUserSession.mockResolvedValue({
     ok: true,
@@ -206,7 +209,9 @@ describe("searchReceiptsIncludingAde — guardie", () => {
   });
 
   it("business di un altro → rifiuto", async () => {
-    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    mockCheckBusinessMembership.mockResolvedValue({
+      error: "Non autorizzato.",
+    });
 
     const result = await searchReceiptsIncludingAde(BIZ, RANGE);
 

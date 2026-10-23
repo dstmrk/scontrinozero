@@ -105,7 +105,7 @@ describe("POST /api/v1/receipts/[id]/void", () => {
         idempotencyKey: VALID_BODY.idempotencyKey,
         businessId: "biz-uuid",
       },
-      "key-uuid-123",
+      { apiKeyId: "key-uuid-123" },
     );
   });
 

@@ -12,7 +12,7 @@ import {
   getPlan,
 } from "@/lib/plans";
 import {
-  checkBusinessOwnership,
+  checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
@@ -53,13 +53,13 @@ async function authorizeApiKeyBusiness(
     return authErrorResult(err, action);
   }
 
-  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const membership = await checkBusinessMembership(user.id, businessId);
+  if ("error" in membership) return membership;
 
   // Qui non basta `getPlanSafe`: anche `getEffectivePlan` legge il profilo
   // (oltre alla riga subscription), quindi entrambe le promise possono

@@ -39,6 +39,38 @@ finché non diventa pain).
 5. Test su DB locale: `npx tsx scripts/migrate.ts` deve applicare la migrazione
    senza errori e idempotentemente al re-run.
 
+**Senza un Postgres a disposizione (sessione cloud, CI) lo step 5 si fa su
+PGlite.** `npm i @electric-sql/pglite` in una directory della scratchpad, mai
+nel `package.json` del progetto; poi uno script che applica i `.sql` in ordine,
+ognuno in `db.transaction()` come fa il runner, inserisce dati realistici prima
+della migrazione nuova, la applica **due volte** e prova i vincoli con insert
+che devono fallire. Tre shim, tutti nell'harness e mai nei `.sql`:
+
+- `CREATE TABLE __applied_migrations (filename text PRIMARY KEY, checksum text)`:
+  la crea il runner, non una migrazione, e qualche migrazione la legge;
+- `CREATE SCHEMA auth` + una `auth.uid()` che restituisce `NULL::uuid`: le
+  policy RLS la citano e su PGlite lo schema Supabase non c'è;
+- PGlite 0.3.x non ha `pgcrypto`: si sostituisce al volo
+  `CREATE EXTENSION IF NOT EXISTS "pgcrypto";` con una `digest(text, text)` in
+  SQL che chiama `sha256(convert_to($1, 'UTF8'))` (0021 usa solo sha256).
+
+Così si vedono le cose che i test col DB mockato non vedono: un backfill che
+al secondo giro tocca righe nuove, una FK che blocca una cascata, un indice
+unico parziale che non scatta. La 0044 (`business_members`) è stata validata
+così.
+
+**Dev e sandbox condividono il DB Supabase.** Il primo dei due che si
+aggiorna applica la migrazione anche per l'altro, che gira ancora col codice
+vecchio. Una migrazione va quindi scritta perché il codice _precedente_ continui
+a funzionare sullo schema nuovo (colonne nullable, niente rename né drop nella
+stessa release). Le righe che il codice nuovo crea al posto di un trigger, come
+il titolare in `business_members` creato da `saveBusiness`, il codice vecchio
+della sandbox non le crea: un'attività nata lì nell'intervallo resta senza
+riga anche dopo l'aggiornamento, perché il backfill della migrazione è già
+girato. L'utente ha accettato di spegnere la sandbox per quell'intervallo,
+quindi niente trigger di compatibilità; se qualcosa scappa, si rilancia a mano
+l'`INSERT … ON CONFLICT DO NOTHING` del backfill, che è idempotente.
+
 **Runtime runner:** `scripts/migrate.ts` legge i `.sql` ordinati per nome, traccia
 i file applicati in `__applied_migrations`, wrappa ogni migrazione in transazione.
 Non legge il journal — quello è solo per il check CI di completezza. In container

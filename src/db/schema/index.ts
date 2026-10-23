@@ -1,5 +1,6 @@
 export * from "./profiles";
 export * from "./businesses";
+export * from "./business-members";
 export * from "./ade-credentials";
 export * from "./commercial-documents";
 export * from "./commercial-document-lines";

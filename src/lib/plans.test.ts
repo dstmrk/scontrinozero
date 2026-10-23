@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Mocks ---
@@ -39,11 +40,6 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("@/db", () => ({
   getDb: mockGetDb,
-}));
-
-vi.mock("@/db/schema", () => ({
-  profiles: "profiles-table",
-  subscriptions: "subscriptions-table",
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -479,6 +475,11 @@ describe("canAddCatalogItem", () => {
   });
 });
 
+/** Rende in SQL la condizione passata al `where` della query n. `call`. */
+function renderedWhere(call = 0) {
+  return new PgDialect().sqlToQuery(mockSelectWhere.mock.calls[call][0]);
+}
+
 describe("getPlan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -487,6 +488,25 @@ describe("getPlan", () => {
     mockSelect.mockReturnValue({ from: mockFrom });
     mockFrom.mockReturnValue({ where: mockSelectWhere });
     mockSelectWhere.mockReturnValue({ limit: mockLimit });
+  });
+
+  // Issue #1099: il piano è dell'attività. Un collaboratore non ha un profilo
+  // suo, quindi si legge quello del titolare; chi non appartiene ancora a
+  // un'attività (onboarding a metà) legge il proprio.
+  it("legge il profilo del titolare dell'attività, in una query sola", async () => {
+    mockLimit.mockResolvedValue([
+      { plan: "pro", trialStartedAt: null, planExpiresAt: null },
+    ]);
+
+    await getPlan("user-123");
+
+    expect(mockSelect).toHaveBeenCalledTimes(1);
+    const { sql, params } = renderedWhere();
+    expect(sql).toContain('"auth_user_id" = COALESCE(');
+    expect(sql).toContain("FROM business_members m");
+    expect(sql).toContain("o.role = 'owner'");
+    // Una volta per trovare il membro, una come ripiego senza attività.
+    expect(params).toEqual(["user-123", "user-123"]);
   });
 
   it("returns plan info when profile is found", async () => {
@@ -940,6 +960,21 @@ describe("getEffectivePlan", () => {
     mockFrom.mockReturnValue({ where: mockSelectWhere });
     mockSelectWhere.mockReturnValue({ limit: mockLimit });
     mockPlanFromPriceId.mockReturnValue(null);
+  });
+
+  it("legge anche la subscription del titolare, non quella di chi è loggato", async () => {
+    mockLimit
+      .mockResolvedValueOnce([
+        { plan: "trial", trialStartedAt: new Date(), planExpiresAt: null },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await getEffectivePlan("user-123");
+
+    const { sql, params } = renderedWhere(1);
+    expect(sql).toContain('"user_id" = COALESCE(');
+    expect(sql).toContain("FROM business_members m");
+    expect(params).toEqual(["user-123", "user-123"]);
   });
 
   it("returns trial when no subscription exists", async () => {

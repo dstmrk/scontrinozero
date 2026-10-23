@@ -171,6 +171,9 @@ function setupDb() {
 
 // --- Tests ---
 
+/** Origine dalla web app: il titolare, oggi l'unico membro (issue #1099). */
+const UI_ORIGIN = { memberId: "member-owner" };
+
 describe("emitReceiptForBusiness — AdePasswordExpiredError", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -196,7 +199,7 @@ describe("emitReceiptForBusiness — AdePasswordExpiredError", () => {
 
     const { emitReceiptForBusiness } =
       await import("@/lib/services/receipt-service");
-    const result = await emitReceiptForBusiness(makeValidInput());
+    const result = await emitReceiptForBusiness(makeValidInput(), UI_ORIGIN);
 
     expect(result.passwordExpired).toBe(true);
     // PR #780: sul canale API il code diventa un 409 "azione umana", non un
@@ -211,7 +214,7 @@ describe("emitReceiptForBusiness — AdePasswordExpiredError", () => {
 
     const { emitReceiptForBusiness } =
       await import("@/lib/services/receipt-service");
-    const result = await emitReceiptForBusiness(makeValidInput());
+    const result = await emitReceiptForBusiness(makeValidInput(), UI_ORIGIN);
 
     expect(result.passwordExpired).toBeUndefined();
     expect(result.error).toMatch(/Riprova più tardi/);

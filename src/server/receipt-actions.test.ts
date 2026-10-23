@@ -12,12 +12,12 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 const mockGetAuthenticatedUser = vi.fn();
-const mockCheckBusinessOwnership = vi.fn();
+const mockCheckBusinessMembership = vi.fn();
 const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
-  checkBusinessOwnership: (...args: unknown[]) =>
-    mockCheckBusinessOwnership(...args),
+  checkBusinessMembership: (...args: unknown[]) =>
+    mockCheckBusinessMembership(...args),
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
   // PR #752: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
@@ -169,6 +169,9 @@ const VALID_INPUT: SubmitReceiptInput = {
 
 // --- Tests ---
 
+/** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
+const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+
 describe("receipt-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -180,7 +183,7 @@ describe("receipt-actions", () => {
       resetAt: 0,
     });
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
     mockGetPlanSafe.mockResolvedValue({
       ok: true,
@@ -348,7 +351,7 @@ describe("receipt-actions", () => {
       });
 
       expect(result.error).toContain("Business ID");
-      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -361,7 +364,7 @@ describe("receipt-actions", () => {
     });
 
     it("returns error when business ownership check fails (IDOR)", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
+      mockCheckBusinessMembership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
