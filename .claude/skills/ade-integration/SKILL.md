@@ -862,6 +862,20 @@ il proxy davanti all'app la chiuda — e un troncamento del proxy arriva
 all'esercente come un errore senza spiegazione. Fermarsi da soli prima e
 dichiarare `truncated` è l'unico modo di restituire qualcosa di leggibile.
 
+**Una lettura lunga non sta dentro una `withAdeSession` sola.** La sessione
+porta con sé il lock per attività (`AdeSessionCache` e lo store interattivo
+serializzano le operazioni dello stesso business): tutto ciò che gira dentro la
+callback blocca emissioni, annulli e resi fino alla fine. Fino alla issue #1099
+la ricerca sull'archivio ci teneva dentro tutte le pagine, fino a 45 s; con più
+persone alla cassa una ricerca del titolare fermava ogni emissione. Ora
+`fetchAdeSaleRows` riceve la funzione che esegue **una** ricerca
+(`AdeSearchPage`) e `fetchForeignAdeRows` rientra nella sessione a ogni pagina:
+la sessione Fisconline resta in cache, quindi niente login in più, e
+un'emissione arrivata nel frattempo aspetta una pagina. Gate: il test con
+`AdeSessionCache` vera in `src/lib/services/ade-storico-rows.test.ts`. Vale per
+ogni lettura futura che faccia più di una richiesta: una sessione per
+richiesta, mai una per il ciclo.
+
 **Impaginare l'archivio: contare ciò che arriva, non ciò che si è chiesto.**
 `perPage` nelle catture reali vale 10 e non sappiamo se il portale accetti
 valori alti o li ricapi in silenzio. Il ciclo di `fetchAdeSaleRows` avanza su

@@ -464,6 +464,14 @@ describe("searchReceiptsIncludingAde — degrado (regola 19)", () => {
       [localDocRow("aaa", "2026-08-10T10:00:00Z", "DCW2026/1-1")],
     );
     mockWithAdeSession.mockRejectedValue(new Error("ECONNRESET"));
+    // La sessione si apre a ogni pagina (issue #1099): l'errore arriva dalla
+    // prima pagina chiesta, non da una sessione aperta prima della ricerca.
+    mockFetchAdeSaleRows.mockImplementation(
+      async (search: (query: object) => Promise<unknown>) => {
+        await search({});
+        return { rows: [], truncated: false };
+      },
+    );
 
     const result = await searchReceiptsIncludingAde(BIZ, RANGE);
 
