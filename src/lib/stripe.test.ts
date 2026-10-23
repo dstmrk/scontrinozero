@@ -8,6 +8,23 @@ vi.mock("stripe", () => ({
   }),
 }));
 
+const PRICE_ENV = {
+  STRIPE_PRICE_STARTER_MONTHLY: "price_starter_monthly",
+  STRIPE_PRICE_STARTER_YEARLY: "price_starter_yearly",
+  STRIPE_PRICE_PRO_MONTHLY: "price_pro_monthly",
+  STRIPE_PRICE_PRO_YEARLY: "price_pro_yearly",
+  STRIPE_PRICE_TEAM_MONTHLY: "price_team_monthly",
+  STRIPE_PRICE_TEAM_YEARLY: "price_team_yearly",
+} as const;
+
+function setPriceEnv(): void {
+  Object.assign(process.env, PRICE_ENV);
+}
+
+function clearPriceEnv(): void {
+  for (const name of Object.keys(PRICE_ENV)) delete process.env[name];
+}
+
 describe("getStripe", () => {
   let getStripe: () => import("stripe").default;
 
@@ -79,18 +96,12 @@ describe("isValidPriceId", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_monthly";
-    process.env.STRIPE_PRICE_STARTER_YEARLY = "price_starter_yearly";
-    process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
-    process.env.STRIPE_PRICE_PRO_YEARLY = "price_pro_yearly";
+    setPriceEnv();
     ({ isValidPriceId } = await import("./stripe"));
   });
 
   afterEach(() => {
-    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
-    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
-    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
-    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+    clearPriceEnv();
   });
 
   it("returns true for starter monthly price ID", () => {
@@ -109,6 +120,11 @@ describe("isValidPriceId", () => {
     expect(isValidPriceId("price_pro_yearly")).toBe(true);
   });
 
+  it("returns true for both team price IDs", () => {
+    expect(isValidPriceId("price_team_monthly")).toBe(true);
+    expect(isValidPriceId("price_team_yearly")).toBe(true);
+  });
+
   it("returns false for unknown price ID", () => {
     expect(isValidPriceId("price_unknown_123")).toBe(false);
   });
@@ -119,22 +135,16 @@ describe("isValidPriceId", () => {
 });
 
 describe("planFromPriceId", () => {
-  let planFromPriceId: (priceId: string) => "starter" | "pro" | null;
+  let planFromPriceId: (priceId: string) => string | null;
 
   beforeEach(async () => {
     vi.resetModules();
-    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_monthly";
-    process.env.STRIPE_PRICE_STARTER_YEARLY = "price_starter_yearly";
-    process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
-    process.env.STRIPE_PRICE_PRO_YEARLY = "price_pro_yearly";
+    setPriceEnv();
     ({ planFromPriceId } = await import("./stripe"));
   });
 
   afterEach(() => {
-    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
-    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
-    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
-    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+    clearPriceEnv();
   });
 
   it("returns 'starter' for starter monthly", () => {
@@ -153,6 +163,11 @@ describe("planFromPriceId", () => {
     expect(planFromPriceId("price_pro_yearly")).toBe("pro");
   });
 
+  it("returns 'team' for both team prices", () => {
+    expect(planFromPriceId("price_team_monthly")).toBe("team");
+    expect(planFromPriceId("price_team_yearly")).toBe("team");
+  });
+
   it("returns null for unknown price ID", () => {
     expect(planFromPriceId("price_unknown")).toBeNull();
   });
@@ -163,18 +178,12 @@ describe("intervalFromPriceId", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_monthly";
-    process.env.STRIPE_PRICE_STARTER_YEARLY = "price_starter_yearly";
-    process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
-    process.env.STRIPE_PRICE_PRO_YEARLY = "price_pro_yearly";
+    setPriceEnv();
     ({ intervalFromPriceId } = await import("./stripe"));
   });
 
   afterEach(() => {
-    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
-    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
-    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
-    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+    clearPriceEnv();
   });
 
   it("returns 'month' for starter monthly", () => {
@@ -193,19 +202,25 @@ describe("intervalFromPriceId", () => {
     expect(intervalFromPriceId("price_pro_yearly")).toBe("year");
   });
 
+  it("returns the interval of the team prices", () => {
+    expect(intervalFromPriceId("price_team_monthly")).toBe("month");
+    expect(intervalFromPriceId("price_team_yearly")).toBe("year");
+  });
+
   it("returns null for unknown price ID", () => {
     expect(intervalFromPriceId("price_unknown")).toBeNull();
   });
 });
 
 describe("PRICE_IDS fail-fast", () => {
-  let PRICE_IDS: { readonly starterMonthly: string };
+  let PRICE_IDS: {
+    readonly starterMonthly: string;
+    readonly teamMonthly: string;
+    readonly teamYearly: string;
+  };
 
   afterEach(() => {
-    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
-    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
-    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
-    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+    clearPriceEnv();
   });
 
   it("throws when STRIPE_PRICE_STARTER_MONTHLY is missing", async () => {
@@ -231,5 +246,48 @@ describe("PRICE_IDS fail-fast", () => {
     process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_test_xyz";
     ({ PRICE_IDS } = await import("./stripe"));
     expect(PRICE_IDS.starterMonthly).toBe("price_test_xyz");
+  });
+
+  it("throws when a team price env var is missing", async () => {
+    vi.resetModules();
+    setPriceEnv();
+    delete process.env.STRIPE_PRICE_TEAM_MONTHLY;
+    delete process.env.STRIPE_PRICE_TEAM_YEARLY;
+    ({ PRICE_IDS } = await import("./stripe"));
+    expect(() => PRICE_IDS.teamMonthly).toThrow(/STRIPE_PRICE_TEAM_MONTHLY/);
+    expect(() => PRICE_IDS.teamYearly).toThrow(/STRIPE_PRICE_TEAM_YEARLY/);
+  });
+});
+
+// Le variabili Team sono nuove (issue #1099): un ambiente aggiornato senza
+// di esse non deve smettere di riconoscere i prezzi Starter e Pro, che il
+// webhook risolve a ogni rinnovo.
+describe("risoluzione dei prezzi senza le variabili Team", () => {
+  let planFromPriceId: (priceId: string) => string | null;
+  let intervalFromPriceId: (priceId: string) => string | null;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    setPriceEnv();
+    delete process.env.STRIPE_PRICE_TEAM_MONTHLY;
+    delete process.env.STRIPE_PRICE_TEAM_YEARLY;
+    ({ planFromPriceId, intervalFromPriceId } = await import("./stripe"));
+  });
+
+  afterEach(() => {
+    clearPriceEnv();
+  });
+
+  it("riconosce ancora i prezzi Starter e Pro", () => {
+    expect(planFromPriceId("price_pro_yearly")).toBe("pro");
+    expect(intervalFromPriceId("price_pro_yearly")).toBe("year");
+    expect(planFromPriceId("price_starter_yearly")).toBe("starter");
+    expect(intervalFromPriceId("price_starter_yearly")).toBe("year");
+  });
+
+  it("su un prezzo sconosciuto nomina la variabile mancante", () => {
+    expect(() => planFromPriceId("price_unknown")).toThrow(
+      /STRIPE_PRICE_TEAM_MONTHLY/,
+    );
   });
 });

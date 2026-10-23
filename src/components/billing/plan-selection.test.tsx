@@ -32,10 +32,15 @@ const defaultProps = {
   starterYearly: "price_starter_yearly",
   proMonthly: "price_pro_monthly",
   proYearly: "price_pro_yearly",
+  teamMonthly: "price_team_monthly",
+  teamYearly: "price_team_yearly",
+  adeLoginMethod: "fisconline" as const,
 };
 
-function renderComponent() {
-  return render(<PlanSelection {...defaultProps} />);
+function renderComponent(
+  overrides: Partial<Parameters<typeof PlanSelection>[0]> = {},
+) {
+  return render(<PlanSelection {...defaultProps} {...overrides} />);
 }
 
 // --- Tests ---
@@ -131,6 +136,61 @@ describe("PlanSelection", () => {
       screen.queryByTestId("checkout-price_pro_monthly"),
     ).not.toBeInTheDocument();
   });
+});
+
+// Issue #1099, decisione 7: il requisito Fisconline si dichiara prima
+// dell'acquisto, e chi oggi entra con CIE o SPID lo legge accanto al
+// pulsante.
+describe("PlanSelection — piano Team", () => {
+  beforeEach(() => {
+    mockNative = false;
+  });
+
+  it("mostra la card Team con il prezzo annuale e il checkout annuale", () => {
+    renderComponent();
+    expect(screen.getByText("Team")).toBeInTheDocument();
+    expect(screen.getByText("€99.99/anno")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("checkout-price_team_yearly"),
+    ).toBeInTheDocument();
+  });
+
+  it("dopo il toggle mostra il prezzo e il checkout mensili", () => {
+    renderComponent();
+    fireEvent.click(screen.getByText("Mensile"));
+    expect(screen.getByText("€17.99/mese")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("checkout-price_team_monthly"),
+    ).toBeInTheDocument();
+  });
+
+  it("dichiara che i collaboratori richiedono Fisconline", () => {
+    renderComponent();
+    expect(
+      screen.getByText(/collaboratori richiedono le credenziali Fisconline/),
+    ).toBeInTheDocument();
+  });
+
+  it("con Fisconline non mostra l'avviso sul cambio di accesso", () => {
+    renderComponent();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["cie", "CIE"],
+    ["spid", "SPID"],
+  ] as const)(
+    "con %s avvisa prima del checkout e porta alla guida Fisconline",
+    (adeLoginMethod, label) => {
+      renderComponent({ adeLoginMethod });
+      const note = screen.getByRole("note");
+      expect(note).toHaveTextContent(`Oggi accedi all'AdE con ${label}`);
+      expect(note).toHaveTextContent("15 giorni");
+      expect(
+        screen.getByRole("link", { name: /Come ottenere le credenziali/ }),
+      ).toHaveAttribute("href", "/help/credenziali-fisconline");
+    },
+  );
 });
 
 describe("PlanSelection — guscio nativo (issue #1044)", () => {

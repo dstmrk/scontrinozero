@@ -149,9 +149,9 @@ export default function PresentaUnAmicoPage() {
             allunga di un mese.
           </li>
           <li>
-            Se hai un <strong>abbonamento attivo</strong> (Starter o Pro), la{" "}
-            <strong>data di rinnovo si sposta in avanti di un mese</strong>: il
-            prossimo addebito slitta di conseguenza. Lo stesso spostamento è
+            Se hai un <strong>abbonamento attivo</strong> (Starter, Pro o Team),
+            la <strong>data di rinnovo si sposta in avanti di un mese</strong>:
+            il prossimo addebito slitta di conseguenza. Lo stesso spostamento è
             visibile anche nel portale di fatturazione Stripe (link{" "}
             <strong>Vai al portale Stripe →</strong>), così l&apos;app e la
             fatturazione restano allineate.

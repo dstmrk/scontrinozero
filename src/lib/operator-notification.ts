@@ -49,7 +49,11 @@ export async function notifyOperatorOfNewSignup(
   });
 }
 
-const PLAN_NAMES = { starter: "Starter", pro: "Pro" } as const;
+const PLAN_NAMES: Record<PlanChoice["plan"], string> = {
+  starter: "Starter",
+  pro: "Pro",
+  team: "Team",
+};
 const INTERVAL_NAMES = { month: "mensile", year: "annuale" } as const;
 
 function planLabel({ plan, interval }: PlanChoice): string {

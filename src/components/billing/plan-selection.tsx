@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { AdeLoginMethod } from "@/lib/ade/types";
 import { useIsNativeShell } from "@/lib/native/native-shell";
 import { CheckoutButton } from "./checkout-button";
 
@@ -9,7 +10,16 @@ type PlanSelectionProps = Readonly<{
   starterYearly: string;
   proMonthly: string;
   proYearly: string;
+  teamMonthly: string;
+  teamYearly: string;
+  /** Come il titolare accede oggi all'AdE: decide l'avviso sotto Team. */
+  adeLoginMethod: AdeLoginMethod;
 }>;
+
+const INTERACTIVE_LOGIN_LABELS: Partial<Record<AdeLoginMethod, string>> = {
+  cie: "CIE",
+  spid: "SPID",
+};
 
 /**
  * Scelta del piano con prezzi e checkout Stripe. Nel guscio nativo non rende
@@ -22,6 +32,9 @@ export function PlanSelection({
   starterYearly,
   proMonthly,
   proYearly,
+  teamMonthly,
+  teamYearly,
+  adeLoginMethod,
 }: PlanSelectionProps) {
   const [interval, setInterval] = useState<"month" | "year">("year");
   const native = useIsNativeShell();
@@ -67,7 +80,7 @@ export function PlanSelection({
       </div>
 
       {/* Card piani */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {/* Starter */}
         <div className="rounded-lg border p-4">
           <h3 className="font-semibold">Starter</h3>
@@ -102,7 +115,58 @@ export function PlanSelection({
             />
           </div>
         </div>
+
+        {/* Team */}
+        <div className="rounded-lg border p-4">
+          <h3 className="font-semibold">Team</h3>
+          <p className="text-muted-foreground mb-2 text-sm">
+            Tutto di Pro · collaboratori illimitati
+          </p>
+          <p className="text-muted-foreground mb-4 text-xs">
+            I collaboratori richiedono le credenziali Fisconline.
+          </p>
+          <TeamLoginNotice adeLoginMethod={adeLoginMethod} />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {isAnnual ? "€99.99/anno" : "€17.99/mese"}
+            </span>
+            <CheckoutButton
+              priceId={isAnnual ? teamYearly : teamMonthly}
+              label="Scegli"
+              variant="outline"
+            />
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Con CIE o SPID ogni nuova sessione AdE richiede il titolare, quindi i
+ * collaboratori emettono solo con Fisconline (issue #1099, decisione 7). Chi
+ * oggi entra così lo legge prima di comprare Team, insieme ai tempi: con la
+ * richiesta online le ultime 6 cifre del PIN arrivano per posta.
+ */
+function TeamLoginNotice({
+  adeLoginMethod,
+}: Readonly<{ adeLoginMethod: AdeLoginMethod }>) {
+  const label = INTERACTIVE_LOGIN_LABELS[adeLoginMethod];
+  if (!label) return null;
+  return (
+    <p
+      role="note"
+      className="mb-4 rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+    >
+      Oggi accedi all&apos;AdE con {label}: per invitare collaboratori dovrai
+      passare a Fisconline. Se le chiedi online, le ultime 6 cifre del PIN
+      arrivano per posta entro 15 giorni.{" "}
+      <a
+        href="/help/credenziali-fisconline"
+        className="font-medium underline underline-offset-4"
+      >
+        Come ottenere le credenziali
+      </a>
+    </p>
   );
 }

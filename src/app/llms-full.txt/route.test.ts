@@ -82,6 +82,15 @@ describe("GET /llms-full.txt", () => {
     }
   });
 
+  it("elenca i piani con i prezzi, Team compreso", async () => {
+    mockHeaderGet.mockReturnValue("scontrinozero.it");
+    const body = await (await getResponse()).text();
+
+    expect(body).toContain("Starter (4,99 €/mese o 29,99 €/anno)");
+    expect(body).toContain("Pro (8,99 €/mese o 49,99 €/anno)");
+    expect(body).toContain("Team (17,99 €/mese o 99,99 €/anno)");
+  });
+
   it("returns 404 on a non-indexable host (sandbox)", async () => {
     mockHeaderGet.mockReturnValue("sandbox.scontrinozero.it");
     const response = await getResponse();

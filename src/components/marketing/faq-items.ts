@@ -28,7 +28,7 @@ export const faqItems = [
   {
     question: "Quanto costa?",
     answer:
-      "Starter €4,99/mese o €29,99/anno (equivalente a €2,50/mese). Pro €8,99/mese o €49,99/anno (equivalente a €4,17/mese). Entrambi includono 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
+      "Starter €4,99/mese o €29,99/anno (equivalente a €2,50/mese). Pro €8,99/mese o €49,99/anno (equivalente a €4,17/mese). Team, cioè Pro con i collaboratori, €17,99/mese o €99,99/anno (equivalente a €8,33/mese). Tutti partono da 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
   },
   {
     question: "È supportata la Lotteria degli Scontrini?",
@@ -53,11 +53,11 @@ export const faqItems = [
   {
     question: "Qual è la differenza concreta tra Starter e Pro?",
     answer:
-      "Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato, analytics avanzata, export CSV degli scontrini, il messaggio personalizzato in fondo allo scontrino, gli sconti (di riga e a pagare), il pagamento misto fra contanti ed elettronico, la Developer API (fino a 3 chiavi) e supporto prioritario via email entro 24 ore lavorative. Pro include inoltre la ricerca dei documenti commerciali sull'archivio dell'Agenzia delle Entrate: dallo storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola lettura, e li scarichi nel CSV di riepilogo. Entrambi i piani includono 30 giorni di prova gratuita. Durante la prova puoi usare anche le funzioni Pro: analytics avanzata, export CSV, messaggio personalizzato, sconti, pagamento misto, ricerca dei documenti sull'archivio AdE e la Developer API con una chiave. Il catalogo invece resta limitato a 5 prodotti, come su Starter.",
+      "Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato, analytics avanzata, export CSV degli scontrini, il messaggio personalizzato in fondo allo scontrino, gli sconti (di riga e a pagare), il pagamento misto fra contanti ed elettronico, la Developer API (fino a 3 chiavi) e supporto prioritario via email entro 24 ore lavorative. Pro include inoltre la ricerca dei documenti commerciali sull'archivio dell'Agenzia delle Entrate: dallo storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola lettura, e li scarichi nel CSV di riepilogo. Entrambi i piani includono 30 giorni di prova gratuita. Durante la prova puoi usare anche le funzioni Pro: analytics avanzata, export CSV, messaggio personalizzato, sconti, pagamento misto, ricerca dei documenti sull'archivio AdE e la Developer API con una chiave. Il catalogo invece resta limitato a 5 prodotti, come su Starter. Team è Pro con collaboratori illimitati, ognuno con il proprio accesso.",
   },
   {
     question: "Esiste una versione completamente gratuita?",
     answer:
-      "Sì. ScontrinoZero è open source: puoi scaricarlo e installarlo sul tuo server e usarlo gratuitamente per sempre, senza limitazioni di funzionalità. La versione hosted (Starter e Pro) è a pagamento e include hosting, aggiornamenti automatici e supporto.",
+      "Sì. ScontrinoZero è open source: puoi scaricarlo e installarlo sul tuo server e usarlo gratuitamente per sempre, senza limitazioni di funzionalità. La versione hosted (Starter, Pro e Team) è a pagamento e include hosting, aggiornamenti automatici e supporto.",
   },
 ] as const;

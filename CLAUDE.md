@@ -228,6 +228,7 @@ post-deploy, procedura T&C/Privacy: skill `deploy-release`.
 | ----------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                                                                                                                                        |
 | Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV, messaggio personalizzato sullo scontrino, sconti (di riga e a pagare), pagamento misto, ricerca documenti commerciali su AdE (sola lettura) |
+| Team        | €17.99  | €99.99  | Pro + collaboratori illimitati (issue #1099: inviti e permessi per ruolo nelle PR successive), 3 chiavi API, collaboratori solo con Fisconline                                                                        |
 | Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                                                                                                                   |
 | Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                                                                                                                         |
 

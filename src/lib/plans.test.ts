@@ -268,6 +268,37 @@ describe("canAddCatalogItem con planExpiresAt (fallback)", () => {
   });
 });
 
+// Team = Pro + collaboratori (issue #1099, decisione 1): ogni gate che
+// sblocca Pro sblocca anche Team, comprese le 3 chiavi API (decisione 5).
+describe("piano team", () => {
+  it("è un piano valido", () => {
+    expect(PLAN_VALUES).toContain("team");
+    expect(isPlan("team")).toBe(true);
+  });
+
+  it("emette, ha le feature Pro e la Developer API", () => {
+    expect(canEmit("team", null)).toBe(true);
+    expect(canUsePro("team")).toBe(true);
+    expect(canUseApi("team")).toBe(true);
+    expect(canUseDashboardCashier("team")).toBe(true);
+  });
+
+  it("ha il catalogo illimitato", () => {
+    expect(canAddCatalogItem("team", null, 999)).toBe(true);
+  });
+
+  it("ha 3 chiavi API, come Pro", () => {
+    expect(getApiKeyLimit("team")).toBe(3);
+  });
+
+  it("degrada a sola lettura oltre la grazia, come ogni piano pagato", () => {
+    const expiredLongAgo = new Date(Date.now() - PLAN_EXPIRY_GRACE_MS - 1000);
+    expect(isPaidPlanExpired("team", expiredLongAgo)).toBe(true);
+    expect(canEmit("team", null, expiredLongAgo)).toBe(false);
+    expect(canUsePro("team", expiredLongAgo)).toBe(false);
+  });
+});
+
 describe("isPlan", () => {
   it.each(PLAN_VALUES)("accetta il valore valido %s", (plan) => {
     expect(isPlan(plan)).toBe(true);
@@ -1071,7 +1102,7 @@ describe("getEffectivePlan", () => {
 
 describe("PAID_SELF_SERVICE_PLANS", () => {
   it("contiene solo i piani acquistabili in autonomia", () => {
-    expect([...PAID_SELF_SERVICE_PLANS]).toEqual(["starter", "pro"]);
+    expect([...PAID_SELF_SERVICE_PLANS]).toEqual(["starter", "pro", "team"]);
   });
 
   it("esclude unlimited, che è concesso a mano e non è mai stato pagato", () => {

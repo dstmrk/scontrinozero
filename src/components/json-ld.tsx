@@ -37,6 +37,8 @@ const RECURRING_OFFERS: readonly RecurringOffer[] = [
   { name: "Starter annuale", price: "29.99", duration: "P1Y" },
   { name: "Pro mensile", price: "8.99", duration: "P1M" },
   { name: "Pro annuale", price: "49.99", duration: "P1Y" },
+  { name: "Team mensile", price: "17.99", duration: "P1M" },
+  { name: "Team annuale", price: "99.99", duration: "P1Y" },
 ];
 
 interface SoftwareOffer {

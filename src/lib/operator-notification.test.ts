@@ -176,6 +176,14 @@ describe("notifyOperatorOfSubscriptionEvent", () => {
       { kind: "ended", to: { plan: "starter", interval: "year" } },
       "Abbonamento terminato: Starter annuale",
     ],
+    [
+      {
+        kind: "changed",
+        from: { plan: "pro", interval: "year" },
+        to: { plan: "team", interval: "year" },
+      },
+      "Cambio piano: Team annuale",
+    ],
   ] as const)("subject for %o", async (change, expected) => {
     mockLimit.mockResolvedValueOnce([profileRow]);
     await run(change, new Date("2026-07-07T10:00:00Z"));

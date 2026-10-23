@@ -14,6 +14,7 @@ export type Plan =
   | "trial"
   | "starter"
   | "pro"
+  | "team"
   | "unlimited"
   | "developer_indie"
   | "developer_business"
@@ -27,6 +28,7 @@ export const PLAN_VALUES: readonly Plan[] = [
   "trial",
   "starter",
   "pro",
+  "team",
   "unlimited",
   "developer_indie",
   "developer_business",
@@ -50,7 +52,11 @@ const PLAN_SET: ReadonlySet<string> = new Set(PLAN_VALUES);
  * che il prossimo piano a pagamento sposta un numero senza che nulla lo
  * segnali.
  */
-export const PAID_SELF_SERVICE_PLANS: readonly Plan[] = ["starter", "pro"];
+export const PAID_SELF_SERVICE_PLANS: readonly Plan[] = [
+  "starter",
+  "pro",
+  "team",
+];
 
 /**
  * Type guard runtime: ritorna true se `value` è uno dei `Plan` validi.
@@ -168,7 +174,7 @@ export function isPaidPlanExpired(
 /**
  * Ritorna true se l'utente può emettere scontrini.
  * - trial non scaduto → ✅
- * - starter / pro / unlimited → ✅
+ * - starter / pro / team / unlimited → ✅
  * - trial scaduto → ❌ (sola lettura)
  * - piano a pagamento scaduto oltre la grazia → ❌ (sola lettura, vedi
  *   `isPaidPlanExpired`)
@@ -194,7 +200,8 @@ export function canEmit(
 
 /**
  * Ritorna true se l'utente ha accesso alle feature Pro **visibili** (analytics
- * avanzata, export CSV, AdE sync, supporto prioritario).
+ * avanzata, export CSV, AdE sync, supporto prioritario). Team le ha tutte: è
+ * Pro più i collaboratori (issue #1099).
  *
  * `planExpiresAt` opzionale (vedi `canEmit`): se passato e il piano è scaduto
  * oltre la grazia, degrada a false.
@@ -216,7 +223,7 @@ export function canUsePro(
 ): boolean {
   if (isPaidPlanExpired(plan, planExpiresAt)) return false;
   if (plan === "trial") return !isTrialExpired(trialStartedAt);
-  return plan === "pro" || plan === "unlimited";
+  return plan === "pro" || plan === "team" || plan === "unlimited";
 }
 
 /**
@@ -245,7 +252,7 @@ export function canUseDashboardCashier(plan: Plan): boolean {
 
 /**
  * Ritorna true se il piano ha accesso alla Developer API.
- * - Pro e Unlimited: accesso API come feature inclusa nel piano
+ * - Pro, Team e Unlimited: accesso API come feature inclusa nel piano
  * - Trial attivo: accesso incluso — il trial è una prova di Pro e
  *   un'integrazione non si valuta senza poterla cablare. Alla scadenza le
  *   chiavi restano in tabella ma smettono di autenticare (il gate gira su
@@ -278,12 +285,14 @@ export function canUseApi(
  * esplicita `getApiKeyLimit` cadrebbe su `?? null` = nessun limite, cioè un
  * trial avrebbe più chiavi di Pro.
  *
- * Starter non ha accesso API (canUseApi = false), quindi non ha una entry
- * qui. I piani Developer sono gestiti nella Fase B.
+ * Team ha le 3 chiavi di Pro (issue #1099). Starter non ha accesso API
+ * (canUseApi = false), quindi non ha una entry qui. I piani Developer sono
+ * gestiti nella Fase B.
  */
 export const API_KEY_LIMITS: Partial<Record<Plan, number>> = {
   trial: 1,
   pro: 3,
+  team: 3,
 };
 
 /**
@@ -306,7 +315,7 @@ export const DEVELOPER_MONTHLY_LIMITS: Partial<Record<Plan, number>> = {
 
 /**
  * Ritorna true se l'utente può aggiungere un prodotto al catalogo.
- * - pro / unlimited → sempre true
+ * - pro / team / unlimited → sempre true
  * - starter / trial (non scaduto) → solo se currentCount < STARTER_CATALOG_LIMIT
  * - trial scaduto → false
  * - developer_* → true (consumato via API, ma vedi `canUseDashboardCashier`
@@ -320,7 +329,12 @@ export function canAddCatalogItem(
   planExpiresAt: Date | null = null,
 ): boolean {
   if (isPaidPlanExpired(plan, planExpiresAt)) return false;
-  if (plan === "pro" || plan === "unlimited" || isDeveloperPlan(plan))
+  if (
+    plan === "pro" ||
+    plan === "team" ||
+    plan === "unlimited" ||
+    isDeveloperPlan(plan)
+  )
     return true;
   if (plan === "trial" && isTrialExpired(trialStartedAt)) return false;
   return currentCount < STARTER_CATALOG_LIMIT;

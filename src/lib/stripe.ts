@@ -1,4 +1,9 @@
 import Stripe from "stripe";
+import type {
+  PlanChoice,
+  SubscriptionInterval,
+  SubscriptionPlan,
+} from "@/lib/subscription-change";
 
 const STRIPE_API_VERSION = "2026-09-30.endive" as const;
 
@@ -60,21 +65,34 @@ export function _resetStripeForTest(): void {
 }
 
 /**
- * Controlla se un priceId è uno dei 4 prezzi noti (letti da env al momento della
+ * I prezzi in vendita, uno per piano e intervallo, con la variabile d'ambiente
+ * che porta il Price ID. L'ordine conta: le risoluzioni sotto si fermano al
+ * primo prezzo che corrisponde, quindi un prezzo Starter o Pro non legge mai
+ * le variabili Team, aggiunte dopo (issue #1099). Un ambiente aggiornato
+ * senza di esse continua a rinnovare gli abbonamenti esistenti.
+ */
+const PRICES = [
+  { env: "STRIPE_PRICE_STARTER_MONTHLY", plan: "starter", interval: "month" },
+  { env: "STRIPE_PRICE_STARTER_YEARLY", plan: "starter", interval: "year" },
+  { env: "STRIPE_PRICE_PRO_MONTHLY", plan: "pro", interval: "month" },
+  { env: "STRIPE_PRICE_PRO_YEARLY", plan: "pro", interval: "year" },
+  { env: "STRIPE_PRICE_TEAM_MONTHLY", plan: "team", interval: "month" },
+  { env: "STRIPE_PRICE_TEAM_YEARLY", plan: "team", interval: "year" },
+] as const satisfies readonly (PlanChoice & { env: string })[];
+
+/**
+ * Controlla se un priceId è uno dei prezzi noti (letti da env al momento della
  * chiamata — consente override nei test tramite process.env).
  */
 export function isValidPriceId(priceId: string): boolean {
-  const knownIds = [
-    process.env.STRIPE_PRICE_STARTER_MONTHLY,
-    process.env.STRIPE_PRICE_STARTER_YEARLY,
-    process.env.STRIPE_PRICE_PRO_MONTHLY,
-    process.env.STRIPE_PRICE_PRO_YEARLY,
-  ].filter(Boolean);
-  return knownIds.includes(priceId);
+  return PRICES.some(({ env }) => {
+    const known = process.env[env];
+    return Boolean(known) && known === priceId;
+  });
 }
 
 /**
- * Lazy fail-fast getter per le 4 env var STRIPE_PRICE_*.
+ * Lazy fail-fast getter per le env var STRIPE_PRICE_*.
  * Se l'env è missing/empty al momento dell'accesso, lanciamo subito invece di
  * propagare una stringa vuota — evita revenue loss silenzioso (un checkout
  * che fallisce solo al primo utente reale che tenta l'upgrade, ore/giorni
@@ -85,7 +103,7 @@ function requirePriceEnv(name: string): string {
   if (!v) {
     throw new Error(
       `Missing required Stripe price env var: ${name}. ` +
-        "Set the 4 STRIPE_PRICE_* variables before deploy.",
+        `Set all ${PRICES.length} STRIPE_PRICE_* variables before deploy.`,
     );
   }
   return v;
@@ -108,38 +126,33 @@ export const PRICE_IDS = {
   get proYearly() {
     return requirePriceEnv("STRIPE_PRICE_PRO_YEARLY");
   },
+  get teamMonthly() {
+    return requirePriceEnv("STRIPE_PRICE_TEAM_MONTHLY");
+  },
+  get teamYearly() {
+    return requirePriceEnv("STRIPE_PRICE_TEAM_YEARLY");
+  },
 } as const;
 
+function priceChoice(priceId: string): PlanChoice | null {
+  const price = PRICES.find(({ env }) => requirePriceEnv(env) === priceId);
+  return price ? { plan: price.plan, interval: price.interval } : null;
+}
+
 /**
- * Ricava il nome del piano ('starter' | 'pro') da un Stripe Price ID.
+ * Ricava il piano da un Stripe Price ID.
  * Ritorna null se il priceId non è noto.
  */
-export function planFromPriceId(priceId: string): "starter" | "pro" | null {
-  if (
-    priceId === PRICE_IDS.starterMonthly ||
-    priceId === PRICE_IDS.starterYearly
-  ) {
-    return "starter";
-  }
-  if (priceId === PRICE_IDS.proMonthly || priceId === PRICE_IDS.proYearly) {
-    return "pro";
-  }
-  return null;
+export function planFromPriceId(priceId: string): SubscriptionPlan | null {
+  return priceChoice(priceId)?.plan ?? null;
 }
 
 /**
  * Ricava l'intervallo ('month' | 'year') da un Stripe Price ID.
  * Ritorna null se il priceId non è noto.
  */
-export function intervalFromPriceId(priceId: string): "month" | "year" | null {
-  if (
-    priceId === PRICE_IDS.starterMonthly ||
-    priceId === PRICE_IDS.proMonthly
-  ) {
-    return "month";
-  }
-  if (priceId === PRICE_IDS.starterYearly || priceId === PRICE_IDS.proYearly) {
-    return "year";
-  }
-  return null;
+export function intervalFromPriceId(
+  priceId: string,
+): SubscriptionInterval | null {
+  return priceChoice(priceId)?.interval ?? null;
 }
