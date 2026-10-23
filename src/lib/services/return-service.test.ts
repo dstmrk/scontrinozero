@@ -364,6 +364,24 @@ describe("returnReceiptForBusiness — percorso normale", () => {
 });
 
 describe("returnReceiptForBusiness — rifiuti prima dell'AdE", () => {
+  // Fix alla #1100: dopo lo stop dei login per password scaduta,
+  // `fetchAdePrerequisites` porta il codice, e il reso lo perdeva. Sulla
+  // Developer API diventava `422 ADE_REJECTED` invece di `409
+  // ADE_PASSWORD_EXPIRED`, che DEVELOPER.md promette.
+  it("passa al chiamante il codice di password scaduta dei prerequisiti", async () => {
+    const expired = {
+      error: "La password Fisconline è scaduta.",
+      code: "ADE_PASSWORD_EXPIRED",
+      passwordExpired: true,
+    };
+    mockFetchAdePrerequisites.mockResolvedValue(expired);
+
+    const result = await run();
+
+    expect(result).toEqual(expired);
+    expect(mockInsertValues).not.toHaveBeenCalled();
+  });
+
   it("vendita inesistente → NOT_FOUND, warn anti-enumerazione solo via API", async () => {
     mockLimitResults = [[]];
     const { logger } = await import("@/lib/logger");

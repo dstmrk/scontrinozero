@@ -312,8 +312,10 @@ async function prepareReturn(
   }
 
   const prerequisites = await fetchAdePrerequisites(input.businessId);
+  // L'errore intero, non il solo messaggio: con la password scaduta porta
+  // `ADE_PASSWORD_EXPIRED`, contratto pubblico di `/api/v1` (DEVELOPER.md).
   if ("error" in prerequisites) {
-    return { kind: "done", result: { error: prerequisites.error } };
+    return { kind: "done", result: prerequisites };
   }
   // CIE: sessione interattiva assente/scaduta → rinnovo PRIMA della riga
   // PENDING (stessa regola di emissione e annullo, skill ade-integration).
