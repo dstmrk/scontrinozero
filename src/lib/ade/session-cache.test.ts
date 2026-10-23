@@ -7,6 +7,13 @@ import {
 } from "./session-cache";
 import type { AdeSession } from "./client";
 import type { FisconlineCredentials } from "./types";
+import {
+  AdeAccountLockedError,
+  AdeAuthError,
+  AdeNetworkError,
+  AdePasswordExpiredError,
+} from "./errors";
+import { logger } from "@/lib/logger";
 
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
@@ -22,7 +29,10 @@ const CREDENTIALS: FisconlineCredentials = {
  * stragrande maggioranza dei business non ha un'utenza di lavoro da rigiocare:
  * `utenzaPiva` resta assente e il default è il caso storico.
  */
-const LOGIN: AdeLoginInputs = { credentials: CREDENTIALS };
+const LOGIN: AdeLoginInputs = {
+  credentials: CREDENTIALS,
+  credentialVersion: new Date("2026-10-01T08:00:00.000Z"),
+};
 
 const SESSION: AdeSession = {
   pAuth: "p",
@@ -104,10 +114,8 @@ describe("AdeSessionCache", () => {
   it("replays the stored utenza on the login that opens the session", async () => {
     const cache = makeCache();
 
-    await cache.run(
-      "biz",
-      { credentials: CREDENTIALS, utenzaPiva: "07790350966" },
-      () => Promise.resolve(null),
+    await cache.run("biz", { ...LOGIN, utenzaPiva: "07790350966" }, () =>
+      Promise.resolve(null),
     );
 
     expect(clients[0].login).toHaveBeenCalledWith(CREDENTIALS, "07790350966");
@@ -115,7 +123,7 @@ describe("AdeSessionCache", () => {
 
   it("replays the utenza again on the login that follows TTL expiry", async () => {
     const cache = makeCache({ ttlMs: 10_000 });
-    const login = { credentials: CREDENTIALS, utenzaPiva: "07790350966" };
+    const login = { ...LOGIN, utenzaPiva: "07790350966" };
 
     await cache.run("biz", login, () => Promise.resolve(null));
     now += 10_001;
@@ -300,5 +308,182 @@ describe("AdeSessionCache", () => {
 
     await expect(failing).resolves.toBe("caught");
     await expect(following).resolves.toBe("second ok");
+  });
+
+  // -------------------------------------------------------------------
+  // Credenziali rifiutate: niente login a raffica (issue #1099)
+  // -------------------------------------------------------------------
+  //
+  // Le operazioni accodate dietro un login rifiutato hanno già letto le
+  // credenziali dal DB prima di entrare nel lock: senza questo marker
+  // ciascuna rifarebbe il login con la stessa password sbagliata, e quattro
+  // cassieri bastano a far bloccare l'utenza Fisconline dall'AdE.
+  describe("dopo un rifiuto delle credenziali", () => {
+    function rejectNextLogin(err: Error) {
+      createClient = vi.fn(() => {
+        const client = makeFakeClient();
+        if (clients.length === 0) {
+          (client.login as ReturnType<typeof vi.fn>).mockRejectedValue(err);
+        }
+        clients.push(client);
+        return client;
+      });
+    }
+
+    it.each([
+      ["credenziali errate", () => new AdeAuthError()],
+      ["password scaduta", () => new AdePasswordExpiredError()],
+      ["utenza bloccata", () => new AdeAccountLockedError()],
+    ])(
+      "con %s l'operazione accodata fallisce senza rifare il login",
+      async (_label, makeError) => {
+        const rejection = makeError();
+        rejectNextLogin(rejection);
+        const cache = makeCache();
+        const fn = vi.fn(() => Promise.resolve("ok"));
+
+        const first = cache.run("biz", LOGIN, fn);
+        const queued = cache.run("biz", LOGIN, fn);
+
+        await expect(first).rejects.toBe(rejection);
+        await expect(queued).rejects.toBe(rejection);
+        expect(createClient).toHaveBeenCalledTimes(1);
+        expect(fn).not.toHaveBeenCalled();
+      },
+    );
+
+    it("vale anche per un'operazione successiva con le stesse credenziali", async () => {
+      rejectNextLogin(new AdeAuthError());
+      const cache = makeCache();
+
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+
+      expect(createClient).toHaveBeenCalledTimes(1);
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "biz",
+          event: "ade_login_skipped_rejected_credentials",
+        }),
+        expect.any(String),
+      );
+    });
+
+    it("scatta anche quando il rifiuto arriva dalla re-auth dentro l'operazione", async () => {
+      const cache = makeCache();
+
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.reject(new AdeAuthError())),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+
+      expect(createClient).toHaveBeenCalledTimes(1);
+    });
+
+    it("una versione nuova delle credenziali torna a fare il login", async () => {
+      // Il titolare le ha risalvate o riverificate: `updated_at` è cambiato.
+      rejectNextLogin(new AdeAuthError());
+      const cache = makeCache();
+
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      const result = await cache.run(
+        "biz",
+        { ...LOGIN, credentialVersion: new Date("2026-10-02T08:00:00.000Z") },
+        () => Promise.resolve("ok"),
+      );
+
+      expect(result).toBe("ok");
+      expect(clients[1].login).toHaveBeenCalledTimes(1);
+    });
+
+    it("un login riuscito cancella il rifiuto registrato", async () => {
+      rejectNextLogin(new AdeAuthError());
+      const cache = makeCache();
+      const renewed = {
+        ...LOGIN,
+        credentialVersion: new Date("2026-10-02T08:00:00.000Z"),
+      };
+
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      await cache.run("biz", renewed, () => Promise.resolve(null));
+      // Un'operazione ancora in volo con la versione vecchia non resta
+      // bloccata: la sessione aperta col login riuscito è buona.
+      const late = await cache.run("biz", LOGIN, () => Promise.resolve("ok"));
+
+      expect(late).toBe("ok");
+      expect(createClient).toHaveBeenCalledTimes(2);
+    });
+
+    it("invalidate() cancella il rifiuto: le credenziali sono state risalvate", async () => {
+      rejectNextLogin(new AdeAuthError());
+      const cache = makeCache();
+
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      await cache.invalidate("biz");
+      await cache.run("biz", LOGIN, () => Promise.resolve(null));
+
+      expect(clients[1].login).toHaveBeenCalledTimes(1);
+    });
+
+    it("un errore che non è un rifiuto non ferma il login successivo", async () => {
+      rejectNextLogin(new AdeNetworkError(new Error("ECONNRESET")));
+      const cache = makeCache();
+
+      await expect(
+        cache.run("biz", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeNetworkError);
+      await cache.run("biz", LOGIN, () => Promise.resolve(null));
+
+      expect(clients[1].login).toHaveBeenCalledTimes(1);
+    });
+
+    it("il rifiuto di un business non ferma gli altri", async () => {
+      rejectNextLogin(new AdeAuthError());
+      const cache = makeCache();
+
+      await expect(
+        cache.run("biz-A", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      await cache.run("biz-B", LOGIN, () => Promise.resolve(null));
+
+      expect(clients[1].login).toHaveBeenCalledTimes(1);
+    });
+
+    it("i rifiuti registrati non superano il cap della cache", async () => {
+      createClient = vi.fn(() => {
+        const client = makeFakeClient();
+        if (clients.length < 2) {
+          (client.login as ReturnType<typeof vi.fn>).mockRejectedValue(
+            new AdeAuthError(),
+          );
+        }
+        clients.push(client);
+        return client;
+      });
+      const cache = makeCache({ maxEntries: 1 });
+
+      await expect(
+        cache.run("biz-A", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      await expect(
+        cache.run("biz-B", LOGIN, () => Promise.resolve(null)),
+      ).rejects.toBeInstanceOf(AdeAuthError);
+      // Il rifiuto di A è uscito dal cap: A torna a tentare il login.
+      await cache.run("biz-A", LOGIN, () => Promise.resolve(null));
+
+      expect(createClient).toHaveBeenCalledTimes(3);
+    });
   });
 });

@@ -1459,6 +1459,43 @@ describe("RealAdeClient", () => {
       );
     });
 
+    // Issue #1099: la password cambiata sul portale con una sessione ancora in
+    // cache arriva qui. Tradotto in "sessione scaduta", il rifiuto non fermava
+    // i login automatici successivi e l'esercente leggeva il messaggio
+    // sbagliato.
+    it.each([
+      ["INVALID_CREDENTIALS", AdeAuthError],
+      ["PASSWORD_EXPIRED", AdePasswordExpiredError],
+      ["ACCOUNT_LOCKED", AdeAccountLockedError],
+    ])(
+      "la re-auth respinta con %s risale come rifiuto delle credenziali",
+      async (details, expected) => {
+        mockLoginSequence(fetchMock);
+        await client.login(mockCredentials);
+
+        fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+        fetchMock.mockResolvedValueOnce(
+          mockResponse({ status: 401, body: { details } }),
+        ); // Phase A della re-auth
+
+        await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+          expected,
+        );
+      },
+    );
+
+    it("un guasto di rete durante la re-auth resta AdeSessionExpiredError", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+      fetchMock.mockRejectedValueOnce(new TypeError("fetch failed")); // Phase A
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+    });
+
     it("clearCredentials disables 401 re-auth → AdeSessionExpiredError (PR #624)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);

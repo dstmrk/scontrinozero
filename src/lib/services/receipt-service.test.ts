@@ -425,6 +425,24 @@ describe("emitReceiptForBusiness", () => {
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
+  // Issue #1099: dopo lo stop dei login per password scaduta il codice deve
+  // arrivare al chiamante: la cassa apre il cambio password, `/api/v1`
+  // risponde 409 ADE_PASSWORD_EXPIRED come prima dello stop.
+  it("porta al chiamante il codice di password scaduta dei prerequisiti", async () => {
+    const expired = {
+      error: "La password Fisconline è scaduta.",
+      code: "ADE_PASSWORD_EXPIRED",
+      passwordExpired: true,
+    };
+    mockFetchAdePrerequisites.mockResolvedValue(expired);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result).toEqual(expired);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
   it("ritorna errore se il codice lotteria non rispetta il formato", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness({

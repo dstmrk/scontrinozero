@@ -38,6 +38,7 @@ import {
   AdeUtenzaNotAvailableError,
   AdeUtenzaSelectionRequiredError,
 } from "./errors";
+import { loginRejectionOutcome } from "./verify-outcome";
 import { logger } from "@/lib/logger";
 
 /** Opzioni costruttore per RealAdeClient */
@@ -1966,6 +1967,12 @@ export class RealAdeClient implements AdeClient {
    * stesso fallisce. Lo store interattivo traduce quell'errore in
    * `AdeReauthRequiredError`, cioe' "ri-collegati", che e' l'unica uscita
    * possibile quando il secondo fattore e' umano.
+   *
+   * Eccezione: se l'AdE **rifiuta** le credenziali (errate, password scaduta,
+   * utenza bloccata) il rifiuto risale com'e'. E' il caso della password
+   * cambiata sul portale con una sessione ancora in cache: tradotto in
+   * "sessione scaduta" non fermerebbe i login automatici successivi, e ogni
+   * tentativo con la password vecchia avvicina il blocco (issue #1099).
    */
   private async reauthenticateOrThrow(): Promise<void> {
     if (!this.credentials) {
@@ -1979,7 +1986,8 @@ export class RealAdeClient implements AdeClient {
         knownPiva,
         this.utenzaPiva,
       );
-    } catch {
+    } catch (err) {
+      if (loginRejectionOutcome(err)) throw err;
       throw new AdeSessionExpiredError();
     }
   }

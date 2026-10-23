@@ -17,6 +17,7 @@ import {
 import {
   RECORDED_VERIFY_OUTCOMES,
   classifyAdeLoginFailure,
+  loginRejectionOutcome,
 } from "./verify-outcome";
 
 /**
@@ -84,6 +85,32 @@ describe("classifyAdeLoginFailure", () => {
     for (const err of errors) {
       expect(RECORDED_VERIFY_OUTCOMES).toContain(classifyAdeLoginFailure(err));
     }
+  });
+});
+
+describe("loginRejectionOutcome", () => {
+  it.each([
+    [new AdeAuthError(), "auth_error"],
+    [new AdePasswordExpiredError(), "password_expired"],
+    [new AdeAccountLockedError(), "account_locked"],
+  ])("riconosce %s come rifiuto delle credenziali", (err, expected) => {
+    expect(loginRejectionOutcome(err)).toBe(expected);
+  });
+
+  it.each([
+    // Il login è riuscito: un nuovo tentativo non è un login fallito in più
+    // sull'utenza, quindi non avvicina il blocco.
+    ["utenza da scegliere", new AdeUtenzaSelectionRequiredError([])],
+    ["incarico revocato", new AdeUtenzaNotAvailableError("07790350966")],
+    ["nessuna P.IVA", new AdeNoPartitaIvaError("wizard")],
+    // Un guasto passa da solo: fermare i login per un 503 bloccherebbe la
+    // cassa per un problema che non è delle credenziali.
+    ["rete", new AdeNetworkError(new Error("ECONNRESET"))],
+    ["5xx del portale", new AdePortalError(503, "Service Unavailable")],
+    ["sessione interattiva da rifare", new AdeReauthRequiredError("cie")],
+    ["errore sconosciuto", new Error("boh")],
+  ])("non tratta %s come rifiuto", (_label, err) => {
+    expect(loginRejectionOutcome(err)).toBeNull();
   });
 });
 

@@ -11,6 +11,12 @@ import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
 import { adeSessionCache } from "./session-cache";
 import type { AdeSession } from "./client";
+import {
+  AdeAccountLockedError,
+  AdeAuthError,
+  AdeNetworkError,
+  AdePasswordExpiredError,
+} from "./errors";
 
 const FAKE_CREDENTIALS = {
   codiceFiscale: "RSSMRA80A01H501U",
@@ -22,6 +28,19 @@ const FAKE_SESSION: AdeSession = {
   partitaIva: "01234567890",
   createdAt: 0,
 };
+const CREDENTIAL_VERSION = new Date("2026-10-01T08:00:00.000Z");
+
+/** Parametri Fisconline come li costruisce `toAdeSessionParams`. */
+function fisconlineParams(overrides: { utenzaPiva?: string } = {}) {
+  return {
+    businessId: "biz-1",
+    method: "fisconline" as const,
+    credentials: FAKE_CREDENTIALS,
+    credentialVersion: CREDENTIAL_VERSION,
+    onLoginRejected: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
 
 describe("getAdeMode", () => {
   afterEach(() => {
@@ -134,14 +153,7 @@ describe("withAdeSession (mock mode)", () => {
       .mockResolvedValue();
     const fn = vi.fn().mockResolvedValue("done");
 
-    const result = await withAdeSession(
-      {
-        businessId: "biz-1",
-        method: "fisconline",
-        credentials: FAKE_CREDENTIALS,
-      },
-      fn,
-    );
+    const result = await withAdeSession(fisconlineParams(), fn);
 
     expect(result).toBe("done");
     expect(loginSpy).toHaveBeenCalledWith(FAKE_CREDENTIALS, undefined);
@@ -156,13 +168,8 @@ describe("withAdeSession (mock mode)", () => {
       new Error("logout boom"),
     );
 
-    const result = await withAdeSession(
-      {
-        businessId: "biz-1",
-        method: "fisconline",
-        credentials: FAKE_CREDENTIALS,
-      },
-      () => Promise.resolve("ok"),
+    const result = await withAdeSession(fisconlineParams(), () =>
+      Promise.resolve("ok"),
     );
 
     expect(result).toBe("ok");
@@ -176,13 +183,8 @@ describe("withAdeSession (mock mode)", () => {
       .mockResolvedValue();
 
     await expect(
-      withAdeSession(
-        {
-          businessId: "biz-1",
-          method: "fisconline",
-          credentials: FAKE_CREDENTIALS,
-        },
-        () => Promise.reject(new Error("boom")),
+      withAdeSession(fisconlineParams(), () =>
+        Promise.reject(new Error("boom")),
       ),
     ).rejects.toThrow("boom");
 
@@ -196,19 +198,16 @@ describe("withAdeSession (mock mode)", () => {
       .mockResolvedValue("from-cache" as never);
     const fn = vi.fn();
 
-    const result = await withAdeSession(
-      {
-        businessId: "biz-1",
-        method: "fisconline",
-        credentials: FAKE_CREDENTIALS,
-      },
-      fn,
-    );
+    const result = await withAdeSession(fisconlineParams(), fn);
 
     expect(result).toBe("from-cache");
     expect(runSpy).toHaveBeenCalledWith(
       "biz-1",
-      { credentials: FAKE_CREDENTIALS, utenzaPiva: undefined },
+      {
+        credentials: FAKE_CREDENTIALS,
+        utenzaPiva: undefined,
+        credentialVersion: CREDENTIAL_VERSION,
+      },
       fn,
     );
   });
@@ -222,19 +221,15 @@ describe("withAdeSession (mock mode)", () => {
       .mockResolvedValue("from-cache" as never);
     const fn = vi.fn();
 
-    await withAdeSession(
-      {
-        businessId: "biz-1",
-        method: "fisconline",
-        credentials: FAKE_CREDENTIALS,
-        utenzaPiva: "07790350966",
-      },
-      fn,
-    );
+    await withAdeSession(fisconlineParams({ utenzaPiva: "07790350966" }), fn);
 
     expect(runSpy).toHaveBeenCalledWith(
       "biz-1",
-      { credentials: FAKE_CREDENTIALS, utenzaPiva: "07790350966" },
+      {
+        credentials: FAKE_CREDENTIALS,
+        utenzaPiva: "07790350966",
+        credentialVersion: CREDENTIAL_VERSION,
+      },
       fn,
     );
   });
@@ -243,17 +238,74 @@ describe("withAdeSession (mock mode)", () => {
     vi.stubEnv("ADE_MODE", "mock");
 
     const partitaIva = await withAdeSession(
-      {
-        businessId: "biz-1",
-        method: "fisconline",
-        credentials: FAKE_CREDENTIALS,
-        utenzaPiva: "07790350966",
-      },
+      fisconlineParams({ utenzaPiva: "07790350966" }),
       async (client) =>
         (await client.getFiscalData()).identificativiFiscali.partitaIva,
     );
 
     expect(partitaIva).toBe("07790350966");
+  });
+});
+
+// Issue #1099: un rifiuto delle credenziali durante un login automatico deve
+// arrivare al DB, che ferma le operazioni successive prima del login. Qui si
+// prova solo il ponte: chi scrive il DB è `toAdeSessionParams`.
+describe("withAdeSession (credenziali rifiutate)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    ["auth_error", () => new AdeAuthError()],
+    ["password_expired", () => new AdePasswordExpiredError()],
+    ["account_locked", () => new AdeAccountLockedError()],
+  ])(
+    "real mode: segnala %s e rilancia lo stesso errore",
+    async (outcome, makeError) => {
+      vi.stubEnv("ADE_MODE", "real");
+      const rejection = makeError();
+      vi.spyOn(adeSessionCache, "run").mockRejectedValue(rejection);
+      const params = fisconlineParams();
+
+      await expect(withAdeSession(params, vi.fn())).rejects.toBe(rejection);
+      expect(params.onLoginRejected).toHaveBeenCalledWith(outcome);
+    },
+  );
+
+  it("mock mode: segnala anche il rifiuto del login per operazione", async () => {
+    vi.stubEnv("ADE_MODE", "mock");
+    vi.spyOn(MockAdeClient.prototype, "login").mockRejectedValue(
+      new AdeAuthError(),
+    );
+    const params = fisconlineParams();
+
+    await expect(withAdeSession(params, vi.fn())).rejects.toBeInstanceOf(
+      AdeAuthError,
+    );
+    expect(params.onLoginRejected).toHaveBeenCalledWith("auth_error");
+  });
+
+  it("un errore che non è un rifiuto non viene segnalato", async () => {
+    vi.stubEnv("ADE_MODE", "real");
+    vi.spyOn(adeSessionCache, "run").mockRejectedValue(
+      new AdeNetworkError(new Error("ECONNRESET")),
+    );
+    const params = fisconlineParams();
+
+    await expect(withAdeSession(params, vi.fn())).rejects.toBeInstanceOf(
+      AdeNetworkError,
+    );
+    expect(params.onLoginRejected).not.toHaveBeenCalled();
+  });
+
+  it("un'operazione riuscita non segnala nulla", async () => {
+    vi.stubEnv("ADE_MODE", "real");
+    vi.spyOn(adeSessionCache, "run").mockResolvedValue("ok" as never);
+    const params = fisconlineParams();
+
+    await expect(withAdeSession(params, vi.fn())).resolves.toBe("ok");
+    expect(params.onLoginRejected).not.toHaveBeenCalled();
   });
 });
 

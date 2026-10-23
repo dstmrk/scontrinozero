@@ -10,6 +10,10 @@ import { RealAdeClient } from "./real-client";
 import { adeSessionCache, type AdeLoginInputs } from "./session-cache";
 import { adeInteractiveSessionStore } from "./interactive-session-store";
 import type { InteractiveMethod } from "./types";
+import {
+  loginRejectionOutcome,
+  type LoginRejectionOutcome,
+} from "./verify-outcome";
 import { logger } from "@/lib/logger";
 
 export type AdeMode = "mock" | "real";
@@ -80,7 +84,17 @@ export function createAdeClient(
  *    `AdeReauthRequiredError` col metodo.
  */
 export type WithAdeSessionParams =
-  | ({ businessId: string; method: "fisconline" } & AdeLoginInputs)
+  | ({
+      businessId: string;
+      method: "fisconline";
+      /**
+       * Chiamata quando l'AdE rifiuta le credenziali salvate (issue #1099), con
+       * l'esito da registrare. È il ponte verso il DB, che questo modulo non
+       * conosce: la costruisce `toAdeSessionParams`. Non deve lanciare, o
+       * sostituirebbe il rifiuto con un errore suo.
+       */
+      onLoginRejected: (outcome: LoginRejectionOutcome) => Promise<void>;
+    } & AdeLoginInputs)
   | { businessId: string; method: InteractiveMethod };
 
 /**
@@ -94,8 +108,27 @@ export type WithAdeSessionParams =
  * - `ADE_MODE=mock`: nessuna cache. Login (o adozione finta, per SPID) +
  *   logout per-operazione, così in dev/sandbox anche i metodi interattivi danno
  *   un OK immediato senza sessione depositata.
+ *
+ * Su Fisconline, in entrambi i modi, un rifiuto delle credenziali passa da
+ * `onLoginRejected` prima di risalire al chiamante (issue #1099).
  */
 export async function withAdeSession<T>(
+  params: WithAdeSessionParams,
+  fn: (client: AdeClient) => Promise<T>,
+): Promise<T> {
+  try {
+    return await runWithAdeSession(params, fn);
+  } catch (err) {
+    // Solo Fisconline: CIE e SPID non hanno login automatici da fermare.
+    if (params.method === "fisconline") {
+      const outcome = loginRejectionOutcome(err);
+      if (outcome) await params.onLoginRejected(outcome);
+    }
+    throw err;
+  }
+}
+
+async function runWithAdeSession<T>(
   params: WithAdeSessionParams,
   fn: (client: AdeClient) => Promise<T>,
 ): Promise<T> {
@@ -125,7 +158,11 @@ export async function withAdeSession<T>(
 
   return adeSessionCache.run(
     params.businessId,
-    { credentials: params.credentials, utenzaPiva: params.utenzaPiva },
+    {
+      credentials: params.credentials,
+      utenzaPiva: params.utenzaPiva,
+      credentialVersion: params.credentialVersion,
+    },
     fn,
   );
 }

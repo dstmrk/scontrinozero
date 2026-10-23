@@ -11,7 +11,10 @@
  *  - un **lock async** (catena di Promise) serializza le operazioni concorrenti
  *    → due emit ravvicinate riusano un solo login invece di gareggiare;
  *  - una **entry** conserva il client autenticato (AdeSession + CookieJar) con
- *    TTL sotto la scadenza sessione AdE e cap **LRU**.
+ *    TTL sotto la scadenza sessione AdE e cap **LRU**;
+ *  - un **rifiuto** ricorda l'ultimo login respinto per credenziali (errate,
+ *    password scaduta, utenza bloccata), così le operazioni già in coda non lo
+ *    ripetono con la stessa password (issue #1099).
  *
  * Sicurezza (PR #624): la entry conserva solo i cookie di sessione. Le
  * credenziali decifrate vengono re-iniettate per la singola operazione (così il
@@ -22,6 +25,7 @@
 import type { AdeClient } from "./client";
 import type { FisconlineCredentials } from "./types";
 import { RealAdeClient } from "./real-client";
+import { loginRejectionOutcome } from "./verify-outcome";
 import { logger } from "@/lib/logger";
 
 /**
@@ -47,6 +51,17 @@ export interface CachedAdeClient extends AdeClient {
 export interface AdeLoginInputs {
   credentials: FisconlineCredentials;
   utenzaPiva?: string;
+  /**
+   * `ade_credentials.updated_at` letto insieme alle credenziali. Identifica
+   * *quali* credenziali sono state rifiutate: un salvataggio o una verifica
+   * riuscita lo cambiano, e da lì il login torna a essere tentato.
+   */
+  credentialVersion: Date;
+}
+
+interface RejectedLogin {
+  credentialVersion: number;
+  error: Error;
 }
 
 /** TTL di default: sotto la scadenza sessione AdE (~20 min osservati). */
@@ -79,6 +94,13 @@ export class AdeSessionCache {
   private readonly entries = new Map<string, CacheEntry>();
   /** Lock per-business: coda di Promise che serializza le operazioni. */
   private readonly chains = new Map<string, Promise<unknown>>();
+  /**
+   * Ultimo rifiuto delle credenziali per business (issue #1099). Copre le
+   * operazioni già accodate nel lock, che hanno letto le credenziali prima
+   * che il rifiuto arrivasse al DB: con lo stesso `credentialVersion`
+   * falliscono senza contattare l'AdE. Stesso cap LRU delle sessioni.
+   */
+  private readonly rejections = new Map<string, RejectedLogin>();
 
   constructor(options: AdeSessionCacheOptions = {}) {
     this.ttlMs = options.ttlMs ?? DEFAULT_ADE_SESSION_TTL_MS;
@@ -118,6 +140,7 @@ export class AdeSessionCache {
    * Esegue il logout best-effort e rimuove la entry.
    */
   async invalidate(businessId: string): Promise<void> {
+    this.rejections.delete(businessId);
     const entry = this.entries.get(businessId);
     if (!entry) return;
     this.entries.delete(businessId);
@@ -131,7 +154,15 @@ export class AdeSessionCache {
     login: AdeLoginInputs,
     fn: (client: AdeClient) => Promise<T>,
   ): Promise<T> {
-    const entry = await this.acquireEntry(businessId, login);
+    this.throwIfRejected(businessId, login);
+
+    let entry: CacheEntry;
+    try {
+      entry = await this.acquireEntry(businessId, login);
+    } catch (err) {
+      this.recordRejection(businessId, login, err);
+      throw err;
+    }
 
     try {
       return await fn(entry.client);
@@ -140,11 +171,45 @@ export class AdeSessionCache {
       // operazione ri-effettua il login pulito invece di riusare uno stato rotto.
       this.entries.delete(businessId);
       await entry.client.logout().catch(() => {});
+      // Un rifiuto qui viene dalla re-auth su 401 dentro l'operazione.
+      this.recordRejection(businessId, login, err);
       throw err;
     } finally {
       // Mai trattenere le credenziali decifrate nella cache long-lived.
       entry.client.clearCredentials();
     }
+  }
+
+  /**
+   * Rilancia il rifiuto già ricevuto se l'operazione porta le stesse
+   * credenziali: un secondo login con la stessa password sbagliata è solo un
+   * passo in più verso il blocco dell'utenza.
+   */
+  private throwIfRejected(businessId: string, login: AdeLoginInputs): void {
+    const rejected = this.rejections.get(businessId);
+    if (rejected?.credentialVersion !== login.credentialVersion.getTime()) {
+      return;
+    }
+    logger.info(
+      { businessId, event: "ade_login_skipped_rejected_credentials" },
+      "AdE login skipped: stored credentials already rejected",
+    );
+    throw rejected.error;
+  }
+
+  private recordRejection(
+    businessId: string,
+    login: AdeLoginInputs,
+    err: unknown,
+  ): void {
+    if (!(err instanceof Error) || !loginRejectionOutcome(err)) return;
+    // delete + set: la entry più recente va in coda, come per le sessioni.
+    this.rejections.delete(businessId);
+    this.rejections.set(businessId, {
+      credentialVersion: login.credentialVersion.getTime(),
+      error: err,
+    });
+    trimOldest(this.rejections, this.maxEntries);
   }
 
   private async acquireEntry(
@@ -177,6 +242,7 @@ export class AdeSessionCache {
 
     const client = this.createClient();
     await client.login(login.credentials, login.utenzaPiva);
+    this.rejections.delete(businessId);
     const entry: CacheEntry = { client, expiresAt: this.now() + this.ttlMs };
     this.entries.set(businessId, entry);
     this.evictIfNeeded();
@@ -188,14 +254,8 @@ export class AdeSessionCache {
   }
 
   private evictIfNeeded(): void {
-    while (this.entries.size > this.maxEntries) {
-      const oldestKey = this.entries.keys().next().value;
-      if (oldestKey === undefined) break;
-      const oldest = this.entries.get(oldestKey);
-      this.entries.delete(oldestKey);
-      if (oldest) {
-        void oldest.client.logout().catch(() => {});
-      }
+    for (const oldest of trimOldest(this.entries, this.maxEntries)) {
+      void oldest.client.logout().catch(() => {});
     }
   }
 
@@ -203,6 +263,20 @@ export class AdeSessionCache {
   get size(): number {
     return this.entries.size;
   }
+}
+
+/**
+ * Toglie da `map` le chiavi più vecchie (ordine d'inserimento = LRU) finché
+ * non rientra in `max`, e restituisce i valori tolti.
+ */
+function trimOldest<K, V>(map: Map<K, V>, max: number): V[] {
+  const removed: V[] = [];
+  for (const [key, value] of map) {
+    if (map.size <= max) break;
+    map.delete(key);
+    removed.push(value);
+  }
+  return removed;
 }
 
 /** Cache singleton usata in produzione. */

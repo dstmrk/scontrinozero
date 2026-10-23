@@ -102,3 +102,32 @@ export function classifyAdeLoginFailure(err: unknown): RecordedVerifyOutcome {
   if (isTransientAdeError(err)) return "transient";
   return "failure";
 }
+
+/** Gli esiti di login dopo cui ritentare con gli stessi dati è un danno. */
+export type LoginRejectionOutcome =
+  "auth_error" | "password_expired" | "account_locked";
+
+/**
+ * Esito da registrare quando l'AdE **rifiuta** le credenziali salvate, `null`
+ * per ogni altro errore.
+ *
+ * Sono i tre casi in cui gli stessi input danno per forza lo stesso esito e
+ * ogni nuovo tentativo è un login fallito in più sull'utenza, che l'AdE può
+ * trasformare in `ACCOUNT_LOCKED`. È il criterio con cui un login automatico
+ * (emissione, annullo, reso, ricerca) smette di riprovare finché il titolare
+ * non riverifica. Restano fuori i rami post-login (utenza da scegliere,
+ * nessuna P.IVA: il login è riuscito) e i transitori, che passano da soli.
+ */
+export function loginRejectionOutcome(
+  err: unknown,
+): LoginRejectionOutcome | null {
+  const outcome = classifyAdeLoginFailure(err);
+  if (
+    outcome === "auth_error" ||
+    outcome === "password_expired" ||
+    outcome === "account_locked"
+  ) {
+    return outcome;
+  }
+  return null;
+}

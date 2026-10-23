@@ -11,6 +11,8 @@ import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore, InteractiveMethod } from "@/lib/ade/types";
 import type { WithAdeSessionParams } from "@/lib/ade";
+import type { LoginRejectionOutcome } from "@/lib/ade/verify-outcome";
+import { PASSWORD_EXPIRED_MESSAGE } from "@/lib/ade/error-messages";
 export type { User } from "@supabase/supabase-js";
 
 export type BusinessOwnershipError = { error: string };
@@ -26,6 +28,12 @@ export type AdePrerequisites =
        * Assente = la P.IVA è intestata a chi accede, il caso storico.
        */
       utenzaPiva?: string;
+      /**
+       * `updated_at` della riga credenziali letta qui (issue #1099). Lega un
+       * eventuale rifiuto dell'AdE a *queste* credenziali: se nel frattempo
+       * vengono risalvate, il rifiuto non le tocca.
+       */
+      credentialVersion: Date;
       cedentePrestatore: AdeCedentePrestatore;
     }
   | {
@@ -35,6 +43,17 @@ export type AdePrerequisites =
       method: InteractiveMethod;
       cedentePrestatore: AdeCedentePrestatore;
     };
+
+/**
+ * Prerequisiti AdE mancanti. `code` e `passwordExpired` ci sono solo per la
+ * password Fisconline scaduta, con gli stessi valori che emissione, annullo e
+ * reso restituiscono quando la scoprono al login.
+ */
+export type AdePrerequisitesError = {
+  error: string;
+  code?: "ADE_PASSWORD_EXPIRED";
+  passwordExpired?: true;
+};
 
 /**
  * Mappa `AdePrerequisites` → `WithAdeSessionParams` (PR #752).
@@ -63,7 +82,72 @@ export function toAdeSessionParams(
       pin: prerequisites.pin,
     },
     utenzaPiva: prerequisites.utenzaPiva,
+    credentialVersion: prerequisites.credentialVersion,
+    onLoginRejected: (outcome) =>
+      markFisconlineCredentialsRejected(
+        businessId,
+        prerequisites.credentialVersion,
+        outcome,
+      ),
   };
+}
+
+/**
+ * Ferma i login automatici di un business dopo che l'AdE ha rifiutato le sue
+ * credenziali Fisconline (issue #1099): `verified_at = NULL`, così
+ * `fetchAdePrerequisites` blocca emissione, annullo, reso e ricerca **prima**
+ * del login, finché il titolare non risalva o riverifica dalle impostazioni.
+ * Senza, ogni operazione rifaceva il login con la stessa password sbagliata, e
+ * con più persone alla cassa l'utenza finiva bloccata dall'AdE.
+ *
+ * Scrittura in SQL raw per non far scattare `$onUpdate` su `updated_at`: è la
+ * versione delle credenziali salvate per la pagina impostazioni e per il lock
+ * ottimistico della verifica, e qui le credenziali non cambiano. Lo stesso
+ * `updated_at` fa da guardia: credenziali risalvate dopo la lettura non
+ * vengono invalidate. `verified_at IS NOT NULL` rende la scrittura idempotente
+ * per le operazioni accodate che riportano lo stesso rifiuto.
+ *
+ * Registra l'esito su `last_verify_outcome` ma non incrementa
+ * `verify_attempts`, che conta i tentativi fatti dall'esercente.
+ *
+ * Non lancia: un errore qui sostituirebbe il rifiuto dell'AdE, che è
+ * l'informazione utile per chi sta alla cassa.
+ */
+async function markFisconlineCredentialsRejected(
+  businessId: string,
+  credentialVersion: Date,
+  outcome: LoginRejectionOutcome,
+): Promise<void> {
+  try {
+    const db = getDb();
+    const rows = (await db.execute(sql`
+      UPDATE ade_credentials
+         SET verified_at = NULL,
+             last_verify_outcome = ${outcome},
+             last_verify_at = now()
+       WHERE business_id = ${businessId}::uuid
+         AND login_method = 'fisconline'
+         AND verified_at IS NOT NULL
+         AND date_trunc('milliseconds', updated_at) = ${credentialVersion.toISOString()}::timestamptz
+      RETURNING id
+    `)) as unknown as { id: string }[];
+    if (rows.length > 0) {
+      logger.warn(
+        { businessId, outcome, event: "ade_auto_login_stopped" },
+        "AdE ha rifiutato le credenziali Fisconline: login automatici fermati fino a nuova verifica",
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      {
+        err,
+        businessId,
+        outcome,
+        errorClass: "ade_credentials_rejected_write",
+      },
+      "markFisconlineCredentialsRejected: rifiuto non registrato",
+    );
+  }
 }
 
 /**
@@ -183,6 +267,25 @@ export async function checkBusinessOwnership(
 }
 
 /**
+ * True se l'ultimo esito registrato è una password scaduta **e** descrive le
+ * credenziali salvate ora. Il salvataggio non azzera `last_verify_outcome`
+ * (resta per le metriche di onboarding), quindi un esito più vecchio
+ * dell'ultimo `updated_at` parla di una password già sostituita: stesso
+ * criterio con cui `AdeCredentialsSection` scarta un errore di verifica vecchio.
+ */
+function isPasswordExpiredOnStoredCredentials(cred: {
+  lastVerifyOutcome: string | null;
+  lastVerifyAt: Date | null;
+  updatedAt: Date;
+}): boolean {
+  return (
+    cred.lastVerifyOutcome === "password_expired" &&
+    cred.lastVerifyAt !== null &&
+    cred.lastVerifyAt.getTime() >= cred.updatedAt.getTime()
+  );
+}
+
+/**
  * Fetches, validates, and decrypts AdE credentials for a business,
  * and builds the cedente/prestatore from local business data.
  * Returns an error object if any prerequisite is missing or invalid.
@@ -191,7 +294,7 @@ export async function checkBusinessOwnership(
  */
 export async function fetchAdePrerequisites(
   businessId: string,
-): Promise<AdePrerequisites | { error: string }> {
+): Promise<AdePrerequisites | AdePrerequisitesError> {
   const db = getDb();
 
   const [row] = await db
@@ -207,6 +310,17 @@ export async function fetchAdePrerequisites(
     };
   }
   if (!row.cred.verifiedAt) {
+    // Login fermati per password scaduta (issue #1099), o verifica rimasta
+    // ferma lì: stesso codice del login che l'ha scoperta. È contratto
+    // pubblico (`409 ADE_PASSWORD_EXPIRED`, DEVELOPER.md) e in cassa apre il
+    // cambio password.
+    if (isPasswordExpiredOnStoredCredentials(row.cred)) {
+      return {
+        error: PASSWORD_EXPIRED_MESSAGE,
+        code: "ADE_PASSWORD_EXPIRED",
+        passwordExpired: true,
+      };
+    }
     return {
       error:
         "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
@@ -248,6 +362,7 @@ export async function fetchAdePrerequisites(
     password,
     pin,
     utenzaPiva: row.cred.utenzaPiva ?? undefined,
+    credentialVersion: row.cred.updatedAt,
     cedentePrestatore,
   };
 }
