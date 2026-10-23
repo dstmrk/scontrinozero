@@ -214,15 +214,16 @@ export default function PianiEPrezziPage() {
           <strong>Serve Fisconline.</strong> Con CIE o SPID ogni nuova sessione
           AdE richiede il titolare, quindi con i collaboratori servono le
           credenziali Fisconline, tue o del gestore incaricato. Se non le hai,
-          vedi{" "}
+          con la richiesta online le ultime 6 cifre del PIN arrivano per posta
+          entro 15 giorni.
+        </p>
+        <p className="mt-2 text-sm">
           <a
             href="/help/credenziali-fisconline"
             className="text-primary hover:underline"
           >
-            come ottenere le credenziali Fisconline
+            Come ottenere le credenziali Fisconline
           </a>
-          : con la richiesta online le ultime 6 cifre del PIN arrivano per posta
-          entro 15 giorni.
         </p>
 
         {/* ─── Self-hosted ─── */}
