@@ -187,10 +187,7 @@ export class AdeSessionCache {
    */
   private throwIfRejected(businessId: string, login: AdeLoginInputs): void {
     const rejected = this.rejections.get(businessId);
-    if (
-      !rejected ||
-      rejected.credentialVersion !== login.credentialVersion.getTime()
-    ) {
+    if (rejected?.credentialVersion !== login.credentialVersion.getTime()) {
       return;
     }
     logger.info(
