@@ -341,6 +341,35 @@ salvata. Per questo `verifyAdeCredentials` alza `credentialsRejected` solo su
 credenziali non viene risalvata (`updated_at` cambia). Su `ACCOUNT_LOCKED` il
 bottone resta: una volta sbloccata l'utenza, gli stessi dati sono giusti.
 
+Lo stesso vale, moltiplicato, per i **login automatici** (emissione, annullo,
+reso, ricerca, verifica dei pending), che nessuno guarda. Fino alla issue
+#1099 un rifiuto in emissione non toccava `verified_at`, e ogni operazione
+successiva rifaceva il login con la stessa password: con più persone alla
+cassa bastano pochi minuti per far bloccare l'utenza. Ora il primo rifiuto
+(`loginRejectionOutcome` in `src/lib/ade/verify-outcome.ts`: `auth_error`,
+`password_expired`, `account_locked`, mai i transitori né i rami post-login)
+ferma tutto su due livelli:
+
+- **DB**: `onLoginRejected` azzera `verified_at` e registra l'esito, in SQL
+  raw (niente bump di `updated_at`) e con lock ottimistico su `updated_at`
+  (credenziali risalvate nel frattempo restano buone). `fetchAdePrerequisites`
+  blocca prima del login. Non incrementa `verify_attempts`: non è un tentativo
+  dell'esercente.
+- **Memoria**: le operazioni già in coda nel lock per-business hanno letto le
+  credenziali prima del rifiuto. `AdeSessionCache` le fa fallire con lo
+  stesso errore se portano lo stesso `credentialVersion`; un login riuscito o
+  `invalidate()` cancellano il marker.
+
+Due trappole. La re-auth su 401 traduceva ogni fallimento in
+`AdeSessionExpiredError`: un rifiuto delle credenziali deve risalire com'è,
+o non ferma nulla. E `last_verify_outcome` **non** si azzera al salvataggio,
+quindi chi lo legge per decidere un messaggio deve controllare che sia più
+recente di `updated_at` (`isPasswordExpiredOnStoredCredentials` in
+`src/lib/server-auth.ts`). Lì sta anche il motivo per cui la password scaduta
+risponde ancora `ADE_PASSWORD_EXPIRED` dopo lo stop: `409` è contratto
+pubblico di `/api/v1`, e "credenziali non verificate" sarebbe uscito come
+`422 ADE_REJECTED`.
+
 ### Failure mode noto: `200` senza P.IVA = utenza sbagliata, non guasto
 
 `wizardTemplate` (Fisconline/CIE, Phase F) o `dati/fiscali` / `gestori/me`

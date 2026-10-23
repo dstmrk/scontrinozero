@@ -29,7 +29,15 @@
    è riusata fra operazioni ravvicinate dello stesso business via
    `withAdeSession` + `src/lib/ade/session-cache.ts` (cache in-process con TTL/LRU
    e lock per-business), invalidata su cambio credenziali. Evita di ripetere il
-   login (~10 round-trip, latenza dominante) a ogni emissione.
+   login (~10 round-trip, latenza dominante) a ogni emissione. Se l'AdE
+   **rifiuta** le credenziali (errate, password scaduta, utenza bloccata) i
+   login automatici si fermano al primo rifiuto (issue #1099): la cache
+   rilancia lo stesso errore alle operazioni già in coda con le stesse
+   credenziali, e `onLoginRejected` (cablato da `toAdeSessionParams` in
+   `src/lib/server-auth.ts`) azzera `ade_credentials.verified_at`. Da lì
+   `fetchAdePrerequisites` ferma l'operazione prima del login finché il
+   titolare non risalva o riverifica; con la password scaduta risponde
+   `ADE_PASSWORD_EXPIRED` come il login che l'ha scoperta.
 5. **Ramo interattivo** (login method `cie` o `spid`): la sessione vive in
    `src/lib/ade/interactive-session-store.ts` e **non è rinnovabile in
    silenzio** (push CIE, o login SPID nella webview dell'app nativa adottato

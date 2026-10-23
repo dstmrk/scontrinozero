@@ -80,6 +80,7 @@ const FAKE_CRED = {
   encryptedPin: "enc-pin",
   keyVersion: 1,
   verifiedAt: new Date(),
+  updatedAt: new Date("2026-10-01T08:00:00.123Z"),
 };
 
 // --- Tests ---
@@ -290,6 +291,19 @@ describe("server-auth", () => {
       expect(mockBuildCedenteFromBusiness).toHaveBeenCalledWith(FAKE_BUSINESS);
     });
 
+    // Issue #1099: è la versione con cui un rifiuto dell'AdE viene registrato
+    // senza invalidare credenziali risalvate nel frattempo.
+    it("espone updated_at della riga come versione delle credenziali", async () => {
+      mockLimit.mockResolvedValueOnce([
+        { cred: FAKE_CRED, business: FAKE_BUSINESS },
+      ]);
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect(result).toMatchObject({ credentialVersion: FAKE_CRED.updatedAt });
+    });
+
     // Regressione v1.8.4 (HAR.md #18): senza questo campo l'emissione apriva
     // un login senza scelta dell'utenza di lavoro e il portale la rifiutava,
     // pur avendola l'esercente già scelta in onboarding.
@@ -366,10 +380,89 @@ describe("server-auth", () => {
       });
       expect(mockBuildCedenteFromBusiness).not.toHaveBeenCalled();
     });
+
+    // Issue #1099: dopo lo stop dei login per password scaduta, ogni chiamata
+    // successiva deve portare lo stesso codice della prima. `409
+    // ADE_PASSWORD_EXPIRED` è contratto pubblico (DEVELOPER.md): degradarlo a
+    // "non verificate" lo farebbe diventare `422 ADE_REJECTED`.
+    it("con la password scaduta registrata risponde col codice del login che l'ha scoperta", async () => {
+      mockLimit.mockResolvedValueOnce([
+        {
+          cred: {
+            ...FAKE_CRED,
+            verifiedAt: null,
+            lastVerifyOutcome: "password_expired",
+            lastVerifyAt: new Date("2026-10-01T09:00:00.000Z"),
+          },
+          business: FAKE_BUSINESS,
+        },
+      ]);
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect(result).toEqual({
+        error: "La password Fisconline è scaduta.",
+        code: "ADE_PASSWORD_EXPIRED",
+        passwordExpired: true,
+      });
+    });
+
+    // Il salvataggio non azzera `last_verify_outcome`: dopo che il titolare ha
+    // inserito la password nuova, l'esito vecchio non descrive più le
+    // credenziali salvate e "password scaduta" sarebbe falso.
+    it.each([
+      ["risalvate dopo l'esito", new Date("2026-10-01T07:00:00.000Z")],
+      ["senza data dell'esito", null],
+    ])(
+      "una password scaduta registrata su credenziali %s non vale più",
+      async (_label, lastVerifyAt) => {
+        mockLimit.mockResolvedValueOnce([
+          {
+            cred: {
+              ...FAKE_CRED,
+              verifiedAt: null,
+              lastVerifyOutcome: "password_expired",
+              lastVerifyAt,
+            },
+            business: FAKE_BUSINESS,
+          },
+        ]);
+
+        const { fetchAdePrerequisites } = await import("./server-auth");
+        const result = await fetchAdePrerequisites("biz-789");
+
+        expect(result).toEqual({
+          error:
+            "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+        });
+      },
+    );
+
+    it.each(["auth_error", "account_locked", "success", null])(
+      "con esito %s e credenziali non verificate resta il messaggio generico",
+      async (lastVerifyOutcome) => {
+        mockLimit.mockResolvedValueOnce([
+          {
+            cred: { ...FAKE_CRED, verifiedAt: null, lastVerifyOutcome },
+            business: FAKE_BUSINESS,
+          },
+        ]);
+
+        const { fetchAdePrerequisites } = await import("./server-auth");
+        const result = await fetchAdePrerequisites("biz-789");
+
+        expect(result).toEqual({
+          error:
+            "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+        });
+      },
+    );
   });
 
   describe("toAdeSessionParams", () => {
     const CEDENTE = { built: "cedente" } as never;
+    const CREDENTIAL_VERSION = new Date("2026-10-01T08:00:00.123Z");
 
     it("maps fisconline prerequisites to session params with credentials", async () => {
       const { toAdeSessionParams } = await import("./server-auth");
@@ -379,6 +472,7 @@ describe("server-auth", () => {
         codiceFiscale: "RSSMRA80A01H501U",
         password: "secret-pw",
         pin: "12345678",
+        credentialVersion: CREDENTIAL_VERSION,
         cedentePrestatore: CEDENTE,
       });
 
@@ -390,6 +484,8 @@ describe("server-auth", () => {
           password: "secret-pw",
           pin: "12345678",
         },
+        credentialVersion: CREDENTIAL_VERSION,
+        onLoginRejected: expect.any(Function),
       });
     });
 
@@ -402,6 +498,7 @@ describe("server-auth", () => {
         password: "secret-pw",
         pin: "12345678",
         utenzaPiva: "07790350966",
+        credentialVersion: CREDENTIAL_VERSION,
         cedentePrestatore: CEDENTE,
       });
 
@@ -422,5 +519,92 @@ describe("server-auth", () => {
         expect(params).not.toHaveProperty("credentials");
       },
     );
+
+    // Issue #1099: dopo un rifiuto dell'AdE le operazioni successive devono
+    // fermarsi a `fetchAdePrerequisites`, prima del login. Il DB è il punto
+    // che sopravvive a un riavvio e che la pagina impostazioni già legge.
+    describe("onLoginRejected", () => {
+      async function rejectedParams() {
+        const { toAdeSessionParams } = await import("./server-auth");
+        const params = toAdeSessionParams("biz-789", {
+          method: "fisconline",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "secret-pw",
+          pin: "12345678",
+          credentialVersion: CREDENTIAL_VERSION,
+          cedentePrestatore: CEDENTE,
+        });
+        if (params.method !== "fisconline")
+          throw new Error("fisconline atteso");
+        return params;
+      }
+
+      it("azzera verified_at e registra l'esito, senza toccare updated_at", async () => {
+        mockExecute.mockResolvedValueOnce([{ id: "cred-1" }]);
+        const params = await rejectedParams();
+
+        await params.onLoginRejected("auth_error");
+
+        expect(mockExecute).toHaveBeenCalledTimes(1);
+        const sqlText = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+        expect(sqlText).toContain("verified_at = NULL");
+        expect(sqlText).toContain("last_verify_outcome");
+        expect(sqlText).toContain("auth_error");
+        expect(sqlText).toContain("biz-789");
+        // Raw SQL: un builder Drizzle farebbe scattare $onUpdate su
+        // updated_at, che la pagina impostazioni usa come versione delle
+        // credenziali salvate.
+        expect(sqlText).not.toMatch(/updated_at\s*=\s*now/);
+      });
+
+      it("non invalida credenziali risalvate o già fermate", async () => {
+        mockExecute.mockResolvedValueOnce([]);
+        const params = await rejectedParams();
+
+        await params.onLoginRejected("password_expired");
+
+        const sqlText = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+        // Lock ottimistico sulla versione letta con le credenziali.
+        expect(sqlText).toContain("date_trunc('milliseconds', updated_at)");
+        expect(sqlText).toContain(CREDENTIAL_VERSION.toISOString());
+        expect(sqlText).toContain("verified_at IS NOT NULL");
+        expect(sqlText).toContain("login_method = 'fisconline'");
+      });
+
+      it("logga una volta sola, quando ferma davvero i login", async () => {
+        mockExecute.mockResolvedValueOnce([{ id: "cred-1" }]);
+        mockExecute.mockResolvedValueOnce([]);
+        const params = await rejectedParams();
+
+        await params.onLoginRejected("account_locked");
+        await params.onLoginRejected("account_locked");
+
+        const stops = mockLoggerWarn.mock.calls.filter(
+          ([ctx]) =>
+            (ctx as { event?: string }).event === "ade_auto_login_stopped",
+        );
+        expect(stops).toHaveLength(1);
+        expect(stops[0]?.[0]).toMatchObject({
+          businessId: "biz-789",
+          outcome: "account_locked",
+        });
+      });
+
+      it("un errore del DB non lancia: il rifiuto originale deve risalire", async () => {
+        mockExecute.mockRejectedValueOnce(new Error("DB down"));
+        const params = await rejectedParams();
+
+        await expect(params.onLoginRejected("auth_error")).resolves.toBe(
+          undefined,
+        );
+        expect(mockLoggerWarn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            businessId: "biz-789",
+            errorClass: "ade_credentials_rejected_write",
+          }),
+          expect.any(String),
+        );
+      });
+    });
   });
 });

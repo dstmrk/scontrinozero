@@ -19,6 +19,13 @@ export type UserFacingAdeError = {
 };
 
 /**
+ * Testo della password Fisconline scaduta. Lo usa anche
+ * `fetchAdePrerequisites` per le operazioni successive allo stop dei login
+ * (issue #1099), insieme al codice `ADE_PASSWORD_EXPIRED`.
+ */
+export const PASSWORD_EXPIRED_MESSAGE = "La password Fisconline è scaduta.";
+
+/**
  * Maps an AdE-side error to a message the end user can act on.
  *
  * The default catch sites used to return the same generic "verifica
@@ -51,7 +58,7 @@ function getLoginFailureMessage(
 ): UserFacingAdeError | null {
   if (err instanceof AdePasswordExpiredError) {
     return {
-      message: "La password Fisconline è scaduta.",
+      message: PASSWORD_EXPIRED_MESSAGE,
       passwordExpired: true,
     };
   }
