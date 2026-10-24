@@ -33,6 +33,7 @@ vi.mock("@/server/onboarding-actions", () => ({
 }));
 
 import { CassaClient } from "./cassa-client";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 
 const defaultProps = {
   businessId: "11111111-1111-4111-8111-111111111111",
@@ -199,4 +200,60 @@ describe("CassaClient — chiave di idempotenza", () => {
     );
     expect(alert.textContent).toContain("verificarne lo stato");
   });
+});
+
+// issue #1099: cambio password e verifica delle credenziali sono del titolare.
+// Il server riscrive già il messaggio per il collaboratore (`forMember`); qui
+// conta che i comandi non compaiano comunque.
+describe("CassaClient — comandi del titolare sugli errori AdE", () => {
+  beforeEach(() => {
+    mutationData = undefined;
+  });
+
+  function renderSummary(role: "owner" | "collaborator") {
+    render(
+      <MemberRoleProvider role={role}>
+        <CassaClient {...defaultProps} />
+      </MemberRoleProvider>,
+    );
+    addLine("500");
+    fireEvent.click(screen.getByRole("button", { name: "Continua" }));
+  }
+
+  it.each([
+    ["owner", true],
+    ["collaborator", false],
+  ] as const)(
+    "password scaduta (%s): il cambio password compare solo al titolare",
+    (role, visible) => {
+      mutationData = {
+        error: "La password Fisconline è scaduta.",
+        code: "ADE_PASSWORD_EXPIRED",
+        passwordExpired: true,
+      };
+      renderSummary(role);
+
+      const button = screen.queryByRole("button", {
+        name: "Cambia password Fisconline",
+      });
+      expect(button !== null).toBe(visible);
+    },
+  );
+
+  it.each([
+    ["owner", true],
+    ["collaborator", false],
+  ] as const)(
+    "credenziali non verificate (%s): il link alla verifica compare solo al titolare",
+    (role, visible) => {
+      mutationData = {
+        error:
+          "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+      };
+      renderSummary(role);
+
+      const link = screen.queryByRole("link", { name: "Verificale ora" });
+      expect(link !== null).toBe(visible);
+    },
+  );
 });

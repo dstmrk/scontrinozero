@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AdeReauthBanner } from "./ade-reauth-banner";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 
 // --- Mocks ---
 
@@ -41,6 +42,30 @@ beforeEach(() => {
 // --- Tests ---
 
 describe("AdeReauthBanner", () => {
+  // issue #1099: ricollegare la sessione richiede il telefono o lo SPID del
+  // titolare, e la verifica delle credenziali è sua.
+  it.each(["cie", "spid"] as const)(
+    "al collaboratore (%s) dice di avvisare il titolare, senza pulsanti",
+    (method) => {
+      render(
+        <MemberRoleProvider role="collaborator">
+          <AdeReauthBanner
+            method={method}
+            businessId="biz-1"
+            actionLabel="Emetti scontrino"
+          />
+        </MemberRoleProvider>,
+      );
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "La sessione AdE dell'attività è scaduta: avvisa il titolare.",
+      );
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+      expect(mockVerifyAdeCredentials).not.toHaveBeenCalled();
+    },
+  );
+
   describe("stato idle", () => {
     it("mostra il messaggio di sessione scaduta", () => {
       render(

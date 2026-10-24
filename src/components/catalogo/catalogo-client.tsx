@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useIsCollaborator } from "@/components/dashboard/member-role";
 import { deleteCatalogItem } from "@/server/catalog-actions";
 import { VAT_LABELS } from "@/types/cassa";
 import { formatCurrency } from "@/lib/utils";
@@ -35,6 +36,8 @@ export function CatalogoClient({
   initialData,
 }: CatalogoClientProps) {
   const router = useRouter();
+  // Il collaboratore vende dal catalogo ma non lo modifica (issue #1099).
+  const isCollaborator = useIsCollaborator();
   const [items, setItems] = useState<CatalogItem[]>(initialData);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -86,7 +89,7 @@ export function CatalogoClient({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Catalogo</h1>
         <div className="flex gap-2">
-          {items.length > 0 && (
+          {!isCollaborator && items.length > 0 && (
             <Button
               size="sm"
               variant={editMode ? "default" : "outline"}
@@ -95,7 +98,7 @@ export function CatalogoClient({
               {editMode ? "Fine" : "Modifica"}
             </Button>
           )}
-          {!editMode && (
+          {!isCollaborator && !editMode && (
             <Button size="sm" onClick={() => setShowAddDialog(true)}>
               <Plus className="mr-1 h-4 w-4" />
               Aggiungi
@@ -114,7 +117,13 @@ export function CatalogoClient({
           <p className="text-muted-foreground text-sm">
             Nessun prodotto nel catalogo.
             <br />
-            Premi <strong>Aggiungi</strong> per iniziare.
+            {isCollaborator ? (
+              "Il catalogo lo prepara il titolare."
+            ) : (
+              <>
+                Premi <strong>Aggiungi</strong> per iniziare.
+              </>
+            )}
           </p>
         </div>
       ) : (

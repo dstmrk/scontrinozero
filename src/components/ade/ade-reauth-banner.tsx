@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { verifyAdeCredentials } from "@/server/onboarding-actions";
 import { SpidConnectButton } from "@/components/ade/spid-connect-button";
 import { useIsNativeShell } from "@/lib/native/native-shell";
+import { useIsCollaborator } from "@/components/dashboard/member-role";
 import type { InteractiveMethod } from "@/lib/ade/types";
 
 type ReconnectState =
@@ -69,6 +70,7 @@ export function AdeReauthBanner({
   const [state, setState] = useState<ReconnectState>({ status: "idle" });
   const [, startTransition] = useTransition();
   const native = useIsNativeShell();
+  const isCollaborator = useIsCollaborator();
 
   function handleSpidConnected() {
     setState({ status: "success" });
@@ -86,6 +88,19 @@ export function AdeReauthBanner({
       setState({ status: "success" });
       onReconnected?.();
     });
+  }
+
+  // Ricollegare chiede il telefono o lo SPID del titolare, e la verifica delle
+  // credenziali è sua (issue #1099).
+  if (isCollaborator) {
+    return (
+      <div
+        role="alert"
+        className={cn("rounded-xl border px-4 py-3 text-sm", AMBER_CLASS)}
+      >
+        <p>La sessione AdE dell&apos;attività è scaduta: avvisa il titolare.</p>
+      </div>
+    );
   }
 
   if (state.status === "success") {

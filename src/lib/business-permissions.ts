@@ -1,6 +1,13 @@
 import { and, eq, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businessMembers, commercialDocuments } from "@/db/schema";
+import {
+  ACCOUNT_LOCKED_MESSAGE,
+  CREDENTIALS_NOT_FOUND_MESSAGE,
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  INVALID_CIE_CREDENTIALS_MESSAGE,
+  INVALID_FISCONLINE_CREDENTIALS_MESSAGE,
+} from "@/lib/ade/error-messages";
 import { canUseCollaborators } from "@/lib/plans-shared";
 import type { PlanInfo } from "@/lib/plans";
 import {
@@ -26,6 +33,21 @@ export const OWNER_ONLY_MESSAGE =
 
 export const COLLABORATORS_SUSPENDED_MESSAGE =
   "Il piano dell'attività non include i collaboratori: chiedi al titolare.";
+
+export const COLLABORATOR_PASSWORD_EXPIRED_MESSAGE =
+  "La password Fisconline dell'attività è scaduta: avvisa il titolare.";
+
+export const COLLABORATOR_CREDENTIALS_MESSAGE =
+  "L'accesso dell'attività all'Agenzia delle Entrate non funziona: avvisa il titolare.";
+
+/** Errori sulle credenziali AdE dell'attività: li risolve solo il titolare. */
+const OWNER_CREDENTIAL_ERRORS: ReadonlySet<string> = new Set([
+  CREDENTIALS_NOT_FOUND_MESSAGE,
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  INVALID_FISCONLINE_CREDENTIALS_MESSAGE,
+  INVALID_CIE_CREDENTIALS_MESSAGE,
+  ACCOUNT_LOCKED_MESSAGE,
+]);
 
 /** Come `checkBusinessMembership`, ma solo per il titolare. */
 export async function checkBusinessOwner(
@@ -55,6 +77,26 @@ export function collaboratorSuspendedError(
   )
     ? null
     : COLLABORATORS_SUSPENDED_MESSAGE;
+}
+
+/**
+ * L'esito di emissione, annullo o reso come va detto a chi l'ha chiesto. Gli
+ * errori sulle credenziali AdE dell'attività parlano al titolare ("aggiornala",
+ * "verifica le credenziali nelle impostazioni"): al collaboratore, che non può
+ * farlo, dicono di avvisarlo. Il resto dell'esito, codice compreso, resta com'è.
+ */
+export function forMember<T extends { error?: string; code?: string }>(
+  result: T,
+  membership: BusinessMembership,
+): T {
+  if (membership.role === "owner" || result.error === undefined) return result;
+  if (result.code === "ADE_PASSWORD_EXPIRED") {
+    return { ...result, error: COLLABORATOR_PASSWORD_EXPIRED_MESSAGE };
+  }
+  if (OWNER_CREDENTIAL_ERRORS.has(result.error)) {
+    return { ...result, error: COLLABORATOR_CREDENTIALS_MESSAGE };
+  }
+  return result;
 }
 
 /**

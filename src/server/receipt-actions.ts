@@ -23,7 +23,10 @@ import {
   getAuthenticatedUser,
   checkBusinessMembership,
 } from "@/lib/server-auth";
-import { collaboratorSuspendedError } from "@/lib/business-permissions";
+import {
+  collaboratorSuspendedError,
+  forMember,
+} from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import type { SubmitReceiptInput, SubmitReceiptResult } from "@/types/cassa";
@@ -122,7 +125,11 @@ export async function emitReceipt(
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.
   // Il membro che opera firma il documento (`created_by`, issue #1099).
-  return emitReceiptForBusiness(validation.data, {
-    memberId: membership.memberId,
-  });
+  // Gli errori sulle credenziali AdE il collaboratore li gira al titolare.
+  return forMember(
+    await emitReceiptForBusiness(validation.data, {
+      memberId: membership.memberId,
+    }),
+    membership,
+  );
 }

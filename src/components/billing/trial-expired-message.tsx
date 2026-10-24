@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useIsCollaborator } from "@/components/dashboard/member-role";
 import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
 import { WebBillingOnly } from "./web-billing-only";
 
@@ -15,12 +18,25 @@ import { WebBillingOnly } from "./web-billing-only";
  * Nel guscio nativo resta la sola constatazione, senza link né invito ad
  * attivare un piano (issue #1044, `WebBillingOnly`).
  *
+ * Al collaboratore la prova è quella dell'attività, e il piano lo attiva il
+ * titolare: niente link all'acquisto (issue #1099).
+ *
  * Ritorna un frammento inline: ogni call site lo avvolge nel proprio contenitore
  * di alert (`<p role="alert">`, banner rosso, ecc.).
  */
 const TRIAL_EXPIRED_STATEMENT = "Il tuo periodo di prova è scaduto.";
 
 export function TrialExpiredMessage() {
+  const isCollaborator = useIsCollaborator();
+  if (isCollaborator) {
+    return (
+      <>
+        Il periodo di prova dell&apos;attività è scaduto: chiedi al titolare di
+        attivare un piano.
+      </>
+    );
+  }
+
   return (
     <WebBillingOnly nativeFallback={TRIAL_EXPIRED_STATEMENT}>
       {TRIAL_EXPIRED_STATEMENT}{" "}
