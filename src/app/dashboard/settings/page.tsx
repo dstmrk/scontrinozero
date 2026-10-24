@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { and, count, eq, isNotNull } from "drizzle-orm";
@@ -44,6 +45,7 @@ import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 import { ScrollToHash } from "@/components/billing/scroll-to-hash";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
 import { CollaboratorSettings } from "./collaborator-settings";
+import { CollaboratorsCard } from "./collaborators-card";
 
 /**
  * Compone la riga "Sede" dell'attività. Estratta a livello di modulo per
@@ -313,6 +315,18 @@ async function ownerSettings(user: User, success: string | undefined) {
               />
             </CardContent>
           </Card>
+
+          {/* Subito dopo le credenziali AdE: invitare richiede Fisconline
+              verificate, e la card lo dice rimandando qui sopra. Legge da sé
+              collaboratori e inviti, quindi non ritarda il resto. */}
+          <Suspense fallback={null}>
+            <CollaboratorsCard
+              businessId={business?.id}
+              planInfo={planData}
+              collaboratorTermsVersion={profile?.collaboratorTermsVersion}
+              credentials={cred}
+            />
+          </Suspense>
         </div>
       </section>
 

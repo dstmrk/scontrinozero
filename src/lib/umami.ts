@@ -34,6 +34,11 @@ export const UMAMI_EVENTS = {
   receiptPrinted: "receipt_printed",
   /** PWA installata (evento `appinstalled`) — misura l'adozione su Android/desktop. */
   pwaInstalled: "pwa_installed",
+  /**
+   * Un collaboratore ha accettato l'invito e creato il suo accesso. Distinto
+   * da ogni misura di iscrizione: non è un cliente nuovo (issue #1099).
+   */
+  collaboratorInviteAccepted: "collaborator_invite_accepted",
 } as const;
 
 /**

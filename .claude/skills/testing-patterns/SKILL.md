@@ -172,8 +172,8 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 ```
 
 **Soglie consolidate** (le finestre stanno in `RATE_LIMIT_WINDOWS` di
-`src/lib/rate-limit.ts`: `AUTH_15_MIN` e `HOURLY` — usa le costanti, non i
-magic number):
+`src/lib/rate-limit.ts`: `AUTH_15_MIN`, `HOURLY` e `DAILY` — usa le costanti,
+non i magic number):
 
 | Bucket                           | Chiamante                           | Soglia   |
 | -------------------------------- | ----------------------------------- | -------- |
@@ -190,6 +190,7 @@ magic number):
 | `portal:<userId>`                | `GET\|POST /api/stripe/portal`      | 10/ora   |
 | `updateProfile:<userId>`         | `updateProfile`                     | 10/ora   |
 | `updateBusiness:<userId>`        | `updateBusiness`                    | 10/ora   |
+| `invite:<businessId>`            | `inviteCollaborator`                | 20/24h   |
 | `csp-report:<ip>`                | `POST /api/csp-report`              | 60/min   |
 | `<action>:<ip>`                  | auth actions (login/register/…)     | 5/15min  |
 | `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)    | 30/15min |
@@ -213,6 +214,11 @@ Note che non si deducono dai numeri:
 - `saleLookup` a 30/ora, sopra `return`: ogni reso da scontrino parte da una
   ricerca, e un numero digitato male costa un tentativo. Il tetto serve a non
   far leggere al collaboratore le vendite altrui provando numeri e date.
+- `invite` è per **attività**, non per utente, e a 24 ore: ogni invito è
+  un'email, e la quota gratuita di Resend (100 al giorno) è del servizio.
+  Conta anche i tentativi rifiutati dopo il limiter, così non si sonda quali
+  email hanno un account. L'accettazione (`acceptInvite:<ip>`) usa i limiter
+  auth per IP, con azione Turnstile `accept-invite`.
 - `void` a 10/ora perché l'annullo è irreversibile; `verify-ade` a 5/15min per
   PR #671.
 - `save-ade` è più alto (10/15min) del gemello `verify-ade`: non tocca AdE, ma

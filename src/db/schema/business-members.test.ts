@@ -30,6 +30,18 @@ describe("business_members schema", () => {
     expect(businessMembers.authUserId.notNull).toBe(false);
   });
 
+  // Nome, email e condizioni sono del collaboratore: sulla riga del titolare
+  // restano NULL, perché le sue stanno in `profiles` (migrazione 0045).
+  it.each([
+    "name",
+    "email",
+    "termsAcceptedAt",
+    "termsVersion",
+    "collaboratorTermsVersion",
+  ] as const)("%s è nullable", (column) => {
+    expect(businessMembers[column].notNull).toBe(false);
+  });
+
   it("i ruoli sono titolare e collaboratore", () => {
     expect(MEMBER_ROLES).toEqual(["owner", "collaborator"]);
   });

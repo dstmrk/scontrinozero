@@ -56,6 +56,10 @@ import {
   type BusinessMembership,
 } from "@/lib/server-auth";
 import { checkBusinessOwner } from "@/lib/business-permissions";
+import {
+  FISCONLINE_REQUIRED_WITH_TEAM_MESSAGE,
+  hasCollaboratorsOrOpenInvites,
+} from "@/lib/collaborator-invites";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   adeCieEmailSchema,
@@ -511,6 +515,15 @@ export async function saveAdeCredentials(
 
   const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
+
+  // Decisione 7 della issue #1099: con CIE ogni sessione nuova chiede il
+  // titolare, e con più persone alla cassa non si regge.
+  if (
+    values.loginMethod !== "fisconline" &&
+    (await hasCollaboratorsOrOpenInvites(businessId))
+  ) {
+    return { error: FISCONLINE_REQUIRED_WITH_TEAM_MESSAGE };
+  }
 
   const db = getDb();
 
@@ -1318,6 +1331,12 @@ export async function connectAdeWithSpid(
 
   const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
+
+  // Come per CIE in `saveAdeCredentials`: prima dell'adozione, che costa una
+  // chiamata all'AdE per una riga che non si scriverebbe.
+  if (await hasCollaboratorsOrOpenInvites(businessId)) {
+    return { error: FISCONLINE_REQUIRED_WITH_TEAM_MESSAGE };
+  }
 
   // Stesso limiter e stessa chiave della verifica: collegare con SPID È una
   // verifica, e i due percorsi non devono sommare i tentativi.

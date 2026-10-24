@@ -298,3 +298,17 @@ regola 27 (skill `stripe-webhooks`):
    divergente da Stripe.
 
 **Riaprire:** se si decide di erogare il carry-over trial→pagato (item 1).
+
+## Invito a un'email già registrata: il rifiuto dice che l'account esiste (issue #1099)
+
+`inviteCollaborator` in `src/server/invite-actions.ts` rifiuta un'email che
+ha già un account (`emailHasAccount` in `src/lib/collaborator-invites.ts`),
+con un messaggio che lo dice, perché una persona appartiene a una sola
+attività (decisione 15). Il titolare scopre così se un indirizzo è iscritto
+a ScontrinoZero, che il resto dell'auth nasconde. Per sondare deve avere un
+piano con collaboratori, credenziali Fisconline **verificate** con l'AdE e
+le Condizioni accettate, e il limiter conta i tentativi rifiutati: 20 al
+giorno per attività. Un rifiuto muto renderebbe incomprensibile il caso
+legittimo (la persona ha già un account e non riceverà mai l'invito).
+**Riaprire:** se compaiono attività che fanno molti inviti rifiutati, o se
+l'enumerazione diventa un vettore per un attacco reale.

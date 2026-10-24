@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(88);
+    expect(result).toHaveLength(90);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -140,6 +140,8 @@ describe("sitemap", () => {
       "https://scontrinozero.it/termini/v01",
       "https://scontrinozero.it/cookie-policy",
       "https://scontrinozero.it/cookie-policy/v01",
+      "https://scontrinozero.it/condizioni-collaboratori",
+      "https://scontrinozero.it/condizioni-collaboratori/v01",
     ];
     for (const url of legalUrls) {
       const entry = result.find((e) => e.url === url);
@@ -148,6 +150,13 @@ describe("sitemap", () => {
         priority: 0.3,
       });
     }
+    // Pubblicate dopo gli altri documenti legali: data propria.
+    expect(
+      result.find(
+        (e) =>
+          e.url === "https://scontrinozero.it/condizioni-collaboratori/v01",
+      )?.lastModified,
+    ).toEqual(new Date("2026-10-24"));
 
     // Help center hub
     const helpHubEntry = result.find(

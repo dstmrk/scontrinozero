@@ -41,5 +41,8 @@ describe("track (umami)", () => {
       "onboarding_step_completed",
     );
     expect(UMAMI_EVENTS.pwaInstalled).toBe("pwa_installed");
+    expect(UMAMI_EVENTS.collaboratorInviteAccepted).toBe(
+      "collaborator_invite_accepted",
+    );
   });
 });

@@ -4,9 +4,9 @@ import { createElement } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { profiles } from "@/db/schema";
+import { businessMembers, collaboratorInvites, profiles } from "@/db/schema";
 import {
   isValidEmail,
   isStrongPassword,
@@ -32,6 +32,14 @@ import {
 import { referralRedemptions } from "@/db/schema/referral-redemptions";
 import { extractPartnerSlug } from "@/lib/partners/partner-host";
 import { getPartnerBySlug } from "@/lib/partners/partner-context";
+import {
+  CURRENT_COLLABORATOR_TERMS_VERSION,
+  emailHasAccount,
+  findInviteByToken,
+  hashInviteToken,
+  isInviteTokenShape,
+  type InviteFromLink,
+} from "@/lib/collaborator-invites";
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -127,7 +135,11 @@ function checkCaptchaPreLimit(
 }
 
 type CaptchaAction =
-  "signup" | "signin" | "reset-password" | "resend-confirmation";
+  | "signup"
+  | "signin"
+  | "reset-password"
+  | "resend-confirmation"
+  | "accept-invite";
 
 /**
  * Hostname accettati nella response Turnstile siteverify.
@@ -966,4 +978,222 @@ export async function resetPassword(
   }
 
   redirect("/verify-email");
+}
+
+// ---------------------------------------------------------------------------
+// Accettazione dell'invito di un collaboratore (issue #1099, PR 6a)
+// ---------------------------------------------------------------------------
+
+const INVITE_UNAVAILABLE_MESSAGE =
+  "Questo invito non è più valido: chiedi al titolare di mandartene uno nuovo.";
+const INVITE_EMAIL_HAS_ACCOUNT_MESSAGE =
+  "Questa email ha già un account ScontrinoZero: accedi, oppure chiedi al titolare di invitare un altro indirizzo.";
+const INVITE_ACCEPT_FAILED_MESSAGE =
+  "Non siamo riusciti a creare l'accesso. Riprova.";
+const MEMBER_NAME_MAX_LENGTH = 100;
+
+/** L'invito è stato revocato, reinviato o accettato mentre si registrava. */
+class InviteGoneError extends Error {}
+
+function validateInviteAcceptanceInput(
+  token: string,
+  name: string,
+  password: string,
+  confirmPassword: string,
+  termsAccepted: FormDataEntryValue | null,
+  specificClausesAccepted: FormDataEntryValue | null,
+): string | null {
+  if (!isInviteTokenShape(token)) return INVITE_UNAVAILABLE_MESSAGE;
+  if (!name) return "Inserisci nome e cognome.";
+  if (name.length > MEMBER_NAME_MAX_LENGTH)
+    return `Il nome può avere al massimo ${MEMBER_NAME_MAX_LENGTH} caratteri.`;
+  if (!password || !isStrongPassword(password))
+    return ERROR_MESSAGES.PASSWORD_NOT_STRONG;
+  if (password !== confirmPassword) return ERROR_MESSAGES.PASSWORDS_MISMATCH;
+  if (termsAccepted !== "true")
+    return "Devi accettare i Termini, le Condizioni per i collaboratori e la Privacy Policy.";
+  if (specificClausesAccepted !== "true")
+    return "Devi accettare specificamente le clausole indicate.";
+  return null;
+}
+
+/**
+ * L'invito ancora valido dietro il token, se la sua email non ha già un
+ * account; altrimenti il messaggio da mostrare.
+ */
+async function readAcceptableInvite(
+  token: string,
+): Promise<InviteFromLink | { error: string }> {
+  try {
+    const invite = await findInviteByToken(token);
+    if (!invite || invite.expiresAt.getTime() <= Date.now()) {
+      return { error: INVITE_UNAVAILABLE_MESSAGE };
+    }
+    // Decisione 15: una persona, una sola attività. Il titolare l'ha già
+    // controllato all'invito, ma nel frattempo l'email può essersi iscritta.
+    if (await emailHasAccount(invite.email)) {
+      return { error: INVITE_EMAIL_HAS_ACCOUNT_MESSAGE };
+    }
+    return invite;
+  } catch (err) {
+    logger.error({ err }, "acceptCollaboratorInvite: invito non leggibile");
+    return { error: INVITE_ACCEPT_FAILED_MESSAGE };
+  }
+}
+
+/**
+ * L'account del collaboratore, già confermato: il link dell'invito è arrivato
+ * a quell'email, quindi una conferma separata non proverebbe nulla di più.
+ */
+async function createCollaboratorAuthUser(
+  email: string,
+  password: string,
+): Promise<{ id: string } | { error: string }> {
+  try {
+    const admin = createAdminSupabaseClient();
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (error?.code === "email_exists") {
+      return { error: INVITE_EMAIL_HAS_ACCOUNT_MESSAGE };
+    }
+    if (error || !data.user) {
+      logger.error(
+        { errorClass: classifySupabaseAuthError(error ?? {}) },
+        "acceptCollaboratorInvite: createUser fallita",
+      );
+      return { error: INVITE_ACCEPT_FAILED_MESSAGE };
+    }
+    return { id: data.user.id };
+  } catch (err) {
+    logger.error({ err }, "acceptCollaboratorInvite: createUser ha lanciato");
+    return { error: INVITE_ACCEPT_FAILED_MESSAGE };
+  }
+}
+
+/**
+ * Consuma l'invito e crea la membership nella stessa transazione; se una delle
+ * due non riesce cancella l'account appena creato, che senza membership non
+ * aprirebbe nulla. Il filtro sull'hash del token tiene fuori un reinvio
+ * arrivato nel frattempo: l'id resta, il token no.
+ */
+async function joinBusinessOrRollback(params: {
+  authUserId: string;
+  invite: InviteFromLink;
+  token: string;
+  name: string;
+}): Promise<AuthActionResult | null> {
+  const { authUserId, invite, token, name } = params;
+  try {
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx
+        .delete(collaboratorInvites)
+        .where(
+          and(
+            eq(collaboratorInvites.id, invite.id),
+            eq(collaboratorInvites.tokenHash, hashInviteToken(token)),
+            gt(collaboratorInvites.expiresAt, new Date()),
+          ),
+        )
+        .returning({ id: collaboratorInvites.id });
+      if (!claimed) throw new InviteGoneError();
+
+      await tx.insert(businessMembers).values({
+        businessId: invite.businessId,
+        authUserId,
+        role: "collaborator",
+        name,
+        email: invite.email,
+        termsAcceptedAt: new Date(),
+        termsVersion: CURRENT_TERMS_VERSION,
+        collaboratorTermsVersion: CURRENT_COLLABORATOR_TERMS_VERSION,
+      });
+    });
+    return null;
+  } catch (err) {
+    await compensatingDeleteAuthUser(authUserId);
+    if (err instanceof InviteGoneError) {
+      return { error: INVITE_UNAVAILABLE_MESSAGE };
+    }
+    logger.error({ err }, "acceptCollaboratorInvite: membership non creata");
+    return { error: INVITE_ACCEPT_FAILED_MESSAGE };
+  }
+}
+
+/**
+ * Registrazione di un collaboratore dal link dell'invito. A differenza di
+ * `signUp` non crea un profilo: il collaboratore esiste solo in
+ * `business_members` (decisione 1 sulla issue #1099), quindi niente trial,
+ * referral, codice partner né mail all'operatore, per costruzione.
+ *
+ * Su successo ritorna `{}` senza redirect: il form traccia l'evento Umami
+ * dell'invito accettato, che non conta come registrazione nel funnel, e poi
+ * va al dashboard.
+ */
+export async function acceptCollaboratorInvite(
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const token = getFormString(formData, "token");
+  const name = getFormString(formData, "name");
+  // Raw read: la password non si trimma (vedi `getFormStringRaw`).
+  const password = getFormStringRaw(formData, "password");
+  const confirmPassword = getFormStringRaw(formData, "confirmPassword");
+
+  const validationError = validateInviteAcceptanceInput(
+    token,
+    name,
+    password,
+    confirmPassword,
+    formData.get("termsAccepted"),
+    formData.get("specificClausesAccepted"),
+  );
+  if (validationError) return { error: validationError };
+
+  const ip = await getClientIpFromNextHeaders();
+  const captchaPreLimited = checkCaptchaPreLimit(ip, "accept-invite");
+  if (captchaPreLimited) return captchaPreLimited;
+
+  const captchaToken = getFormString(formData, "captchaToken");
+  const captchaOk = await verifyCaptcha(captchaToken, ip, "accept-invite");
+  if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
+
+  const rateLimited = checkRateLimit(ip, "acceptInvite");
+  if (rateLimited) return rateLimited;
+
+  const invite = await readAcceptableInvite(token);
+  if ("error" in invite) return invite;
+
+  const authUser = await createCollaboratorAuthUser(invite.email, password);
+  if ("error" in authUser) return authUser;
+
+  const joinError = await joinBusinessOrRollback({
+    authUserId: authUser.id,
+    invite,
+    token,
+    name,
+  });
+  if (joinError) return joinError;
+
+  logger.info(
+    { businessId: invite.businessId },
+    "Invito del collaboratore accettato",
+  );
+
+  const supabase = await createServerSupabaseClient();
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: invite.email,
+    password,
+  });
+  if (signInError) {
+    // L'account c'è: entrare a mano dal login basta.
+    logger.warn(
+      { errorClass: classifySupabaseAuthError(signInError) },
+      "acceptCollaboratorInvite: accesso automatico fallito",
+    );
+    redirect("/login");
+  }
+  return {};
 }

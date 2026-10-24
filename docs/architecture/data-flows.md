@@ -51,6 +51,41 @@
    `src/app/dashboard/collaborator-suspended-section.tsx` gli dice che resta
    la sola lettura.
 
+## Invito di un collaboratore
+
+1. Il titolare apre Impostazioni → Collaboratori
+   (`src/app/dashboard/settings/collaborators-card.tsx`, che legge
+   collaboratori e inviti con `listTeam`). `ownerInviteBlocker` in
+   `src/lib/collaborator-invites.ts` decide il passo: piano che ammette
+   collaboratori, credenziali Fisconline verificate, Condizioni per i
+   collaboratori accettate nella versione corrente (`acceptCollaboratorTerms`,
+   `profiles.collaborator_terms_*`).
+2. `inviteCollaborator` (`src/server/invite-actions.ts`) rifà gli stessi
+   controlli, rifiuta un'email che ha già un account (`emailHasAccount`,
+   rischio accettato in `docs/architecture/accepted-risks.md`) e applica i
+   limiti di `docs/architecture/config-manifest.md` (`countTeamSeats` per la
+   prova). Salva lo SHA-256 del token in `collaborator_invites`, con un
+   upsert su attività ed email (reinviare sostituisce token e scadenza), e
+   manda `src/emails/collaborator-invite.tsx`. Se l'email non parte, l'invito
+   si cancella.
+3. Il link porta a `/invito/<token>` (`src/app/(auth)/invito/[token]/`), solo
+   per chi non ha una sessione (`AUTH_ONLY_PATHS` in `src/proxy.ts`). La
+   pagina distingue invito valido, scaduto e inesistente.
+4. `acceptCollaboratorInvite` in `src/server/auth-actions.ts`: Turnstile con
+   azione `accept-invite`, rate limit auth, invito ancora valido ed email
+   senza account, poi `admin.createUser` con `email_confirm: true`, perché il
+   link ha già provato l'email. In una transazione cancella l'invito (per id,
+   hash del token e scadenza) e crea la riga `collaborator` con nome, email e
+   versioni di Termini e Condizioni; se fallisce, cancella l'account appena
+   creato. Poi il login: il form traccia `collaborator_invite_accepted` su
+   Umami e va al dashboard. Nessuna riga `profiles`, quindi niente trial,
+   referral o mail all'operatore.
+5. `revokeCollaboratorInvite` cancella l'invito e il link smette di valere.
+   Finché l'attività ha collaboratori o inviti validi, `saveAdeCredentials`
+   rifiuta CIE e `connectAdeWithSpid` rifiuta SPID
+   (`hasCollaboratorsOrOpenInvites`): con più persone alla cassa l'accesso
+   resta con Fisconline.
+
 ## Emissione scontrino (cassa)
 
 1. Form cassa (`src/components/cassa`) → server action

@@ -29,6 +29,12 @@ export const profiles = pgTable(
       .$onUpdate(() => new Date()),
     termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
     termsVersion: text("terms_version"),
+    // Condizioni per i collaboratori: il titolare le accetta prima del primo
+    // invito, con una versione propria (migrazione 0045, issue #1099).
+    collaboratorTermsAcceptedAt: timestamp("collaborator_terms_accepted_at", {
+      withTimezone: true,
+    }),
+    collaboratorTermsVersion: text("collaborator_terms_version"),
     // Stripe / billing
     plan: text("plan").notNull().default("trial"),
     trialStartedAt: timestamp("trial_started_at", {

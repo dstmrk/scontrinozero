@@ -16,6 +16,8 @@ const baseUrl = marketingBaseUrl();
 // di freshness per i crawler.
 const STATIC_PAGES_UPDATED = new Date("2026-07-22");
 const LEGAL_PAGES_UPDATED = new Date("2026-07-12");
+// Le Condizioni per i collaboratori hanno una versione e una data proprie.
+const COLLABORATOR_TERMS_UPDATED = new Date("2026-10-24");
 
 /** Massimo (lessicografico, valido su date ISO) di una lista di date YYYY-MM-DD. */
 function maxIsoDate(dates: readonly string[]): Date {
@@ -69,15 +71,20 @@ const helpPages = helpSlugs.map((slug) => ({
 }));
 
 const legalPages = [
-  "/privacy",
-  "/privacy/v01",
-  "/termini",
-  "/termini/v01",
-  "/cookie-policy",
-  "/cookie-policy/v01",
-].map((path) => ({
+  ...[
+    "/privacy",
+    "/privacy/v01",
+    "/termini",
+    "/termini/v01",
+    "/cookie-policy",
+    "/cookie-policy/v01",
+  ].map((path) => ({ path, lastModified: LEGAL_PAGES_UPDATED })),
+  ...["/condizioni-collaboratori", "/condizioni-collaboratori/v01"].map(
+    (path) => ({ path, lastModified: COLLABORATOR_TERMS_UPDATED }),
+  ),
+].map(({ path, lastModified }) => ({
   url: `${baseUrl}${path}`,
-  lastModified: LEGAL_PAGES_UPDATED,
+  lastModified,
   changeFrequency: "yearly" as const,
   priority: 0.3,
 }));

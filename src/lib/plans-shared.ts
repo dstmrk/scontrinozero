@@ -233,7 +233,7 @@ export function canUsePro(
  * Calcolato a ogni richiesta e mai salvato: un collaboratore di un titolare
  * sceso a Pro, o con la prova scaduta, resta membro dell'attività ma non
  * emette, non annulla e non rende finché il piano non torna ad ammetterlo.
- * Il limite di 2 collaboratori della prova vale agli inviti, non qui.
+ * Il limite della prova vale agli inviti (`getCollaboratorLimit`), non qui.
  */
 export function canUseCollaborators(
   plan: Plan,
@@ -243,6 +243,18 @@ export function canUseCollaborators(
   if (isPaidPlanExpired(plan, planExpiresAt)) return false;
   if (plan === "trial") return !isTrialExpired(trialStartedAt);
   return plan === "team" || plan === "unlimited";
+}
+
+/** Collaboratori ammessi durante la prova, inviti in sospeso compresi. */
+export const TRIAL_COLLABORATOR_LIMIT = 2;
+
+/**
+ * Quanti collaboratori, inviti in sospeso compresi, ammette un piano per cui
+ * `canUseCollaborators` è vero: il limite della prova, `null` dove sono
+ * illimitati (decisione 3 della issue #1099).
+ */
+export function getCollaboratorLimit(plan: Plan): number | null {
+  return plan === "trial" ? TRIAL_COLLABORATOR_LIMIT : null;
 }
 
 /**

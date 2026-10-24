@@ -126,19 +126,24 @@ tunnel): bloccante, non considerare il deploy concluso.
 
 Definiti in `src/lib/umami.ts` (`UMAMI_EVENTS`), inviati via `track()`:
 
-| Evento                      | Dove                                         | Dati        |
-| --------------------------- | -------------------------------------------- | ----------- |
-| `receipt_emitted`           | emissione scontrino OK (`cassa-client`)      | —           |
-| `plan_upgrade_click`        | CTA checkout (`checkout-button`)             | `{priceId}` |
-| `onboarding_step_completed` | step del tour (`onboarding-tour`)            | `{step}`    |
-| `printer_paired`            | stampante Bluetooth accoppiata               | —           |
-| `receipt_printed`           | scontrino stampato su termica (auto/manuale) | —           |
-| `pwa_installed`             | evento `appinstalled` (Android/desktop)      | —           |
+| Evento                         | Dove                                         | Dati        |
+| ------------------------------ | -------------------------------------------- | ----------- |
+| `receipt_emitted`              | emissione scontrino OK (`cassa-client`)      | —           |
+| `plan_upgrade_click`           | CTA checkout (`checkout-button`)             | `{priceId}` |
+| `onboarding_step_completed`    | step del tour (`onboarding-tour`)            | `{step}`    |
+| `printer_paired`               | stampante Bluetooth accoppiata               | —           |
+| `receipt_printed`              | scontrino stampato su termica (auto/manuale) | —           |
+| `pwa_installed`                | evento `appinstalled` (Android/desktop)      | —           |
+| `collaborator_invite_accepted` | invito accettato (`accept-invite-form`)      | —           |
 
 Nomi **stabili**: cambiarli spezza la continuità storica del report. La
 tabella si aggiorna insieme a `UMAMI_EVENTS`: al 2026-09-17 ne elencava tre su
 sei, e una tabella che mente su cosa è tracciato fa pianificare misure
 impossibili.
+
+`collaborator_invite_accepted` non è un'iscrizione: chi accetta un invito
+entra nell'attività di un cliente esistente, non ne porta uno nuovo, e
+l'accettazione vive su `/invito/…`, fuori dal funnel di `/register`.
 
 **Nessun evento segna la registrazione**, e non è una dimenticanza: vedi
 issue #999 prima di provare ad aggiungerlo.

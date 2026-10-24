@@ -12,11 +12,15 @@ import { passwordFieldSchema } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PasswordInput } from "@/components/ui/password-input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import {
+  LegalLink,
+  PASSWORD_REQUIREMENTS_HINT,
+  SPECIFIC_CLAUSES_TEXT,
+} from "@/components/auth/signup-consents";
+import {
   Form,
+  FormCheckboxField,
   FormControl,
   FormDescription,
   FormField,
@@ -234,25 +238,12 @@ export function RegisterForm({
               spellCheck={false}
             />
 
-            {/* password: keeps explicit FormField for the conditional FormDescription */}
-            <FormField
+            <FormPasswordField
               control={form.control}
               name="password"
-              render={({ field, fieldState }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <PasswordInput autoComplete="new-password" {...field} />
-                  </FormControl>
-                  {!fieldState.error && (
-                    <FormDescription>
-                      Almeno 8 caratteri con maiuscola, minuscola, numero e
-                      carattere speciale (es.&nbsp;!)
-                    </FormDescription>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Password"
+              autoComplete="new-password"
+              description={PASSWORD_REQUIREMENTS_HINT}
             />
 
             <FormPasswordField
@@ -262,79 +253,18 @@ export function RegisterForm({
               autoComplete="new-password"
             />
 
-            <FormField
-              control={form.control}
-              name="termsAccepted"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id="termsAccepted"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      onBlur={field.onBlur}
-                      name={field.name}
-                      className="mt-0.5 shrink-0"
-                    />
-                    <label
-                      htmlFor="termsAccepted"
-                      className="cursor-pointer text-sm leading-snug select-none"
-                    >
-                      Ho letto e accetto i{" "}
-                      <Link
-                        href="/termini"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline"
-                      >
-                        Termini di servizio
-                      </Link>{" "}
-                      e la{" "}
-                      <Link
-                        href="/privacy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline"
-                      >
-                        Privacy Policy
-                      </Link>
-                      .
-                    </label>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormCheckboxField control={form.control} name="termsAccepted">
+              Ho letto e accetto i{" "}
+              <LegalLink href="/termini">Termini di servizio</LegalLink> e la{" "}
+              <LegalLink href="/privacy">Privacy Policy</LegalLink>.
+            </FormCheckboxField>
 
-            <FormField
+            <FormCheckboxField
               control={form.control}
               name="specificClausesAccepted"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id="specificClausesAccepted"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      onBlur={field.onBlur}
-                      name={field.name}
-                      className="mt-0.5 shrink-0"
-                    />
-                    <label
-                      htmlFor="specificClausesAccepted"
-                      className="cursor-pointer text-sm leading-snug select-none"
-                    >
-                      Accetto specificamente, ai sensi dell&apos;art. 1341 c.c.,
-                      le clausole: 9 (limitazione e cap di responsabilità), 10
-                      (no rimborso corrispettivi già pagati), 11 (sospensione e
-                      cessazione unilaterale del servizio), 16 (foro esclusivo
-                      di Torino per controversie B2B).
-                    </label>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            >
+              {SPECIFIC_CLAUSES_TEXT}
+            </FormCheckboxField>
 
             <ReferralField
               control={form.control}
