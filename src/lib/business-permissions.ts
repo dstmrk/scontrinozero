@@ -1,6 +1,14 @@
 import { and, eq, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businessMembers, commercialDocuments } from "@/db/schema";
+import {
+  ACCOUNT_LOCKED_MESSAGE,
+  CREDENTIALS_NOT_FOUND_MESSAGE,
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  INVALID_CIE_CREDENTIALS_MESSAGE,
+  INVALID_FISCONLINE_CREDENTIALS_MESSAGE,
+  PASSWORD_EXPIRED_MESSAGE,
+} from "@/lib/ade/error-messages";
 import { canUseCollaborators } from "@/lib/plans-shared";
 import type { PlanInfo } from "@/lib/plans";
 import {
@@ -26,6 +34,24 @@ export const OWNER_ONLY_MESSAGE =
 
 export const COLLABORATORS_SUSPENDED_MESSAGE =
   "Il piano dell'attività non include i collaboratori: chiedi al titolare.";
+
+export const COLLABORATOR_PASSWORD_EXPIRED_MESSAGE =
+  "La password Fisconline dell'attività è scaduta: avvisa il titolare.";
+
+export const COLLABORATOR_CREDENTIALS_MESSAGE =
+  "L'accesso dell'attività all'Agenzia delle Entrate non funziona: avvisa il titolare.";
+
+export const COLLABORATOR_REAUTH_MESSAGE =
+  "La sessione AdE dell'attività è scaduta: avvisa il titolare.";
+
+/** Errori sulle credenziali AdE dell'attività: li risolve solo il titolare. */
+const OWNER_CREDENTIAL_ERRORS: ReadonlySet<string> = new Set([
+  CREDENTIALS_NOT_FOUND_MESSAGE,
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  INVALID_FISCONLINE_CREDENTIALS_MESSAGE,
+  INVALID_CIE_CREDENTIALS_MESSAGE,
+  ACCOUNT_LOCKED_MESSAGE,
+]);
 
 /** Come `checkBusinessMembership`, ma solo per il titolare. */
 export async function checkBusinessOwner(
@@ -55,6 +81,42 @@ export function collaboratorSuspendedError(
   )
     ? null
     : COLLABORATORS_SUSPENDED_MESSAGE;
+}
+
+/**
+ * L'esito di un'operazione su AdE (emissione, annullo, reso, verifica dei
+ * pending) come va detto a chi l'ha chiesta. Gli errori sulle credenziali AdE
+ * dell'attività parlano al titolare ("aggiornala", "verifica le credenziali
+ * nelle impostazioni", "rifai l'accesso"): al collaboratore, che non può
+ * farlo, dicono di avvisarlo. Il resto dell'esito, codice compreso, resta
+ * com'è.
+ */
+export function forMember<T extends object>(
+  result: T,
+  membership: BusinessMembership,
+): T {
+  if (membership.role === "owner") return result;
+  const error = collaboratorFacingError(result);
+  return error === null ? result : { ...result, error };
+}
+
+/** Il messaggio per il collaboratore al posto di quello del titolare, o `null`. */
+function collaboratorFacingError(result: object): string | null {
+  if (!("error" in result) || typeof result.error !== "string") return null;
+  // La verifica dei pending riceve la password scaduta senza codice.
+  const passwordExpired =
+    ("code" in result && result.code === "ADE_PASSWORD_EXPIRED") ||
+    result.error === PASSWORD_EXPIRED_MESSAGE;
+  if (passwordExpired) return COLLABORATOR_PASSWORD_EXPIRED_MESSAGE;
+  // Sessione CIE o SPID del titolare: solo la verifica dei pending la
+  // restituisce con un messaggio, le altre operazioni con il solo flag.
+  if ("reauthRequired" in result && result.reauthRequired) {
+    return COLLABORATOR_REAUTH_MESSAGE;
+  }
+  if (OWNER_CREDENTIAL_ERRORS.has(result.error)) {
+    return COLLABORATOR_CREDENTIALS_MESSAGE;
+  }
+  return null;
 }
 
 /**

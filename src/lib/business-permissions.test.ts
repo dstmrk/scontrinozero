@@ -25,11 +25,22 @@ vi.mock("@/db", () => ({
 }));
 
 import {
+  ACCOUNT_LOCKED_MESSAGE,
+  CREDENTIALS_NOT_FOUND_MESSAGE,
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  INVALID_FISCONLINE_CREDENTIALS_MESSAGE,
+  PASSWORD_EXPIRED_MESSAGE,
+} from "@/lib/ade/error-messages";
+import {
   COLLABORATORS_SUSPENDED_MESSAGE,
+  COLLABORATOR_CREDENTIALS_MESSAGE,
+  COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
+  COLLABORATOR_REAUTH_MESSAGE,
   OWNER_ONLY_MESSAGE,
   canAccessDocument,
   checkBusinessOwner,
   collaboratorSuspendedError,
+  forMember,
   isCollaborator,
   ownDocumentsCondition,
 } from "./business-permissions";
@@ -174,5 +185,84 @@ describe("isCollaborator", () => {
     await expect(isCollaborator("user-1")).resolves.toBe(false);
     mockLimit.mockResolvedValueOnce([]);
     await expect(isCollaborator("user-9")).resolves.toBe(false);
+  });
+});
+
+describe("forMember", () => {
+  const passwordExpired = {
+    error: PASSWORD_EXPIRED_MESSAGE,
+    code: "ADE_PASSWORD_EXPIRED",
+    passwordExpired: true,
+  } as const;
+
+  it("al titolare lascia l'esito com'è", () => {
+    expect(forMember(passwordExpired, OWNER)).toBe(passwordExpired);
+  });
+
+  it("al collaboratore dice di avvisare il titolare per la password scaduta, codice compreso", () => {
+    expect(forMember(passwordExpired, COLLABORATOR)).toEqual({
+      ...passwordExpired,
+      error: COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
+    });
+  });
+
+  it.each([
+    ["credenziali non trovate", CREDENTIALS_NOT_FOUND_MESSAGE],
+    ["credenziali non verificate", CREDENTIALS_NOT_VERIFIED_MESSAGE],
+    ["credenziali rifiutate", INVALID_FISCONLINE_CREDENTIALS_MESSAGE],
+    ["utenza bloccata", ACCOUNT_LOCKED_MESSAGE],
+  ])("al collaboratore riscrive %s", (_case, error) => {
+    expect(forMember({ error }, COLLABORATOR)).toEqual({
+      error: COLLABORATOR_CREDENTIALS_MESSAGE,
+    });
+  });
+
+  it("riconosce la password scaduta anche senza codice, come la restituisce la verifica dei pending", () => {
+    expect(
+      forMember({ error: PASSWORD_EXPIRED_MESSAGE }, COLLABORATOR),
+    ).toEqual({ error: COLLABORATOR_PASSWORD_EXPIRED_MESSAGE });
+  });
+
+  it("al collaboratore la sessione CIE o SPID scaduta dice di avvisare il titolare", () => {
+    const reauth = {
+      error:
+        "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
+      reauthRequired: "cie",
+    } as const;
+    expect(forMember(reauth, COLLABORATOR)).toEqual({
+      error: COLLABORATOR_REAUTH_MESSAGE,
+      reauthRequired: "cie",
+    });
+  });
+
+  it("accetta gli esiti a unione e lascia passare quelli senza errore", () => {
+    type Outcome =
+      { outcome: "accepted"; documentId: string } | { error: string };
+    const accepted: Outcome = { outcome: "accepted", documentId: "doc-1" };
+    expect(forMember(accepted, COLLABORATOR)).toBe(accepted);
+  });
+
+  it("lascia passare gli errori che il collaboratore può gestire", () => {
+    const unavailable = {
+      error: "Agenzia delle Entrate non raggiungibile.",
+      code: "ADE_UNAVAILABLE",
+      documentId: "doc-1",
+    };
+    expect(forMember(unavailable, COLLABORATOR)).toBe(unavailable);
+  });
+
+  it("lascia passare un esito riuscito", () => {
+    const ok: { error?: string; documentId: string } = { documentId: "doc-1" };
+    expect(forMember(ok, COLLABORATOR)).toBe(ok);
+  });
+
+  it("i messaggi riscritti rimandano al titolare", () => {
+    for (const message of [
+      COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
+      COLLABORATOR_CREDENTIALS_MESSAGE,
+      COLLABORATOR_REAUTH_MESSAGE,
+    ]) {
+      expect(message).toMatch(/avvisa il titolare/);
+    }
   });
 });

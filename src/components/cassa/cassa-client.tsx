@@ -30,6 +30,7 @@ import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-di
 import { AdeReauthBanner } from "@/components/ade/ade-reauth-banner";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
+import { useIsCollaborator } from "@/components/dashboard/member-role";
 
 type Step = "cart" | "add-item" | "summary" | "success";
 
@@ -96,6 +97,9 @@ export function CassaClient({
   // carrello, e si azzera con lo scontrino.
   const [splitCashCents, setSplitCashCents] = useState<number | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  // Cambio password e verifica delle credenziali sono del titolare (issue
+  // #1099): al collaboratore il server dice già di avvisarlo.
+  const isCollaborator = useIsCollaborator();
   const [successData, setSuccessData] = useState<{
     documentId?: string;
     adeProgressive?: string;
@@ -515,17 +519,20 @@ export function CassaClient({
               ) : (
                 <>
                   {mutationError}
-                  {mutationError.includes("Credenziali AdE non verificate") && (
-                    <>
-                      {" "}
-                      <Link
-                        href="/dashboard/settings"
-                        className="font-medium underline"
-                      >
-                        {"Verificale ora"}
-                      </Link>
-                    </>
-                  )}
+                  {!isCollaborator &&
+                    mutationError.includes(
+                      "Credenziali AdE non verificate",
+                    ) && (
+                      <>
+                        {" "}
+                        <Link
+                          href="/dashboard/settings"
+                          className="font-medium underline"
+                        >
+                          {"Verificale ora"}
+                        </Link>
+                      </>
+                    )}
                 </>
               )}
             </p>
@@ -536,7 +543,7 @@ export function CassaClient({
                 }
               </p>
             )}
-            {mutation.data?.passwordExpired && (
+            {!isCollaborator && mutation.data?.passwordExpired && (
               <Button
                 variant="outline"
                 size="sm"

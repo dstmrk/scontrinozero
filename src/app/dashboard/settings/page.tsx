@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { and, count, eq, isNotNull } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
@@ -21,11 +22,11 @@ import { EditBusinessSection } from "@/components/settings/edit-business-section
 import { AdeIdentityNotice } from "@/components/settings/ade-identity-notice";
 import { getAdeIdentityMismatches } from "@/lib/business-identity";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
-import { ThemeSection } from "@/components/settings/theme-section";
-import { PrinterSection } from "@/components/settings/printer-section";
+import { PreferencesCard } from "@/components/settings/preferences-card";
 import { ReceiptNoteCard } from "@/components/settings/receipt-note-card";
 import { getProfilePlan } from "@/server/billing-actions";
-import { TRIAL_DAYS } from "@/lib/plans";
+import { getOnboardingStatus } from "@/server/onboarding-actions";
+import { getPlanSafe, TRIAL_DAYS } from "@/lib/plans";
 import { API_KEYS_ANCHOR_ID } from "@/lib/plans-shared";
 import {
   computeBillingCardState,
@@ -35,13 +36,14 @@ import {
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeyCard } from "@/components/settings/api-key-card";
 import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
-import { SupportSection } from "@/components/settings/support-section";
+import { SupportCard } from "@/components/settings/support-card";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { WebBillingOnly } from "@/components/billing/web-billing-only";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 import { ScrollToHash } from "@/components/billing/scroll-to-hash";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
+import { CollaboratorSettings } from "./collaborator-settings";
 
 /**
  * Compone la riga "Sede" dell'attività. Estratta a livello di modulo per
@@ -95,6 +97,28 @@ export default async function SettingsPage({
     redirect("/login");
   }
 
+  // Deduplicata via `react/cache` con quella del layout: nessuna query in più.
+  const status = await getOnboardingStatus();
+  if (status.membership?.role === "collaborator") {
+    // Il piano è del titolare; all'assistenza dice i tempi di risposta.
+    const planResult = await getPlanSafe(user.id, "settingsPage");
+    return (
+      <CollaboratorSettings
+        email={user.email}
+        plan={planResult.ok ? planResult.info.plan : null}
+      />
+    );
+  }
+
+  return ownerSettings(user, success);
+}
+
+/**
+ * La pagina del titolare: attività, credenziali AdE, account, abbonamento,
+ * preferenze. Separata da `SettingsPage`, che sceglie la vista per ruolo, per
+ * tenere entrambe sotto la soglia S3776 di Cognitive Complexity.
+ */
+async function ownerSettings(user: User, success: string | undefined) {
   const db = getDb();
 
   const [profile] = await db
@@ -485,24 +509,7 @@ export default async function SettingsPage({
         </section>
       )}
 
-      {/* Preferenze — aspetto e stampante in una card sola: due controlli
-          brevi (tre bottoni tema, un abbinamento BT) che da soli non
-          giustificavano un header di card ciascuno. */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Preferenze</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h3 className="mb-3 text-sm font-medium">Aspetto</h3>
-            <ThemeSection />
-          </div>
-          <div className="border-t pt-6">
-            <h3 className="mb-3 text-sm font-medium">Stampante</h3>
-            <PrinterSection />
-          </div>
-        </CardContent>
-      </Card>
+      <PreferencesCard />
 
       {/* Personalizzazione scontrino (Pro) — card a sé e non un blocco dentro
           "Preferenze": ha un gate di piano con upsell, e a differenza di tema e
@@ -518,19 +525,7 @@ export default async function SettingsPage({
         />
       )}
 
-      {/* Assistenza — Help Center + contatto email pre-compilato. */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Assistenza</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SupportSection
-            accountEmail={user.email}
-            plan={planData?.plan ?? null}
-            appVersion={APP_VERSION}
-          />
-        </CardContent>
-      </Card>
+      <SupportCard accountEmail={user.email} plan={planData?.plan ?? null} />
 
       {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
       <ExtraSettingsSection hashTargets={EXTRA_SETTINGS_HASH_TARGETS}>

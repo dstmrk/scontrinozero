@@ -31,6 +31,9 @@ export default async function AnalyticsPage({
 }) {
   const status = await getOnboardingStatus();
   if (!status.businessId) redirect("/onboarding");
+  // Le analytics sono del titolare (issue #1099): la nav del collaboratore non
+  // le mostra, e un link diretto torna al catalogo.
+  if (status.membership?.role === "collaborator") redirect("/dashboard");
 
   const user = await getAuthenticatedUser();
 

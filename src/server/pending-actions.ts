@@ -5,8 +5,9 @@ import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import {
   getAuthenticatedUser,
   checkBusinessMembership,
+  type BusinessMembership,
 } from "@/lib/server-auth";
-import { canAccessDocument } from "@/lib/business-permissions";
+import { canAccessDocument, forMember } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   confirmPendingSaleCandidate,
@@ -45,12 +46,15 @@ const INVALID_INPUT: VerifyPendingSaleResult = {
 
 /**
  * Guardie comuni alle due action: sessione, ownership, rate limit, formato
- * degli id. Ritorna `null` quando la richiesta passa, o l'esito già deciso.
+ * degli id. Ritorna la membership quando la richiesta passa, o l'esito già
+ * deciso.
  */
 async function authorize(
   businessId: string,
   documentId: string,
-): Promise<{ done: VerifyPendingSaleResult } | null> {
+): Promise<
+  { done: VerifyPendingSaleResult } | { membership: BusinessMembership }
+> {
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   try {
     user = await getAuthenticatedUser();
@@ -80,7 +84,7 @@ async function authorize(
     return { done: { error: PENDING_NOT_FOUND_ERROR } };
   }
 
-  return null;
+  return { membership };
 }
 
 /** Verifica su AdE una vendita in sospeso. */
@@ -88,10 +92,14 @@ export async function verifyPendingDocument(
   businessId: string,
   documentId: string,
 ): Promise<VerifyPendingSaleResult> {
-  const denied = await authorize(businessId, documentId);
-  if (denied) return denied.done;
+  const auth = await authorize(businessId, documentId);
+  if ("done" in auth) return auth.done;
 
-  return verifyPendingSale({ businessId, documentId });
+  // Gli errori sulle credenziali AdE il collaboratore li gira al titolare.
+  return forMember(
+    await verifyPendingSale({ businessId, documentId }),
+    auth.membership,
+  );
 }
 
 /** Finalizza sul documento AdE che l'esercente ha riconosciuto. */
@@ -100,8 +108,8 @@ export async function confirmPendingDocument(
   documentId: string,
   idtrx: string,
 ): Promise<VerifyPendingSaleResult> {
-  const denied = await authorize(businessId, documentId);
-  if (denied) return denied.done;
+  const auth = await authorize(businessId, documentId);
+  if ("done" in auth) return auth.done;
 
   // `idtrx` non è un UUID: è un identificativo opaco del portale. Il controllo
   // che conta è che sia fra i candidati, e lo fa il service ri-cercando su AdE.
@@ -109,5 +117,8 @@ export async function confirmPendingDocument(
     return INVALID_INPUT;
   }
 
-  return confirmPendingSaleCandidate({ businessId, documentId, idtrx });
+  return forMember(
+    await confirmPendingSaleCandidate({ businessId, documentId, idtrx }),
+    auth.membership,
+  );
 }

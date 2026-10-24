@@ -26,6 +26,8 @@ import { and, eq, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { withAdeSession, type WithAdeSessionParams } from "@/lib/ade";
+import { ownDocumentsCondition } from "@/lib/business-permissions";
+import type { BusinessMembership } from "@/lib/server-auth";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import type { AdeDocumentSummary, InteractiveMethod } from "@/lib/ade/types";
 import { logger } from "@/lib/logger";
@@ -111,6 +113,7 @@ const ADE_UNREACHABLE_ERROR =
  */
 export async function listStalePendingSales(
   businessId: string,
+  membership: BusinessMembership,
 ): Promise<PendingSaleSummary[]> {
   try {
     const db = getDb();
@@ -126,6 +129,8 @@ export async function listStalePendingSales(
           eq(commercialDocuments.kind, "SALE"),
           eq(commercialDocuments.status, "PENDING"),
           lt(commercialDocuments.updatedAt, staleUpdatedBefore()),
+          // Il collaboratore verifica solo le proprie vendite (issue #1099).
+          ownDocumentsCondition(membership),
         ),
       );
     if (rows.length === 0) return [];

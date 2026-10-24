@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { BottomNav } from "./bottom-nav";
+import { MemberRoleProvider } from "./member-role";
 
 // --- Mocks ---
 
@@ -108,5 +109,19 @@ describe("BottomNav", () => {
 
     const analyticsLink = screen.getByText("Analytics").closest("a");
     expect(analyticsLink?.className).toContain("text-primary");
+  });
+
+  it("il collaboratore non vede Analytics, riservata al titolare", () => {
+    mockUsePathname.mockReturnValue("/dashboard");
+    render(
+      <MemberRoleProvider role="collaborator">
+        <BottomNav />
+      </MemberRoleProvider>,
+    );
+
+    expect(screen.queryByText("Analytics")).not.toBeInTheDocument();
+    for (const label of ["Catalogo", "Cassa", "Storico"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
   });
 });

@@ -8,7 +8,12 @@ export default async function OnboardingPage() {
   // Onboarding già completato: evita il re-entry sul wizard, che farebbe
   // ri-eseguire `saveBusiness` su un profilo già onboardato (con il rischio
   // di sovrascrivere firstName/lastName). Edit del business va da /settings.
-  if (status.credentialsVerified) {
+  // Il collaboratore l'onboarding non lo fa mai: attività e credenziali sono
+  // del titolare (issue #1099).
+  if (
+    status.credentialsVerified ||
+    status.membership?.role === "collaborator"
+  ) {
     redirect("/dashboard");
   }
 

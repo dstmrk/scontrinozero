@@ -5,17 +5,25 @@ import { profiles, businesses, adeCredentials } from "@/db/schema";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────
 
-const { mockGetUser, mockSelect, mockGetProfilePlan, mockRedirect } =
-  vi.hoisted(() => ({
-    mockGetUser: vi.fn(),
-    mockSelect: vi.fn(),
-    mockGetProfilePlan: vi.fn(),
-    // `redirect()` di Next lancia NEXT_REDIRECT: il mock replica il throw così
-    // un redirect inatteso non passa per un render riuscito.
-    mockRedirect: vi.fn((..._args: unknown[]) => {
-      throw new Error("NEXT_REDIRECT");
-    }),
-  }));
+const {
+  mockGetUser,
+  mockSelect,
+  mockGetProfilePlan,
+  mockGetOnboardingStatus,
+  mockGetPlanSafe,
+  mockRedirect,
+} = vi.hoisted(() => ({
+  mockGetUser: vi.fn(),
+  mockSelect: vi.fn(),
+  mockGetProfilePlan: vi.fn(),
+  mockGetOnboardingStatus: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
+  // `redirect()` di Next lancia NEXT_REDIRECT: il mock replica il throw così
+  // un redirect inatteso non passa per un render riuscito.
+  mockRedirect: vi.fn((..._args: unknown[]) => {
+    throw new Error("NEXT_REDIRECT");
+  }),
+}));
 
 vi.mock("next/navigation", () => ({
   redirect: (...args: unknown[]) => mockRedirect(...args),
@@ -28,6 +36,15 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/db", () => ({
   getDb: () => ({ select: (...args: unknown[]) => mockSelect(...args) }),
+}));
+
+vi.mock("@/server/onboarding-actions", () => ({
+  getOnboardingStatus: () => mockGetOnboardingStatus(),
+}));
+
+vi.mock("@/lib/plans", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/plans")>()),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
 }));
 
 vi.mock("@/server/billing-actions", () => ({
@@ -93,7 +110,9 @@ vi.mock("@/components/settings/printer-section", () => ({
   PrinterSection: () => <div data-testid="printer" />,
 }));
 vi.mock("@/components/settings/support-section", () => ({
-  SupportSection: () => <div data-testid="support" />,
+  SupportSection: ({ plan }: { plan: string | null }) => (
+    <div data-testid="support" data-plan={plan ?? ""} />
+  ),
 }));
 vi.mock("@/components/settings/api-key-card", () => ({
   ApiKeyCard: () => <div data-testid="api-key" />,
@@ -221,7 +240,87 @@ beforeEach(() => {
     data: { user: { id: "user-1", email: "mario@example.com" } },
   });
   mockGetProfilePlan.mockResolvedValue(PLAN_PRO);
+  mockGetOnboardingStatus.mockResolvedValue({
+    hasBusiness: true,
+    businessId: "biz-1",
+    membership: { memberId: "member-owner", role: "owner" },
+  });
   installDbFixtures();
+});
+
+// issue #1099. Il collaboratore non ha profilo: attività, credenziali AdE,
+// abbonamento, referral e chiavi API sono del titolare. Export GDPR e
+// cancellazione dell'account arrivano con gli inviti (PR 6).
+describe("SettingsPage — collaboratore", () => {
+  beforeEach(() => {
+    mockGetOnboardingStatus.mockResolvedValue({
+      hasBusiness: true,
+      businessId: "biz-1",
+      membership: { memberId: "member-collab", role: "collaborator" },
+    });
+    mockGetPlanSafe.mockResolvedValue({
+      ok: true,
+      info: { plan: "team", trialStartedAt: null, planExpiresAt: null },
+    });
+  });
+
+  it("rende account, preferenze e assistenza", async () => {
+    await renderSettings();
+
+    const account = screen.getByText("Account").closest('[data-slot="card"]');
+    expect(account).toHaveTextContent("mario@example.com");
+    expect(account).toContainElement(screen.getByTestId("change-password"));
+    expect(account).toHaveTextContent(/li gestisce il titolare/);
+    expect(screen.getByTestId("theme")).toBeInTheDocument();
+    expect(screen.getByTestId("printer")).toBeInTheDocument();
+    expect(screen.getByTestId("support")).toBeInTheDocument();
+  });
+
+  it("non rende niente di ciò che gestisce il titolare", async () => {
+    await renderSettings();
+
+    for (const text of [
+      "Attività e fisco",
+      "Credenziali AdE",
+      "Abbonamento",
+      "Referral",
+    ]) {
+      expect(screen.queryByText(text)).not.toBeInTheDocument();
+    }
+    for (const testId of [
+      "edit-profile",
+      "edit-business",
+      "ade-credentials",
+      "receipt-note",
+      "api-key",
+      "export-data",
+      "account-delete",
+    ]) {
+      expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
+    }
+  });
+
+  it("non legge profilo né attività", async () => {
+    await renderSettings();
+
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockGetProfilePlan).not.toHaveBeenCalled();
+  });
+
+  it("passa all'assistenza il piano del titolare, che decide i tempi di risposta", async () => {
+    await renderSettings();
+
+    expect(mockGetPlanSafe).toHaveBeenCalledWith("user-1", "settingsPage");
+    expect(screen.getByTestId("support").dataset.plan).toBe("team");
+  });
+
+  it("senza piano leggibile l'assistenza resta, senza piano", async () => {
+    mockGetPlanSafe.mockResolvedValue({ ok: false, error: "DB giù" });
+
+    await renderSettings();
+
+    expect(screen.getByTestId("support").dataset.plan).toBe("");
+  });
 });
 
 describe("SettingsPage — gerarchia delle sezioni", () => {

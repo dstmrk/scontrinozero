@@ -21,15 +21,18 @@ const mockLimit = vi.fn();
 // risultato ignorato. Risolve a [] di default.
 const mockFor = vi.fn().mockResolvedValue([]);
 const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit, for: mockFor });
-const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
-// leftJoin è chainable (può essere chiamato 2 volte per profile→business→creds);
-// ritorna un oggetto che espone leftJoin/innerJoin/where per terminare la chain.
+// I join sono chainable in qualunque ordine (membership→business→creds
+// usa innerJoin poi leftJoin); ognuno espone leftJoin/innerJoin/where per
+// terminare la chain.
+const mockInnerJoin: ReturnType<typeof vi.fn> = vi.fn();
 const mockLeftJoin: ReturnType<typeof vi.fn> = vi.fn();
-mockLeftJoin.mockReturnValue({
+const mockJoinChain = {
   leftJoin: mockLeftJoin,
   innerJoin: mockInnerJoin,
   where: mockWhere,
-});
+};
+mockInnerJoin.mockReturnValue(mockJoinChain);
+mockLeftJoin.mockReturnValue(mockJoinChain);
 const mockFrom = vi.fn().mockReturnValue({
   where: mockWhere,
   innerJoin: mockInnerJoin,
@@ -3618,52 +3621,46 @@ describe("onboarding-actions", () => {
   });
 
   describe("getOnboardingStatus", () => {
-    // Single JOIN query: profile -> business (leftJoin) -> credentials (leftJoin).
-    // Una sola riga risultato, niente più 3 round-trip DB sequenziali.
-    it("returns all false when no profile", async () => {
+    // Una sola query: membership -> attività -> credenziali. Titolare e
+    // collaboratore raggiungono l'attività per la stessa strada (issue #1099).
+    it("senza membership non c'è ancora un'attività: tutto false", async () => {
       mockLimit.mockResolvedValueOnce([]);
 
       const { getOnboardingStatus } = await import("./onboarding-actions");
       const status = await getOnboardingStatus();
 
       expect(status).toEqual({
-        hasProfile: false,
         hasBusiness: false,
         hasCredentials: false,
         credentialsVerified: false,
         hasUtenzaPiva: false,
       });
-      // Esattamente 1 query DB: profile JOIN business JOIN creds. `hasUtenzaPiva`
-      // è un'espressione in più sullo stesso JOIN (issue #984), non una
-      // lettura in più: il conteggio non deve muoversi.
+      // `hasUtenzaPiva` è un'espressione in più sullo stesso JOIN (issue
+      // #984), non una lettura in più: il conteggio non deve muoversi.
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });
 
-    it("returns hasBusiness false when profile exists but no business", async () => {
-      mockLimit.mockResolvedValueOnce([
-        {
-          profileId: "profile-456",
-          businessId: null,
-          hasCredentials: false,
-          credentialsVerified: false,
-        },
-      ]);
+    it("parte da business_members, non dal profilo", async () => {
+      mockLimit.mockResolvedValueOnce([]);
 
       const { getOnboardingStatus } = await import("./onboarding-actions");
-      const status = await getOnboardingStatus();
+      await getOnboardingStatus();
 
-      expect(status.hasProfile).toBe(true);
-      expect(status.hasBusiness).toBe(false);
-      expect(mockSelect).toHaveBeenCalledTimes(1);
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+      expect(mockFrom).toHaveBeenCalledWith(
+        expect.objectContaining({ authUserId: "auth_user_id", role: "role" }),
+      );
     });
 
-    it("returns complete status when all steps done", async () => {
+    it("titolare a onboarding finito: stato completo con il ruolo", async () => {
       mockLimit.mockResolvedValueOnce([
         {
-          profileId: "profile-456",
+          memberId: "member-owner",
+          role: "owner",
           businessId: "11111111-1111-4111-8111-111111111111",
           hasCredentials: true,
           credentialsVerified: true,
+          hasUtenzaPiva: false,
         },
       ]);
 
@@ -3671,11 +3668,38 @@ describe("onboarding-actions", () => {
       const status = await getOnboardingStatus();
 
       expect(status).toEqual({
-        hasProfile: true,
         hasBusiness: true,
         businessId: "11111111-1111-4111-8111-111111111111",
+        membership: { memberId: "member-owner", role: "owner" },
         hasCredentials: true,
         credentialsVerified: true,
+        hasUtenzaPiva: false,
+      });
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it("collaboratore: l'attività e le credenziali sono quelle del titolare", async () => {
+      mockLimit.mockResolvedValueOnce([
+        {
+          memberId: "member-collab",
+          role: "collaborator",
+          businessId: "11111111-1111-4111-8111-111111111111",
+          hasCredentials: true,
+          credentialsVerified: true,
+          hasUtenzaPiva: true,
+        },
+      ]);
+
+      const { getOnboardingStatus } = await import("./onboarding-actions");
+      const status = await getOnboardingStatus();
+
+      expect(status).toEqual({
+        hasBusiness: true,
+        businessId: "11111111-1111-4111-8111-111111111111",
+        membership: { memberId: "member-collab", role: "collaborator" },
+        hasCredentials: true,
+        credentialsVerified: true,
+        hasUtenzaPiva: true,
       });
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });

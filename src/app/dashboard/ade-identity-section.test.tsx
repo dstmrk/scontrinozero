@@ -55,6 +55,20 @@ describe("AdeIdentitySection", () => {
     mockLoadAdeIdentityMismatches.mockResolvedValue(DIVERGENTE);
   });
 
+  it("al collaboratore non mostra l'avviso e non legge niente", async () => {
+    // Correggere i dati dell'attività spetta al titolare (issue #1099).
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: BIZ,
+      hasUtenzaPiva: true,
+      membership: { memberId: "member-collab", role: "collaborator" },
+    });
+
+    const { container } = render(await AdeIdentitySection());
+
+    expect(container).toBeEmptyDOMElement();
+    expect(mockLoadAdeIdentityMismatches).not.toHaveBeenCalled();
+  });
+
   it("monta l'avviso con i verdetti letti", async () => {
     render(await AdeIdentitySection());
 

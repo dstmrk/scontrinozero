@@ -73,7 +73,15 @@ vi.mock("@/lib/services/pending-verification", () => ({
     "Scontrino non trovato. Ricarica la pagina e riprova.",
 }));
 
-import { COLLABORATORS_SUSPENDED_MESSAGE } from "@/lib/business-permissions";
+import {
+  COLLABORATORS_SUSPENDED_MESSAGE,
+  COLLABORATOR_CREDENTIALS_MESSAGE,
+  COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
+} from "@/lib/business-permissions";
+import {
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  PASSWORD_EXPIRED_MESSAGE,
+} from "@/lib/ade/error-messages";
 import {
   confirmPendingDocument,
   verifyPendingDocument,
@@ -181,6 +189,84 @@ describe("sospensione del collaboratore", () => {
       await act();
 
       expect(service()).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
+describe("errori che solo il titolare può risolvere", () => {
+  const passwordExpired = {
+    error: PASSWORD_EXPIRED_MESSAGE,
+    code: "ADE_PASSWORD_EXPIRED",
+  };
+
+  it.each(FISCAL_ACTIONS)(
+    "%s: al collaboratore la password scaduta dice di avvisare il titolare",
+    async (_name, act, service) => {
+      service().mockResolvedValue(passwordExpired);
+
+      await expect(act()).resolves.toEqual({
+        error: COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
+        code: "ADE_PASSWORD_EXPIRED",
+      });
+    },
+  );
+
+  it.each(FISCAL_ACTIONS)(
+    "%s: al collaboratore le credenziali non verificate dicono di avvisare il titolare",
+    async (_name, act, service) => {
+      service().mockResolvedValue({ error: CREDENTIALS_NOT_VERIFIED_MESSAGE });
+
+      await expect(act()).resolves.toEqual({
+        error: COLLABORATOR_CREDENTIALS_MESSAGE,
+      });
+    },
+  );
+
+  it.each(FISCAL_ACTIONS)(
+    "%s: il titolare riceve il messaggio originale",
+    async (_name, act, service) => {
+      mockCheckBusinessMembership.mockResolvedValue(OWNER);
+      service().mockResolvedValue(passwordExpired);
+
+      await expect(act()).resolves.toEqual(passwordExpired);
+    },
+  );
+});
+
+describe("verifica dei pending: errori che solo il titolare può risolvere", () => {
+  const PENDING_ACTIONS = [
+    [
+      "verifyPendingDocument",
+      () => verifyPendingDocument(BIZ_ID, DOC_ID),
+      () => mockVerifyPendingSale,
+    ],
+    [
+      "confirmPendingDocument",
+      () => confirmPendingDocument(BIZ_ID, DOC_ID, "idtrx-1"),
+      () => mockConfirmPendingSaleCandidate,
+    ],
+  ] as const;
+
+  it.each(PENDING_ACTIONS)(
+    "%s: al collaboratore le credenziali non verificate dicono di avvisare il titolare",
+    async (_name, act, service) => {
+      service().mockResolvedValue({ error: CREDENTIALS_NOT_VERIFIED_MESSAGE });
+
+      await expect(act()).resolves.toEqual({
+        error: COLLABORATOR_CREDENTIALS_MESSAGE,
+      });
+    },
+  );
+
+  it.each(PENDING_ACTIONS)(
+    "%s: il titolare riceve il messaggio originale",
+    async (_name, act, service) => {
+      mockCheckBusinessMembership.mockResolvedValue(OWNER);
+      service().mockResolvedValue({ error: CREDENTIALS_NOT_VERIFIED_MESSAGE });
+
+      await expect(act()).resolves.toEqual({
+        error: CREDENTIALS_NOT_VERIFIED_MESSAGE,
+      });
     },
   );
 });

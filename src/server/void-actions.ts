@@ -11,6 +11,7 @@ import {
 import {
   canAccessDocument,
   collaboratorSuspendedError,
+  forMember,
 } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
@@ -95,7 +96,11 @@ export async function voidReceipt(
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.
   // Il membro che opera firma il documento (`created_by`, issue #1099).
-  return voidReceiptForBusiness(validation.data, {
-    memberId: membership.memberId,
-  });
+  // Gli errori sulle credenziali AdE il collaboratore li gira al titolare.
+  return forMember(
+    await voidReceiptForBusiness(validation.data, {
+      memberId: membership.memberId,
+    }),
+    membership,
+  );
 }

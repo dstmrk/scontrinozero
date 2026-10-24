@@ -15,6 +15,7 @@ const {
   mockSearchDocuments,
   mockLoggerWarn,
   mockLogAdeFailure,
+  mockOwnDocumentsCondition,
 } = vi.hoisted(() => ({
   mockSelectLimit: vi.fn(),
   mockSelectRows: vi.fn(),
@@ -29,6 +30,7 @@ const {
   mockSearchDocuments: vi.fn(),
   mockLoggerWarn: vi.fn(),
   mockLogAdeFailure: vi.fn(),
+  mockOwnDocumentsCondition: vi.fn(),
 }));
 
 // Drizzle: `.where()` è già awaitable e `.limit()` la restringe. Il builder
@@ -97,6 +99,12 @@ vi.mock("@/lib/ade", () => ({
 
 vi.mock("@/lib/ade/log-failure", () => ({ logAdeFailure: mockLogAdeFailure }));
 
+// La condizione sui documenti propri ha i suoi test in
+// `business-permissions.test.ts`: qui conta che l'elenco la applichi.
+vi.mock("@/lib/business-permissions", () => ({
+  ownDocumentsCondition: mockOwnDocumentsCondition,
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: { warn: mockLoggerWarn, info: vi.fn(), error: vi.fn() },
 }));
@@ -110,6 +118,11 @@ import type { AdeDocumentSummary } from "@/lib/ade/types";
 
 const BIZ = "biz-uuid";
 const DOC = "doc-uuid";
+const OWNER = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 
 /** Riga stale: `updated_at` più vecchia della soglia di 30 minuti. */
 function pendingRow(over: Record<string, unknown> = {}) {
@@ -617,7 +630,7 @@ describe("listStalePendingSales", () => {
       },
     ]);
 
-    const result = await listStalePendingSales(BIZ);
+    const result = await listStalePendingSales(BIZ, OWNER);
 
     // round(10.00 * 2 * 100) − round(1.50 * 100) = 1850 (regola 17).
     expect(result).toEqual([
@@ -625,10 +638,20 @@ describe("listStalePendingSales", () => {
     ]);
   });
 
+  it("applica la condizione sui documenti propri del membro", async () => {
+    mockSelectRows.mockReturnValue([]);
+
+    await listStalePendingSales(BIZ, COLLABORATOR);
+
+    // Il collaboratore vede solo le proprie vendite in sospeso (issue #1099):
+    // verificarne una altrui gli è vietato da `canAccessDocument`.
+    expect(mockOwnDocumentsCondition).toHaveBeenCalledWith(COLLABORATOR);
+  });
+
   it("non interroga le righe quando non c'è niente in sospeso", async () => {
     mockSelectRows.mockReturnValue([]);
 
-    const result = await listStalePendingSales(BIZ);
+    const result = await listStalePendingSales(BIZ, OWNER);
 
     expect(result).toEqual([]);
     expect(mockFetchLinesByDocIds).not.toHaveBeenCalled();
@@ -641,7 +664,7 @@ describe("listStalePendingSales", () => {
 
     // È montata nel layout del dashboard: un throw sostituirebbe l'intera app
     // con l'error boundary di Next per un avviso accessorio.
-    await expect(listStalePendingSales(BIZ)).resolves.toEqual([]);
+    await expect(listStalePendingSales(BIZ, OWNER)).resolves.toEqual([]);
     expect(mockLoggerWarn).toHaveBeenCalled();
   });
 
@@ -651,7 +674,7 @@ describe("listStalePendingSales", () => {
     ]);
     mockFetchLinesByDocIds.mockResolvedValue([]);
 
-    const result = await listStalePendingSales(BIZ);
+    const result = await listStalePendingSales(BIZ, OWNER);
 
     expect(result).toEqual([
       { id: DOC, createdAt: "2026-09-10T09:00:00.000Z", totalCents: 0 },

@@ -26,6 +26,27 @@ export type UserFacingAdeError = {
 export const PASSWORD_EXPIRED_MESSAGE = "La password Fisconline è scaduta.";
 
 /**
+ * Credenziali dell'attività assenti o non verificate, per le operazioni che
+ * le leggono (`fetchAdePrerequisites`).
+ */
+export const CREDENTIALS_NOT_FOUND_MESSAGE =
+  "Credenziali AdE non trovate. Completa la configurazione.";
+export const CREDENTIALS_NOT_VERIFIED_MESSAGE =
+  "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.";
+
+/**
+ * I tre rifiuti del login che solo chi possiede le credenziali può risolvere.
+ * Questi, e i due sopra, sono esportati perché al collaboratore vanno detti
+ * in un altro modo (`forMember` in `src/lib/business-permissions.ts`, issue
+ * #1099).
+ */
+export const ACCOUNT_LOCKED_MESSAGE = `La tua utenza dell'Agenzia delle Entrate risulta bloccata. Non dipende dai dati che hai inserito: sono corretti. Per sbloccarla entra nel portale dell'Agenzia delle Entrate, oppure scrivici a ${CONTACT_EMAIL}.`;
+export const INVALID_CIE_CREDENTIALS_MESSAGE =
+  "Credenziali CIE ID non valide. Verifica email e password.";
+export const INVALID_FISCONLINE_CREDENTIALS_MESSAGE =
+  "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.";
+
+/**
  * Maps an AdE-side error to a message the end user can act on.
  *
  * The default catch sites used to return the same generic "verifica
@@ -67,16 +88,14 @@ function getLoginFailureMessage(
     // sull'utenza, non sui campi che sono stati digitati. E soprattutto non
     // dice "verifica le credenziali" — sono giuste, ed è riscrivendole che
     // l'esercente perde tempo (e a volte prolunga il blocco).
-    return {
-      message: `La tua utenza dell'Agenzia delle Entrate risulta bloccata. Non dipende dai dati che hai inserito: sono corretti. Per sbloccarla entra nel portale dell'Agenzia delle Entrate, oppure scrivici a ${CONTACT_EMAIL}.`,
-    };
+    return { message: ACCOUNT_LOCKED_MESSAGE };
   }
   if (err instanceof AdeAuthError) {
     return {
       message:
         method === "cie"
-          ? "Credenziali CIE ID non valide. Verifica email e password."
-          : "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
+          ? INVALID_CIE_CREDENTIALS_MESSAGE
+          : INVALID_FISCONLINE_CREDENTIALS_MESSAGE,
     };
   }
   return null;

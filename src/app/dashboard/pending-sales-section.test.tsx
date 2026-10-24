@@ -26,11 +26,30 @@ vi.mock("@/components/dashboard/pending-sales-banner", () => ({
 import { PendingSalesSection } from "./pending-sales-section";
 
 const BIZ = "biz-uuid";
+const COLLABORATOR = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 
 describe("PendingSalesSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetOnboardingStatus.mockResolvedValue({ businessId: BIZ });
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: BIZ,
+      membership: { memberId: "member-owner", role: "owner" },
+    });
+  });
+
+  it("passa all'elenco la membership di chi guarda", async () => {
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: BIZ,
+      membership: COLLABORATOR,
+    });
+    mockListStalePendingSales.mockResolvedValue([]);
+
+    await PendingSalesSection();
+
+    expect(mockListStalePendingSales).toHaveBeenCalledWith(BIZ, COLLABORATOR);
   });
 
   it("rende il banner quando ci sono scontrini in sospeso", async () => {

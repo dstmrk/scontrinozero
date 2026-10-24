@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { StoricoClient } from "./storico-client";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 import {
   getReceiptDetail,
   searchReceipts,
@@ -154,6 +155,42 @@ beforeEach(() => {
     total: 0,
   });
   vi.mocked(getReceiptDetail).mockResolvedValue({ item: VOIDED_ROW });
+});
+
+// issue #1099: la ricerca su AdE legge tutta la P.IVA e l'export CSV tutta
+// l'attività, quindi sono del titolare anche quando il piano li include.
+describe("StoricoClient — collaboratore", () => {
+  function renderAsCollaborator(initialIncludeAde = false) {
+    return render(
+      <MemberRoleProvider role="collaborator">
+        <StoricoClient
+          businessId={BUSINESS_ID}
+          initialItems={[ACCEPTED_ROW]}
+          initialTotal={1}
+          initialIncludeAde={initialIncludeAde}
+          plan="team"
+        />
+      </MemberRoleProvider>,
+    );
+  }
+
+  it("non vede la ricerca su AdE né l'export CSV", () => {
+    renderAsCollaborator();
+
+    expect(screen.queryByLabelText(TOGGLE_LABEL)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Esporta CSV" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("un link con ?ade=1 non attiva la ricerca su AdE", async () => {
+    renderAsCollaborator(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    await waitFor(() => expect(searchReceipts).toHaveBeenCalled());
+    expect(searchReceiptsIncludingAde).not.toHaveBeenCalled();
+  });
 });
 
 describe("StoricoClient — ricerca sull'archivio AdE", () => {

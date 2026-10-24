@@ -108,6 +108,23 @@ beforeEach(() => {
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
 });
 
+describe("AnalyticsPage — collaboratore", () => {
+  it("rimanda al catalogo senza leggere piano né KPI", async () => {
+    // Le analytics sono del titolare (issue #1099): anche le action le
+    // rifiutano, qui si evita di arrivarci da un link diretto.
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: "biz-1",
+      membership: { memberId: "member-collab", role: "collaborator" },
+    });
+
+    await expect(AnalyticsPage(pageProps())).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
+    expect(mockGetPlanSafe).not.toHaveBeenCalled();
+    expect(mockGetStarterKpis).not.toHaveBeenCalled();
+    expect(mockGetAnalyticsBundle).not.toHaveBeenCalled();
+  });
+});
+
 describe("AnalyticsPage — base view (Starter/Trial)", () => {
   it("renders KPI cards and the combined Pro upsell card, without AnalyticsClient", async () => {
     mockGetPlanSafe.mockResolvedValue(planOk({ plan: "starter" }));

@@ -16,6 +16,7 @@ import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { canUsePro, type Plan } from "@/lib/plans-shared";
+import { useIsCollaborator } from "@/components/dashboard/member-role";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -198,12 +199,18 @@ export function StoricoClient({
   const [page, setPage] = useState(1);
 
   const isPro = canUsePro(plan, null, trialStartedAt);
+  // La ricerca su AdE legge tutta la P.IVA e l'export CSV tutta l'attività:
+  // sono del titolare anche quando il piano li include (issue #1099).
+  const isCollaborator = useIsCollaborator();
+  const canSearchAde = isPro && !isCollaborator;
 
   /**
    * Filtro, non interruttore istantaneo: si applica premendo "Cerca", come il
    * periodo e lo stato. Spuntarlo non deve far partire da solo un login AdE.
    */
-  const [includeAde, setIncludeAde] = useState(initialIncludeAde && isPro);
+  const [includeAde, setIncludeAde] = useState(
+    initialIncludeAde && canSearchAde,
+  );
 
   /**
    * Cosa è andato storto **nel solo ramo AdE** dell'ultima ricerca. Separato
@@ -413,7 +420,7 @@ export function StoricoClient({
             </SelectContent>
           </Select>
         </div>
-        {isPro && (
+        {canSearchAde && (
           <div className="flex w-full items-start gap-2 pt-1">
             <Checkbox
               id="includeAde"
@@ -439,22 +446,24 @@ export function StoricoClient({
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isPending ? "Ricerca…" : "Cerca"}
         </Button>
-        <ExportCsvButton
-          plan={plan}
-          trialStartedAt={trialStartedAt}
-          dateFrom={
-            dateRange?.from
-              ? format(dateRange.from, "yyyy-MM-dd")
-              : format(sevenDaysAgo, "yyyy-MM-dd")
-          }
-          dateTo={
-            dateRange?.to
-              ? format(dateRange.to, "yyyy-MM-dd")
-              : format(today, "yyyy-MM-dd")
-          }
-          status={statusFilter === "" ? null : statusFilter}
-          includeAde={includeAde}
-        />
+        {!isCollaborator && (
+          <ExportCsvButton
+            plan={plan}
+            trialStartedAt={trialStartedAt}
+            dateFrom={
+              dateRange?.from
+                ? format(dateRange.from, "yyyy-MM-dd")
+                : format(sevenDaysAgo, "yyyy-MM-dd")
+            }
+            dateTo={
+              dateRange?.to
+                ? format(dateRange.to, "yyyy-MM-dd")
+                : format(today, "yyyy-MM-dd")
+            }
+            status={statusFilter === "" ? null : statusFilter}
+            includeAde={includeAde}
+          />
+        )}
       </form>
 
       {/* Avvisi del ramo AdE — mai al posto dell'elenco, sempre accanto */}

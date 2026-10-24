@@ -15,11 +15,13 @@ import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
 import { HeaderNav } from "@/components/dashboard/header-nav";
 import { OnboardingTour } from "@/components/dashboard/onboarding-tour";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
 import { PendingSalesSection } from "./pending-sales-section";
 import { AdeIdentitySection } from "./ade-identity-section";
+import { CollaboratorSuspendedSection } from "./collaborator-suspended-section";
 
 // Solo l'app shell va edge-to-edge: il marketing resta sul viewport di default.
 // Motivazione in src/lib/pwa/viewport.ts.
@@ -44,16 +46,24 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Check if onboarding is complete
+  // Check if onboarding is complete. Il collaboratore l'onboarding non lo fa:
+  // attività e credenziali sono del titolare, e `/onboarding` lo rimanda qui
+  // (issue #1099).
   const status = await getOnboardingStatus();
-  if (!status.hasBusiness || !status.hasCredentials) {
+  const role = status.membership?.role ?? "owner";
+  if (
+    role !== "collaborator" &&
+    (!status.hasBusiness || !status.hasCredentials)
+  ) {
     redirect("/onboarding");
   }
 
   // Onboarding tour: mostrato una sola volta al primo accesso (v1.4.1).
   // Letto server-side → niente flash dell'overlay. Degrada a "visto" su errore
   // DB (la funzione gestisce il fallback), quindi non blocca mai il dashboard.
-  const tourSeen = await getOnboardingTourSeen();
+  // Non al collaboratore: il flag sta sul profilo, che lui non ha, e il tour
+  // presenta funzioni del titolare.
+  const tourSeen = role === "collaborator" || (await getOnboardingTourSeen());
 
   const announcement = getAnnouncement();
 
@@ -64,117 +74,127 @@ export default async function DashboardLayout({
       enableSystem
       disableTransitionOnChange
     >
-      {/*
-        Inset orizzontali sullo shell: con viewport-fit=cover il layout arriva
-        al bordo fisico, quindi in landscape su telefoni col notch il contenuto
-        finirebbe sotto il ritaglio. Le bande laterali restano invisibili — il
-        body ha lo stesso `bg-background`. In portrait valgono 0.
-      */}
-      <div className="flex min-h-screen flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
-        {announcement && <AnnouncementBanner {...announcement} />}
-        <header className="bg-background border-b">
-          <div className="container mx-auto flex items-center justify-between px-4 py-3">
-            <Link
-              href="/dashboard"
-              className="text-primary flex items-center gap-2 text-lg font-bold"
-            >
-              <Image
-                src="/logo.png"
-                alt="ScontrinoZero"
-                width={20}
-                height={20}
-              />
-              ScontrinoZero
-              <PartnerBrandSuffix />
-            </Link>
-
-            <div className="flex items-center md:hidden">
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                aria-label="Impostazioni"
+      <MemberRoleProvider role={role}>
+        {/*
+          Inset orizzontali sullo shell: con viewport-fit=cover il layout arriva
+          al bordo fisico, quindi in landscape su telefoni col notch il contenuto
+          finirebbe sotto il ritaglio. Le bande laterali restano invisibili — il
+          body ha lo stesso `bg-background`. In portrait valgono 0.
+        */}
+        <div className="flex min-h-screen flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+          {announcement && <AnnouncementBanner {...announcement} />}
+          <header className="bg-background border-b">
+            <div className="container mx-auto flex items-center justify-between px-4 py-3">
+              <Link
+                href="/dashboard"
+                className="text-primary flex items-center gap-2 text-lg font-bold"
               >
-                <Link
-                  href="/dashboard/settings"
-                  data-tour-step="settings-mobile"
-                >
-                  <Settings className="h-5 w-5" />
-                </Link>
-              </Button>
-              <form action={signOut}>
+                <Image
+                  src="/logo.png"
+                  alt="ScontrinoZero"
+                  width={20}
+                  height={20}
+                />
+                ScontrinoZero
+                <PartnerBrandSuffix />
+              </Link>
+
+              <div className="flex items-center md:hidden">
                 <Button
                   variant="ghost"
                   size="icon"
-                  type="submit"
-                  aria-label="Esci"
+                  asChild
+                  aria-label="Impostazioni"
                 >
-                  <LogOut className="h-5 w-5" />
+                  <Link
+                    href="/dashboard/settings"
+                    data-tour-step="settings-mobile"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Link>
                 </Button>
-              </form>
+                <form action={signOut}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="submit"
+                    aria-label="Esci"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </Button>
+                </form>
+              </div>
+
+              <nav
+                data-tour-nav="desktop"
+                className="hidden items-center gap-4 md:flex"
+              >
+                <HeaderNav />
+
+                <form action={signOut}>
+                  <Button variant="ghost" size="sm" type="submit">
+                    Esci
+                  </Button>
+                </form>
+              </nav>
             </div>
+          </header>
 
-            <nav
-              data-tour-nav="desktop"
-              className="hidden items-center gap-4 md:flex"
-            >
-              <HeaderNav />
-
-              <form action={signOut}>
-                <Button variant="ghost" size="sm" type="submit">
-                  Esci
-                </Button>
-              </form>
-            </nav>
-          </div>
-        </header>
-
-        {/*
-          La bottom nav è alta h-16 e cresce della safe-area inset: senza
-          sommarla qui il fondo del contenuto finirebbe sotto la nav esattamente
-          sui telefoni con home indicator. Il 5rem è il vecchio pb-20 (64px di
-          nav + 16px d'aria).
-
-          Da `md` la nav è nascosta, ma la inset va sommata lo stesso: con
-          viewport-fit=cover il layout arriva al bordo fisico anche su un iPad
-          installato come PWA, dove prima iOS riservava quella fascia da solo.
-          Con il solo `pb-6` l'ultima riga finirebbe a filo della home indicator.
-        */}
-        <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
           {/*
-            Scontrini rimasti in sospeso (PR #904). Sta nel layout e non
-            in una pagina perché l'esercente deve incontrarlo ovunque stia
-            lavorando — cassa compresa, che è da dove la slice 3 lo manda
-            quando la riemissione è bloccata.
+            La bottom nav è alta h-16 e cresce della safe-area inset: senza
+            sommarla qui il fondo del contenuto finirebbe sotto la nav esattamente
+            sui telefoni con home indicator. Il 5rem è il vecchio pb-20 (64px di
+            nav + 16px d'aria).
 
-            Dietro `<Suspense fallback={null}>`: la query non deve ritardare lo
-            shell, e nel caso normale non c'è niente da mostrare — uno
-            scheletro lampeggerebbe a ogni navigazione per poi sparire.
+            Da `md` la nav è nascosta, ma la inset va sommata lo stesso: con
+            viewport-fit=cover il layout arriva al bordo fisico anche su un iPad
+            installato come PWA, dove prima iOS riservava quella fascia da solo.
+            Con il solo `pb-6` l'ultima riga finirebbe a filo della home indicator.
           */}
-          <Suspense fallback={null}>
-            <PendingSalesSection />
-          </Suspense>
-          {/*
-            Identità stampata diversa da quella registrata all'AdE
-            (issue #984). Stessa ragione di stare nel layout: finita la
-            verifica si atterra su /dashboard e si va in cassa, quindi chi
-            opera per conto di una società incontrerebbe l'avviso solo
-            aprendo le impostazioni di sua iniziativa — cioè quasi mai.
+          <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
+            {/*
+              Scontrini rimasti in sospeso (PR #904). Sta nel layout e non
+              in una pagina perché l'esercente deve incontrarlo ovunque stia
+              lavorando — cassa compresa, che è da dove la slice 3 lo manda
+              quando la riemissione è bloccata.
 
-            Dopo il banner degli scontrini in sospeso, non prima: quello è
-            denaro già incassato a esito ignoto, questo è un dato da
-            correggere.
-          */}
-          <Suspense fallback={null}>
-            <AdeIdentitySection />
-          </Suspense>
-          {children}
-        </main>
+              Dietro `<Suspense fallback={null}>`: la query non deve ritardare lo
+              shell, e nel caso normale non c'è niente da mostrare — uno
+              scheletro lampeggerebbe a ogni navigazione per poi sparire.
+            */}
+            <Suspense fallback={null}>
+              <PendingSalesSection />
+            </Suspense>
+            {/*
+              Collaboratore sospeso (issue #1099): sola lettura finché il piano
+              del titolare non ammette collaboratori. Va visto prima di comporre
+              una vendita che non potrebbe emettere.
+            */}
+            <Suspense fallback={null}>
+              <CollaboratorSuspendedSection />
+            </Suspense>
+            {/*
+              Identità stampata diversa da quella registrata all'AdE
+              (issue #984). Stessa ragione di stare nel layout: finita la
+              verifica si atterra su /dashboard e si va in cassa, quindi chi
+              opera per conto di una società incontrerebbe l'avviso solo
+              aprendo le impostazioni di sua iniziativa — cioè quasi mai.
 
-        <BottomNav />
-        <PwaInstallPrompt />
-        {!tourSeen && <OnboardingTour />}
-      </div>
+              Dopo il banner degli scontrini in sospeso, non prima: quello è
+              denaro già incassato a esito ignoto, questo è un dato da
+              correggere.
+            */}
+            <Suspense fallback={null}>
+              <AdeIdentitySection />
+            </Suspense>
+            {children}
+          </main>
+
+          <BottomNav />
+          <PwaInstallPrompt />
+          {!tourSeen && <OnboardingTour />}
+        </div>
+      </MemberRoleProvider>
     </ThemeProvider>
   );
 }

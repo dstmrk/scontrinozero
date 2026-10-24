@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CatalogoClient } from "./catalogo-client";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 import type { CatalogItem } from "@/types/catalogo";
 
 // --- Mocks ---
@@ -88,6 +89,43 @@ function enterEditMode() {
 }
 
 // --- Tests ---
+
+// issue #1099: il collaboratore vende dal catalogo ma non lo modifica, e le
+// action di scrittura lo respingono comunque.
+describe("CatalogoClient — collaboratore", () => {
+  function renderAsCollaborator(items: CatalogItem[]) {
+    return renderWithQuery(
+      <MemberRoleProvider role="collaborator">
+        <CatalogoClient businessId="biz-1" initialData={items} />
+      </MemberRoleProvider>,
+    );
+  }
+
+  it("vende dal catalogo senza i comandi di modifica", () => {
+    renderAsCollaborator(FAKE_ITEMS);
+
+    expect(
+      screen.queryByRole("button", { name: "Modifica" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /aggiungi/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Caffè espresso"));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.stringContaining("/dashboard/cassa"),
+    );
+  });
+
+  it("con il catalogo vuoto rimanda al titolare", () => {
+    renderAsCollaborator([]);
+
+    expect(screen.getByText(/nessun prodotto nel catalogo/i)).toHaveTextContent(
+      /lo prepara il titolare/,
+    );
+    expect(screen.queryByText(/premi/i)).not.toBeInTheDocument();
+  });
+});
 
 describe("CatalogoClient", () => {
   it("mostra l'empty state quando non ci sono prodotti", () => {

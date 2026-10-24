@@ -17,7 +17,11 @@ import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore, InteractiveMethod } from "@/lib/ade/types";
 import type { WithAdeSessionParams } from "@/lib/ade";
 import type { LoginRejectionOutcome } from "@/lib/ade/verify-outcome";
-import { PASSWORD_EXPIRED_MESSAGE } from "@/lib/ade/error-messages";
+import {
+  CREDENTIALS_NOT_FOUND_MESSAGE,
+  CREDENTIALS_NOT_VERIFIED_MESSAGE,
+  PASSWORD_EXPIRED_MESSAGE,
+} from "@/lib/ade/error-messages";
 export type { User } from "@supabase/supabase-js";
 
 export type BusinessAccessError = { error: string };
@@ -324,7 +328,7 @@ export async function fetchAdePrerequisites(
 
   if (!row) {
     return {
-      error: "Credenziali AdE non trovate. Completa la configurazione.",
+      error: CREDENTIALS_NOT_FOUND_MESSAGE,
     };
   }
   if (!row.cred.verifiedAt) {
@@ -340,8 +344,7 @@ export async function fetchAdePrerequisites(
       };
     }
     return {
-      error:
-        "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+      error: CREDENTIALS_NOT_VERIFIED_MESSAGE,
     };
   }
 

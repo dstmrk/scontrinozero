@@ -51,7 +51,10 @@ import { isValidUuid } from "@/lib/uuid";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
 import { notifyOperatorOfNewSignup } from "@/lib/operator-notification";
-import { getAuthenticatedUser } from "@/lib/server-auth";
+import {
+  getAuthenticatedUser,
+  type BusinessMembership,
+} from "@/lib/server-auth";
 import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
@@ -148,7 +151,6 @@ const saveAdeCredentialsLimiter = new RateLimiter({
 });
 
 export type OnboardingStatus = {
-  hasProfile: boolean;
   hasBusiness: boolean;
   hasCredentials: boolean;
   credentialsVerified: boolean;
@@ -164,6 +166,11 @@ export type OnboardingStatus = {
    */
   hasUtenzaPiva: boolean;
   businessId?: string;
+  /**
+   * Chi è l'utente nell'attività (issue #1099). Assente finché l'attività non
+   * esiste: a quel punto l'utente è un titolare a metà onboarding.
+   */
+  membership?: BusinessMembership;
 };
 
 type SaveBusinessInput = {
@@ -1757,7 +1764,13 @@ async function finalizeVerifiedIdentity(params: {
 
 /**
  * Restituisce lo stato di onboarding dell'utente con un'unica query JOIN
- * (profile → business → credentials) anziché 3 query sequenziali.
+ * (membership → business → credentials) anziché 3 query sequenziali.
+ *
+ * Parte da `business_members` e non dal profilo (issue #1099): titolare e
+ * collaboratore raggiungono l'attività per la stessa strada, e il
+ * collaboratore un profilo non ce l'ha. La riga del titolare nasce con
+ * l'attività (`saveBusiness`), quindi senza membership l'attività non esiste
+ * ancora.
  *
  * `cache()` di React deduplicaza le chiamate nello stesso render tree RSC:
  * `dashboard/layout.tsx` + `dashboard/<segment>/page.tsx` ora condividono
@@ -1774,31 +1787,21 @@ export const getOnboardingStatus = cache(
 
     const [row] = await db
       .select({
-        profileId: profiles.id,
+        memberId: businessMembers.id,
+        role: businessMembers.role,
         businessId: businesses.id,
         hasCredentials: sql<boolean>`(${adeCredentials.id} is not null)`,
         credentialsVerified: sql<boolean>`(${adeCredentials.verifiedAt} is not null)`,
         hasUtenzaPiva: sql<boolean>`(${adeCredentials.utenzaPiva} is not null)`,
       })
-      .from(profiles)
-      .leftJoin(businesses, eq(businesses.profileId, profiles.id))
+      .from(businessMembers)
+      .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
       .leftJoin(adeCredentials, eq(adeCredentials.businessId, businesses.id))
-      .where(eq(profiles.authUserId, user.id))
+      .where(eq(businessMembers.authUserId, user.id))
       .limit(1);
 
     if (!row) {
       return {
-        hasProfile: false,
-        hasBusiness: false,
-        hasCredentials: false,
-        credentialsVerified: false,
-        hasUtenzaPiva: false,
-      };
-    }
-
-    if (!row.businessId) {
-      return {
-        hasProfile: true,
         hasBusiness: false,
         hasCredentials: false,
         credentialsVerified: false,
@@ -1807,9 +1810,9 @@ export const getOnboardingStatus = cache(
     }
 
     return {
-      hasProfile: true,
       hasBusiness: true,
       businessId: row.businessId,
+      membership: { memberId: row.memberId, role: row.role },
       hasCredentials: row.hasCredentials,
       credentialsVerified: row.credentialsVerified,
       hasUtenzaPiva: row.hasUtenzaPiva,

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TrialExpiredMessage } from "./trial-expired-message";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 
 let mockNative = false;
 vi.mock("@/lib/native/native-shell", () => ({
@@ -31,6 +32,18 @@ describe("TrialExpiredMessage", () => {
     const { container } = render(<TrialExpiredMessage />);
     expect(container).toHaveTextContent(
       /^Il tuo periodo di prova è scaduto\.$/,
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("al collaboratore: la prova è dell'attività e il piano lo attiva il titolare", () => {
+    const { container } = render(
+      <MemberRoleProvider role="collaborator">
+        <TrialExpiredMessage />
+      </MemberRoleProvider>,
+    );
+    expect(container).toHaveTextContent(
+      "Il periodo di prova dell'attività è scaduto: chiedi al titolare di attivare un piano.",
     );
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
