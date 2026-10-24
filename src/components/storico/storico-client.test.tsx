@@ -25,6 +25,23 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
+// La ricerca per numero ha la sua suite: qui conta l'ingresso e il ritorno.
+vi.mock("./sale-lookup-dialog", () => ({
+  SaleLookupDialog: (props: {
+    onReturned: (saleId: string) => void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="sale-lookup">
+      <button type="button" onClick={() => props.onReturned("sale-doc-uuid")}>
+        Reso registrato
+      </button>
+      <button type="button" onClick={props.onClose}>
+        Chiudi ricerca
+      </button>
+    </div>
+  ),
+}));
+
 // L'export CSV ha il suo gate di piano e la sua suite: qui e' rumore.
 vi.mock("@/app/dashboard/storico/export-csv-button", () => ({
   ExportCsvButton: () => <button type="button">Esporta CSV</button>,
@@ -155,6 +172,57 @@ beforeEach(() => {
     total: 0,
   });
   vi.mocked(getReceiptDetail).mockResolvedValue({ item: VOIDED_ROW });
+});
+
+describe("StoricoClient — reso da scontrino", () => {
+  it.each(["owner", "collaborator"] as const)(
+    "il pulsante apre la ricerca per numero (%s)",
+    (role) => {
+      render(
+        <MemberRoleProvider role={role}>
+          <StoricoClient
+            businessId={BUSINESS_ID}
+            initialItems={[ACCEPTED_ROW]}
+            initialTotal={1}
+            plan="team"
+          />
+        </MemberRoleProvider>,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Reso da scontrino" }),
+      );
+
+      expect(screen.getByTestId("sale-lookup")).toBeInTheDocument();
+    },
+  );
+
+  it("a reso fatto rilegge la sola vendita, come il reso dal dettaglio", async () => {
+    // Rilanciare la ricerca costerebbe un login AdE a ogni reso quando il
+    // flag "cerca anche su AdE" è attivo.
+    renderStorico();
+    fireEvent.click(screen.getByRole("button", { name: "Reso da scontrino" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Reso registrato" }));
+
+    await waitFor(() =>
+      expect(getReceiptDetail).toHaveBeenCalledWith(
+        BUSINESS_ID,
+        "sale-doc-uuid",
+      ),
+    );
+    expect(searchReceipts).not.toHaveBeenCalled();
+    expect(searchReceiptsIncludingAde).not.toHaveBeenCalled();
+  });
+
+  it("chiusa la ricerca, il dialog sparisce", () => {
+    renderStorico();
+    fireEvent.click(screen.getByRole("button", { name: "Reso da scontrino" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Chiudi ricerca" }));
+
+    expect(screen.queryByTestId("sale-lookup")).not.toBeInTheDocument();
+  });
 });
 
 // issue #1099: la ricerca su AdE legge tutta la P.IVA e l'export CSV tutta

@@ -30,7 +30,10 @@
    richiesta. Il collaboratore vede e tocca solo i documenti che ha creato
    (`ownDocumentsCondition` nello storico, `canAccessDocument` su annullo e
    pending, regola d'autore nella route del PDF); il reso vale su qualunque
-   vendita. Per il titolare nessuno di questi controlli aggiunge query.
+   vendita, trovata col numero stampato e la data (`findSaleForReturn` in
+   `src/server/storico-actions.ts`, dialog
+   `src/components/storico/sale-lookup-dialog.tsx`). Per il titolare nessuno
+   di questi controlli aggiunge query.
    Gli errori sulle credenziali AdE dell'attività (password scaduta,
    credenziali rifiutate o non verificate, utenza bloccata) parlano al
    titolare: `forMember` li riscrive per il collaboratore con "avvisa il
@@ -170,6 +173,10 @@ quantità per riga con tetto = venduti − già resi, anteprima dell'importo con
 rate limit `return:<userId>`, zod, appartenenza all'attività) →
 `src/lib/services/return-service.ts`. A reso registrato il pannello rilegge il
 RETURN per la stampa termica e lo storico rilegge la vendita (già-reso).
+Lo stesso pannello si apre da "Reso da scontrino"
+(`src/components/storico/sale-lookup-dialog.tsx`): numero stampato e data →
+`findSaleForReturn` (rate limit `saleLookup:<userId>`), anche per una vendita
+che non è nell'elenco, come quelle di un altro membro per il collaboratore.
 Dalla Developer API: `POST /api/v1/receipts/{id}/return` (stesso servizio,
 `apiKeyId` sulla riga); il dettaglio v1 porta `returnedQuantity` per riga da
 `src/lib/receipts/returned-quantities.ts`, lo stesso conteggio dello storico.

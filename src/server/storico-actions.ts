@@ -1,6 +1,16 @@
 "use server";
 
-import { and, count, desc, eq, gte, inArray, lt, type SQL } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  like,
+  lt,
+  type SQL,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
@@ -14,6 +24,7 @@ import {
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import {
+  collaboratorSuspendedError,
   OWNER_ONLY_MESSAGE,
   ownDocumentsCondition,
 } from "@/lib/business-permissions";
@@ -34,6 +45,7 @@ import { isValidUuid } from "@/lib/uuid";
 import {
   STORICO_PAGE_SIZE,
   type AdeReceiptListItem,
+  type FindSaleForReturnResult,
   type GetReceiptDetailResult,
   type ReceiptListItem,
   type SearchReceiptsResult,
@@ -41,7 +53,7 @@ import {
   type SearchStoricoResult,
   type StoricoRow,
 } from "@/types/storico";
-import { assertProPlan } from "@/lib/plans";
+import { assertProPlan, getPlanSafe } from "@/lib/plans";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { buildAdeSearchRanges } from "@/lib/services/ade-document-search";
 import { fetchForeignAdeRows } from "@/lib/services/ade-storico-rows";
@@ -477,6 +489,126 @@ export async function getReceiptDetail(
     .limit(1);
 
   if (!doc) return { item: null };
+
+  const [item] = await toReceiptListItems([doc]);
+  return { item };
+}
+
+// ---------------------------------------------------------------------------
+// findSaleForReturn — la vendita da rendere, dal numero stampato (issue #1099)
+// ---------------------------------------------------------------------------
+
+/**
+ * 30 ricerche/ora per utente. Ogni reso parte da una ricerca e un numero
+ * digitato male costa un tentativo, quindi il tetto sta sopra quello dei resi
+ * (20). Basta a rendere inutile provare numeri e date a caso per leggere le
+ * vendite degli altri membri.
+ */
+const saleLookupLimiter = new RateLimiter({
+  maxRequests: 30,
+  windowMs: RATE_LIMIT_WINDOWS.HOURLY,
+});
+
+/**
+ * Il numero dopo «DOCUMENTO N.» sullo scontrino, intero (`DCW2026/5111-2188`)
+ * o nella sola parte dopo la barra, come lo mostra lo storico. Il primo blocco
+ * ammette lettere per i progressivi del mock AdE di dev e sandbox (`MOCK-12`).
+ */
+const PRINTED_NUMBER = /^(?:DCW\d{4}\/)?([A-Z0-9]+-\d+)$/;
+
+const SALE_NOT_FOUND = "Nessuno scontrino con questo numero in questa data.";
+
+/** La parte dopo la barra, in maiuscolo, o `null` se il numero non lo è. */
+function printedNumberSuffix(raw: string): string | null {
+  return PRINTED_NUMBER.exec(raw.trim().toUpperCase())?.[1] ?? null;
+}
+
+/**
+ * Il messaggio di sospensione se il collaboratore non può fare resi, `null`
+ * altrimenti. Il titolare non paga la lettura del piano.
+ */
+async function returnSuspendedError(auth: {
+  userId: string;
+  membership: BusinessMembership;
+}): Promise<string | null> {
+  if (auth.membership.role === "owner") return null;
+  const planResult = await getPlanSafe(auth.userId, "findSaleForReturn");
+  if (!planResult.ok) return planResult.error;
+  return collaboratorSuspendedError(auth.membership, planResult.info);
+}
+
+/**
+ * La vendita da rendere, cercata col numero stampato sullo scontrino e la data
+ * (issue #1099, decisione 2). Il collaboratore rende qualunque vendita
+ * dell'attività ma nello storico vede solo le proprie: qui trova quella che il
+ * cliente ha in mano, e soltanto quella. Il titolare la usa allo stesso modo,
+ * senza scorrere l'elenco.
+ *
+ * Una vendita annullata lo dice; una mai accettata dall'AdE risponde come una
+ * che non c'è. Il resto dei controlli (pezzi rendibili, resi fatti dal
+ * portale) resta al servizio del reso.
+ */
+export async function findSaleForReturn(
+  businessId: string,
+  input: { number: string; date: string },
+): Promise<FindSaleForReturnResult> {
+  const auth = await authorizeStorico(
+    "findSaleForReturn",
+    [businessId],
+    businessId,
+  );
+  if ("error" in auth) return { error: auth.error };
+
+  const rate = saleLookupLimiter.check(`saleLookup:${auth.userId}`);
+  if (!rate.success) {
+    logger.warn(
+      { userId: auth.userId },
+      "Ricerca della vendita da rendere: rate limit superato",
+    );
+    return {
+      error: "Troppe ricerche ravvicinate. Riprova tra qualche minuto.",
+    };
+  }
+
+  const suffix = printedNumberSuffix(input.number);
+  if (!suffix) {
+    return {
+      error:
+        "Numero non valido: è quello dopo «DOCUMENTO N.», per esempio DCW2026/5111-2188.",
+    };
+  }
+  const from = parseRomeDayStartUtc(input.date);
+  const toExclusive = parseRomeDayEndExclusiveUtc(input.date);
+  if (!from || !toExclusive) return { error: "Data non valida." };
+
+  const suspended = await returnSuspendedError(auth);
+  if (suspended) return { error: suspended };
+
+  const db = getDb();
+  const [doc] = await db
+    .select(receiptColumns)
+    .from(commercialDocuments)
+    .leftJoin(voidDocAlias, voidDocJoinCondition)
+    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
+    .where(
+      and(
+        eq(commercialDocuments.businessId, businessId),
+        eq(commercialDocuments.kind, "SALE"),
+        // Il suffisso ha solo lettere, cifre e un trattino: nessun jolly di
+        // LIKE può arrivare dall'input.
+        like(commercialDocuments.adeProgressive, `%/${suffix}`),
+        gte(commercialDocuments.adeRegisteredAt, from),
+        lt(commercialDocuments.adeRegisteredAt, toExclusive),
+      ),
+    )
+    .limit(1);
+
+  if (doc?.status === "VOID_ACCEPTED") {
+    return {
+      error: "Questo scontrino è stato annullato: non si può fare il reso.",
+    };
+  }
+  if (doc?.status !== "ACCEPTED") return { error: SALE_NOT_FOUND };
 
   const [item] = await toReceiptListItems([doc]);
   return { item };
