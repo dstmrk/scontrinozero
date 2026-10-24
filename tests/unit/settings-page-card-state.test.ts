@@ -53,6 +53,8 @@ vi.mock("@/lib/stripe", () => ({
     starterYearly: "price_starter_yearly",
     proMonthly: "price_pro_monthly",
     proYearly: "price_pro_yearly",
+    teamMonthly: "price_team_monthly",
+    teamYearly: "price_team_yearly",
   },
 }));
 
@@ -276,6 +278,37 @@ describe("SettingsPage — cardState state machine", () => {
       const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, ApiKeyCard)).toBe(true);
+    });
+  });
+
+  // Issue #1099: la card Team riceve i suoi prezzi e il metodo di accesso
+  // AdE del titolare, che decide l'avviso Fisconline prima del checkout.
+  describe("piano Team nella scelta del piano", () => {
+    it("passa i prezzi Team e, senza credenziali, Fisconline come metodo", async () => {
+      mockGetProfilePlan.mockResolvedValue(TRIAL_PLAN_DATA);
+
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
+
+      expect(findComponentProps(jsx, PlanSelection)).toMatchObject({
+        teamMonthly: "price_team_monthly",
+        teamYearly: "price_team_yearly",
+        adeLoginMethod: "fisconline",
+      });
+    });
+
+    it("passa il metodo di accesso delle credenziali salvate", async () => {
+      mockLimit.mockReset();
+      mockLimit
+        .mockResolvedValueOnce([FAKE_PROFILE])
+        .mockResolvedValueOnce([FAKE_BUSINESS])
+        .mockResolvedValueOnce([{ loginMethod: "cie", verifiedAt: null }]);
+      mockGetProfilePlan.mockResolvedValue(TRIAL_PLAN_DATA);
+
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
+
+      expect(findComponentProps(jsx, PlanSelection)).toMatchObject({
+        adeLoginMethod: "cie",
+      });
     });
   });
 

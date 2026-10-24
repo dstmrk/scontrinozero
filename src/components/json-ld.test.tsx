@@ -77,33 +77,22 @@ describe("softwareApplicationJsonLd", () => {
     }
   });
 
-  it("exposes both monthly and annual variants for Starter", () => {
-    const starterOffers = softwareApplicationJsonLd.offers.filter((o) =>
-      o.name.toLowerCase().startsWith("starter"),
-    );
-    expect(starterOffers.length).toBeGreaterThanOrEqual(2);
-    const durations = starterOffers
-      .map((o) =>
-        o.priceSpecification ? o.priceSpecification.billingDuration : null,
-      )
-      .filter(Boolean);
-    expect(durations).toContain("P1M");
-    expect(durations).toContain("P1Y");
-  });
-
-  it("exposes both monthly and annual variants for Pro", () => {
-    const proOffers = softwareApplicationJsonLd.offers.filter((o) =>
-      o.name.toLowerCase().startsWith("pro"),
-    );
-    expect(proOffers.length).toBeGreaterThanOrEqual(2);
-    const durations = proOffers
-      .map((o) =>
-        o.priceSpecification ? o.priceSpecification.billingDuration : null,
-      )
-      .filter(Boolean);
-    expect(durations).toContain("P1M");
-    expect(durations).toContain("P1Y");
-  });
+  it.each(["starter", "pro", "team"])(
+    "exposes both monthly and annual variants for %s",
+    (plan) => {
+      const planOffers = softwareApplicationJsonLd.offers.filter((o) =>
+        o.name.toLowerCase().startsWith(plan),
+      );
+      expect(planOffers.length).toBeGreaterThanOrEqual(2);
+      const durations = planOffers
+        .map((o) =>
+          o.priceSpecification ? o.priceSpecification.billingDuration : null,
+        )
+        .filter(Boolean);
+      expect(durations).toContain("P1M");
+      expect(durations).toContain("P1Y");
+    },
+  );
 
   it("includes a free self-hosted offer with price 0", () => {
     const free = softwareApplicationJsonLd.offers.find((o) => o.price === "0");
@@ -111,13 +100,20 @@ describe("softwareApplicationJsonLd", () => {
     expect(free?.name.toLowerCase()).toContain("self");
   });
 
-  it("annual offers price match the displayed pricing (29.99 / 49.99)", () => {
+  it("annual offers price match the displayed pricing (29.99 / 49.99 / 99.99)", () => {
     const annualOffers = softwareApplicationJsonLd.offers.filter(
       (o) => o.priceSpecification?.billingDuration === "P1Y",
     );
     const prices = annualOffers.map((o) => o.price);
-    expect(prices).toContain("29.99");
-    expect(prices).toContain("49.99");
+    expect(prices).toEqual(["29.99", "49.99", "99.99"]);
+  });
+
+  it("the monthly Team offer costs 17.99", () => {
+    const teamMonthly = softwareApplicationJsonLd.offers.find(
+      (o) => o.name === "Team mensile",
+    );
+    expect(teamMonthly?.price).toBe("17.99");
+    expect(teamMonthly?.priceSpecification?.billingDuration).toBe("P1M");
   });
 
   it("declares Italian language", () => {

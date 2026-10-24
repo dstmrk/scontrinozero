@@ -1,4 +1,4 @@
-export type SubscriptionPlan = "starter" | "pro";
+export type SubscriptionPlan = "starter" | "pro" | "team";
 export type SubscriptionInterval = "month" | "year";
 
 export type PlanChoice = Readonly<{

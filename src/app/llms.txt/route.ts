@@ -40,7 +40,7 @@ function buildLlmsTxt(baseUrl: string): string {
     "",
     '> Registratore di cassa virtuale per emettere scontrini elettronici e trasmettere i corrispettivi all\'Agenzia delle Entrate tramite la procedura "documento commerciale online", senza registratore telematico fisico. Web app (PWA) mobile-first per esercenti, micro-attività e regime forfettario in Italia.',
     "",
-    "Piani: Starter (4,99 €/mese o 29,99 €/anno) e Pro (8,99 €/mese o 49,99 €/anno), prova gratuita di 30 giorni senza carta; versione self-hosted gratuita.",
+    "Piani: Starter (4,99 €/mese o 29,99 €/anno), Pro (8,99 €/mese o 49,99 €/anno) e Team (17,99 €/mese o 99,99 €/anno), cioè Pro con collaboratori illimitati che emettono con le credenziali Fisconline del titolare; prova gratuita di 30 giorni senza carta; versione self-hosted gratuita.",
     "",
     `Il testo completo delle guide e delle pagine editoriali è in ${baseUrl}/llms-full.txt.`,
     "",

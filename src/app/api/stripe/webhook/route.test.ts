@@ -859,6 +859,25 @@ describe("POST /api/stripe/webhook — ordering guard event.created (PR #784)", 
     );
   });
 
+  // Issue #1099: il webhook scrive il piano che il prezzo risolve, quindi un
+  // abbonamento Team (o il passaggio Pro → Team dal portale) porta `team`.
+  it("un abbonamento Team porta il piano a team", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockPlanFromPriceId.mockReturnValue("team");
+    mockIntervalFromPriceId.mockReturnValue("year");
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(NEW_EVENT_CREATED, false),
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: "team" }),
+    );
+  });
+
   it("applica normalmente quando la guardia lascia passare l'evento", async () => {
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);

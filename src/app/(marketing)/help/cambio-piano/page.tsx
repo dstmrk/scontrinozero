@@ -42,7 +42,8 @@ export default function CambioPianoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Passare al piano annuale ti permette di risparmiare il{" "}
           <strong>50% su Starter</strong> (€29,99/anno invece di €59,88) e il{" "}
-          <strong>54% su Pro</strong> (€49,99/anno invece di €107,88). Il cambio
+          <strong>54% su Pro</strong> (€49,99/anno invece di €107,88) e su{" "}
+          <strong>Team</strong> (€99,99/anno invece di €215,88). Il cambio
           avviene tramite il portale di fatturazione Stripe.
         </p>
         <HelpArticleUpdatedAt slug="cambio-piano" />
@@ -63,8 +64,8 @@ export default function CambioPianoPage() {
         {/* ─── Istruzioni ─── */}
         <h2 className="mt-10 text-xl font-semibold">Istruzioni passo-passo</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Questi passaggi valgono se hai già un abbonamento attivo (Starter o
-          Pro mensile). Se sei ancora in periodo di prova, dalla stessa
+          Questi passaggi valgono se hai già un abbonamento attivo (Starter, Pro
+          o Team mensile). Se sei ancora in periodo di prova, dalla stessa
           schermata vedrai direttamente i bottoni per scegliere il piano annuale
           o mensile, senza passare dal portale.
         </p>
@@ -83,8 +84,8 @@ export default function CambioPianoPage() {
             <em>Update plan</em>).
           </li>
           <li>
-            Scegli la versione annuale del tuo piano attuale (Starter annuale o
-            Pro annuale) e conferma.
+            Scegli la versione annuale del tuo piano attuale (Starter, Pro o
+            Team annuale) e conferma.
           </li>
           <li>
             Stripe applica un credito proporzionale ai giorni rimanenti del
@@ -150,6 +151,24 @@ export default function CambioPianoPage() {
             className="text-primary hover:underline"
           >
             Piani disponibili
+          </Link>
+          {"."}
+        </p>
+
+        {/* ─── Passare da Pro a Team ─── */}
+        <h2 className="mt-10 text-xl font-semibold">Passare da Pro a Team</h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Anche qui nel portale Stripe scegli <strong>Team annuale</strong> (o
+          Team mensile) al posto di Pro, e paghi solo la differenza per i giorni
+          rimanenti. Team è Pro con i collaboratori: ognuno entra con il proprio
+          account ed emette per la tua attività. Per invitarli servono le
+          credenziali Fisconline, tue o del gestore incaricato: se oggi accedi
+          all&apos;AdE con CIE o SPID, vedi{" "}
+          <Link
+            href="/help/credenziali-fisconline"
+            className="text-primary hover:underline"
+          >
+            come ottenere le credenziali Fisconline
           </Link>
           {"."}
         </p>

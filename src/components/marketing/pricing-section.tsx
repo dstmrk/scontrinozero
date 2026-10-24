@@ -39,6 +39,12 @@ const proFeatures: Feature[] = [
   { label: "Ricerca documenti commerciali su AdE" },
 ];
 
+const teamFeatures: Feature[] = [
+  { label: "Tutto di Pro" },
+  { label: "Collaboratori illimitati" },
+  { label: "Ogni collaboratore con il proprio accesso" },
+];
+
 interface PricingSectionProps {
   // Precomputed in un server parent via `registerHref`, che ci mette anche la
   // pagina di partenza come `?ref=`. Non risolverlo qui: `APP_HOSTNAME` non è
@@ -90,7 +96,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
           </div>
         </div>
 
-        <div className="mx-auto mt-8 grid max-w-3xl gap-6 md:grid-cols-2">
+        <div className="mx-auto mt-8 grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Starter */}
           <Card className="border-border/50">
             <CardHeader>
@@ -143,7 +149,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <span>Pro</span>
-                <Badge>Più completo</Badge>
+                <Badge>Consigliato</Badge>
               </CardTitle>
               <CardDescription>
                 Per attività con esigenze avanzate
@@ -187,6 +193,62 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
                   </li>
                 ))}
               </ul>
+            </CardContent>
+          </Card>
+
+          {/* Team */}
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="text-xl">Team</CardTitle>
+              <CardDescription>
+                Per chi ha collaboratori in cassa
+              </CardDescription>
+              <div className="mt-2">
+                {isAnnual ? (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold">€8,33</span>
+                      <span className="text-muted-foreground text-sm line-through">
+                        €17,99
+                      </span>
+                      <span className="text-muted-foreground text-sm">
+                        /mese
+                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        −54% vs mensile
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      €99,99/anno (un solo addebito)
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-3xl font-bold">€17,99</span>
+                    <span className="text-muted-foreground text-sm">/mese</span>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      o €99,99/anno (equivalente €8,33/mese)
+                    </p>
+                  </>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                {teamFeatures.map((f) => (
+                  <li key={f.label} className="flex items-center gap-2">
+                    <Check className="text-primary h-4 w-4 shrink-0" />
+                    <span>{f.label}</span>
+                  </li>
+                ))}
+              </ul>
+              {/* Issue #1099, decisione 7: con CIE o SPID ogni sessione AdE
+                  richiede il titolare, quindi con i collaboratori serve
+                  Fisconline. Si dichiara prima dell'acquisto. */}
+              <p className="text-muted-foreground mt-4 text-xs">
+                I collaboratori richiedono le credenziali Fisconline del
+                titolare o del gestore incaricato.
+              </p>
             </CardContent>
           </Card>
         </div>

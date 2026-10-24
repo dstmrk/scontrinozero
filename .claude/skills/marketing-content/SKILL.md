@@ -62,6 +62,17 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   con 1 chiave, ma il catalogo resta a 5 prodotti come su Starter
   (`canAddCatalogItem` in `src/lib/plans-shared.ts`).
 
+- Il **piano Team** (€17,99/mese, €99,99/anno) è **in vendita** dalla PR 4
+  della issue #1099: Pro più collaboratori illimitati, ognuno con il proprio
+  accesso, che emettono con le credenziali Fisconline del titolare o del
+  gestore incaricato. Tre regole per il copy: il requisito Fisconline si
+  dichiara **prima dell'acquisto** (pagina prezzi, card in Impostazioni, con
+  l'avviso per chi oggi usa CIE o SPID); nella prova i collaboratori sono
+  **al massimo 2**; Team non ha altre feature oltre a Pro, quindi niente
+  elenchi che gli attribuiscano più di questo. Il nome del collaboratore sullo
+  scontrino **non** compare (attribuzione solo interna). Le pagine help e le
+  guide dedicate ai collaboratori arrivano con la PR 7 della stessa issue.
+
 - Il **reso merce** (documento commerciale di reso) è **spedito su tutti i
   piani**, Starter compreso: è un adempimento dell'esercente, non una feature
   Pro. Si fa dallo storico ("Fai un reso"), anche parziale e in più volte.

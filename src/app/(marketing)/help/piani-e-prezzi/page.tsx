@@ -28,15 +28,15 @@ export default function PianiEPrezziPage() {
         {/* ─── Intestazione ─── */}
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-extrabold tracking-tight">
-            Piani disponibili: Starter, Pro e self-hosted gratuito
+            Piani disponibili: Starter, Pro, Team e self-hosted gratuito
           </h1>
           <Badge variant="secondary">Abbonamento</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero è disponibile in tre versioni: due piani hosted a
-          pagamento (Starter e Pro) con un trial gratuito di 30 giorni, e una
-          versione self-hosted completamente gratuita per chi preferisce gestire
-          il proprio server.
+          ScontrinoZero è disponibile in quattro versioni: tre piani hosted a
+          pagamento (Starter, Pro e Team, cioè Pro con i collaboratori) con un
+          trial gratuito di 30 giorni, e una versione self-hosted completamente
+          gratuita per chi preferisce gestire il proprio server.
         </p>
         <HelpArticleUpdatedAt slug="piani-e-prezzi" />
         <figure className="mt-6">
@@ -79,6 +79,12 @@ export default function PianiEPrezziPage() {
                 <td className="py-2">Negozi, attività regolari</td>
               </tr>
               <tr>
+                <td className="text-foreground py-2 font-medium">Team</td>
+                <td className="py-2">€17,99/mese</td>
+                <td className="py-2">€99,99/anno</td>
+                <td className="py-2">Attività con collaboratori in cassa</td>
+              </tr>
+              <tr>
                 <td className="text-foreground py-2 font-medium">
                   Self-hosted
                 </td>
@@ -91,8 +97,8 @@ export default function PianiEPrezziPage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;abbonamento annuale fa risparmiare il <strong>50%</strong>{" "}
-          rispetto al mensile per Starter e il <strong>54%</strong> per Pro. Non
-          è richiesta nessuna carta di credito per iniziare il trial.
+          rispetto al mensile per Starter e il <strong>54%</strong> per Pro e
+          Team. Non è richiesta nessuna carta di credito per iniziare il trial.
         </p>
 
         {/* ─── Piano Starter ─── */}
@@ -182,6 +188,44 @@ export default function PianiEPrezziPage() {
           pensato per chi usa ScontrinoZero tutti i giorni.
         </p>
 
+        {/* ─── Piano Team ─── */}
+        <h2 className="mt-10 text-xl font-semibold">Piano Team</h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Team è Pro con i collaboratori, a <strong>€99,99/anno</strong> o
+          €17,99/mese. Inviti chi lavora con te e ognuno entra con il proprio
+          account, senza condividere la tua password.
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>Tutte le funzioni di Pro, Developer API compresa</li>
+          <li>
+            Collaboratori <strong>illimitati</strong>, ciascuno con il proprio
+            accesso
+          </li>
+          <li>
+            I collaboratori emettono per la tua attività con le credenziali AdE
+            che hai configurato, senza vederle
+          </li>
+          <li>
+            Impostazioni, credenziali AdE, analytics, export e fatturazione
+            restano al titolare
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Serve Fisconline.</strong> Con CIE o SPID ogni nuova sessione
+          AdE richiede il titolare, quindi con i collaboratori servono le
+          credenziali Fisconline, tue o del gestore incaricato. Se non le hai,
+          con la richiesta online le ultime 6 cifre del PIN arrivano per posta
+          entro 15 giorni.
+        </p>
+        <p className="mt-2 text-sm">
+          <a
+            href="/help/credenziali-fisconline"
+            className="text-primary hover:underline"
+          >
+            Come ottenere le credenziali Fisconline
+          </a>
+        </p>
+
         {/* ─── Self-hosted ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Versione self-hosted (gratuita)
@@ -216,8 +260,8 @@ export default function PianiEPrezziPage() {
           Tutti i nuovi account hanno <strong>30 giorni di prova</strong>{" "}
           gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata,
           l&apos;export CSV, gli sconti sullo scontrino, il pagamento misto e il
-          messaggio personalizzato. Nessuna carta di credito richiesta per
-          iniziare.
+          messaggio personalizzato, e fino a 2 collaboratori. Nessuna carta di
+          credito richiesta per iniziare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Cosa succede alla scadenza del trial:</strong>
@@ -246,6 +290,7 @@ export default function PianiEPrezziPage() {
                 <th className="text-foreground pb-2 font-semibold">Feature</th>
                 <th className="text-foreground pb-2 font-semibold">Starter</th>
                 <th className="text-foreground pb-2 font-semibold">Pro</th>
+                <th className="text-foreground pb-2 font-semibold">Team</th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
@@ -330,6 +375,15 @@ export default function PianiEPrezziPage() {
                 </td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>
+                <td className="py-2">✓</td>
+              </tr>
+              <tr>
+                <td className="text-foreground py-2 font-medium">
+                  Collaboratori con il proprio accesso
+                </td>
+                <td className="py-2">—</td>
+                <td className="py-2">—</td>
+                <td className="py-2">Illimitati</td>
               </tr>
             </tbody>
           </table>
@@ -370,6 +424,20 @@ export default function PianiEPrezziPage() {
                 da ScontrinoZero, leggendoli dall&apos;archivio
                 dell&apos;Agenzia delle Entrate.
               </li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Scegli Team se:</p>
+            <ul className="text-muted-foreground mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+              <li>
+                Più persone emettono scontrini per la tua attività: dipendenti,
+                familiari, soci.
+              </li>
+              <li>
+                Vuoi che ognuno entri con il proprio account invece di
+                condividere la password.
+              </li>
+              <li>Hai, o puoi richiedere, le credenziali Fisconline.</li>
             </ul>
           </div>
         </div>

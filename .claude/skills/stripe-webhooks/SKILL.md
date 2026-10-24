@@ -123,6 +123,35 @@ Verificare:
 
 ---
 
+## Aggiungere un piano a pagamento: prezzi in coda, variabili prima del merge
+
+I Price ID vivono in una tabella sola, `PRICES` in `src/lib/stripe.ts`, da cui
+derivano `isValidPriceId`, `planFromPriceId` e `intervalFromPriceId`. Le
+risoluzioni leggono le variabili con i getter fail-fast e si fermano al primo
+prezzo che corrisponde. Due conseguenze, emerse aggiungendo Team (issue
+#1099):
+
+- **Il piano nuovo va in coda.** Prima della tabella `intervalFromPriceId`
+  controllava `starterMonthly || proMonthly` e poi gli annuali: con un terzo
+  piano in quella catena, un prezzo Pro annuale avrebbe letto la variabile
+  Team mensile, e un ambiente senza di essa avrebbe fatto lanciare il webhook
+  a ogni rinnovo annuale. In coda, i prezzi esistenti non leggono mai le
+  variabili nuove. Il test "risoluzione dei prezzi senza le variabili Team"
+  in `src/lib/stripe.test.ts` lo fissa.
+- **Le variabili vanno su tutti gli ambienti prima del merge.** Dev si
+  aggiorna a ogni push su `main`, e la pagina Impostazioni legge
+  `PRICE_IDS.<nuovo>` per la scelta del piano: senza la variabile la pagina
+  lancia per chi è in prova. Aggiornare anche `.env.example` e
+  `deploy/dev/.env.example`.
+
+Il resto è generico: il webhook scrive il piano che il prezzo risolve, quindi
+un passaggio di piano dal Customer Portal funziona senza codice, purché il
+prodotto sia nella configurazione del portale (lato Stripe, a mano).
+`SubscriptionPlan` in `src/lib/subscription-change.ts` e le etichette di
+`src/lib/operator-notification.ts` vanno estesi: TypeScript lo segnala.
+
+---
+
 ## Referral, trial e date derivate (regola 27)
 
 Due trappole emerse insieme nel programma referral (presentato/presentatore).

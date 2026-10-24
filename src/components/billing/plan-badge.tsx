@@ -3,6 +3,7 @@ export function PlanBadge({ plan }: Readonly<{ plan: string }>) {
     trial: "Prova gratuita",
     starter: "Starter",
     pro: "Pro",
+    team: "Team",
     unlimited: "Unlimited",
   };
   return (

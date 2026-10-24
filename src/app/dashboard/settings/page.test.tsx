@@ -40,6 +40,8 @@ vi.mock("@/lib/stripe", () => ({
     starterYearly: "price_sy",
     proMonthly: "price_pm",
     proYearly: "price_py",
+    teamMonthly: "price_team_monthly",
+    teamYearly: "price_team_yearly",
   },
 }));
 

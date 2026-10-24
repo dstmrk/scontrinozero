@@ -423,6 +423,12 @@ export default async function SettingsPage({
                       starterYearly={PRICE_IDS.starterYearly}
                       proMonthly={PRICE_IDS.proMonthly}
                       proYearly={PRICE_IDS.proYearly}
+                      teamMonthly={PRICE_IDS.teamMonthly}
+                      teamYearly={PRICE_IDS.teamYearly}
+                      adeLoginMethod={
+                        (cred?.loginMethod as AdeLoginMethod | undefined) ??
+                        "fisconline"
+                      }
                     />
                   )}
 

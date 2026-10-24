@@ -12,11 +12,11 @@ const PAGE_URL = `${SITE_URL}/prezzi`;
 export const metadata: Metadata = {
   title: "Prezzi",
   description:
-    "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+    "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno), Team con i collaboratori da €8,33/mese (€99,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
   openGraph: {
     title: "Prezzi ScontrinoZero | Starter da €2,50/mese · Pro da €4,17/mese",
     description:
-      "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+      "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno), Team con i collaboratori da €8,33/mese (€99,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
     url: PAGE_URL,
   },
   alternates: {
@@ -24,11 +24,15 @@ export const metadata: Metadata = {
   },
 };
 
+type ComparisonCell = string | boolean;
+
 type ComparisonRow = {
   label: string;
-  starter: string | boolean;
-  pro: string | boolean;
-  selfHosted: string | boolean;
+  starter: ComparisonCell;
+  pro: ComparisonCell;
+  /** Team = Pro + collaboratori (issue #1099): se omesso vale come Pro. */
+  team?: ComparisonCell;
+  selfHosted: ComparisonCell;
 };
 
 // Helpers to avoid repetition in the data definition
@@ -111,6 +115,13 @@ const comparisonRows: ComparisonRow[] = [
     pro: true,
     selfHosted: false,
   },
+  {
+    label: "Collaboratori con il proprio accesso",
+    starter: false,
+    pro: false,
+    team: "Illimitati",
+    selfHosted: true,
+  },
   hostedOnly("Hosting incluso"),
   hostedOnly("Aggiornamenti automatici"),
 ];
@@ -127,9 +138,14 @@ const pricingFaqs: { question: string; answer: string }[] = [
       "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV, il messaggio personalizzato in fondo allo scontrino, gli sconti sullo scontrino, il pagamento misto (un incasso ripartito fra contanti ed elettronico sullo stesso scontrino), la ricerca dei documenti commerciali sull'archivio AdE, la Developer API e il supporto prioritario.",
   },
   {
+    question: "Che cos'è il piano Team?",
+    answer:
+      "Team (€99,99/anno o €17,99/mese) è Pro con i collaboratori: inviti chi lavora con te e ognuno entra con il proprio account, emettendo per la tua attività con le credenziali AdE che hai configurato, senza vederle. I collaboratori sono illimitati; nella prova gratuita puoi invitarne fino a 2. Serve Fisconline, tua o del gestore incaricato: con CIE o SPID ogni nuova sessione AdE richiede il titolare.",
+  },
+  {
     question: "Posso cambiare piano in qualsiasi momento?",
     answer:
-      "Sì. Puoi passare da Starter a Pro o viceversa in qualsiasi momento dal pannello di controllo. Le modifiche entrano in vigore immediatamente.",
+      "Sì. Puoi passare fra Starter, Pro e Team in qualsiasi momento dal pannello di controllo. Le modifiche entrano in vigore immediatamente.",
   },
   {
     question: "Ricevo fattura o ricevuta del pagamento?",
@@ -188,7 +204,7 @@ export default function PrezziPage() {
             Disponibile anche la versione gratuita per chi preferisce
             installarlo e gestirlo autonomamente.
           </p>
-          <div className="mt-10 overflow-hidden rounded-xl border">
+          <div className="mt-10 overflow-x-auto rounded-xl border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/50">
@@ -199,6 +215,7 @@ export default function PrezziPage() {
                   <th className="text-primary px-4 py-3 text-center font-semibold">
                     Pro
                   </th>
+                  <th className="px-4 py-3 text-center font-semibold">Team</th>
                   <th className="px-4 py-3 text-center font-semibold">
                     {"Gratuito"}
                     <span className="text-muted-foreground block text-xs font-normal">
@@ -223,6 +240,12 @@ export default function PrezziPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-center">
+                    <span className="font-semibold">€99,99/anno</span>
+                    <span className="text-muted-foreground block text-xs">
+                      o €17,99/mese
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-center">
                     <span className="font-semibold">€0</span>
                     <span className="text-muted-foreground block text-xs">
                       per sempre
@@ -241,6 +264,9 @@ export default function PrezziPage() {
                       <CellValue value={row.pro} />
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <CellValue value={row.team ?? row.pro} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       <CellValue value={row.selfHosted} />
                     </td>
                   </tr>
@@ -248,6 +274,11 @@ export default function PrezziPage() {
               </tbody>
             </table>
           </div>
+          <p className="text-muted-foreground mt-4 text-center text-sm">
+            Con i collaboratori servono le credenziali Fisconline del titolare o
+            del gestore incaricato: con CIE e SPID ogni nuova sessione AdE
+            richiede il titolare.
+          </p>
         </div>
       </section>
 

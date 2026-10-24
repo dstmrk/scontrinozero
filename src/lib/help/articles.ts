@@ -80,7 +80,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "cambio-piano": {
     slug: "cambio-piano",
     datePublished: "2026-04-20",
-    dateModified: "2026-08-27",
+    dateModified: "2026-10-23",
     title: "Come passare da mensile ad annuale",
     metaTitle: "Come passare da mensile ad annuale",
     description:
@@ -246,11 +246,11 @@ export const helpArticles: Record<string, HelpArticle> = {
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
     datePublished: "2026-04-17",
-    dateModified: "2026-10-15",
-    title: "Piani disponibili: Starter, Pro e self-hosted",
-    metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
+    dateModified: "2026-10-23",
+    title: "Piani disponibili: Starter, Pro, Team e self-hosted",
+    metaTitle: "Piani disponibili: Starter, Pro, Team e self-hosted",
     description:
-      "Scopri le differenze tra i piani Starter, Pro e la versione self-hosted gratuita di ScontrinoZero. Prezzi, feature e come scegliere il piano giusto.",
+      "Scopri le differenze tra i piani Starter, Pro, Team con i collaboratori e la versione self-hosted gratuita di ScontrinoZero. Prezzi, feature e come scegliere il piano giusto.",
     related: ["analytics-e-report", "fatture-e-ricevute", "cambio-piano"],
   },
   "pos-rt-obbligo": {
@@ -276,7 +276,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "presenta-un-amico": {
     slug: "presenta-un-amico",
     datePublished: "2026-06-26",
-    dateModified: "2026-10-15",
+    dateModified: "2026-10-23",
     title: "Presenta un amico: come funziona il bonus referral",
     metaTitle: "Presenta un amico: bonus referral e mese gratis",
     description:
