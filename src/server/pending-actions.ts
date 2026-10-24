@@ -6,9 +6,11 @@ import {
   getAuthenticatedUser,
   checkBusinessMembership,
 } from "@/lib/server-auth";
+import { canAccessDocument } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   confirmPendingSaleCandidate,
+  PENDING_NOT_FOUND_ERROR,
   verifyPendingSale,
   type VerifyPendingSaleResult,
 } from "@/lib/services/pending-verification";
@@ -72,6 +74,11 @@ async function authorize(
 
   const membership = await checkBusinessMembership(user.id, businessId);
   if ("error" in membership) return { done: { error: membership.error } };
+
+  // La verifica la fa chi ha emesso lo scontrino o il titolare (issue #1099).
+  if (!(await canAccessDocument(membership, businessId, documentId))) {
+    return { done: { error: PENDING_NOT_FOUND_ERROR } };
+  }
 
   return null;
 }

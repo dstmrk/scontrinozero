@@ -7,10 +7,8 @@ import { getDb } from "@/db";
 import { profiles, businesses } from "@/db/schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import {
-  getAuthenticatedUser,
-  checkBusinessMembership,
-} from "@/lib/server-auth";
+import { getAuthenticatedUser } from "@/lib/server-auth";
+import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   BUSINESS_PROFILE_LIMITS,
@@ -199,7 +197,7 @@ export async function updateBusiness(
     return { error: "Identificativo non valido." };
   }
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   const businessName = getFormStringOrNull(formData, "businessName");
@@ -319,7 +317,7 @@ async function readAdeIdentityContext(
     return { error: "Identificativo non valido." };
   }
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   // Quali colonne servono ai predicati lo sa `readAdeIdentityRow`, condivisa
@@ -439,7 +437,7 @@ export async function updateReceiptFooterNote(
   // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessMembership.
   if (!isValidUuid(businessId)) return { error: "Identificativo non valido." };
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   // `getPlanSafe` e non `getPlan`: su profilo orfano o timeout DB si degrada

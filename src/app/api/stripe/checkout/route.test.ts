@@ -14,6 +14,7 @@ const {
   mockCustomerCreate,
   mockSessionCreate,
   mockIsValidPriceId,
+  mockIsCollaborator,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
@@ -23,10 +24,17 @@ const {
   mockCustomerCreate: vi.fn(),
   mockSessionCreate: vi.fn(),
   mockIsValidPriceId: vi.fn(),
+  mockIsCollaborator: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
+}));
+
+vi.mock("@/lib/business-permissions", () => ({
+  isCollaborator: mockIsCollaborator,
+  OWNER_ONLY_MESSAGE:
+    "Questa operazione è riservata al titolare dell'attività.",
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -139,6 +147,7 @@ describe("POST /api/stripe/checkout", () => {
     vi.clearAllMocks();
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockIsValidPriceId.mockReturnValue(true);
+    mockIsCollaborator.mockResolvedValue(false);
     mockSessionCreate.mockResolvedValue({
       url: "https://checkout.stripe.com/session",
     });
@@ -182,6 +191,26 @@ describe("POST /api/stripe/checkout", () => {
     mockIsValidPriceId.mockReturnValue(false);
     const res = await POST(makeRequest({ priceId: "price_invalid" }));
     expect(res.status).toBe(400);
+  });
+
+  // Issue #1099: il piano è dell'attività e lo compra il titolare. Un
+  // collaboratore che arrivasse qui creerebbe un cliente Stripe e un
+  // abbonamento a suo nome, che il webhook non saprebbe a chi attribuire.
+  it("restituisce 403 a un collaboratore, prima di toccare DB e Stripe", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-collab",
+      email: "c@b.it",
+    });
+    mockIsCollaborator.mockResolvedValue(true);
+
+    const res = await POST(makeRequest({ priceId: "price_team" }));
+
+    expect(res.status).toBe(403);
+    expect(mockIsCollaborator).toHaveBeenCalledWith("user-collab");
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
   });
 
   it.each([

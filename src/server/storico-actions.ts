@@ -10,8 +10,13 @@ import type {
 } from "@/db/schema";
 import {
   checkBusinessMembership,
+  type BusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import {
+  OWNER_ONLY_MESSAGE,
+  ownDocumentsCondition,
+} from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   fetchLinesByDocIds,
@@ -214,7 +219,9 @@ async function authorizeStorico(
   action: string,
   ids: readonly string[],
   businessId: string,
-): Promise<{ userId: string } | { error: string }> {
+): Promise<
+  { userId: string; membership: BusinessMembership } | { error: string }
+> {
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   try {
     user = await getAuthenticatedUser();
@@ -239,7 +246,20 @@ async function authorizeStorico(
     return { error: membership.error };
   }
 
-  return { userId: user.id };
+  return { userId: user.id, membership };
+}
+
+/**
+ * Le condizioni della ricerca più, per il collaboratore, il filtro sui
+ * documenti che ha creato (issue #1099). Conteggio ed elenco usano le stesse:
+ * un totale calcolato su tutta l'attività tradirebbe quanti documenti ci sono.
+ */
+function scopedConditions(
+  conditions: readonly SQL[],
+  membership: BusinessMembership,
+): SQL[] {
+  const own = ownDocumentsCondition(membership);
+  return own ? [...conditions, own] : [...conditions];
 }
 
 /**
@@ -375,7 +395,7 @@ export async function searchReceipts(
   if ("error" in built) return { error: built.error, items: [], total: 0 };
   const { page, pageSize } = built;
   const offset = (page - 1) * pageSize;
-  const { conditions } = built;
+  const conditions = scopedConditions(built.conditions, auth.membership);
 
   // Total count + page (same conditions, no data-dependency) → in parallelo.
   const [[{ value: total }], docs] = await Promise.all([
@@ -444,9 +464,14 @@ export async function getReceiptDetail(
     .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
     .where(
       and(
-        eq(commercialDocuments.id, documentId),
-        eq(commercialDocuments.businessId, businessId),
-        inArray(commercialDocuments.kind, ["SALE", "RETURN"]),
+        ...scopedConditions(
+          [
+            eq(commercialDocuments.id, documentId),
+            eq(commercialDocuments.businessId, businessId),
+            inArray(commercialDocuments.kind, ["SALE", "RETURN"]),
+          ],
+          auth.membership,
+        ),
       ),
     )
     .limit(1);
@@ -519,6 +544,42 @@ async function hydrateLocalRows(
 }
 
 /**
+ * Il messaggio d'errore se il chiamante non può cercare su AdE; `null` se può.
+ * Tutti i controlli vengono prima di qualunque lavoro.
+ */
+async function adeSearchAccessError(
+  businessId: string,
+): Promise<string | null> {
+  const auth = await authorizeStorico(
+    "searchReceiptsIncludingAde",
+    [businessId],
+    businessId,
+  );
+  if ("error" in auth) return auth.error;
+
+  // La ricerca su AdE legge tutta la P.IVA, anche i documenti emessi fuori da
+  // ScontrinoZero: è del titolare (issue #1099, decisione 11).
+  if (auth.membership.role !== "owner") return OWNER_ONLY_MESSAGE;
+
+  // La ricerca su AdE è Pro. `assertProPlan` porta con sé la classificazione
+  // degli errori di lettura del piano (profilo mancante, timeout DB) che qui
+  // servirebbe comunque.
+  const proCheck = await assertProPlan(auth.userId);
+  if (!proCheck.ok) return proCheck.error;
+
+  const rate = adeSearchLimiter.check(`storicoAde:${auth.userId}`);
+  if (!rate.success) {
+    logger.warn(
+      { userId: auth.userId },
+      "Ricerca storico AdE: rate limit superato",
+    );
+    return "Troppe ricerche ravvicinate. Riprova tra qualche minuto.";
+  }
+
+  return null;
+}
+
+/**
  * Elenco storico che include anche i documenti commerciali presenti solo
  * sull'archivio AdE — emessi dal portale, dall'app o da un altro software che
  * usa lo stesso servizio (feature Pro, v1.8.0).
@@ -541,31 +602,8 @@ export async function searchReceiptsIncludingAde(
   businessId: string,
   params: SearchReceiptsParams = {},
 ): Promise<SearchStoricoResult> {
-  const auth = await authorizeStorico(
-    "searchReceiptsIncludingAde",
-    [businessId],
-    businessId,
-  );
-  if ("error" in auth) return { error: auth.error, items: [], total: 0 };
-
-  // Gate di piano prima di qualunque lavoro: la ricerca su AdE è Pro.
-  // `assertProPlan` porta con sé la classificazione degli errori di lettura
-  // del piano (profilo mancante, timeout DB) che qui servirebbe comunque.
-  const proCheck = await assertProPlan(auth.userId);
-  if (!proCheck.ok) return { error: proCheck.error, items: [], total: 0 };
-
-  const rate = adeSearchLimiter.check(`storicoAde:${auth.userId}`);
-  if (!rate.success) {
-    logger.warn(
-      { userId: auth.userId },
-      "Ricerca storico AdE: rate limit superato",
-    );
-    return {
-      error: "Troppe ricerche ravvicinate. Riprova tra qualche minuto.",
-      items: [],
-      total: 0,
-    };
-  }
+  const denied = await adeSearchAccessError(businessId);
+  if (denied !== null) return { error: denied, items: [], total: 0 };
 
   const built = buildStoricoConditions(businessId, params);
   if ("error" in built) return { error: built.error, items: [], total: 0 };

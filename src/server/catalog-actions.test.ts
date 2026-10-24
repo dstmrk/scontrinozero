@@ -131,6 +131,10 @@ const VALID_ADD_INPUT = {
 
 /** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
 const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR_MEMBERSHIP = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 
 describe("catalog-actions", () => {
   beforeEach(() => {
@@ -211,6 +215,18 @@ describe("catalog-actions", () => {
       expect(mockFrom).toHaveBeenCalledWith("catalog-items-table");
     });
 
+    // Issue #1099: il collaboratore usa il catalogo in cassa, non lo modifica.
+    it("un collaboratore legge il catalogo", async () => {
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      mockOrderBy.mockResolvedValue([FAKE_ITEM]);
+
+      const { getCatalogItems } = await import("./catalog-actions");
+      const result = await getCatalogItems(FAKE_BUSINESS_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(FAKE_ITEM_ID);
+    });
+
     it("restituisce lista vuota se il catalogo è vuoto", async () => {
       mockOrderBy.mockResolvedValue([]);
 
@@ -271,6 +287,17 @@ describe("catalog-actions", () => {
       const result = await addCatalogItem(VALID_ADD_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("un collaboratore non aggiunge prodotti", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -738,6 +765,17 @@ describe("catalog-actions", () => {
       expect(mockDelete).not.toHaveBeenCalled();
     });
 
+    it("un collaboratore non elimina prodotti", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+
+      const { deleteCatalogItem } = await import("./catalog-actions");
+      const result = await deleteCatalogItem(FAKE_ITEM_ID, FAKE_BUSINESS_ID);
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
     it("ritorna errore se il prodotto non esiste o non appartiene al business", async () => {
       mockLimit.mockResolvedValue([]); // item not found
 
@@ -811,6 +849,17 @@ describe("catalog-actions", () => {
       const result = await updateCatalogItem(VALID_UPDATE_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("un collaboratore non modifica prodotti", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 

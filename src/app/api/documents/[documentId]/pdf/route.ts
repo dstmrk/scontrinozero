@@ -3,6 +3,7 @@ import {
   commercialDocuments,
   commercialDocumentLines,
   businesses,
+  businessMembers,
   profiles,
 } from "@/db/schema";
 import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
@@ -20,6 +21,7 @@ import {
   referencedSaleId,
 } from "@/lib/receipts/printable-document";
 import { isValidUuid } from "@/lib/uuid";
+import type { MemberRole } from "@/db/schema";
 
 // PDF lookup: 1 JOIN auth + 1 SELECT lines + render in-process. 4s coprono
 // anche scontrini con molte righe; il rendering pdfkit è CPU-bound, fuori
@@ -34,6 +36,21 @@ const pdfAuthLimiter = new RateLimiter({
   maxRequests: 60,
   windowMs: RATE_LIMIT_WINDOWS.HOURLY,
 });
+
+/**
+ * Il titolare scarica ogni documento dell'attività. Il collaboratore quelli
+ * che ha creato, più l'annullo di una sua vendita fatto da un altro membro:
+ * nello storico l'annullo è parte di quella vendita (issue #1099).
+ */
+function canDownload(
+  member: { id: string; role: MemberRole },
+  doc: { kind: string; createdBy: string | null },
+  referenceSale: { createdBy: string | null } | null,
+): boolean {
+  if (member.role === "owner") return true;
+  if (doc.createdBy === member.id) return true;
+  return doc.kind === "VOID" && referenceSale?.createdBy === member.id;
+}
 
 export async function GET(
   request: Request,
@@ -74,14 +91,17 @@ export async function GET(
           .select({
             doc: commercialDocuments,
             biz: businesses,
-            // Il piano decide se il messaggio di cortesia si stampa: `profiles`
-            // e' gia' joinata per l'ownership, quindi il gate e' gratis.
+            // Il piano decide se il messaggio di cortesia si stampa: è quello
+            // del titolare, joinato dall'attività.
             owner: {
               plan: profiles.plan,
               trialStartedAt: profiles.trialStartedAt,
               planExpiresAt: profiles.planExpiresAt,
               referralBonusDays: profiles.referralBonusDays,
             },
+            // Chi chiede il PDF: l'accesso passa da `business_members`
+            // (issue #1099), non dal profilo del titolare.
+            member: { id: businessMembers.id, role: businessMembers.role },
           })
           .from(commercialDocuments)
           .innerJoin(
@@ -89,10 +109,16 @@ export async function GET(
             eq(commercialDocuments.businessId, businesses.id),
           )
           .innerJoin(profiles, eq(businesses.profileId, profiles.id))
+          .innerJoin(
+            businessMembers,
+            and(
+              eq(businessMembers.businessId, businesses.id),
+              eq(businessMembers.authUserId, user.id),
+            ),
+          )
           .where(
             and(
               eq(commercialDocuments.id, documentId),
-              eq(profiles.authUserId, user.id),
               // Un PDF dall'aspetto fiscale non deve essere generato per
               // documenti PENDING/REJECTED, né per documenti privi di
               // identificativo fiscale (adeTransactionId). La regola su
@@ -108,7 +134,7 @@ export async function GET(
 
         if (rows.length === 0) return null;
 
-        const { doc, biz, owner } = rows[0];
+        const { doc, biz, owner, member } = rows[0];
         // Già garantito dalla WHERE: il guard restringe il tipo (`PrintableKind`).
         if (!isPrintableDocument(doc)) return null;
 
@@ -129,6 +155,8 @@ export async function GET(
           if (!sale) return null;
           referenceSale = sale;
         }
+
+        if (!canDownload(member, doc, referenceSale)) return null;
 
         const lines = await tx
           .select()

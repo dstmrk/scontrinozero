@@ -46,6 +46,7 @@ vi.mock("@/db/schema", () => ({
     adeTransactionId: "cd.ade_transaction_id",
     publicRequest: "cd.public_request",
     returnedDocumentId: "cd.returned_document_id",
+    createdBy: "cd.created_by",
   },
   commercialDocumentLines: "commercial-document-lines-table",
 }));
@@ -61,6 +62,7 @@ vi.mock("drizzle-orm", async (importOriginal) => {
     ...actual,
     desc: (col: unknown) => ({ _desc: col }),
     and: (...args: unknown[]) => ({ _and: args }),
+    eq: (a: unknown, b: unknown) => ({ _eq: [a, b] }),
     gte: (a: unknown, b: unknown) => ({ _gte: [a, b] }),
     lt: (a: unknown, b: unknown) => ({ _lt: [a, b] }),
   };
@@ -171,6 +173,17 @@ const FAKE_DOC_LINES = [
 
 /** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
 const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR_MEMBERSHIP = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
+
+/** Le condizioni passate a `.where` da un builder, come marker leggibili. */
+function whereConditions(builder: { where: ReturnType<typeof vi.fn> }) {
+  return (builder.where.mock.calls[0][0] as { _and: unknown[] })._and;
+}
+
+const OWN_DOCUMENTS = { _eq: ["cd.created_by", "member-collab"] };
 
 describe("storico-actions", () => {
   beforeEach(() => {
@@ -825,6 +838,64 @@ describe("storico-actions", () => {
   // riaprendo la modale la vendita risulta annullata ma priva di ricevuta di
   // annullamento e di stampa finche' l'utente non rifa' la ricerca.
   // -------------------------------------------------------------------------
+
+  // Issue #1099: il collaboratore vede solo i documenti che ha creato, il
+  // titolare tutta l'attività.
+  describe("permessi del collaboratore", () => {
+    const BIZ = "11111111-1111-4111-8111-111111111111";
+    const DOC = "22222222-2222-4222-8222-222222222222";
+
+    it("il titolare cerca in tutta l'attività", async () => {
+      const countBuilder = makeCountBuilder(0);
+      const docsBuilder = makeDocsBuilder([]);
+      mockSelect
+        .mockReturnValueOnce(countBuilder)
+        .mockReturnValueOnce(docsBuilder);
+
+      const { searchReceipts } = await import("./storico-actions");
+      await searchReceipts(BIZ);
+
+      expect(whereConditions(countBuilder)).not.toContainEqual(OWN_DOCUMENTS);
+      expect(whereConditions(docsBuilder)).not.toContainEqual(OWN_DOCUMENTS);
+    });
+
+    it("il collaboratore cerca solo fra i propri documenti, conteggio compreso", async () => {
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      const countBuilder = makeCountBuilder(0);
+      const docsBuilder = makeDocsBuilder([]);
+      mockSelect
+        .mockReturnValueOnce(countBuilder)
+        .mockReturnValueOnce(docsBuilder);
+
+      const { searchReceipts } = await import("./storico-actions");
+      await searchReceipts(BIZ);
+
+      expect(whereConditions(countBuilder)).toContainEqual(OWN_DOCUMENTS);
+      expect(whereConditions(docsBuilder)).toContainEqual(OWN_DOCUMENTS);
+    });
+
+    it("il collaboratore rilegge solo un documento suo", async () => {
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      const detailBuilder = makeDetailBuilder([]);
+      mockSelect.mockReturnValueOnce(detailBuilder);
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, DOC);
+
+      expect(result).toEqual({ item: null });
+      expect(whereConditions(detailBuilder)).toContainEqual(OWN_DOCUMENTS);
+    });
+
+    it("il titolare rilegge qualunque documento dell'attività", async () => {
+      const detailBuilder = makeDetailBuilder([]);
+      mockSelect.mockReturnValueOnce(detailBuilder);
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      await getReceiptDetail(BIZ, DOC);
+
+      expect(whereConditions(detailBuilder)).not.toContainEqual(OWN_DOCUMENTS);
+    });
+  });
 
   describe("getReceiptDetail", () => {
     const BIZ = "11111111-1111-4111-8111-111111111111";

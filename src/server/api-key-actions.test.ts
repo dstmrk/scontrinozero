@@ -161,6 +161,10 @@ const FAKE_KEY_LIST = [
 
 /** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
 const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR_MEMBERSHIP = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 
 describe("listApiKeys", () => {
   beforeEach(() => {
@@ -195,6 +199,18 @@ describe("listApiKeys", () => {
     const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toBeDefined();
+    expect(result.keys).toBeUndefined();
+  });
+
+  // Issue #1099: le chiavi API le gestisce solo il titolare.
+  it("un collaboratore non vede le chiavi", async () => {
+    const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+    mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+
+    const { listApiKeys } = await import("./api-key-actions");
+    const result = await listApiKeys(BIZ_ID);
+
+    expect(result.error).toBe(OWNER_ONLY_MESSAGE);
     expect(result.keys).toBeUndefined();
   });
 
@@ -323,6 +339,17 @@ describe("createApiKey", () => {
     const mockReturning = vi.fn().mockResolvedValue([{ id: "new-key-uuid" }]);
     const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
     mockInsert.mockReturnValue({ values: mockValues });
+  });
+
+  it("un collaboratore non crea chiavi", async () => {
+    const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+    mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey(BIZ_ID, "Test Key");
+
+    expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it("genera una API key e ritorna la raw key una sola volta", async () => {

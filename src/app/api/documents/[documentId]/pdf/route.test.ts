@@ -48,6 +48,7 @@ vi.mock("@/db/schema", () => ({
   commercialDocumentLines: "commercial-document-lines-table",
   businesses: "businesses-table",
   profiles: "profiles-table",
+  businessMembers: "business-members-table",
 }));
 
 vi.mock("@/lib/receipts/generate-pdf-response", () => ({
@@ -111,6 +112,13 @@ const MOCK_OWNER = {
   referralBonusDays: 0,
 };
 
+/**
+ * Il membro che chiede il PDF, dalla join su `business_members` (issue #1099):
+ * il titolare scarica ogni documento dell'attività.
+ */
+const MOCK_MEMBER = { id: "member-owner", role: "owner" };
+const COLLABORATOR_MEMBER = { id: "member-collab", role: "collaborator" };
+
 const MOCK_LINES = [
   {
     id: "line-1",
@@ -152,7 +160,12 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     mockSelect
       .mockReturnValueOnce(
         makeSelectBuilder([
-          { doc: MOCK_DOC, biz: MOCK_BIZ, owner: MOCK_OWNER },
+          {
+            doc: MOCK_DOC,
+            biz: MOCK_BIZ,
+            owner: MOCK_OWNER,
+            member: MOCK_MEMBER,
+          },
         ]),
       )
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
@@ -269,6 +282,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
             },
             biz: MOCK_BIZ,
             owner: MOCK_OWNER,
+            member: MOCK_MEMBER,
           },
         ]),
       )
@@ -307,6 +321,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
             },
             biz: MOCK_BIZ,
             owner: MOCK_OWNER,
+            member: MOCK_MEMBER,
           },
         ]),
       )
@@ -342,6 +357,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
           },
           biz: MOCK_BIZ,
           owner: MOCK_OWNER,
+          member: MOCK_MEMBER,
         },
       ]),
     );
@@ -369,6 +385,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
           },
           biz: MOCK_BIZ,
           owner: MOCK_OWNER,
+          member: MOCK_MEMBER,
         },
       ]),
     );
@@ -521,6 +538,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
               doc: MOCK_DOC,
               biz: { ...MOCK_BIZ, receiptFooterNote: note },
               owner,
+              member: MOCK_MEMBER,
             },
           ]),
         )
@@ -555,6 +573,121 @@ describe("GET /api/documents/[documentId]/pdf", () => {
         expect.objectContaining({ footerNote: null }),
         expect.anything(),
       );
+    });
+  });
+
+  // Issue #1099: il collaboratore scarica i documenti che ha emesso, e
+  // l'annullo di una sua vendita anche se l'ha fatto il titolare: nello
+  // storico è parte di quella vendita.
+  describe("permessi del collaboratore", () => {
+    const DOC_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
+    function request() {
+      return GET(makeRequest(DOC_ID), {
+        params: Promise.resolve({ documentId: DOC_ID }),
+      });
+    }
+
+    it("scarica uno scontrino che ha emesso", async () => {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            {
+              doc: { ...MOCK_DOC, createdBy: COLLABORATOR_MEMBER.id },
+              biz: MOCK_BIZ,
+              owner: MOCK_OWNER,
+              member: COLLABORATOR_MEMBER,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+      const res = await request();
+
+      expect(res.status).toBe(200);
+    });
+
+    it("non scarica lo scontrino di un altro membro", async () => {
+      mockSelect.mockReset();
+      mockSelect.mockReturnValueOnce(
+        makeSelectBuilder([
+          {
+            doc: { ...MOCK_DOC, createdBy: "member-owner" },
+            biz: MOCK_BIZ,
+            owner: MOCK_OWNER,
+            member: COLLABORATOR_MEMBER,
+          },
+        ]),
+      );
+
+      const res = await request();
+
+      expect(res.status).toBe(404);
+      expect(mockGeneratePdfResponse).not.toHaveBeenCalled();
+    });
+
+    it("scarica l'annullo che il titolare ha fatto di una sua vendita", async () => {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            {
+              doc: {
+                ...MOCK_DOC,
+                id: "void-doc",
+                kind: "VOID",
+                status: "VOID_ACCEPTED",
+                voidedDocumentId: MOCK_DOC.id,
+                createdBy: "member-owner",
+              },
+              biz: MOCK_BIZ,
+              owner: MOCK_OWNER,
+              member: COLLABORATOR_MEMBER,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            { ...MOCK_DOC, createdBy: COLLABORATOR_MEMBER.id },
+          ]),
+        )
+        .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+      const res = await request();
+
+      expect(res.status).toBe(200);
+    });
+
+    it("non scarica il reso fatto da un altro membro su una sua vendita", async () => {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            {
+              doc: {
+                ...MOCK_DOC,
+                id: "return-1",
+                kind: "RETURN",
+                returnedDocumentId: MOCK_DOC.id,
+                createdBy: "member-owner",
+              },
+              biz: MOCK_BIZ,
+              owner: MOCK_OWNER,
+              member: COLLABORATOR_MEMBER,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            { ...MOCK_DOC, createdBy: COLLABORATOR_MEMBER.id },
+          ]),
+        );
+
+      const res = await request();
+
+      expect(res.status).toBe(404);
+      expect(mockGeneratePdfResponse).not.toHaveBeenCalled();
     });
   });
 });

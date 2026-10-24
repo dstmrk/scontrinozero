@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { getDb } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+import { isCollaborator, OWNER_ONLY_MESSAGE } from "@/lib/business-permissions";
 import { getStripe, isValidPriceId, intervalFromPriceId } from "@/lib/stripe";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -189,6 +190,13 @@ export async function POST(req: Request): Promise<Response> {
   const priceId = typeof body.priceId === "string" ? body.priceId : null;
   if (!priceId || !isValidPriceId(priceId)) {
     return Response.json({ error: "Price ID non valido." }, { status: 400 });
+  }
+
+  // Il piano è dell'attività e lo compra il titolare (issue #1099). Un
+  // collaboratore arrivato qui creerebbe un cliente Stripe e un abbonamento
+  // a suo nome, che il webhook non saprebbe a quale profilo legare.
+  if (await isCollaborator(user.id)) {
+    return Response.json({ error: OWNER_ONLY_MESSAGE }, { status: 403 });
   }
 
   const stripe = getStripe();

@@ -58,6 +58,7 @@ import {
   canAddCatalogItem,
   canEmit,
   canUseApi,
+  canUseCollaborators,
   canUseDashboardCashier,
   canUsePro,
   getApiKeyLimit,
@@ -296,6 +297,36 @@ describe("piano team", () => {
     expect(isPaidPlanExpired("team", expiredLongAgo)).toBe(true);
     expect(canEmit("team", null, expiredLongAgo)).toBe(false);
     expect(canUsePro("team", expiredLongAgo)).toBe(false);
+  });
+});
+
+// Issue #1099, decisione 3 del commento di design: il collaboratore opera
+// solo se il piano del titolare ammette collaboratori. Calcolato a ogni
+// richiesta, niente colonna di sospensione.
+describe("canUseCollaborators", () => {
+  it.each(["team", "unlimited"] as const)("ammette %s", (plan) => {
+    expect(canUseCollaborators(plan, null)).toBe(true);
+  });
+
+  it("ammette la prova in corso e non quella scaduta", () => {
+    expect(canUseCollaborators("trial", daysAgo(5))).toBe(true);
+    expect(canUseCollaborators("trial", daysAgo(TRIAL_DAYS + 1))).toBe(false);
+    expect(canUseCollaborators("trial", null)).toBe(false);
+  });
+
+  it.each([
+    "starter",
+    "pro",
+    "developer_indie",
+    "developer_business",
+    "developer_scale",
+  ] as const)("non ammette %s", (plan) => {
+    expect(canUseCollaborators(plan, null)).toBe(false);
+  });
+
+  it("un Team scaduto oltre la grazia non ammette più collaboratori", () => {
+    const expiredLongAgo = new Date(Date.now() - PLAN_EXPIRY_GRACE_MS - 1000);
+    expect(canUseCollaborators("team", null, expiredLongAgo)).toBe(false);
   });
 });
 

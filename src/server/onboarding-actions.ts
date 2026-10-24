@@ -51,10 +51,8 @@ import { isValidUuid } from "@/lib/uuid";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
 import { notifyOperatorOfNewSignup } from "@/lib/operator-notification";
-import {
-  getAuthenticatedUser,
-  checkBusinessMembership,
-} from "@/lib/server-auth";
+import { getAuthenticatedUser } from "@/lib/server-auth";
+import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   adeCieEmailSchema,
@@ -504,7 +502,7 @@ export async function saveAdeCredentials(
 
   if ("error" in values) return values;
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   const db = getDb();
@@ -1311,7 +1309,7 @@ export async function connectAdeWithSpid(
     return { error: "Sessione SPID non valida. Accedi di nuovo con SPID." };
   }
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   // Stesso limiter e stessa chiave della verifica: collegare con SPID È una
@@ -1414,7 +1412,7 @@ export async function verifyAdeCredentials(
     return { error: "Identificativo non valido." };
   }
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   // Rate limit DOPO l'ownership gate, PRIMA del decrypt/login AdE: degradare
@@ -1977,7 +1975,7 @@ export async function changeAdePassword(
     return { error: "Identificativo non valido." };
   }
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   const rateLimitResult = changePasswordLimiter.check(

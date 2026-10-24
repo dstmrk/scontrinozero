@@ -56,6 +56,14 @@ vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
 }));
 
+// Il rifiuto del collaboratore (issue #1099) è coperto in
+// src/app/api/stripe/checkout/route.test.ts: qui chi compra è il titolare.
+vi.mock("@/lib/business-permissions", () => ({
+  isCollaborator: vi.fn().mockResolvedValue(false),
+  OWNER_ONLY_MESSAGE:
+    "Questa operazione è riservata al titolare dell'attività.",
+}));
+
 vi.mock("@/lib/stripe", () => ({
   getStripe: mockGetStripe,
   isValidPriceId: mockIsValidPriceId,
