@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { and, count, eq, isNotNull } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
@@ -109,6 +110,15 @@ export default async function SettingsPage({
     );
   }
 
+  return ownerSettings(user, success);
+}
+
+/**
+ * La pagina del titolare: attività, credenziali AdE, account, abbonamento,
+ * preferenze. Separata da `SettingsPage`, che sceglie la vista per ruolo, per
+ * tenere entrambe sotto la soglia S3776 di Cognitive Complexity.
+ */
+async function ownerSettings(user: User, success: string | undefined) {
   const db = getDb();
 
   const [profile] = await db
