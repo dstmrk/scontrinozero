@@ -264,8 +264,9 @@ function TermsAcceptance({
         >
           Condizioni per i collaboratori
         </a>
-        : dicono cosa può fare chi inviti, cosa resta a tuo carico e come
-        trattiamo i suoi dati per tuo conto.
+        {
+          ": dicono cosa può fare chi inviti, cosa resta a tuo carico e come trattiamo i suoi dati per tuo conto."
+        }
       </p>
       <div className="flex items-start gap-2">
         <Checkbox
