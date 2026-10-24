@@ -134,6 +134,14 @@ describe("SaleLookupDialog", () => {
     expect(onReturned).toHaveBeenCalledWith("sale-doc-uuid");
   });
 
+  it("Esc chiude il dialog", () => {
+    const { onClose } = renderDialog();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("Annulla chiude senza cercare", () => {
     const { onClose } = renderDialog();
 
