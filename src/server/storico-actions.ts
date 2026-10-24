@@ -544,6 +544,42 @@ async function hydrateLocalRows(
 }
 
 /**
+ * Il messaggio d'errore se il chiamante non può cercare su AdE; `null` se può.
+ * Tutti i controlli vengono prima di qualunque lavoro.
+ */
+async function adeSearchAccessError(
+  businessId: string,
+): Promise<string | null> {
+  const auth = await authorizeStorico(
+    "searchReceiptsIncludingAde",
+    [businessId],
+    businessId,
+  );
+  if ("error" in auth) return auth.error;
+
+  // La ricerca su AdE legge tutta la P.IVA, anche i documenti emessi fuori da
+  // ScontrinoZero: è del titolare (issue #1099, decisione 11).
+  if (auth.membership.role !== "owner") return OWNER_ONLY_MESSAGE;
+
+  // La ricerca su AdE è Pro. `assertProPlan` porta con sé la classificazione
+  // degli errori di lettura del piano (profilo mancante, timeout DB) che qui
+  // servirebbe comunque.
+  const proCheck = await assertProPlan(auth.userId);
+  if (!proCheck.ok) return proCheck.error;
+
+  const rate = adeSearchLimiter.check(`storicoAde:${auth.userId}`);
+  if (!rate.success) {
+    logger.warn(
+      { userId: auth.userId },
+      "Ricerca storico AdE: rate limit superato",
+    );
+    return "Troppe ricerche ravvicinate. Riprova tra qualche minuto.";
+  }
+
+  return null;
+}
+
+/**
  * Elenco storico che include anche i documenti commerciali presenti solo
  * sull'archivio AdE — emessi dal portale, dall'app o da un altro software che
  * usa lo stesso servizio (feature Pro, v1.8.0).
@@ -566,37 +602,8 @@ export async function searchReceiptsIncludingAde(
   businessId: string,
   params: SearchReceiptsParams = {},
 ): Promise<SearchStoricoResult> {
-  const auth = await authorizeStorico(
-    "searchReceiptsIncludingAde",
-    [businessId],
-    businessId,
-  );
-  if ("error" in auth) return { error: auth.error, items: [], total: 0 };
-
-  // La ricerca su AdE legge tutta la P.IVA, anche i documenti emessi fuori da
-  // ScontrinoZero: è del titolare (issue #1099, decisione 11).
-  if (auth.membership.role !== "owner") {
-    return { error: OWNER_ONLY_MESSAGE, items: [], total: 0 };
-  }
-
-  // Gate di piano prima di qualunque lavoro: la ricerca su AdE è Pro.
-  // `assertProPlan` porta con sé la classificazione degli errori di lettura
-  // del piano (profilo mancante, timeout DB) che qui servirebbe comunque.
-  const proCheck = await assertProPlan(auth.userId);
-  if (!proCheck.ok) return { error: proCheck.error, items: [], total: 0 };
-
-  const rate = adeSearchLimiter.check(`storicoAde:${auth.userId}`);
-  if (!rate.success) {
-    logger.warn(
-      { userId: auth.userId },
-      "Ricerca storico AdE: rate limit superato",
-    );
-    return {
-      error: "Troppe ricerche ravvicinate. Riprova tra qualche minuto.",
-      items: [],
-      total: 0,
-    };
-  }
+  const denied = await adeSearchAccessError(businessId);
+  if (denied !== null) return { error: denied, items: [], total: 0 };
 
   const built = buildStoricoConditions(businessId, params);
   if ("error" in built) return { error: built.error, items: [], total: 0 };
