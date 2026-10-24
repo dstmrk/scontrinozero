@@ -37,6 +37,15 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+// La pagina chiede il ruolo per la vista del collaboratore (issue #1099): qui
+// l'utente è sempre il titolare.
+vi.mock("@/server/onboarding-actions", () => ({
+  getOnboardingStatus: async () => ({
+    hasBusiness: true,
+    membership: { memberId: "member-owner", role: "owner" },
+  }),
+}));
+
 vi.mock("@/server/billing-actions", () => ({
   getProfilePlan: mockGetProfilePlan,
 }));
