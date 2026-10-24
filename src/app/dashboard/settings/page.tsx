@@ -25,7 +25,7 @@ import { PreferencesCard } from "@/components/settings/preferences-card";
 import { ReceiptNoteCard } from "@/components/settings/receipt-note-card";
 import { getProfilePlan } from "@/server/billing-actions";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
-import { TRIAL_DAYS } from "@/lib/plans";
+import { getPlanSafe, TRIAL_DAYS } from "@/lib/plans";
 import { API_KEYS_ANCHOR_ID } from "@/lib/plans-shared";
 import {
   computeBillingCardState,
@@ -99,7 +99,14 @@ export default async function SettingsPage({
   // Deduplicata via `react/cache` con quella del layout: nessuna query in più.
   const status = await getOnboardingStatus();
   if (status.membership?.role === "collaborator") {
-    return <CollaboratorSettings email={user.email} />;
+    // Il piano è del titolare; all'assistenza dice i tempi di risposta.
+    const planResult = await getPlanSafe(user.id, "settingsPage");
+    return (
+      <CollaboratorSettings
+        email={user.email}
+        plan={planResult.ok ? planResult.info.plan : null}
+      />
+    );
   }
 
   const db = getDb();

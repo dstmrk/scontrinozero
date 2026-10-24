@@ -10,12 +10,14 @@ const {
   mockSelect,
   mockGetProfilePlan,
   mockGetOnboardingStatus,
+  mockGetPlanSafe,
   mockRedirect,
 } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockSelect: vi.fn(),
   mockGetProfilePlan: vi.fn(),
   mockGetOnboardingStatus: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
   // `redirect()` di Next lancia NEXT_REDIRECT: il mock replica il throw così
   // un redirect inatteso non passa per un render riuscito.
   mockRedirect: vi.fn((..._args: unknown[]) => {
@@ -38,6 +40,11 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/server/onboarding-actions", () => ({
   getOnboardingStatus: () => mockGetOnboardingStatus(),
+}));
+
+vi.mock("@/lib/plans", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/plans")>()),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
 }));
 
 vi.mock("@/server/billing-actions", () => ({
@@ -103,7 +110,9 @@ vi.mock("@/components/settings/printer-section", () => ({
   PrinterSection: () => <div data-testid="printer" />,
 }));
 vi.mock("@/components/settings/support-section", () => ({
-  SupportSection: () => <div data-testid="support" />,
+  SupportSection: ({ plan }: { plan: string | null }) => (
+    <div data-testid="support" data-plan={plan ?? ""} />
+  ),
 }));
 vi.mock("@/components/settings/api-key-card", () => ({
   ApiKeyCard: () => <div data-testid="api-key" />,
@@ -249,6 +258,10 @@ describe("SettingsPage — collaboratore", () => {
       businessId: "biz-1",
       membership: { memberId: "member-collab", role: "collaborator" },
     });
+    mockGetPlanSafe.mockResolvedValue({
+      ok: true,
+      info: { plan: "team", trialStartedAt: null, planExpiresAt: null },
+    });
   });
 
   it("rende account, preferenze e assistenza", async () => {
@@ -287,11 +300,26 @@ describe("SettingsPage — collaboratore", () => {
     }
   });
 
-  it("non legge profilo, attività né piano", async () => {
+  it("non legge profilo né attività", async () => {
     await renderSettings();
 
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockGetProfilePlan).not.toHaveBeenCalled();
+  });
+
+  it("passa all'assistenza il piano del titolare, che decide i tempi di risposta", async () => {
+    await renderSettings();
+
+    expect(mockGetPlanSafe).toHaveBeenCalledWith("user-1", "settingsPage");
+    expect(screen.getByTestId("support").dataset.plan).toBe("team");
+  });
+
+  it("senza piano leggibile l'assistenza resta, senza piano", async () => {
+    mockGetPlanSafe.mockResolvedValue({ ok: false, error: "DB giù" });
+
+    await renderSettings();
+
+    expect(screen.getByTestId("support").dataset.plan).toBe("");
   });
 });
 

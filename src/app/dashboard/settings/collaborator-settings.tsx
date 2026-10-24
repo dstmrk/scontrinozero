@@ -13,7 +13,8 @@ import { APP_VERSION, getBuildLabel } from "@/lib/version";
  */
 export function CollaboratorSettings({
   email,
-}: Readonly<{ email: string | undefined }>) {
+  plan,
+}: Readonly<{ email: string | undefined; plan: string | null }>) {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Impostazioni</h1>
@@ -38,9 +39,7 @@ export function CollaboratorSettings({
 
       <PreferencesCard />
 
-      {/* Senza piano: è del titolare, e la mail di assistenza la manda il
-          collaboratore con il suo indirizzo. */}
-      <SupportCard accountEmail={email} plan={null} />
+      <SupportCard accountEmail={email} plan={plan} />
 
       <p className="text-muted-foreground text-sm">
         ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
