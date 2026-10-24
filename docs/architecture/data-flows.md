@@ -20,6 +20,17 @@
    una riga `profiles`; il piano lo prende dal titolare
    (`planOwnerAuthUserId` in `src/lib/plans.ts`). La riga `owner` nasce con
    l'attività in `saveBusiness` (`src/server/onboarding-actions.ts`).
+6. Cosa può fare il ruolo lo decide `src/lib/business-permissions.ts`.
+   `checkBusinessOwner` chiude al titolare credenziali AdE, dati
+   dell'attività, catalogo in scrittura, analytics, ricerca su AdE e chiavi
+   API; il checkout Stripe rifiuta il collaboratore con `isCollaborator`.
+   Emissione, annullo e reso passano da `collaboratorSuspendedError`: il
+   collaboratore opera solo se il piano del titolare ammette collaboratori
+   (`canUseCollaborators` in `src/lib/plans-shared.ts`), calcolato a ogni
+   richiesta. Il collaboratore vede e tocca solo i documenti che ha creato
+   (`ownDocumentsCondition` nello storico, `canAccessDocument` su annullo e
+   pending, regola d'autore nella route del PDF); il reso vale su qualunque
+   vendita. Per il titolare nessuno di questi controlli aggiunge query.
 
 ## Emissione scontrino (cassa)
 

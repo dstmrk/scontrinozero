@@ -87,7 +87,8 @@ const REAUTH_MESSAGE: Record<InteractiveMethod, string> = {
   spid: "Sessione SPID scaduta: ricollegati con SPID dall'app ScontrinoZero per verificare lo scontrino.",
 };
 
-const NOT_FOUND_ERROR = "Scontrino non trovato. Ricarica la pagina e riprova.";
+export const PENDING_NOT_FOUND_ERROR =
+  "Scontrino non trovato. Ricarica la pagina e riprova.";
 /**
  * Il claim ha già bumpato `updated_at`, quindi la riga esce dalla soglia stale
  * e sparisce dall'elenco finché non ci rientra. È voluto — impedisce di
@@ -234,7 +235,7 @@ async function loadVerifiableSale(
   documentId: string,
 ): Promise<{ row: PendingRow } | { done: VerifyPendingSaleResult }> {
   const row = await loadPendingSale(businessId, documentId);
-  if (!row) return { done: { error: NOT_FOUND_ERROR } };
+  if (!row) return { done: { error: PENDING_NOT_FOUND_ERROR } };
 
   // Un'altra sessione (o il recovery dell'emit) l'ha già chiusa: alla UI basta
   // ricaricare, non c'è niente da verificare.
@@ -504,7 +505,7 @@ export async function confirmPendingSaleCandidate(params: {
         { documentId, businessId },
         "Conferma PENDING: idtrx non più fra i candidati → nessun finalize",
       );
-      return { error: NOT_FOUND_ERROR };
+      return { error: PENDING_NOT_FOUND_ERROR };
     }
 
     logger.info(

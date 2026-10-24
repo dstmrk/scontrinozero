@@ -96,6 +96,15 @@ vi.mock("@/db/schema", () => ({
 
 // Estensione Stripe del referrer a pagamento: mockata per non tirare dentro
 // il client Stripe reale e per poter asserire QUANDO viene chiamata.
+
+// La riga che il controllo di appartenenza legge da `business_members`: il
+// titolare (issue #1099). `id` resta nelle fixture perché la stessa riga fa
+// anche da risultato per le query che leggono l'attività.
+const OWNER_ROW = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR_ROW = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 const mockExtendSubscriptionForReferral = vi
   .fn()
   .mockResolvedValue({ extended: true });
@@ -594,7 +603,7 @@ describe("onboarding-actions", () => {
 
     it("encrypts and saves credentials", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // No existing credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -703,7 +712,7 @@ describe("onboarding-actions", () => {
     });
 
     it("R80: chiave per-utente, controllata prima della cifratura", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([]);
 
       const { saveAdeCredentials } = await import("./onboarding-actions");
@@ -785,7 +794,7 @@ describe("onboarding-actions", () => {
 
     it("accepts PIN of exactly 10 numeric digits", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // No existing credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -803,7 +812,7 @@ describe("onboarding-actions", () => {
 
     it("accepts PIN with surrounding whitespace (server trims before validation)", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // No existing credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -821,7 +830,7 @@ describe("onboarding-actions", () => {
 
     it("upserts credentials atomically and resets verifiedAt on conflict", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
 
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
@@ -865,8 +874,28 @@ describe("onboarding-actions", () => {
       expect(mockRevalidatePath).not.toHaveBeenCalled();
     });
 
+    // Issue #1099: le credenziali AdE sono del titolare.
+    it("un collaboratore non salva le credenziali AdE", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockLimit.mockResolvedValueOnce([COLLABORATOR_ROW]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "22222222-2222-4222-8222-222222222222",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: "1234567890",
+        }),
+      );
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
     it("CIE: salva username(email)+password con login_method 'cie'", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
 
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
@@ -952,7 +981,7 @@ describe("onboarding-actions", () => {
     });
 
     it("CIE: email con maiuscole salvata NON normalizzata (cifrata byte-per-byte)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
 
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const mixedCaseEmail = "Mario.Rossi@Example.COM";
@@ -1041,7 +1070,7 @@ describe("onboarding-actions", () => {
     });
 
     it("utenza: una P.IVA malformata è respinta al boundary, senza toccare AdE", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
@@ -1055,7 +1084,7 @@ describe("onboarding-actions", () => {
     });
 
     it("utenza: la scelta è persistita e passata al client", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
@@ -1084,7 +1113,7 @@ describe("onboarding-actions", () => {
     // di confronto contro `business_name`, che l'utente digita prima ancora di
     // scegliere su quale P.IVA opererà.
     it("denominazione: quella registrata all'AdE è persistita con gli identificativi", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
@@ -1122,7 +1151,7 @@ describe("onboarding-actions", () => {
     // Migrazione 0040: le cinque colonne della sede legale viaggiano con la
     // denominazione, nella stessa UPDATE e quindi sotto lo stesso lock.
     it("denominazione: anche la sede legale osservata è persistita", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
@@ -1160,7 +1189,7 @@ describe("onboarding-actions", () => {
     });
 
     it("denominazione: una sede legale assente diventa null su tutte e cinque", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
@@ -1200,7 +1229,9 @@ describe("onboarding-actions", () => {
         undefined,
       ]) {
         mockUpdateSet.mockClear();
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockLimit.mockResolvedValueOnce([queuedCredRow()]);
         mockLogin.mockResolvedValue({});
         mockLogout.mockResolvedValue(undefined);
@@ -1226,7 +1257,7 @@ describe("onboarding-actions", () => {
     });
 
     it("utenza: la scrittura rilegge updatedAt, o il lock ottimistico userebbe un valore stantio", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
@@ -1264,7 +1295,7 @@ describe("onboarding-actions", () => {
     });
 
     it("utenza: la scelta persistita viene rigiocata senza che la UI la ripassi", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         queuedCredRow({ utenzaPiva: "07790350966" }),
       ]);
@@ -1287,7 +1318,7 @@ describe("onboarding-actions", () => {
     it("utenza: a un business già collegato non si offre un picker che non può usare", async () => {
       const { AdeUtenzaSelectionRequiredError } =
         await import("@/lib/ade/errors");
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLimit.mockResolvedValueOnce([
         { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
@@ -1313,7 +1344,7 @@ describe("onboarding-actions", () => {
     it("utenza: a chi non ha ancora completato l'onboarding il picker si offre", async () => {
       const { AdeUtenzaSelectionRequiredError } =
         await import("@/lib/ade/errors");
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockRejectedValueOnce(
         new AdeUtenzaSelectionRequiredError([
@@ -1346,7 +1377,7 @@ describe("onboarding-actions", () => {
     });
 
     it("utenza: su un business già onboardato la scelta è rifiutata e non riscritta", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       // fiscalCode valorizzato → wasAlreadyOnboarded.
       mockLimit.mockResolvedValueOnce([
@@ -1380,7 +1411,7 @@ describe("onboarding-actions", () => {
       // Simmetria con changeAdePassword: stesso profilo di costo (login AdE),
       // stessa protezione. Senza il gate un utente autenticato puo' martellare
       // il login AdE rischiando un IP-block sull'egress condiviso (PR #671).
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockRateLimiterCheck.mockReturnValueOnce({
         success: false,
         remaining: 0,
@@ -1409,7 +1440,7 @@ describe("onboarding-actions", () => {
     });
 
     it("R36: chiave per-utente, controllata DOPO l'ownership gate", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1443,7 +1474,7 @@ describe("onboarding-actions", () => {
 
     it("verifies credentials successfully and fetches fiscal data", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -1486,7 +1517,7 @@ describe("onboarding-actions", () => {
     });
 
     it("CIE: verifica via loginCie (non login Fisconline)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Riga credenziali con metodo CIE: username(email) + password, niente CF/PIN.
       mockLimit.mockResolvedValueOnce([
         {
@@ -1524,7 +1555,7 @@ describe("onboarding-actions", () => {
       // In mock `loginCie` senza utenza scelta usa la P.IVA registrata: chi
       // passa da Fisconline a CIE in sandbox supera così l'identity guard.
       mockLimit
-        .mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }])
+        .mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }])
         .mockResolvedValueOnce([
           {
             businessId: "11111111-1111-4111-8111-111111111111",
@@ -1560,7 +1591,7 @@ describe("onboarding-actions", () => {
     });
 
     it("SPID: riga con metodo spid degrada senza tentare login", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1590,7 +1621,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValue([
         { status: null, stripeSubscriptionId: null },
       ]);
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1626,7 +1657,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValue([
         { status: "active", stripeSubscriptionId: "sub_active" },
       ]);
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1661,7 +1692,7 @@ describe("onboarding-actions", () => {
 
     it("marks credentials as verified even when getFiscalData fails", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -1697,7 +1728,7 @@ describe("onboarding-actions", () => {
 
     it("returns error when credentials not found", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // No credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -1711,7 +1742,7 @@ describe("onboarding-actions", () => {
 
     it("returns error when AdE login fails", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -1734,7 +1765,7 @@ describe("onboarding-actions", () => {
     });
 
     it("returns a dedicated message when AdE responds with 5xx", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1764,7 +1795,7 @@ describe("onboarding-actions", () => {
     });
 
     it("returns a dedicated message when AdE is unreachable (network error)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1803,8 +1834,21 @@ describe("onboarding-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
+    it("un collaboratore non verifica le credenziali AdE", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockLimit.mockResolvedValueOnce([COLLABORATOR_ROW]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(
+        "22222222-2222-4222-8222-222222222222",
+      );
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
     it("M3: AdE transient (AdePortalError 5xx) logga a warn invece di error", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1841,7 +1885,7 @@ describe("onboarding-actions", () => {
       // archiviata come noise): utenti che digitano credenziali AdE
       // sbagliate da /dashboard/settings finivano come logger.error ->
       // Sentry issue. Ora -> warn + ade_user_error, niente Sentry.
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1877,7 +1921,7 @@ describe("onboarding-actions", () => {
       // Sentry distinte perche' i message divergevano. Con il flow propagato,
       // due errori "ade_failure" nello stesso flow finiscono in un unico
       // group Sentry (regola 23 di CLAUDE.md).
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1907,7 +1951,7 @@ describe("onboarding-actions", () => {
 
     it("sends welcome email on first successful verification", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found — verifiedAt is null (first verification)
       mockLimit.mockResolvedValueOnce([
         {
@@ -1942,7 +1986,7 @@ describe("onboarding-actions", () => {
     });
 
     it("does not fail when operator notification rejects", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -1980,7 +2024,7 @@ describe("onboarding-actions", () => {
 
     it("does not send welcome/operator email when both flags are already set (claim returns 0 rows)", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found — verifiedAt already set (re-verification)
       mockLimit.mockResolvedValueOnce([
         {
@@ -2026,7 +2070,7 @@ describe("onboarding-actions", () => {
     // welcome_email_sent_at sopravvive al reset delle credenziali: il claim
     // atomico torna 0 righe e nessuna email parte, anche con verifiedAt = null.
     it("does not re-send welcome email after credential reset (durable flag survives)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // verifiedAt is null (credentials were just replaced) — ma i flag email
       // erano già stati valorizzati nella prima verifica andata a buon fine.
       mockLimit.mockResolvedValueOnce([
@@ -2064,7 +2108,7 @@ describe("onboarding-actions", () => {
     });
 
     it("invia solo la notifica operatore quando il flag welcome è già set ma operator no (flag indipendenti)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2108,7 +2152,7 @@ describe("onboarding-actions", () => {
     // mostrare la nuova P.IVA su scontrini già emessi sotto la vecchia (storico
     // e PDF leggono live businesses.vatNumber). Va bloccato prima di scrivere.
     it("blocca il cambio credenziali verso una P.IVA diversa su business già onboardato (pivaMismatch)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2156,7 +2200,7 @@ describe("onboarding-actions", () => {
     });
 
     it("consente la riverifica con la stessa P.IVA su business già onboardato (rotazione password)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2199,7 +2243,7 @@ describe("onboarding-actions", () => {
     // confermare che la P.IVA combaci → non marcare "verificate" credenziali mai
     // confrontate (chiuderebbe il guard a un bypass). Errore transitorio.
     it("blocca la verifica se getFiscalData fallisce su business già onboardato (identità non confermabile)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2240,7 +2284,7 @@ describe("onboarding-actions", () => {
     });
 
     it("usa il codice fiscale come fallback quando la P.IVA registrata è assente (mismatch via CF)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2277,7 +2321,7 @@ describe("onboarding-actions", () => {
 
     it("blocca la verifica se la P.IVA è già in uso su un altro account (anti-abuso trial)", async () => {
       // Ownership check
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found — first verification
       mockLimit.mockResolvedValueOnce([
         {
@@ -2338,7 +2382,7 @@ describe("onboarding-actions", () => {
     });
 
     it("concede il trial e registra la P.IVA nel ledger alla prima verifica", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2389,7 +2433,7 @@ describe("onboarding-actions", () => {
     });
 
     it("nega il trial e mette in sola lettura se la P.IVA ha già consumato un trial (ledger conflict)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2436,7 +2480,7 @@ describe("onboarding-actions", () => {
     });
 
     it("non azzera il trial e non tocca il ledger se lo stesso account ri-verifica la propria P.IVA", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2487,7 +2531,7 @@ describe("onboarding-actions", () => {
     // venivano scritti incondizionatamente.
     it("non scrive i dati fiscali su businesses/profiles se le credenziali cambiano durante la verifica (P1.1)", async () => {
       // Ownership check
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -2547,7 +2591,7 @@ describe("onboarding-actions", () => {
 
     it("chiama logout anche se getFiscalData lancia un errore", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -2572,7 +2616,7 @@ describe("onboarding-actions", () => {
 
     it("chiama logout anche nel happy path di verifyAdeCredentials", async () => {
       // Ownership check: JOIN profile+business
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -2610,7 +2654,7 @@ describe("onboarding-actions", () => {
 
       const credentialUpdatedAt = new Date("2026-03-26T14:36:07.000Z");
 
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "11111111-1111-4111-8111-111111111111",
@@ -2689,7 +2733,9 @@ describe("onboarding-actions", () => {
 
       /** Login riuscito + identità fiscale: il percorso felice completo. */
       function queueSuccessfulLogin() {
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockLimit.mockResolvedValueOnce([queuedCredRow()]);
         mockLogin.mockResolvedValue({});
         mockLogout.mockResolvedValue(undefined);
@@ -2704,7 +2750,9 @@ describe("onboarding-actions", () => {
 
       /** Login che fallisce con l'errore dato, dal primo onboarding. */
       function queueFailedLogin(err: unknown) {
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockLimit.mockResolvedValueOnce([queuedCredRow()]);
         mockLogin.mockRejectedValue(err);
       }
@@ -2873,7 +2921,9 @@ describe("onboarding-actions", () => {
       });
 
       it("una P.IVA di un'altra impresa registra 'piva_mismatch'", async () => {
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockLimit.mockResolvedValueOnce([queuedCredRow()]);
         // Business già onboardato su un'altra P.IVA: scatta l'identity guard.
         mockLimit.mockResolvedValueOnce([
@@ -2898,7 +2948,9 @@ describe("onboarding-actions", () => {
       });
 
       it("credenziali incomplete registrano 'incomplete_credentials', senza chiamare AdE", async () => {
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockLimit.mockResolvedValueOnce([
           queuedCredRow({ encryptedPin: null }),
         ]);
@@ -2912,7 +2964,9 @@ describe("onboarding-actions", () => {
       });
 
       it("una P.IVA malformata registra 'invalid_utenza_piva'", async () => {
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockLimit.mockResolvedValueOnce([queuedCredRow()]);
 
         const { verifyAdeCredentials } = await import("./onboarding-actions");
@@ -2923,7 +2977,9 @@ describe("onboarding-actions", () => {
       });
 
       it("il rate limit NON registra nulla: è un gate d'accesso, non una causa di abbandono", async () => {
-        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+        ]);
         mockRateLimiterCheck.mockReturnValue({
           success: false,
           remaining: 0,
@@ -3020,7 +3076,7 @@ describe("onboarding-actions", () => {
      */
     function queueReads(identity: Record<string, unknown>) {
       mockLimit
-        .mockResolvedValueOnce([{ id: BIZ }])
+        .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
         .mockResolvedValueOnce([identity])
         .mockResolvedValueOnce([SPID_ROW])
         .mockResolvedValueOnce([identity]);
@@ -3127,6 +3183,18 @@ describe("onboarding-actions", () => {
       expect(logged).not.toMatch(/valore/);
     });
 
+    it("un collaboratore non collega l'attività con SPID", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockLimit.mockResolvedValueOnce([COLLABORATOR_ROW]);
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockAdoptSession).not.toHaveBeenCalled();
+    });
+
     it("su un business non suo non registra i nomi dei cookie", async () => {
       mockLimit.mockResolvedValueOnce([]);
       const { logger } = await import("@/lib/logger");
@@ -3176,7 +3244,7 @@ describe("onboarding-actions", () => {
     it("una sessione rifiutata dall'AdE non tocca le credenziali già salvate", async () => {
       // Un utente Fisconline operativo che prova SPID con cookie scaduti deve
       // poter continuare a emettere: niente upsert, niente invalidazione.
-      mockLimit.mockResolvedValueOnce([{ id: BIZ }]);
+      mockLimit.mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }]);
       const { AdeSessionExpiredError } = await import("@/lib/ade/errors");
       mockAdoptSession.mockRejectedValue(new AdeSessionExpiredError());
 
@@ -3215,7 +3283,7 @@ describe("onboarding-actions", () => {
         const storeSet = vi.spyOn(adeInteractiveSessionStore, "set");
         mockGetAdeMode.mockReturnValue("real");
         mockLimit
-          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
           .mockResolvedValueOnce([ONBOARDED]);
         mockAdoptSession.mockResolvedValue(adopted("99999999999"));
 
@@ -3247,7 +3315,7 @@ describe("onboarding-actions", () => {
         // chiusura spetta a questo ramo.
         mockLogout.mockResolvedValue(undefined);
         mockLimit
-          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
           .mockResolvedValueOnce([ONBOARDED]);
         mockAdoptSession.mockResolvedValue(adopted("99999999999"));
 
@@ -3261,7 +3329,7 @@ describe("onboarding-actions", () => {
 
       it("senza P.IVA registrata confronta il codice fiscale, sempre prima di scrivere", async () => {
         mockLimit
-          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
           .mockResolvedValueOnce([
             { fiscalCode: REGISTERED_CF, vatNumber: null },
           ]);
@@ -3393,7 +3461,7 @@ describe("onboarding-actions", () => {
     /** Ownership, riga credenziali, snapshot del primo onboarding. */
     function queueFirstOnboarding(row: Record<string, unknown>) {
       mockLimit
-        .mockResolvedValueOnce([{ id: BIZ }])
+        .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
         .mockResolvedValueOnce([row])
         .mockResolvedValueOnce([{ fiscalCode: null, vatNumber: null }]);
       mockGetFiscalData.mockResolvedValue(fiscal("12345678901"));
@@ -3417,7 +3485,7 @@ describe("onboarding-actions", () => {
       // sessione intestata a un'altra P.IVA.
       const storeSet = await spyStoreSet();
       mockLimit
-        .mockResolvedValueOnce([{ id: BIZ }])
+        .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
         .mockResolvedValueOnce([CIE_ROW])
         .mockResolvedValueOnce([
           { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
@@ -3472,7 +3540,7 @@ describe("onboarding-actions", () => {
       it("altra P.IVA (identity guard) → logout, niente store", async () => {
         const storeSet = await spyStoreSet();
         mockLimit
-          .mockResolvedValueOnce([{ id: BIZ }])
+          .mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }])
           .mockResolvedValueOnce([CIE_ROW])
           .mockResolvedValueOnce([
             { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
@@ -3733,8 +3801,26 @@ describe("onboarding-actions", () => {
     // Guard client-side bypassabile (devtools, richiesta diretta): questi tre
     // controlli devono valere anche quando il chiamante non è il dialog React.
 
+    it("un collaboratore non cambia la password Fisconline", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockLimit.mockResolvedValueOnce([COLLABORATOR_ROW]);
+      const { changeAdePassword } = await import("./onboarding-actions");
+
+      const result = await changeAdePassword(
+        CHANGE_PW_BUSINESS_ID,
+        "OldPass1!",
+        "NewPass1!",
+        "NewPass1!",
+      );
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+      expect(mockChangePasswordFisconline).not.toHaveBeenCalled();
+    });
+
     it("nuova password fuori dal set di caratteri Fisconline → { error }, nessuna query DB", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      mockLimit.mockResolvedValueOnce([
+        { id: CHANGE_PW_BUSINESS_ID, ...OWNER_ROW },
+      ]); // ownership
       const { changeAdePassword } = await import("./onboarding-actions");
 
       const result = await changeAdePassword(
@@ -3751,7 +3837,9 @@ describe("onboarding-actions", () => {
     });
 
     it("nuova password sotto gli 8 caratteri → { error }", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      mockLimit.mockResolvedValueOnce([
+        { id: CHANGE_PW_BUSINESS_ID, ...OWNER_ROW },
+      ]); // ownership
       const { changeAdePassword } = await import("./onboarding-actions");
 
       const result = await changeAdePassword(
@@ -3768,7 +3856,9 @@ describe("onboarding-actions", () => {
     });
 
     it("nuova password e conferma diverse → { error }, nessuna chiamata AdE", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      mockLimit.mockResolvedValueOnce([
+        { id: CHANGE_PW_BUSINESS_ID, ...OWNER_ROW },
+      ]); // ownership
       const { changeAdePassword } = await import("./onboarding-actions");
 
       const result = await changeAdePassword(
@@ -3783,7 +3873,9 @@ describe("onboarding-actions", () => {
     });
 
     it("nuova password identica all'attuale → { error }, nessuna chiamata AdE", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      mockLimit.mockResolvedValueOnce([
+        { id: CHANGE_PW_BUSINESS_ID, ...OWNER_ROW },
+      ]); // ownership
       const { changeAdePassword } = await import("./onboarding-actions");
 
       const result = await changeAdePassword(
@@ -3822,7 +3914,7 @@ describe("onboarding-actions", () => {
         ...credOverrides,
       };
       mockLimit
-        .mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]) // ownership
+        .mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID, ...OWNER_ROW }]) // ownership
         .mockResolvedValueOnce([cred]); // SELECT credenziali
       // Payload cifrati tracciabili: `enc(<plaintext>|v<version>)`, così un
       // test può verificare CHE COSA è stato cifrato e con QUALE versione.

@@ -11,10 +11,8 @@ import {
   getEffectivePlan,
   getPlan,
 } from "@/lib/plans";
-import {
-  checkBusinessMembership,
-  getAuthenticatedUser,
-} from "@/lib/server-auth";
+import { getAuthenticatedUser } from "@/lib/server-auth";
+import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import { isValidUuid } from "@/lib/uuid";
 
@@ -58,7 +56,7 @@ async function authorizeApiKeyBusiness(
     return { error: "Identificativo non valido." };
   }
 
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) return membership;
 
   // Qui non basta `getPlanSafe`: anche `getEffectivePlan` legge il profilo

@@ -23,6 +23,7 @@ import {
   getAuthenticatedUser,
   checkBusinessMembership,
 } from "@/lib/server-auth";
+import { collaboratorSuspendedError } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import type { SubmitReceiptInput, SubmitReceiptResult } from "@/types/cassa";
@@ -112,6 +113,11 @@ export async function emitReceipt(
 
   const membership = await checkBusinessMembership(user.id, input.businessId);
   if ("error" in membership) return membership;
+
+  // Un collaboratore opera solo finché il piano del titolare lo ammette
+  // (issue #1099): sceso a Pro, resta membro ma non emette.
+  const suspended = collaboratorSuspendedError(membership, planInfo);
+  if (suspended) return { error: suspended };
 
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.

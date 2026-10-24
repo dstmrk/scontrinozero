@@ -8,6 +8,10 @@ import {
   checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import {
+  canAccessDocument,
+  collaboratorSuspendedError,
+} from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
@@ -70,6 +74,23 @@ export async function voidReceipt(
 
   const membership = await checkBusinessMembership(user.id, input.businessId);
   if ("error" in membership) return membership;
+
+  // Un collaboratore opera solo finché il piano del titolare lo ammette
+  // (issue #1099): sceso a Pro, resta membro ma non annulla.
+  const suspended = collaboratorSuspendedError(membership, planInfo);
+  if (suspended) return { error: suspended };
+
+  // Il collaboratore annulla solo i documenti che ha emesso (decisione 2
+  // sulla issue). Un documento altrui risponde come uno inesistente.
+  if (
+    !(await canAccessDocument(
+      membership,
+      validation.data.businessId,
+      validation.data.documentId,
+    ))
+  ) {
+    return { error: "Scontrino non trovato.", code: "NOT_FOUND" };
+  }
 
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.

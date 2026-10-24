@@ -154,6 +154,10 @@ const FAKE_HEADERS = {} as Parameters<typeof mockHeaders>[0];
 
 /** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
 const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR_MEMBERSHIP = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 
 describe("profile-actions", () => {
   beforeEach(() => {
@@ -330,6 +334,16 @@ describe("profile-actions", () => {
       expect(result.error).toMatch(/non autorizzato/i);
     });
 
+    // Issue #1099: i dati dell'attività sono del titolare.
+    it("un collaboratore non modifica i dati dell'attività", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      const { updateBusiness } = await import("./profile-actions");
+      const result = await updateBusiness(formData(VALID));
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
+      expect(mockDbUpdateSet).not.toHaveBeenCalled();
+    });
+
     it("returns rate limit error when limiter rejects", async () => {
       mockCheck.mockReturnValue({ success: false });
       const { updateBusiness } = await import("./profile-actions");
@@ -480,6 +494,16 @@ describe("profile-actions", () => {
       const result = await updateReceiptFooterNote(formData(VALID));
 
       expect(result.error).toMatch(/non autorizzato/i);
+      expect(mockGetPlanSafe).not.toHaveBeenCalled();
+    });
+
+    it("un collaboratore non modifica il messaggio sullo scontrino", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(formData(VALID));
+
+      expect(result.error).toBe(OWNER_ONLY_MESSAGE);
       expect(mockGetPlanSafe).not.toHaveBeenCalled();
     });
 
@@ -795,6 +819,18 @@ describe("profile-actions", () => {
         { ...IDENTITY_ROW, ...overrides },
       ]);
     }
+
+    it("un collaboratore non allinea la denominazione", async () => {
+      const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      // Nessun `row()`: il rifiuto arriva prima della lettura dell'identità,
+      // e una riga accodata e mai letta finirebbe al test successivo.
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result).toEqual({ error: OWNER_ONLY_MESSAGE });
+      expect(mockDbUpdateSet).not.toHaveBeenCalled();
+    });
 
     it("scrive la denominazione osservata e revalida le impostazioni", async () => {
       row();

@@ -264,6 +264,25 @@ giro completo della suite. Un mock senza default (`vi.fn()`) che rispondeva
 controllo che restituisce un oggetto va invece sostituito con un default
 esplicito.
 
+**La riga di membership porta il ruolo.** I test che usano il controllo vero
+(es. `src/server/onboarding-actions.test.ts`) accodano a `mockLimit` la riga
+che `business_members` restituirebbe. Prima del ruolo bastava `[{ id }]`:
+qualunque riga voleva dire "autorizzato". Con `checkBusinessOwner`
+(`src/lib/business-permissions.ts`) una riga senza `role` è un non-titolare,
+e 98 test sono diventati rossi insieme. La fixture va scritta come la
+query la produce, `{ memberId, role: "owner" }`; dove la stessa riga fa da
+risultato anche per altre query si aggiunge il ruolo accanto a `id` invece
+di toglierlo.
+
+**Niente import statico di un modulo che importa `@/db`.** Un
+`import { OWNER_ONLY_MESSAGE } from "@/lib/business-permissions"` in cima a un
+test con `vi.mock("@/db", () => ({ … mockSelect … }))` fa caricare il modulo,
+e con lui la factory di `@/db`, prima che `mockSelect` sia inizializzata:
+`ReferenceError: Cannot access 'mockSelect' before initialization` e zero
+test raccolti. Si importa dentro il test,
+`const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions")`,
+oppure si dichiarano i mock in `vi.hoisted`.
+
 Cerca file affetti con:
 `grep -rn "FAKE_PROFILE\|Ownership check" tests/ src/ --include="*.test.ts"`
 

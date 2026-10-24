@@ -227,6 +227,25 @@ export function canUsePro(
 }
 
 /**
+ * Ritorna true se il piano del titolare ammette collaboratori (issue #1099):
+ * Team, Unlimited e la prova in corso. Starter, Pro e i piani developer no.
+ *
+ * Calcolato a ogni richiesta e mai salvato: un collaboratore di un titolare
+ * sceso a Pro, o con la prova scaduta, resta membro dell'attività ma non
+ * emette, non annulla e non rende finché il piano non torna ad ammetterlo.
+ * Il limite di 2 collaboratori della prova vale agli inviti, non qui.
+ */
+export function canUseCollaborators(
+  plan: Plan,
+  trialStartedAt: Date | null,
+  planExpiresAt: Date | null = null,
+): boolean {
+  if (isPaidPlanExpired(plan, planExpiresAt)) return false;
+  if (plan === "trial") return !isTrialExpired(trialStartedAt);
+  return plan === "team" || plan === "unlimited";
+}
+
+/**
  * Ritorna true se il piano è un piano developer (Fase B: Partner API).
  */
 export function isDeveloperPlan(plan: Plan): boolean {

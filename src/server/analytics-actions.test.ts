@@ -172,6 +172,10 @@ function makeSelectBuilder(result: unknown[]) {
 
 /** Il titolare: oggi l'unico membro possibile di un'attività (issue #1099). */
 const OWNER_MEMBERSHIP = { memberId: "member-owner", role: "owner" } as const;
+const COLLABORATOR_MEMBERSHIP = {
+  memberId: "member-collab",
+  role: "collaborator",
+} as const;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -334,6 +338,17 @@ describe("getAnalyticsKpis", () => {
       "30d",
     );
     expect(res).toEqual({ error: "Non autorizzato." });
+  });
+
+  // Issue #1099: l'analytics è del titolare.
+  it("un collaboratore non legge l'analytics", async () => {
+    const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+    mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
+    expect(res).toEqual({ error: OWNER_ONLY_MESSAGE });
   });
 
   it("guard UUID (regola 9): businessId malformato → { error } senza ownership check", async () => {

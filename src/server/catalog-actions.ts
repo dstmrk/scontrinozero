@@ -7,6 +7,7 @@ import {
   checkBusinessMembership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   canAddCatalogItem,
@@ -51,7 +52,11 @@ function toCatalogItem(row: {
   };
 }
 
-/** Autentica l'utente e verifica che appartenga al business. Ritorna null se OK. */
+/**
+ * Autentica l'utente e verifica che sia il titolare del business: il
+ * collaboratore legge il catalogo ma non lo modifica (issue #1099). Ritorna
+ * null se OK.
+ */
 async function authenticateAndAuthorize(
   businessId: string,
 ): Promise<CatalogActionResult | null> {
@@ -61,7 +66,7 @@ async function authenticateAndAuthorize(
   } catch (err) {
     return authErrorResult(err, "authenticateAndAuthorize");
   }
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   return "error" in membership ? membership : null;
 }
 
@@ -198,7 +203,7 @@ export async function addCatalogItem(
     return { error: "Identificativo non valido." };
   }
 
-  const membership = await checkBusinessMembership(user.id, input.businessId);
+  const membership = await checkBusinessOwner(user.id, input.businessId);
   if ("error" in membership) return membership;
 
   const validated = validateItemInput(

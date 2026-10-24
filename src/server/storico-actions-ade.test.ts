@@ -218,6 +218,20 @@ describe("searchReceiptsIncludingAde — guardie", () => {
     expect(result.error).toBe("Non autorizzato.");
   });
 
+  // Issue #1099: la ricerca su AdE legge tutta la P.IVA, quindi è del titolare.
+  it("un collaboratore → rifiuto, prima del piano e di AdE", async () => {
+    const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions");
+    mockCheckBusinessMembership.mockResolvedValue({
+      memberId: "member-collab",
+      role: "collaborator",
+    });
+
+    const result = await searchReceiptsIncludingAde(BIZ, RANGE);
+
+    expect(result).toEqual({ error: OWNER_ONLY_MESSAGE, items: [], total: 0 });
+    expect(mockAssertProPlan).not.toHaveBeenCalled();
+  });
+
   it("status fuori dall'enum → rifiuto prima di interrogare AdE", async () => {
     const result = await searchReceiptsIncludingAde(BIZ, {
       ...RANGE,

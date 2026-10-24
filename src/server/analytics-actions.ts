@@ -3,10 +3,8 @@
 import { cache } from "react";
 import { and, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
-import {
-  checkBusinessMembership,
-  getAuthenticatedUser,
-} from "@/lib/server-auth";
+import { getAuthenticatedUser } from "@/lib/server-auth";
+import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
 import { canUsePro, getPlanSafe, type Plan } from "@/lib/plans";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -90,7 +88,7 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
   if (!isValidUuid(businessId)) {
     return { ok: false, error: "Identificativo non valido." };
   }
-  const membership = await checkBusinessMembership(user.id, businessId);
+  const membership = await checkBusinessOwner(user.id, businessId);
   if ("error" in membership) {
     logger.warn(
       { userId: user.id, businessId },
