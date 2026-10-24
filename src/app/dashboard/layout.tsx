@@ -76,11 +76,11 @@ export default async function DashboardLayout({
     >
       <MemberRoleProvider role={role}>
         {/*
-        Inset orizzontali sullo shell: con viewport-fit=cover il layout arriva
-        al bordo fisico, quindi in landscape su telefoni col notch il contenuto
-        finirebbe sotto il ritaglio. Le bande laterali restano invisibili — il
-        body ha lo stesso `bg-background`. In portrait valgono 0.
-      */}
+          Inset orizzontali sullo shell: con viewport-fit=cover il layout arriva
+          al bordo fisico, quindi in landscape su telefoni col notch il contenuto
+          finirebbe sotto il ritaglio. Le bande laterali restano invisibili — il
+          body ha lo stesso `bg-background`. In portrait valgono 0.
+        */}
         <div className="flex min-h-screen flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
           {announcement && <AnnouncementBanner {...announcement} />}
           <header className="bg-background border-b">
@@ -141,49 +141,49 @@ export default async function DashboardLayout({
           </header>
 
           {/*
-          La bottom nav è alta h-16 e cresce della safe-area inset: senza
-          sommarla qui il fondo del contenuto finirebbe sotto la nav esattamente
-          sui telefoni con home indicator. Il 5rem è il vecchio pb-20 (64px di
-          nav + 16px d'aria).
+            La bottom nav è alta h-16 e cresce della safe-area inset: senza
+            sommarla qui il fondo del contenuto finirebbe sotto la nav esattamente
+            sui telefoni con home indicator. Il 5rem è il vecchio pb-20 (64px di
+            nav + 16px d'aria).
 
-          Da `md` la nav è nascosta, ma la inset va sommata lo stesso: con
-          viewport-fit=cover il layout arriva al bordo fisico anche su un iPad
-          installato come PWA, dove prima iOS riservava quella fascia da solo.
-          Con il solo `pb-6` l'ultima riga finirebbe a filo della home indicator.
-        */}
+            Da `md` la nav è nascosta, ma la inset va sommata lo stesso: con
+            viewport-fit=cover il layout arriva al bordo fisico anche su un iPad
+            installato come PWA, dove prima iOS riservava quella fascia da solo.
+            Con il solo `pb-6` l'ultima riga finirebbe a filo della home indicator.
+          */}
           <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
             {/*
-            Scontrini rimasti in sospeso (PR #904). Sta nel layout e non
-            in una pagina perché l'esercente deve incontrarlo ovunque stia
-            lavorando — cassa compresa, che è da dove la slice 3 lo manda
-            quando la riemissione è bloccata.
+              Scontrini rimasti in sospeso (PR #904). Sta nel layout e non
+              in una pagina perché l'esercente deve incontrarlo ovunque stia
+              lavorando — cassa compresa, che è da dove la slice 3 lo manda
+              quando la riemissione è bloccata.
 
-            Dietro `<Suspense fallback={null}>`: la query non deve ritardare lo
-            shell, e nel caso normale non c'è niente da mostrare — uno
-            scheletro lampeggerebbe a ogni navigazione per poi sparire.
-          */}
+              Dietro `<Suspense fallback={null}>`: la query non deve ritardare lo
+              shell, e nel caso normale non c'è niente da mostrare — uno
+              scheletro lampeggerebbe a ogni navigazione per poi sparire.
+            */}
             <Suspense fallback={null}>
               <PendingSalesSection />
             </Suspense>
             {/*
-            Collaboratore sospeso (issue #1099): sola lettura finché il piano
-            del titolare non ammette collaboratori. Va visto prima di comporre
-            una vendita che non potrebbe emettere.
-          */}
+              Collaboratore sospeso (issue #1099): sola lettura finché il piano
+              del titolare non ammette collaboratori. Va visto prima di comporre
+              una vendita che non potrebbe emettere.
+            */}
             <Suspense fallback={null}>
               <CollaboratorSuspendedSection />
             </Suspense>
             {/*
-            Identità stampata diversa da quella registrata all'AdE
-            (issue #984). Stessa ragione di stare nel layout: finita la
-            verifica si atterra su /dashboard e si va in cassa, quindi chi
-            opera per conto di una società incontrerebbe l'avviso solo
-            aprendo le impostazioni di sua iniziativa — cioè quasi mai.
+              Identità stampata diversa da quella registrata all'AdE
+              (issue #984). Stessa ragione di stare nel layout: finita la
+              verifica si atterra su /dashboard e si va in cassa, quindi chi
+              opera per conto di una società incontrerebbe l'avviso solo
+              aprendo le impostazioni di sua iniziativa — cioè quasi mai.
 
-            Dopo il banner degli scontrini in sospeso, non prima: quello è
-            denaro già incassato a esito ignoto, questo è un dato da
-            correggere.
-          */}
+              Dopo il banner degli scontrini in sospeso, non prima: quello è
+              denaro già incassato a esito ignoto, questo è un dato da
+              correggere.
+            */}
             <Suspense fallback={null}>
               <AdeIdentitySection />
             </Suspense>

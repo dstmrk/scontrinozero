@@ -31,6 +31,21 @@
    (`ownDocumentsCondition` nello storico, `canAccessDocument` su annullo e
    pending, regola d'autore nella route del PDF); il reso vale su qualunque
    vendita. Per il titolare nessuno di questi controlli aggiunge query.
+   Gli errori sulle credenziali AdE dell'attività (password scaduta,
+   credenziali rifiutate o non verificate, utenza bloccata) parlano al
+   titolare: `forMember` li riscrive per il collaboratore con "avvisa il
+   titolare", nelle action di emissione, annullo e reso.
+7. Cosa vede il ruolo lo decide il dashboard. `getOnboardingStatus` parte da
+   `business_members` e porta la membership; il layout la passa ai
+   componenti client con `MemberRoleProvider`
+   (`src/components/dashboard/member-role.tsx`, `useIsCollaborator`). Il
+   collaboratore non passa dall'onboarding e non vede il tour, Analytics,
+   l'avviso sull'identità AdE, la ricerca su AdE, l'export CSV né i comandi
+   di modifica del catalogo; le sue impostazioni sono
+   `src/app/dashboard/settings/collaborator-settings.tsx`. Quando il piano
+   del titolare non ammette collaboratori,
+   `src/app/dashboard/collaborator-suspended-section.tsx` gli dice che resta
+   la sola lettura.
 
 ## Emissione scontrino (cassa)
 

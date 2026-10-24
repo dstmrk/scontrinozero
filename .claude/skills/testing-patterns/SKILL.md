@@ -283,6 +283,16 @@ test raccolti. Si importa dentro il test,
 `const { OWNER_ONLY_MESSAGE } = await import("@/lib/business-permissions")`,
 oppure si dichiarano i mock in `vi.hoisted`.
 
+**Una costante letta al caricamento non va presa da un modulo che i test
+mockano.** `forMember` (`src/lib/business-permissions.ts`) costruisce al
+load un `Set` di messaggi d'errore. Con due di quei messaggi esportati da
+`@/lib/server-auth`, ogni suite che mocka `@/lib/server-auth` senza quelle
+costanti e carica il modulo vero (le action, decine di file) avrebbe
+fallito all'import: il mock di `vi.mock` lancia su un export mancante appena
+lo si legge. Le costanti stanno in `src/lib/ade/error-messages.ts`, che
+nessun test mocka; prima di leggere un export al load, cerca
+`vi.mock("<modulo>"` nei test.
+
 Cerca file affetti con:
 `grep -rn "FAKE_PROFILE\|Ownership check" tests/ src/ --include="*.test.ts"`
 
