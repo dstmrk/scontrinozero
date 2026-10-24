@@ -28,6 +28,8 @@ import { AdeIdentityNotice } from "@/components/settings/ade-identity-notice";
 export async function AdeIdentitySection() {
   const status = await getOnboardingStatus();
   if (!status.businessId || !status.hasUtenzaPiva) return null;
+  // Correggere i dati dell'attività spetta al titolare (issue #1099).
+  if (status.membership?.role === "collaborator") return null;
 
   const { denominazione, sedeLegale } = await loadAdeIdentityMismatches(
     status.businessId,

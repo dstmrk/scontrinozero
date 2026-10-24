@@ -17,9 +17,12 @@ import { listStalePendingSales } from "@/lib/services/pending-verification";
  */
 export async function PendingSalesSection() {
   const status = await getOnboardingStatus();
-  if (!status.businessId) return null;
+  if (!status.businessId || !status.membership) return null;
 
-  const documents = await listStalePendingSales(status.businessId);
+  const documents = await listStalePendingSales(
+    status.businessId,
+    status.membership,
+  );
   if (documents.length === 0) return null;
 
   return (

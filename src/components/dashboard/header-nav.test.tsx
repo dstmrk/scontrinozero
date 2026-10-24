@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { HeaderNav } from "./header-nav";
+import { MemberRoleProvider } from "./member-role";
 
 // --- Mocks ---
 
@@ -138,6 +139,20 @@ describe("HeaderNav", () => {
     for (const label of inactiveLinks) {
       const link = screen.getByText(label).closest("a");
       expect(link?.className).toContain("text-muted-foreground");
+    }
+  });
+
+  it("il collaboratore non vede Analytics, riservata al titolare", () => {
+    mockUsePathname.mockReturnValue("/dashboard");
+    render(
+      <MemberRoleProvider role="collaborator">
+        <HeaderNav />
+      </MemberRoleProvider>,
+    );
+
+    expect(screen.queryByText("Analytics")).not.toBeInTheDocument();
+    for (const label of ["Catalogo", "Cassa", "Storico", "Impostazioni"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
 });

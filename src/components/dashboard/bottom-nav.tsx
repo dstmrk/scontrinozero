@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Package, ShoppingCart, History, BarChart2 } from "lucide-react";
+import { useIsCollaborator } from "./member-role";
 
 // `tourStep`: ancora per l'onboarding tour (v1.4.1). Questa è la nav
 // mobile (dentro `[data-tour-nav="mobile"]`); il tour la usa quando il viewport
 // è < md. Impostazioni su mobile è l'icona ingranaggio nell'header del layout
-// (`[data-tour-step="settings-mobile"]`), non in bottom-nav.
+// (`[data-tour-step="settings-mobile"]`), non in bottom-nav. `ownerOnly`: voce
+// nascosta al collaboratore (issue #1099).
 const NAV_ITEMS = [
   {
     href: "/dashboard",
@@ -36,11 +38,16 @@ const NAV_ITEMS = [
     label: "Analytics",
     icon: BarChart2,
     exact: false,
+    ownerOnly: true,
   },
 ] as const;
 
 export function BottomNav() {
   const pathname = usePathname();
+  const isCollaborator = useIsCollaborator();
+  const items = NAV_ITEMS.filter(
+    (item) => !(isCollaborator && "ownerOnly" in item),
+  );
 
   return (
     // `fixed` ignora il padding dello shell: le inset orizzontali vanno
@@ -52,7 +59,7 @@ export function BottomNav() {
       className="bg-background fixed right-0 bottom-0 left-0 z-50 border-t pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] md:hidden"
     >
       <ul className="flex h-16 items-stretch">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const { href, label, icon: Icon, exact } = item;
           const isActive = exact
             ? pathname === href

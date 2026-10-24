@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useIsCollaborator } from "./member-role";
 
 // `tourStep`: ancora per l'onboarding tour (v1.4.1). Questa è la nav
 // desktop (montata dentro `[data-tour-nav="desktop"]` nel layout); il tour la
-// usa quando il viewport è ≥ md.
+// usa quando il viewport è ≥ md. `ownerOnly`: voce nascosta al collaboratore
+// (issue #1099).
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Catalogo", exact: true, tourStep: "catalogo" },
   { href: "/dashboard/cassa", label: "Cassa", exact: false, tourStep: "cassa" },
@@ -15,7 +17,12 @@ const NAV_ITEMS = [
     exact: false,
     tourStep: "storico",
   },
-  { href: "/dashboard/analytics", label: "Analytics", exact: false },
+  {
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    exact: false,
+    ownerOnly: true,
+  },
   {
     href: "/dashboard/settings",
     label: "Impostazioni",
@@ -26,10 +33,14 @@ const NAV_ITEMS = [
 
 export function HeaderNav() {
   const pathname = usePathname();
+  const isCollaborator = useIsCollaborator();
+  const items = NAV_ITEMS.filter(
+    (item) => !(isCollaborator && "ownerOnly" in item),
+  );
 
   return (
     <>
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const { href, label, exact } = item;
         const isActive = exact ? pathname === href : pathname.startsWith(href);
 
