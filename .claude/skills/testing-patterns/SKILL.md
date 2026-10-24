@@ -180,6 +180,7 @@ magic number):
 | `emit:<userId>`                  | `emitReceipt`                       | 120/ora  |
 | `void:<userId>`                  | `voidReceipt`                       | 10/ora   |
 | `return:<userId>`                | `returnReceipt`                     | 20/ora   |
+| `saleLookup:<userId>`            | `findSaleForReturn`                 | 30/ora   |
 | `analytics:<userId>`             | analytics dashboard                 | 60/ora   |
 | `csv:<userId>`                   | `GET /api/export/receipts`          | 10/ora   |
 | `pdf-auth:<userId>`              | PDF autenticato                     | 60/ora   |
@@ -209,6 +210,9 @@ Note che non si deducono dai numeri:
   tetto più basso della Developer API per lo stesso account (PR #781).
 - `return` a 20/ora: irreversibile come l'annullo ma più frequente (un reso
   per pezzo restituito), allineato a `api:void`.
+- `saleLookup` a 30/ora, sopra `return`: ogni reso da scontrino parte da una
+  ricerca, e un numero digitato male costa un tentativo. Il tetto serve a non
+  far leggere al collaboratore le vendite altrui provando numeri e date.
 - `void` a 10/ora perché l'annullo è irreversibile; `verify-ade` a 5/15min per
   PR #671.
 - `save-ade` è più alto (10/15min) del gemello `verify-ade`: non tocca AdE, ma

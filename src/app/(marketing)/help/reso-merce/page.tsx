@@ -108,10 +108,13 @@ export default function ResoMercePage() {
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             Vai nella sezione <strong>Storico</strong> e trova lo scontrino
-            della vendita con i filtri per data.
+            della vendita con i filtri per data. Se il cliente ha lo scontrino
+            in mano, tocca invece <strong>Reso da scontrino</strong> e scrivi il
+            numero stampato dopo &quot;DOCUMENTO N.&quot; con la data: si apre
+            direttamente il reso di quella vendita.
           </li>
           <li>
-            Apri il dettaglio e tocca <strong>Fai un reso</strong>. Il pulsante
+            Dal dettaglio tocca <strong>Fai un reso</strong>. Il pulsante
             compare sugli scontrini <em>Emessi</em> che hanno ancora pezzi da
             rendere.
           </li>

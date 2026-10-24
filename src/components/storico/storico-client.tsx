@@ -11,6 +11,7 @@ import {
   searchReceiptsIncludingAde,
 } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
+import { SaleLookupDialog } from "./sale-lookup-dialog";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
@@ -195,6 +196,7 @@ export function StoricoClient({
   const [receipts, setReceipts] = useState<StoricoRow[]>(initialItems);
   const [total, setTotal] = useState(initialTotal);
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
+  const [saleLookupOpen, setSaleLookupOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
 
@@ -375,11 +377,24 @@ export function StoricoClient({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Storico scontrini</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {total === 0 ? "Nessuno scontrino trovato." : summaryText}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Storico scontrini</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {total === 0 ? "Nessuno scontrino trovato." : summaryText}
+          </p>
+        </div>
+        {/* Il cliente porta lo scontrino: si arriva al reso dal numero
+            stampato, anche per una vendita che non è in questo elenco
+            (issue #1099). */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setSaleLookupOpen(true)}
+        >
+          Reso da scontrino
+        </Button>
       </div>
 
       {/* Search form */}
@@ -658,6 +673,15 @@ export function StoricoClient({
           onClose={() => setSelected(null)}
           onSuccess={handleVoidSuccess}
           onReturnSuccess={refreshRow}
+        />
+      )}
+
+      {saleLookupOpen && (
+        <SaleLookupDialog
+          businessId={businessId}
+          printProfile={printProfile}
+          onClose={() => setSaleLookupOpen(false)}
+          onReturned={refreshRow}
         />
       )}
     </div>

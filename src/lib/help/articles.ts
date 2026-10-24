@@ -42,7 +42,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "reso-merce": {
     slug: "reso-merce",
     datePublished: "2026-10-02",
-    dateModified: "2026-10-15",
+    dateModified: "2026-10-24",
     title: "Reso merce: emettere il documento di reso",
     metaTitle: "Fare un reso merce da ScontrinoZero: il documento di reso",
     description:
