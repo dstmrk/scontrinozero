@@ -8,6 +8,8 @@ export const RATE_LIMIT_WINDOWS = {
   AUTH_15_MIN: 15 * 60 * 1000,
   /** 1 ora — operazioni autenticate frequenti (emit/void/checkout/portal/profile) */
   HOURLY: 60 * 60 * 1000,
+  /** 24 ore — operazioni che spendono quota esterna (inviti via email) */
+  DAILY: 24 * 60 * 60 * 1000,
 } as const;
 
 export interface RateLimitResult {

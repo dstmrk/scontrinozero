@@ -18,8 +18,12 @@ import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
  */
 const PROTECTED_PREFIXES = ["/admin", "/dashboard", "/onboarding"];
 
-/** Routes only for unauthenticated users (redirect to dashboard if logged in) */
-const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
+/**
+ * Routes only for unauthenticated users (redirect to dashboard if logged in).
+ * `/invito` è l'accettazione dell'invito di un collaboratore: chi ha già un
+ * account appartiene già a un'attività (issue #1099).
+ */
+const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password", "/invito"];
 
 /**
  * True per le sole route il cui esito dipende dalla sessione auth: i
@@ -53,6 +57,7 @@ const MARKETING_ONLY_ROUTES = [
   // indicizzabile — il file risulterebbe assente proprio sul dominio in cui i
   // ricercatori (e gli scanner) lo cercano.
   "/.well-known",
+  "/condizioni-collaboratori",
   "/confronto",
   "/cookie-policy",
   "/feed.xml",

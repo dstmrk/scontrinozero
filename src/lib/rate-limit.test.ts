@@ -169,5 +169,6 @@ describe("RATE_LIMIT_WINDOWS", () => {
   it("expone le finestre canoniche", () => {
     expect(RATE_LIMIT_WINDOWS.AUTH_15_MIN).toBe(15 * 60 * 1000);
     expect(RATE_LIMIT_WINDOWS.HOURLY).toBe(60 * 60 * 1000);
+    expect(RATE_LIMIT_WINDOWS.DAILY).toBe(24 * 60 * 60 * 1000);
   });
 });

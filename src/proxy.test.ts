@@ -287,6 +287,28 @@ describe("proxy", () => {
       expect(location.pathname).toBe("/dashboard");
     });
 
+    // Issue #1099: chi ha già una sessione non accetta inviti (una persona,
+    // una sola attività); aprire il link lo porta al suo dashboard.
+    it("redirects /invito/<token> to /dashboard when authenticated", async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+      });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest(`/invito/${"a".repeat(43)}`));
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/dashboard");
+    });
+
+    it("allows unauthenticated access to /invito/<token>", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest(`/invito/${"a".repeat(43)}`));
+      expect(response.status).toBe(200);
+    });
+
     it("allows unauthenticated access to /login", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { proxy } = await import("./proxy");
@@ -406,6 +428,11 @@ describe("proxy", () => {
       {
         name: "redirects /termini on app domain to marketing domain",
         path: "/termini",
+      },
+      // Linkata dalla card Collaboratori e dal form d'invito, sul dominio app.
+      {
+        name: "redirects /condizioni-collaboratori on app domain to marketing domain",
+        path: "/condizioni-collaboratori",
       },
     ])("$name", async ({ path }) => {
       const { proxy } = await import("./proxy");

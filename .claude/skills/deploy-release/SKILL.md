@@ -288,12 +288,32 @@ del restart.
 1. Crea `src/app/(marketing)/termini/v*/page.tsx` (nuova versione vXX)
 2. Aggiorna redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
 3. Aggiorna `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
-4. Aggiorna il **secondo flag** (clausole vessatorie art. 1341 c.c.) in
-   `src/app/(auth)/register/page.tsx` con i nuovi numeri di paragrafo
+4. Aggiorna il **secondo flag** (clausole vessatorie art. 1341 c.c.):
+   `SPECIFIC_CLAUSES_TEXT` in `src/components/auth/signup-consents.tsx`, con i
+   nuovi numeri di paragrafo. Lo usano sia la registrazione sia
+   l'accettazione dell'invito di un collaboratore, che accetta gli stessi
+   Termini
 
 Privacy Policy: stessa procedura, aggiungere anche a `sitemap.ts`,
 `sitemap.test.ts` e `sonar.coverage.exclusions`. Notifica utenti ≥15 giorni
 prima dell'entrata in vigore.
+
+### Condizioni per i collaboratori
+
+Versione propria, indipendente dai Termini (decisione 5 sulla issue #1099):
+
+1. Crea `src/app/(marketing)/condizioni-collaboratori/v*/page.tsx` (nuova
+   versione vXX)
+2. Aggiorna `CURRENT_COLLABORATOR_TERMS_VERSION` in
+   `src/lib/collaborator-invites.ts`: il redirect di
+   `/condizioni-collaboratori` la segue da sé, e `page.test.ts` fallisce se la
+   pagina della versione manca
+3. Aggiungi la pagina a `sitemap.ts` (con la sua data) e alle due esclusioni
+   di coverage
+
+Al primo invito dopo il cambio il titolare riaccetta (la card Collaboratori
+torna al passo delle condizioni). Chi è già collaboratore non riaccetta: se
+la versione nuova lo riguarda, va deciso come informarlo prima del tag.
 
 ## Accendere il Send Email Hook (mail di conferma via Resend)
 

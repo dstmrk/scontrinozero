@@ -53,6 +53,7 @@ import {
   PLAN_EXPIRY_GRACE_MS,
   PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
+  TRIAL_COLLABORATOR_LIMIT,
   TRIAL_DAYS,
   assertProPlan,
   canAddCatalogItem,
@@ -62,6 +63,7 @@ import {
   canUseDashboardCashier,
   canUsePro,
   getApiKeyLimit,
+  getCollaboratorLimit,
   getEffectivePlan,
   getPlan,
   getPlanSafe,
@@ -327,6 +329,19 @@ describe("canUseCollaborators", () => {
   it("un Team scaduto oltre la grazia non ammette più collaboratori", () => {
     const expiredLongAgo = new Date(Date.now() - PLAN_EXPIRY_GRACE_MS - 1000);
     expect(canUseCollaborators("team", null, expiredLongAgo)).toBe(false);
+  });
+});
+
+// Decisione 3: nella prova al massimo 2 collaboratori, inviti in sospeso
+// compresi; dove i collaboratori ci sono, altrove non c'è un tetto.
+describe("getCollaboratorLimit", () => {
+  it("la prova ne ammette 2", () => {
+    expect(TRIAL_COLLABORATOR_LIMIT).toBe(2);
+    expect(getCollaboratorLimit("trial")).toBe(TRIAL_COLLABORATOR_LIMIT);
+  });
+
+  it.each(["team", "unlimited"] as const)("%s non ha un tetto", (plan) => {
+    expect(getCollaboratorLimit(plan)).toBeNull();
   });
 });
 

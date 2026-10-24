@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const Form = FormProvider;
 
@@ -206,6 +207,8 @@ type FormPasswordFieldProps<
   name: TName;
   label: string;
   itemClassName?: string;
+  /** Requisiti della password: si vedono finché il campo non ha un errore. */
+  description?: React.ReactNode;
 } & Omit<React.ComponentProps<"input">, "name" | "type">;
 
 function FormPasswordField<
@@ -216,18 +219,66 @@ function FormPasswordField<
   name,
   label,
   itemClassName,
+  description,
   ...inputProps
 }: FormPasswordFieldProps<TFieldValues, TName>) {
   return (
     <FormField
       control={control}
       name={name}
-      render={({ field }) => (
+      render={({ field, fieldState }) => (
         <FormItem className={itemClassName}>
           <FormLabel>{label}</FormLabel>
           <FormControl>
             <PasswordInput {...inputProps} {...field} />
           </FormControl>
+          {description && !fieldState.error && (
+            <FormDescription>{description}</FormDescription>
+          )}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+type FormCheckboxFieldProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> = {
+  control: Control<TFieldValues>;
+  name: TName;
+  /** Il testo accanto alla spunta; può contenere link. */
+  children: React.ReactNode;
+};
+
+/** Spunta con etichetta cliccabile, per i consensi dei form di registrazione. */
+function FormCheckboxField<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>({ control, name, children }: FormCheckboxFieldProps<TFieldValues, TName>) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id={name}
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              onBlur={field.onBlur}
+              name={field.name}
+              className="mt-0.5 shrink-0"
+            />
+            <label
+              htmlFor={name}
+              className="cursor-pointer text-sm leading-snug select-none"
+            >
+              {children}
+            </label>
+          </div>
           <FormMessage />
         </FormItem>
       )}
@@ -246,4 +297,5 @@ export {
   FormField,
   FormInputField,
   FormPasswordField,
+  FormCheckboxField,
 };

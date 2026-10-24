@@ -114,6 +114,24 @@ vi.mock("@/components/settings/support-section", () => ({
     <div data-testid="support" data-plan={plan ?? ""} />
   ),
 }));
+// La card legge da sé collaboratori e inviti (ha la sua suite): qui conta con
+// che dati la monta la pagina.
+vi.mock("./collaborators-card", () => ({
+  CollaboratorsCard: (props: {
+    businessId: string | undefined;
+    planInfo: { plan: string } | null;
+    collaboratorTermsVersion: string | null | undefined;
+    credentials: { loginMethod: string } | null;
+  }) => (
+    <div
+      data-testid="collaborators"
+      data-business={props.businessId ?? ""}
+      data-plan={props.planInfo?.plan ?? ""}
+      data-terms={props.collaboratorTermsVersion ?? ""}
+      data-login={props.credentials?.loginMethod ?? ""}
+    />
+  ),
+}));
 vi.mock("@/components/settings/api-key-card", () => ({
   ApiKeyCard: () => <div data-testid="api-key" />,
 }));
@@ -336,6 +354,36 @@ describe("SettingsPage — gerarchia delle sezioni", () => {
     expect(domOrderOf("Account")).toBeLessThan(domOrderOf("Abbonamento"));
     expect(domOrderOf("Abbonamento")).toBeLessThan(domOrderOf("Preferenze"));
     expect(domOrderOf("Preferenze")).toBeLessThan(domOrderOf("Assistenza"));
+  });
+});
+
+describe("SettingsPage — card Collaboratori", () => {
+  it("la monta con attività, piano, condizioni accettate e credenziali AdE", async () => {
+    installDbFixtures({
+      profile: { ...PROFILE, collaboratorTermsVersion: "v01" },
+    });
+
+    await renderSettings();
+
+    const card = screen.getByTestId("collaborators");
+    expect(card).toHaveAttribute("data-business", "biz-1");
+    expect(card).toHaveAttribute("data-plan", "pro");
+    expect(card).toHaveAttribute("data-terms", "v01");
+    expect(card).toHaveAttribute("data-login", "fisconline");
+  });
+
+  it("sta in 'Attività e fisco', subito dopo le credenziali AdE", async () => {
+    await renderSettings();
+
+    const credentials = screen.getByText("Credenziali AdE");
+    const card = screen.getByTestId("collaborators");
+    expect(
+      credentials.compareDocumentPosition(card) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(domOrderOf("Account")).toBeGreaterThan(
+      Array.from(document.querySelectorAll("*")).indexOf(card),
+    );
   });
 });
 

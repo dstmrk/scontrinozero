@@ -179,6 +179,16 @@ vi.mock("@/lib/operator-notification", () => ({
   notifyOperatorOfNewSignup: mockNotifyOperator,
 }));
 
+// Collaboratori o inviti dell'attività: di default nessuno, così CIE e SPID
+// restano ammessi come prima della issue #1099.
+const mockHasTeam = vi.fn().mockResolvedValue(false);
+vi.mock("@/lib/collaborator-invites", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/collaborator-invites")>()),
+  hasCollaboratorsOrOpenInvites: mockHasTeam,
+}));
+const FISCONLINE_REQUIRED_WITH_TEAM =
+  "Con collaboratori o inviti in sospeso l'accesso all'AdE resta con Fisconline: rimuovi prima i collaboratori e revoca gli inviti.";
+
 // --- Helpers ---
 
 function formData(entries: Record<string, string>): FormData {
@@ -923,6 +933,49 @@ describe("onboarding-actions", () => {
           }),
         }),
       );
+    });
+
+    // Decisione 7 della issue #1099: con CIE ogni sessione nuova chiede il
+    // titolare, quindi con un team l'accesso resta con Fisconline.
+    it("CIE: con collaboratori o inviti in sospeso non sostituisce Fisconline", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
+      mockHasTeam.mockResolvedValueOnce(true);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          loginMethod: "cie",
+          username: "mario.rossi@example.com",
+          password: "cie-pass",
+        }),
+      );
+
+      expect(mockHasTeam).toHaveBeenCalledWith(
+        "11111111-1111-4111-8111-111111111111",
+      );
+      expect(result.error).toBe(FISCONLINE_REQUIRED_WITH_TEAM);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("Fisconline: risalvare le credenziali con un team resta ammesso, senza contarlo", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockHasTeam.mockResolvedValue(true);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "securepass",
+          pin: "1234567890",
+        }),
+      );
+
+      expect(result.error).toBeUndefined();
+      expect(mockHasTeam).not.toHaveBeenCalled();
+      mockHasTeam.mockResolvedValue(false);
     });
 
     it("CIE: rifiuta uno username non-email prima dell'ownership check", async () => {
@@ -3100,6 +3153,20 @@ describe("onboarding-actions", () => {
 
       expect(result.error).toBe("Non autenticato.");
       expect(mockAdoptSession).not.toHaveBeenCalled();
+    });
+
+    it("con collaboratori o inviti in sospeso non sostituisce Fisconline", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: BIZ, ...OWNER_ROW }]);
+      mockHasTeam.mockResolvedValueOnce(true);
+      const { connectAdeWithSpid } = await import("./onboarding-actions");
+
+      const result = await connectAdeWithSpid(BIZ, COOKIES);
+
+      expect(result.error).toBe(FISCONLINE_REQUIRED_WITH_TEAM);
+      // Prima dell'adozione: nessuna chiamata all'AdE per una riga che non
+      // si scriverà.
+      expect(mockAdoptSession).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
 
     it("respinge un businessId non UUID prima di toccare il DB", async () => {

@@ -27,6 +27,10 @@ export type MemberRole = (typeof MEMBER_ROLES)[number];
  * riga, perché i documenti che ha emesso (`commercial_documents.created_by`)
  * restano suoi. Nessuna FK verso `auth.users`, come per `subscriptions`: lo
  * schema auth non è di Drizzle.
+ *
+ * Nome, email e condizioni accettate valgono solo per il collaboratore
+ * (migrazione 0045): quelle del titolare stanno in `profiles`. Il nome resta
+ * dopo la rimozione, perché è ciò che attribuisce i documenti.
  */
 export const businessMembers = pgTable(
   "business_members",
@@ -39,6 +43,11 @@ export const businessMembers = pgTable(
       .references(() => businesses.id, { onDelete: "cascade" }),
     authUserId: uuid("auth_user_id"),
     role: text("role").$type<MemberRole>().notNull(),
+    name: text("name"),
+    email: text("email"),
+    termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+    termsVersion: text("terms_version"),
+    collaboratorTermsVersion: text("collaborator_terms_version"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

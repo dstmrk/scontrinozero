@@ -59,6 +59,7 @@ export default defineConfig({
         "src/components/catalogo/catalogo-client.tsx", // UI orchestrator — pure render + setState, same pattern as cassa-client
         "src/lib/ade/types.ts", // pure type declarations + 1 regex constant (covered indirectly via validation)
         "src/app/(marketing)/termini/v01/page.tsx", // static legal text — pure UI, no logic (same as privacy/v01)
+        "src/app/(marketing)/condizioni-collaboratori/v01/page.tsx", // static legal text, as termini/v01
         "src/components/cassa/receipt-success.tsx",
         "src/components/storico/storico-client.tsx",
         "src/components/storico/void-receipt-dialog.tsx",
