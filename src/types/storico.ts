@@ -238,6 +238,13 @@ export interface GetReceiptDetailResult {
   error?: string;
 }
 
+/**
+ * Esito di `findSaleForReturn`: la vendita da rendere, trovata col numero
+ * stampato sullo scontrino e la data, o il motivo per cui non c'è.
+ */
+export type FindSaleForReturnResult =
+  { item: ReceiptListItem } | { error: string };
+
 // ---------------------------------------------------------------------------
 // Void action
 // ---------------------------------------------------------------------------

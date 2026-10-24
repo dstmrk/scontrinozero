@@ -16,6 +16,12 @@ vi.mock("@/lib/server-auth", () => ({
 
 const mockSelect = vi.fn();
 
+const mockGetPlanSafe = vi.fn();
+vi.mock("@/lib/plans", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/plans")>()),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
+}));
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
@@ -65,6 +71,7 @@ vi.mock("drizzle-orm", async (importOriginal) => {
     eq: (a: unknown, b: unknown) => ({ _eq: [a, b] }),
     gte: (a: unknown, b: unknown) => ({ _gte: [a, b] }),
     lt: (a: unknown, b: unknown) => ({ _lt: [a, b] }),
+    like: (a: unknown, b: unknown) => ({ _like: [a, b] }),
   };
 });
 
@@ -894,6 +901,180 @@ describe("storico-actions", () => {
       await getReceiptDetail(BIZ, DOC);
 
       expect(whereConditions(detailBuilder)).not.toContainEqual(OWN_DOCUMENTS);
+    });
+  });
+
+  // issue #1099, decisione 2: il collaboratore rende qualunque vendita
+  // dell'attività, trovata col numero stampato sullo scontrino e la data.
+  describe("findSaleForReturn", () => {
+    const BIZ = "11111111-1111-4111-8111-111111111111";
+    // Il 15 febbraio italiano: dalla mezzanotte di Roma (23:00 UTC del 14)
+    // alla mezzanotte successiva.
+    const FROM = new Date("2026-02-14T23:00:00Z");
+    const TO = new Date("2026-02-15T23:00:00Z");
+
+    const find = async (number: string, date = "2026-02-15") => {
+      const { findSaleForReturn } = await import("./storico-actions");
+      return findSaleForReturn(BIZ, { number, date });
+    };
+
+    function queueSale(sale: Record<string, unknown> | null) {
+      const detail = makeDetailBuilder(sale ? [sale] : []);
+      mockSelect.mockReturnValueOnce(detail);
+      // Le righe si leggono solo per una vendita accettata: accodarle sempre
+      // le lascerebbe al test successivo.
+      if (sale?.status === "ACCEPTED") {
+        mockSelect.mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+      }
+      return detail;
+    }
+
+    it("trova la vendita col numero completo e la data", async () => {
+      const detail = queueSale(FAKE_SALE_DOC);
+
+      const result = await find("DCW2026/5111-2188");
+
+      expect(result).toEqual({
+        item: expect.objectContaining({
+          id: "sale-doc-uuid",
+          adeProgressive: "DCW2026/5111-2188",
+        }),
+      });
+      expect(whereConditions(detail)).toEqual([
+        { _eq: ["cd.business_id", BIZ] },
+        { _eq: ["cd.kind", "SALE"] },
+        { _like: ["cd.ade_progressive", "%/5111-2188"] },
+        { _gte: ["cd.ade_registered_at", FROM] },
+        { _lt: ["cd.ade_registered_at", TO] },
+      ]);
+    });
+
+    it.each(["5111-2188", " dcw2026/5111-2188 ", "DCW2026/5111-2188\n"])(
+      "accetta anche %j: il numero dopo la barra, minuscole e spazi",
+      async (number) => {
+        const detail = queueSale(FAKE_SALE_DOC);
+
+        await find(number);
+
+        expect(whereConditions(detail)).toContainEqual({
+          _like: ["cd.ade_progressive", "%/5111-2188"],
+        });
+      },
+    );
+
+    it("accetta il numero del mock AdE di dev e sandbox", async () => {
+      const detail = queueSale({
+        ...FAKE_SALE_DOC,
+        adeProgressive: "DCW2026/MOCK-12",
+      });
+
+      await find("DCW2026/MOCK-12");
+
+      expect(whereConditions(detail)).toContainEqual({
+        _like: ["cd.ade_progressive", "%/MOCK-12"],
+      });
+    });
+
+    it.each(["", "5111", "DCW2026/", "51%-2188", "DCW2026/5111-2188/1"])(
+      "rifiuta il numero %j senza interrogare il DB",
+      async (number) => {
+        const result = await find(number);
+
+        expect(result).toEqual({ error: expect.stringMatching(/numero/i) });
+        expect(mockSelect).not.toHaveBeenCalled();
+      },
+    );
+
+    it("rifiuta una data non valida senza interrogare il DB", async () => {
+      const result = await find("5111-2188", "15/02/2026");
+
+      expect(result).toEqual({ error: expect.stringMatching(/data/i) });
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it("dice che non c'è nessuna vendita con quel numero quel giorno", async () => {
+      queueSale(null);
+
+      await expect(find("5111-2188")).resolves.toEqual({
+        error: "Nessuno scontrino con questo numero in questa data.",
+      });
+    });
+
+    it("una vendita annullata non si rende, e lo dice", async () => {
+      queueSale({ ...FAKE_SALE_DOC, status: "VOID_ACCEPTED" });
+
+      await expect(find("5111-2188")).resolves.toEqual({
+        error: "Questo scontrino è stato annullato: non si può fare il reso.",
+      });
+    });
+
+    it.each(["PENDING", "ERROR", "REJECTED"])(
+      "una vendita %s risponde come una che non c'è",
+      async (status) => {
+        queueSale({ ...FAKE_SALE_DOC, status });
+
+        await expect(find("5111-2188")).resolves.toEqual({
+          error: "Nessuno scontrino con questo numero in questa data.",
+        });
+      },
+    );
+
+    it("il collaboratore trova anche la vendita di un altro membro", async () => {
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      mockGetPlanSafe.mockResolvedValue({
+        ok: true,
+        info: { plan: "team", trialStartedAt: null, planExpiresAt: null },
+      });
+      const detail = queueSale(FAKE_SALE_DOC);
+
+      const result = await find("5111-2188");
+
+      expect(result).toHaveProperty("item");
+      expect(whereConditions(detail)).not.toContainEqual(OWN_DOCUMENTS);
+    });
+
+    it("il collaboratore sospeso non cerca: il reso non lo potrebbe fare", async () => {
+      mockCheckBusinessMembership.mockResolvedValue(COLLABORATOR_MEMBERSHIP);
+      mockGetPlanSafe.mockResolvedValue({
+        ok: true,
+        info: { plan: "pro", trialStartedAt: null, planExpiresAt: null },
+      });
+      const { COLLABORATORS_SUSPENDED_MESSAGE } =
+        await import("@/lib/business-permissions");
+
+      await expect(find("5111-2188")).resolves.toEqual({
+        error: COLLABORATORS_SUSPENDED_MESSAGE,
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it("per il titolare non legge il piano", async () => {
+      queueSale(FAKE_SALE_DOC);
+
+      await find("5111-2188");
+
+      expect(mockGetPlanSafe).not.toHaveBeenCalled();
+    });
+
+    it("chi non è membro dell'attività non cerca", async () => {
+      mockCheckBusinessMembership.mockResolvedValue({
+        error: "Business non trovato o non autorizzato.",
+      });
+
+      await expect(find("5111-2188")).resolves.toEqual({
+        error: "Business non trovato o non autorizzato.",
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it("oltre 30 ricerche in un'ora si ferma", async () => {
+      mockGetAuthenticatedUser.mockResolvedValue({ id: "user-rate-limited" });
+      for (let i = 0; i < 30; i++) await find("non-un-numero");
+
+      await expect(find("5111-2188")).resolves.toEqual({
+        error: "Troppe ricerche ravvicinate. Riprova tra qualche minuto.",
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
     });
   });
 
