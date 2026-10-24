@@ -35,6 +35,7 @@ import {
   COLLABORATORS_SUSPENDED_MESSAGE,
   COLLABORATOR_CREDENTIALS_MESSAGE,
   COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
+  COLLABORATOR_REAUTH_MESSAGE,
   OWNER_ONLY_MESSAGE,
   canAccessDocument,
   checkBusinessOwner,
@@ -216,6 +217,31 @@ describe("forMember", () => {
     });
   });
 
+  it("riconosce la password scaduta anche senza codice, come la restituisce la verifica dei pending", () => {
+    expect(
+      forMember({ error: PASSWORD_EXPIRED_MESSAGE }, COLLABORATOR),
+    ).toEqual({ error: COLLABORATOR_PASSWORD_EXPIRED_MESSAGE });
+  });
+
+  it("al collaboratore la sessione CIE o SPID scaduta dice di avvisare il titolare", () => {
+    const reauth = {
+      error:
+        "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
+      reauthRequired: "cie",
+    } as const;
+    expect(forMember(reauth, COLLABORATOR)).toEqual({
+      error: COLLABORATOR_REAUTH_MESSAGE,
+      reauthRequired: "cie",
+    });
+  });
+
+  it("accetta gli esiti a unione e lascia passare quelli senza errore", () => {
+    type Outcome =
+      { outcome: "accepted"; documentId: string } | { error: string };
+    const accepted: Outcome = { outcome: "accepted", documentId: "doc-1" };
+    expect(forMember(accepted, COLLABORATOR)).toBe(accepted);
+  });
+
   it("lascia passare gli errori che il collaboratore può gestire", () => {
     const unavailable = {
       error: "Agenzia delle Entrate non raggiungibile.",
@@ -234,6 +260,7 @@ describe("forMember", () => {
     for (const message of [
       COLLABORATOR_PASSWORD_EXPIRED_MESSAGE,
       COLLABORATOR_CREDENTIALS_MESSAGE,
+      COLLABORATOR_REAUTH_MESSAGE,
     ]) {
       expect(message).toMatch(/avvisa il titolare/);
     }

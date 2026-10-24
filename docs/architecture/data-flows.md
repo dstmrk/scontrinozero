@@ -34,7 +34,8 @@
    Gli errori sulle credenziali AdE dell'attività (password scaduta,
    credenziali rifiutate o non verificate, utenza bloccata) parlano al
    titolare: `forMember` li riscrive per il collaboratore con "avvisa il
-   titolare", nelle action di emissione, annullo e reso.
+   titolare", nelle action di emissione, annullo, reso e verifica dei
+   pending.
 7. Cosa vede il ruolo lo decide il dashboard. `getOnboardingStatus` parte da
    `business_members` e porta la membership; il layout la passa ai
    componenti client con `MemberRoleProvider`

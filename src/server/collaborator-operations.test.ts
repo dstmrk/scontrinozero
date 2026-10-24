@@ -233,6 +233,44 @@ describe("errori che solo il titolare può risolvere", () => {
   );
 });
 
+describe("verifica dei pending: errori che solo il titolare può risolvere", () => {
+  const PENDING_ACTIONS = [
+    [
+      "verifyPendingDocument",
+      () => verifyPendingDocument(BIZ_ID, DOC_ID),
+      () => mockVerifyPendingSale,
+    ],
+    [
+      "confirmPendingDocument",
+      () => confirmPendingDocument(BIZ_ID, DOC_ID, "idtrx-1"),
+      () => mockConfirmPendingSaleCandidate,
+    ],
+  ] as const;
+
+  it.each(PENDING_ACTIONS)(
+    "%s: al collaboratore le credenziali non verificate dicono di avvisare il titolare",
+    async (_name, act, service) => {
+      service().mockResolvedValue({ error: CREDENTIALS_NOT_VERIFIED_MESSAGE });
+
+      await expect(act()).resolves.toEqual({
+        error: COLLABORATOR_CREDENTIALS_MESSAGE,
+      });
+    },
+  );
+
+  it.each(PENDING_ACTIONS)(
+    "%s: il titolare riceve il messaggio originale",
+    async (_name, act, service) => {
+      mockCheckBusinessMembership.mockResolvedValue(OWNER);
+      service().mockResolvedValue({ error: CREDENTIALS_NOT_VERIFIED_MESSAGE });
+
+      await expect(act()).resolves.toEqual({
+        error: CREDENTIALS_NOT_VERIFIED_MESSAGE,
+      });
+    },
+  );
+});
+
 describe("documenti su cui il collaboratore agisce", () => {
   it("non annulla il documento di un altro membro", async () => {
     mockLimit.mockResolvedValue([]);
