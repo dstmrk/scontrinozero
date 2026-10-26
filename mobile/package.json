@@ -20,7 +20,7 @@
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
-    "@capgo/capacitor-inappbrowser": "^8.24.0"
+    "@capgo/capacitor-inappbrowser": "^8.25.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",
