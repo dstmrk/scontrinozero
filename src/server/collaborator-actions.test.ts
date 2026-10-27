@@ -14,6 +14,9 @@ const {
   mockInsert,
   mockUpdate,
   mockDelete,
+  mockFindCollaboratorAccount,
+  mockRemoveCollaboratorAccount,
+  mockNotifyAccessEnded,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwner: vi.fn(),
@@ -27,6 +30,9 @@ const {
   mockInsert: vi.fn(),
   mockUpdate: vi.fn(),
   mockDelete: vi.fn(),
+  mockFindCollaboratorAccount: vi.fn(),
+  mockRemoveCollaboratorAccount: vi.fn(),
+  mockNotifyAccessEnded: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -42,6 +48,11 @@ vi.mock("@/lib/collaborator-invites", async (importOriginal) => ({
   countTeamSeats: mockCountTeamSeats,
 }));
 vi.mock("@/lib/email", () => ({ sendEmail: mockSendEmail }));
+vi.mock("@/lib/services/collaborator-account", () => ({
+  findCollaboratorAccount: mockFindCollaboratorAccount,
+  removeCollaboratorAccount: mockRemoveCollaboratorAccount,
+  notifyCollaboratorAccessEnded: mockNotifyAccessEnded,
+}));
 vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: mockRateLimiterCheck };
@@ -70,11 +81,13 @@ import {
 import {
   acceptCollaboratorTerms,
   inviteCollaborator,
+  removeCollaborator,
   revokeCollaboratorInvite,
-} from "./invite-actions";
+} from "./collaborator-actions";
 
 const BIZ = "11111111-1111-4111-8111-111111111111";
 const INVITE_ID = "22222222-2222-4222-8222-222222222222";
+const MEMBER_ID = "33333333-3333-4333-8333-333333333333";
 const OWNER = { memberId: "owner-member", role: "owner" as const };
 const OWNER_ONLY_MESSAGE =
   "Questa operazione è riservata al titolare dell'attività.";
@@ -150,6 +163,7 @@ describe("guard comuni", () => {
       "revokeCollaboratorInvite",
       () => revokeCollaboratorInvite(BIZ, INVITE_ID),
     ],
+    ["removeCollaborator", () => removeCollaborator(BIZ, MEMBER_ID)],
   ])("%s: senza sessione risponde Non autenticato", async (_name, call) => {
     mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
@@ -177,6 +191,7 @@ describe("guard comuni", () => {
       "revokeCollaboratorInvite",
       () => revokeCollaboratorInvite(BIZ, INVITE_ID),
     ],
+    ["removeCollaborator", () => removeCollaborator(BIZ, MEMBER_ID)],
   ])("%s: un collaboratore non passa", async (_name, call) => {
     mockCheckBusinessOwner.mockResolvedValue({ error: OWNER_ONLY_MESSAGE });
 
@@ -184,6 +199,7 @@ describe("guard comuni", () => {
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockRemoveCollaboratorAccount).not.toHaveBeenCalled();
   });
 });
 
@@ -436,5 +452,58 @@ describe("revokeCollaboratorInvite", () => {
       error: "Identificativo non valido.",
     });
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeCollaborator", () => {
+  const ACCOUNT = {
+    memberId: MEMBER_ID,
+    authUserId: "collab-auth",
+    email: "anna@example.com",
+    businessId: BIZ,
+    businessName: "Bar Centrale",
+  };
+
+  beforeEach(() => {
+    mockFindCollaboratorAccount.mockResolvedValue(ACCOUNT);
+    mockRemoveCollaboratorAccount.mockResolvedValue(true);
+  });
+
+  it("cerca il membro nell'attività del titolare, lo rimuove e lo avvisa", async () => {
+    await expect(removeCollaborator(BIZ, MEMBER_ID)).resolves.toEqual({});
+
+    expect(mockFindCollaboratorAccount).toHaveBeenCalledWith({
+      memberId: MEMBER_ID,
+      businessId: BIZ,
+    });
+    expect(mockRemoveCollaboratorAccount).toHaveBeenCalledWith(ACCOUNT);
+    expect(mockNotifyAccessEnded).toHaveBeenCalledWith(ACCOUNT, "removed");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/settings");
+  });
+
+  it("un membro già rimosso o di un'altra attività è un no-op", async () => {
+    mockFindCollaboratorAccount.mockResolvedValue(null);
+
+    await expect(removeCollaborator(BIZ, MEMBER_ID)).resolves.toEqual({});
+    expect(mockRemoveCollaboratorAccount).not.toHaveBeenCalled();
+    expect(mockNotifyAccessEnded).not.toHaveBeenCalled();
+  });
+
+  it("se l'account non si cancella lo dice e non avvisa nessuno", async () => {
+    mockRemoveCollaboratorAccount.mockResolvedValue(false);
+
+    const result = await removeCollaborator(BIZ, MEMBER_ID);
+
+    expect(result.error).toBe(
+      "Non siamo riusciti a rimuovere il collaboratore. Riprova tra qualche minuto.",
+    );
+    expect(mockNotifyAccessEnded).not.toHaveBeenCalled();
+  });
+
+  it("un id di membro malformato non arriva al DB", async () => {
+    await expect(removeCollaborator(BIZ, "x")).resolves.toEqual({
+      error: "Identificativo non valido.",
+    });
+    expect(mockFindCollaboratorAccount).not.toHaveBeenCalled();
   });
 });

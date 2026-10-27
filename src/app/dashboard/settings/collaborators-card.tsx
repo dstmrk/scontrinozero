@@ -76,7 +76,14 @@ export async function CollaboratorsCard({
       businessId={businessId}
       blocker={blocker}
       trialLimit={getCollaboratorLimit(planInfo.plan)}
-      members={team.members}
+      members={team.members.map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        lastSeenLabel: member.lastSeenAt
+          ? formatRomeDate(member.lastSeenAt)
+          : null,
+      }))}
       invites={team.invites.map((invite) => ({
         id: invite.id,
         email: invite.email,

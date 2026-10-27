@@ -18,6 +18,12 @@ import { getFormStringRaw } from "@/lib/form-utils";
 import { sendEmail } from "@/lib/email";
 import { AccountDeletionEmail } from "@/emails/account-deletion";
 import { purgeUserById } from "@/lib/services/purge-user";
+import {
+  findCollaboratorAccount,
+  notifyCollaboratorAccessEnded,
+  removeCollaboratorAccount,
+  type CollaboratorAccount,
+} from "@/lib/services/collaborator-account";
 
 /**
  * True se l'errore della Stripe SDK indica che il customer non esiste già più
@@ -37,6 +43,39 @@ function isStripeCustomerAlreadyGone(error: unknown): boolean {
 export type AccountActionResult = {
   error?: string;
 };
+
+const DELETE_FAILED_MESSAGE =
+  "Eliminazione account fallita. Riprova oppure contatta il supporto.";
+
+type ServerSupabaseClient = Awaited<
+  ReturnType<typeof createServerSupabaseClient>
+>;
+
+/**
+ * Il collaboratore che elimina il proprio account lascia l'attività (issue
+ * #1099, decisione 19): si cancella il suo account, i documenti che ha emesso
+ * restano attribuiti al suo nome. Niente abbonamento né profilo da toccare:
+ * sono del titolare.
+ */
+async function leaveBusiness(
+  account: CollaboratorAccount,
+  supabase: ServerSupabaseClient,
+): Promise<AccountActionResult> {
+  if (!(await removeCollaboratorAccount(account))) {
+    return { error: DELETE_FAILED_MESSAGE };
+  }
+  await supabase.auth
+    .signOut()
+    .catch((err) =>
+      logger.warn({ err }, "signOut after leaving the business failed"),
+    );
+  notifyCollaboratorAccessEnded(account, "left");
+  logger.info(
+    { memberId: account.memberId, businessId: account.businessId },
+    "Collaboratore uscito dall'attività",
+  );
+  redirect("/");
+}
 
 // Rate limit per user.id (non per IP: utenti dietro lo stesso NAT non si
 // bloccano a vicenda). Impedisce che la re-autenticazione richiesta prima
@@ -108,6 +147,9 @@ export async function deleteAccount(
     return { error: "Password non corretta." };
   }
 
+  const collaborator = await findCollaboratorAccount({ authUserId: user.id });
+  if (collaborator) return leaveBusiness(collaborator, supabase);
+
   // 0. Annulla l'abbonamento Stripe PRIMA del purge (PR #731). Un utente
   //    cancellato non può più accedere né al Billing Portal (richiede login),
   //    quindi se lasciassimo la subscription attiva Stripe continuerebbe ad
@@ -156,10 +198,7 @@ export async function deleteAccount(
   //      longer log in.
   const { authDeleted } = await purgeUserById(user.id);
   if (!authDeleted) {
-    return {
-      error:
-        "Eliminazione account fallita. Riprova oppure contatta il supporto.",
-    };
+    return { error: DELETE_FAILED_MESSAGE };
   }
 
   // 3. Sign out current session (best-effort: auth user is already deleted;

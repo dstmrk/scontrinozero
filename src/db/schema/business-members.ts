@@ -48,6 +48,9 @@ export const businessMembers = pgTable(
     termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
     termsVersion: text("terms_version"),
     collaboratorTermsVersion: text("collaborator_terms_version"),
+    // Ultimo accesso del collaboratore (migrazione 0046), come
+    // `profiles.last_seen_at` per il titolare.
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

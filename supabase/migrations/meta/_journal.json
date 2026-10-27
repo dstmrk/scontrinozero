@@ -323,6 +323,13 @@
       "when": 1792844774994,
       "tag": "0045_collaborator_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793133728275,
+      "tag": "0046_business_members_last_seen",
+      "breakpoints": true
     }
   ]
 }

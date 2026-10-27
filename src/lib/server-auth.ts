@@ -242,13 +242,27 @@ export const getAuthenticatedUser = cache(async (): Promise<User> => {
  * Raw SQL via `db.execute` (non il builder `db.update`) per due motivi:
  * clock server-side (`now()`, niente skew dell'app) e nessun bump collaterale
  * di `updated_at` (`$onUpdate` del builder) su una visita passiva.
+ *
+ * Il collaboratore non ha un profilo (issue #1099): il suo ultimo accesso sta
+ * su `business_members`, che il titolare vede e lo sweep del titolare conta.
+ * Le due UPDATE stanno in un solo statement (la prima in una CTE), così il
+ * touch resta un round trip; per ognuno dei due ruoli una delle due tocca
+ * zero righe.
  */
 export async function touchLastSeen(authUserId: string): Promise<void> {
   const db = getDb();
   await db.execute(sql`
-    UPDATE profiles
+    WITH owner_touch AS (
+      UPDATE profiles
+      SET last_seen_at = now()
+      WHERE auth_user_id = ${authUserId}
+        AND (last_seen_at IS NULL OR last_seen_at < now() - interval '24 hours')
+      RETURNING 1
+    )
+    UPDATE business_members
     SET last_seen_at = now()
     WHERE auth_user_id = ${authUserId}
+      AND role = 'collaborator'
       AND (last_seen_at IS NULL OR last_seen_at < now() - interval '24 hours')
   `);
 }

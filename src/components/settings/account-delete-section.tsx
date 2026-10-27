@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form, FormInputField } from "@/components/ui/form";
+import { useIsCollaborator } from "@/components/dashboard/member-role";
 import { deleteAccount } from "@/server/account-actions";
 
 const deleteSchema = z.object({
@@ -23,7 +24,58 @@ const deleteSchema = z.object({
 
 type DeleteData = z.infer<typeof deleteSchema>;
 
+/** Cosa sparisce con l'account del titolare: l'attività e chi ci lavora. */
+function OwnerDeletionNotes() {
+  return (
+    <>
+      <DialogDescription>
+        Questa operazione è <strong>permanente e irreversibile</strong>.
+        Verranno eliminati:
+      </DialogDescription>
+
+      <ul className="text-muted-foreground ml-4 list-disc space-y-1 text-sm">
+        <li>Il tuo profilo e i dati dell&apos;attività</li>
+        <li>Le credenziali di accesso AdE salvate (Fisconline o CIE ID)</li>
+        <li>Tutti gli scontrini emessi e il catalogo prodotti</li>
+        <li>
+          Gli account dei tuoi collaboratori, se ne hai: riceveranno
+          un&apos;email
+        </li>
+      </ul>
+
+      <p className="text-muted-foreground mt-2 text-sm">
+        Se hai un <strong>abbonamento attivo</strong>, verrà annullato
+        immediatamente: non ti verrà addebitato alcun rinnovo.
+      </p>
+
+      <p className="text-muted-foreground mt-2 text-sm">
+        I documenti commerciali già trasmessi all&apos;Agenzia delle Entrate
+        restano disponibili sul portale <strong>Fatture e Corrispettivi</strong>{" "}
+        anche dopo la cancellazione dell&apos;account. Puoi consultarli in
+        qualsiasi momento accedendo con le tue credenziali AdE (Fisconline o CIE
+        ID).
+      </p>
+    </>
+  );
+}
+
+/**
+ * Il collaboratore che elimina l'account esce dall'attività (issue #1099):
+ * i documenti che ha emesso restano al titolare.
+ */
+function CollaboratorDeletionNotes() {
+  return (
+    <DialogDescription>
+      Questa operazione è <strong>permanente e irreversibile</strong>: il tuo
+      account e la tua email vengono eliminati e non potrai più accedere. I
+      documenti che hai emesso restano all&apos;attività, attribuiti al tuo
+      nome.
+    </DialogDescription>
+  );
+}
+
 export function AccountDeleteSection() {
+  const isCollaborator = useIsCollaborator();
   const [isOpen, setIsOpen] = useState(false);
 
   const form = useForm<DeleteData>({
@@ -72,8 +124,9 @@ export function AccountDeleteSection() {
       <div className="border-destructive/30 bg-destructive/5 rounded-lg border p-4">
         <h3 className="text-destructive mb-1 font-medium">Zona pericolosa</h3>
         <p className="text-muted-foreground mb-4 text-sm">
-          Elimina definitivamente il tuo account e tutti i dati associati
-          (attività, credenziali, scontrini). Questa operazione è irreversibile.
+          {isCollaborator
+            ? "Elimina il tuo account ed esci dall'attività. I documenti che hai emesso restano all'attività. Questa operazione è irreversibile."
+            : "Elimina definitivamente il tuo account e tutti i dati associati (attività, credenziali, scontrini, collaboratori). Questa operazione è irreversibile."}
         </p>
         <Button variant="destructive" onClick={handleOpen}>
           Elimina account
@@ -84,30 +137,13 @@ export function AccountDeleteSection() {
         <DialogContent className="overscroll-contain">
           <DialogHeader>
             <DialogTitle>Eliminare l&apos;account?</DialogTitle>
-            <DialogDescription>
-              Questa operazione è <strong>permanente e irreversibile</strong>.
-              Verranno eliminati:
-            </DialogDescription>
           </DialogHeader>
 
-          <ul className="text-muted-foreground ml-4 list-disc space-y-1 text-sm">
-            <li>Il tuo profilo e i dati dell&apos;attività</li>
-            <li>Le credenziali di accesso AdE salvate (Fisconline o CIE ID)</li>
-            <li>Tutti gli scontrini emessi e il catalogo prodotti</li>
-          </ul>
-
-          <p className="text-muted-foreground mt-2 text-sm">
-            Se hai un <strong>abbonamento attivo</strong>, verrà annullato
-            immediatamente: non ti verrà addebitato alcun rinnovo.
-          </p>
-
-          <p className="text-muted-foreground mt-2 text-sm">
-            I documenti commerciali già trasmessi all&apos;Agenzia delle Entrate
-            restano disponibili sul portale{" "}
-            <strong>Fatture e Corrispettivi</strong> anche dopo la cancellazione
-            dell&apos;account. Puoi consultarli in qualsiasi momento accedendo
-            con le tue credenziali AdE (Fisconline o CIE ID).
-          </p>
+          {isCollaborator ? (
+            <CollaboratorDeletionNotes />
+          ) : (
+            <OwnerDeletionNotes />
+          )}
 
           <p className="mt-2 text-sm">
             Inserisci la tua <strong>password</strong> per confermare:

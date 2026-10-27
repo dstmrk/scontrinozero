@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemberRoleProvider } from "@/components/dashboard/member-role";
 import { AccountDeleteSection } from "./account-delete-section";
 
 // --- Mocks ---
@@ -19,13 +20,15 @@ beforeEach(() => {
 
 // --- Helpers ---
 
-function renderWithQuery() {
+function renderWithQuery(role: "owner" | "collaborator" = "owner") {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <AccountDeleteSection />
+      <MemberRoleProvider role={role}>
+        <AccountDeleteSection />
+      </MemberRoleProvider>
     </QueryClientProvider>,
   );
 }
@@ -207,5 +210,31 @@ describe("AccountDeleteSection", () => {
         screen.queryByText("Eliminare l'account?"),
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+// Issue #1099: il collaboratore che elimina l'account esce dall'attività;
+// abbonamento, credenziali AdE e scontrini non sono suoi.
+describe("AccountDeleteSection — ruoli", () => {
+  it("al titolare dice che spariscono anche gli account dei collaboratori", async () => {
+    renderWithQuery("owner");
+    await openDialog();
+
+    expect(
+      screen.getByText(/account dei tuoi collaboratori/),
+    ).toBeInTheDocument();
+  });
+
+  it("al collaboratore dice che i suoi documenti restano all'attività", async () => {
+    renderWithQuery("collaborator");
+
+    expect(screen.getByText(/esci dall'attività/)).toBeInTheDocument();
+    await openDialog();
+
+    expect(screen.getByText(/attribuiti al tuo nome/)).toBeInTheDocument();
+    expect(screen.queryByText(/abbonamento attivo/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Fatture e Corrispettivi/),
+    ).not.toBeInTheDocument();
   });
 });

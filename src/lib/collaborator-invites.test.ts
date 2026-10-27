@@ -165,7 +165,14 @@ describe("emailHasAccount", () => {
 
 describe("listTeam", () => {
   it("restituisce collaboratori e inviti dell'attività, segnando gli scaduti", async () => {
-    const members = [{ id: "m-1", name: "Anna", email: "anna@example.com" }];
+    const members = [
+      {
+        id: "m-1",
+        name: "Anna",
+        email: "anna@example.com",
+        lastSeenAt: new Date("2026-10-20T08:00:00Z"),
+      },
+    ];
     const valid = {
       id: "inv-1",
       email: "luca@example.com",

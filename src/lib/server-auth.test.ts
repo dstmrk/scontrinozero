@@ -222,6 +222,23 @@ describe("server-auth", () => {
       expect(sqlText).toContain("interval '24 hours'");
     });
 
+    // Issue #1099: il collaboratore non ha un profilo, il suo ultimo accesso
+    // sta su `business_members`. Un solo statement per entrambe le tabelle:
+    // il touch gira a ogni richiesta e non deve diventare due round trip.
+    it("tocca anche l'ultimo accesso del collaboratore, nella stessa query", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await getAuthenticatedUser();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      const sqlText = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+      expect(sqlText).toContain("UPDATE profiles");
+      expect(sqlText).toContain("UPDATE business_members");
+      expect(sqlText).toContain("role = 'collaborator'");
+    });
+
     it("un fallimento del touch non fa fallire getAuthenticatedUser (warn, no throw)", async () => {
       mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
       mockExecute.mockRejectedValueOnce(new Error("DB down"));

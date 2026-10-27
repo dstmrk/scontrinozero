@@ -6,15 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import type {
-  OwnerInviteBlocker,
-  TeamMember,
-} from "@/lib/collaborator-invites";
+import type { OwnerInviteBlocker } from "@/lib/collaborator-invites";
 import {
   acceptCollaboratorTerms,
   inviteCollaborator,
   revokeCollaboratorInvite,
-} from "@/server/invite-actions";
+} from "@/server/collaborator-actions";
+import {
+  CollaboratorMemberList,
+  type MemberListFeedback,
+  type MemberRow,
+} from "./collaborator-member-list";
 
 /** Un invito come lo mostra la card: scadenza già calcolata sul server. */
 export type InviteRow = {
@@ -31,11 +33,11 @@ type Props = Readonly<{
   blocker: OwnerInviteBlocker | null;
   /** Il tetto della prova, `null` dove i collaboratori sono illimitati. */
   trialLimit: number | null;
-  members: readonly TeamMember[];
+  members: readonly MemberRow[];
   invites: readonly InviteRow[];
 }>;
 
-type Feedback = { kind: "status" | "alert"; text: string } | null;
+type Feedback = MemberListFeedback | null;
 
 /**
  * Card "Collaboratori" del titolare (issue #1099, PR 6a): accettazione delle
@@ -106,26 +108,11 @@ export function CollaboratorsSection({
           </output>
         )}
 
-        {members.length > 0 && (
-          <div className="space-y-2">
-            <h3 id="collaborators-active" className="text-sm font-medium">
-              Collaboratori attivi
-            </h3>
-            <ul aria-labelledby="collaborators-active" className="space-y-1">
-              {members.map((member) => (
-                <li key={member.id} className="text-sm">
-                  {member.name ?? member.email}
-                  {member.name && member.email && (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {member.email}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <CollaboratorMemberList
+          businessId={businessId}
+          members={members}
+          onFeedback={setFeedback}
+        />
 
         {invites.length > 0 && (
           <div className="space-y-2">

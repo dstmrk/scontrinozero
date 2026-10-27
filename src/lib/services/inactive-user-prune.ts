@@ -150,7 +150,11 @@ async function setWarningSentAt(
  *      warnBeforeDays fa → `purgeUserById` (cascata) + email di conferma.
  *
  * Inattività = `MAX(ultimo scontrino, last_sign_in_at, last_seen_at,
- * profiles.created_at)`: l'utente è "attivo" se ha emesso uno scontrino OPPURE
+ * ultimo accesso dei collaboratori, profiles.created_at)`: l'utente è "attivo"
+ * se la sua attività ha emesso uno scontrino (chiunque l'abbia emesso), OPPURE
+ * un collaboratore è entrato (`business_members.last_seen_at`, decisione 4
+ * della issue #1099: un titolare che non entra mai non fa cancellare
+ * un'attività che lavora) OPPURE
  * ha effettuato login OPPURE ha visitato l'app autenticato (`last_seen_at`,
  * touch throttled in `getAuthenticatedUser` — necessario perché
  * `last_sign_in_at` NON si aggiorna sul refresh token e un utente PWA con
@@ -200,7 +204,8 @@ export async function pruneInactiveUsers(
           p.created_at,
           COALESCE(u.last_sign_in_at, p.created_at),
           COALESCE(p.last_seen_at, p.created_at),
-          COALESCE(d.last_doc_at, p.created_at)
+          COALESCE(d.last_doc_at, p.created_at),
+          COALESCE(m.last_member_seen_at, p.created_at)
         ) AS last_activity_at
       FROM profiles p
       LEFT JOIN auth.users u ON u.id = p.auth_user_id
@@ -210,12 +215,20 @@ export async function pruneInactiveUsers(
         JOIN commercial_documents cd ON cd.business_id = b.id
         GROUP BY b.profile_id
       ) d ON d.profile_id = p.id
+      LEFT JOIN (
+        SELECT b.profile_id AS profile_id, MAX(bm.last_seen_at) AS last_member_seen_at
+        FROM businesses b
+        JOIN business_members bm
+          ON bm.business_id = b.id AND bm.role = 'collaborator'
+        GROUP BY b.profile_id
+      ) m ON m.profile_id = p.id
       WHERE
         GREATEST(
           p.created_at,
           COALESCE(u.last_sign_in_at, p.created_at),
           COALESCE(p.last_seen_at, p.created_at),
-          COALESCE(d.last_doc_at, p.created_at)
+          COALESCE(d.last_doc_at, p.created_at),
+          COALESCE(m.last_member_seen_at, p.created_at)
         ) < ${warnCutoff.toISOString()}::timestamptz
         OR p.inactivity_warning_sent_at IS NOT NULL
       ORDER BY last_activity_at ASC, p.auth_user_id ASC
@@ -362,6 +375,13 @@ async function reReadCandidate(
             SELECT MAX(cd.created_at)
             FROM businesses b
             JOIN commercial_documents cd ON cd.business_id = b.id
+            WHERE b.profile_id = p.id
+          ), p.created_at),
+          COALESCE((
+            SELECT MAX(bm.last_seen_at)
+            FROM businesses b
+            JOIN business_members bm
+              ON bm.business_id = b.id AND bm.role = 'collaborator'
             WHERE b.profile_id = p.id
           ), p.created_at)
         ) AS last_activity_at
