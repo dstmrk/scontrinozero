@@ -1,3 +1,7 @@
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter } = PLAN_PRICES;
+
 export interface CategoryFaq {
   readonly question: string;
   readonly answer: string;
@@ -71,8 +75,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "ambulanti",
     title: "Registratore di cassa per ambulanti e mercati",
     metaTitle: "Registratore di cassa per ambulanti e mercati",
-    metaDescription:
-      "Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico da comprare. Da €2,50/mese, 30 giorni di prova gratuita.",
+    metaDescription: `Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico da comprare. Da ${starter.yearlyPerMonth}/mese, 30 giorni di prova gratuita.`,
     heroSubtitle:
       "Emetti scontrini al banco del mercato, dal furgone, ovunque sei. Basta lo smartphone che hai già in tasca.",
     audience: "ambulanti, operatori di mercato, venditori su area pubblica",
@@ -103,8 +106,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
       {
         question: "Quanto costa al mese?",
-        answer:
-          "Il piano Starter parte da €4,99/mese (€2,50/mese se annuale) e include scontrini illimitati. Nessuna commissione per transazione.",
+        answer: `Il piano Starter parte da ${starter.monthly}/mese (${starter.yearlyPerMonth}/mese se annuale) e include scontrini illimitati. Nessuna commissione per transazione.`,
       },
     ],
     relatedHelp: ["primo-scontrino", "regime-forfettario", "installare-app"],
@@ -113,8 +115,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "parrucchieri-estetisti",
     title: "Scontrino elettronico per parrucchieri ed estetisti",
     metaTitle: "Scontrino elettronico per parrucchieri ed estetisti",
-    metaDescription:
-      "Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, nessun hardware da comprare. Da €2,50/mese, prova 30 giorni gratis.",
+    metaDescription: `Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, nessun hardware da comprare. Da ${starter.yearlyPerMonth}/mese, prova 30 giorni gratis.`,
     heroSubtitle:
       "Emetti scontrini dal tablet alla reception o dallo smartphone in cabina, senza ingombrare il banco con un registratore fisico.",
     audience: "parrucchieri, estetisti e operatori dei servizi alla persona",
@@ -156,8 +157,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "artigiani",
     title: "Scontrino elettronico per artigiani e installatori",
     metaTitle: "Scontrino elettronico per artigiani e installatori",
-    metaDescription:
-      "Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da €2,50/mese, 30 giorni gratis.",
+    metaDescription: `Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
     heroSubtitle:
       "Emetti lo scontrino dal cantiere, dal furgone o dal laboratorio. Niente registratore in officina, niente carta che si perde.",
     audience: "artigiani: idraulici, elettricisti, falegnami, muratori",
@@ -200,8 +200,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "b-and-b",
     title: "Scontrino elettronico per B&B e strutture ricettive",
     metaTitle: "Scontrino elettronico per B&B e affittacamere",
-    metaDescription:
-      "Gestisci scontrini per B&B, affittacamere e strutture stagionali senza registratore fisico. Ideale per attività che aprono pochi mesi all'anno. Da €2,50/mese.",
+    metaDescription: `Gestisci scontrini per B&B, affittacamere e strutture stagionali senza registratore fisico. Ideale per attività che aprono pochi mesi all'anno. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Soluzione ideale per attività ricettive stagionali: nessun registratore da comprare, installare e verificare per usarlo solo nei mesi di alta stagione.",
     audience:
@@ -245,8 +244,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "regime-forfettario",
     title: "Scontrino elettronico in regime forfettario",
     metaTitle: "App per scontrini in regime forfettario",
-    metaDescription:
-      "Sei in regime forfettario? Emetti scontrini verso privati senza IVA e senza registratore fisico. Soluzione più economica del mercato, da €2,50/mese.",
+    metaDescription: `Sei in regime forfettario? Emetti scontrini verso privati senza IVA e senza registratore fisico. Soluzione più economica del mercato, da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Soluzione più economica per i forfettari: zero IVA, zero hardware, costo mensile minimo. Solo lo smartphone che hai già.",
     audience:
@@ -261,7 +259,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     ],
     benefits: [
       "Natura N2 impostabile come aliquota prevalente in onboarding, così è già pre-compilata sulle righe a importo libero; i prodotti del catalogo hanno un'aliquota propria, da mettere su N2 quando li crei.",
-      "Costo mensile più basso del mercato: a partire da €2,50/mese (annuale).",
+      `Costo mensile più basso del mercato: a partire da ${starter.yearlyPerMonth}/mese (annuale).`,
       "Zero hardware da acquistare: solo lo smartphone che già hai.",
       "Storico filtrabile per data; export CSV sul piano Pro.",
     ],
@@ -305,7 +303,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Se la tua attività è d'impresa, emetti lo scontrino dal telefono a fine servizio, senza registratore.",
       "Convive con il software di fatturazione: scontrini ai privati da ScontrinoZero, fatture dal gestionale.",
       "Storico consultabile ovunque; export CSV da consegnare al commercialista sul piano Pro.",
-      "Costo contenuto: il piano Starter parte da 29,99 €/anno.",
+      `Costo contenuto: il piano Starter parte da ${starter.yearly}/anno.`,
     ],
     faq: [
       {
@@ -335,8 +333,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "officine-meccanici",
     title: "Scontrino elettronico per officine e meccanici",
     metaTitle: "Scontrino elettronico per officine e meccanici",
-    metaDescription:
-      "Emetti lo scontrino elettronico in officina da smartphone o tablet: ricambi e manodopera nello stesso documento, senza registratore di cassa. Da €2,50/mese.",
+    metaDescription: `Emetti lo scontrino elettronico in officina da smartphone o tablet: ricambi e manodopera nello stesso documento, senza registratore di cassa. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Fine intervento, scontrino subito: dall'accettazione o dal ponte, con il tablet o lo smartphone che hai già in officina.",
     audience: "officine meccaniche, gommisti, elettrauto e carrozzerie",
@@ -382,8 +379,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "eventi-mercatini-hobbisti",
     title: "Scontrino elettronico per eventi, mercatini e hobbisti",
     metaTitle: "Scontrino elettronico per eventi, mercatini e hobbisti",
-    metaDescription:
-      "Vendi a eventi, fiere e mercatini? Emetti scontrini elettronici dallo smartphone, senza registratore da trasportare. Ideale per attività stagionali. Da €2,50/mese.",
+    metaDescription: `Vendi a eventi, fiere e mercatini? Emetti scontrini elettronici dallo smartphone, senza registratore da trasportare. Ideale per attività stagionali. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Stand alla fiera, banchetto al mercatino o all'evento del weekend: lo scontrino esce dallo smartphone, senza hardware da trasportare.",
     audience:
@@ -427,8 +423,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "palestre-personal-trainer",
     title: "Scontrino elettronico per palestre e personal trainer",
     metaTitle: "Scontrino elettronico per palestre e personal trainer",
-    metaDescription:
-      "Abbonamenti, ingressi e sedute di personal training: emetti lo scontrino elettronico dal front desk o a bordo sala, senza registratore. Da €2,50/mese.",
+    metaDescription: `Abbonamenti, ingressi e sedute di personal training: emetti lo scontrino elettronico dal front desk o a bordo sala, senza registratore. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Incassa abbonamenti, ingressi e pacchetti lezioni dal front desk o a bordo sala: il registratore di cassa è lo smartphone che hai già.",
     audience:
@@ -471,8 +466,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "food-truck",
     title: "Scontrino elettronico per food truck e street food",
     metaTitle: "Scontrino elettronico per food truck e street food",
-    metaDescription:
-      "Street food dal furgone o dal chiosco: scontrino elettronico dallo smartphone, aliquote IVA per riga e corrispettivi automatici. Da €2,50/mese, 30 giorni gratis.",
+    metaDescription: `Street food dal furgone o dal chiosco: scontrino elettronico dallo smartphone, aliquote IVA per riga e corrispettivi automatici. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
     heroSubtitle:
       "Dal festival al mercato serale: scontrini a raffica dallo smartphone o dal tablet in cucina, senza registratore nel furgone.",
     audience:
@@ -514,8 +508,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "ncc-taxi",
     title: "Scontrino elettronico per NCC e taxi",
     metaTitle: "Scontrino elettronico per NCC e taxi",
-    metaDescription:
-      "Ricevuta immediata a fine corsa: emetti il documento commerciale dallo smartphone e consegnalo via link o QR, senza hardware a bordo. Da €2,50/mese.",
+    metaDescription: `Ricevuta immediata a fine corsa: emetti il documento commerciale dallo smartphone e consegnalo via link o QR, senza hardware a bordo. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Il cliente scende e vuole la ricevuta per la nota spese: emettila dallo smartphone e consegnala via link o QR prima che chiuda la portiera.",
     audience:
@@ -558,8 +551,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "tatuatori-piercer",
     title: "Scontrino elettronico per tatuatori e piercer",
     metaTitle: "Scontrino elettronico per tatuatori e piercer",
-    metaDescription:
-      "Studio tattoo o piercing: emetti scontrini per sedute e acconti direttamente dallo smartphone, senza registratore sul bancone. Da €2,50/mese, 30 giorni gratis.",
+    metaDescription: `Studio tattoo o piercing: emetti scontrini per sedute e acconti direttamente dallo smartphone, senza registratore sul bancone. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
     heroSubtitle:
       "Chiudi la seduta e incassa: lo scontrino esce dal telefono, anche per l'acconto alla prenotazione. Niente registratore sul bancone dello studio.",
     audience: "tatuatori, piercer e studi di tattoo e body piercing",
@@ -607,8 +599,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "ristoranti-bar-asporto",
     title: "Scontrino elettronico per chioschi, asporto e bar stagionali",
     metaTitle: "Scontrino elettronico per chioschi, asporto e bar stagionali",
-    metaDescription:
-      "Chiosco, asporto, bar stagionale: emetti scontrini elettronici dallo smartphone senza registratore telematico. Da €2,50/mese, prova 30 giorni gratis.",
+    metaDescription: `Chiosco, asporto, bar stagionale: emetti scontrini elettronici dallo smartphone senza registratore telematico. Da ${starter.yearlyPerMonth}/mese, prova 30 giorni gratis.`,
     heroSubtitle:
       "Per chioschi, asporto, delivery e attività stagionali della ristorazione: scontrini dallo smartphone, senza registratore sul bancone.",
     audience:
@@ -640,8 +631,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
       {
         question: "Posso usarlo solo per la stagione estiva?",
-        answer:
-          "Sì: il piano mensile (da €4,99/mese) si attiva e disattiva quando vuoi, senza penali. Alla disattivazione l'account passa in sola lettura e lo storico resta consultabile — utile per la dichiarazione dei redditi.",
+        answer: `Sì: il piano mensile (da ${starter.monthly}/mese) si attiva e disattiva quando vuoi, senza penali. Alla disattivazione l'account passa in sola lettura e lo storico resta consultabile — utile per la dichiarazione dei redditi.`,
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "installare-app"],
@@ -650,8 +640,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "negozi",
     title: "Scontrino elettronico per piccoli negozi al dettaglio",
     metaTitle: "Scontrino elettronico per negozi al dettaglio",
-    metaDescription:
-      "Piccolo negozio, atelier o showroom: emetti scontrini elettronici senza registratore telematico, da smartphone o tablet. Da €2,50/mese, prova gratis.",
+    metaDescription: `Piccolo negozio, atelier o showroom: emetti scontrini elettronici senza registratore telematico, da smartphone o tablet. Da ${starter.yearlyPerMonth}/mese, prova gratis.`,
     heroSubtitle:
       "Per il piccolo dettaglio — abbigliamento, artigianato, showroom — dove ogni vendita conta ma le battute al giorno sono poche.",
     audience:
@@ -693,8 +682,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "pasticcerie-gelaterie-panifici",
     title: "Scontrino elettronico per pasticcerie, gelaterie e panifici",
     metaTitle: "Scontrino elettronico per pasticcerie, gelaterie e panifici",
-    metaDescription:
-      "Pasticceria, gelateria o panificio a conduzione familiare: scontrini elettronici senza registratore telematico, dallo smartphone. Da €2,50/mese, prova gratis.",
+    metaDescription: `Pasticceria, gelateria o panificio a conduzione familiare: scontrini elettronici senza registratore telematico, dallo smartphone. Da ${starter.yearlyPerMonth}/mese, prova gratis.`,
     heroSubtitle:
       "Per il laboratorio con vendita diretta: banco ordinato, scontrini dallo smartphone e aliquote alimentari già configurate nel catalogo.",
     audience:
@@ -737,8 +725,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "fioristi",
     title: "Scontrino elettronico per fioristi e garden",
     metaTitle: "Scontrino elettronico per fioristi e vivai",
-    metaDescription:
-      "Fioreria o banco fiori: emetti scontrini elettronici dallo smartphone, anche a domicilio o al mercato, senza registratore telematico. Da €2,50/mese.",
+    metaDescription: `Fioreria o banco fiori: emetti scontrini elettronici dallo smartphone, anche a domicilio o al mercato, senza registratore telematico. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Dal negozio al banco del mercato alle consegne a domicilio: lo scontrino ti segue, non il registratore.",
     audience:
@@ -781,8 +768,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "lavanderie",
     title: "Scontrino elettronico per lavanderie e sartorie",
     metaTitle: "Scontrino elettronico per lavanderie e sartorie senza cassa",
-    metaDescription:
-      "Lavanderia artigiana o sartoria: scontrini elettronici senza registratore telematico, con catalogo dei servizi e ritiro/consegna. Da €2,50/mese, prova gratis.",
+    metaDescription: `Lavanderia artigiana o sartoria: scontrini elettronici senza registratore telematico, con catalogo dei servizi e ritiro/consegna. Da ${starter.yearlyPerMonth}/mese, prova gratis.`,
     heroSubtitle:
       "Per lavanderie artigiane e sartorie: catalogo servizi, scontrino al ritiro e banco libero dal registratore.",
     audience:
@@ -828,8 +814,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "agriturismi-cantine",
     title: "Scontrino elettronico per agriturismi e cantine",
     metaTitle: "Scontrino elettronico per agriturismi e cantine senza cassa",
-    metaDescription:
-      "Degustazioni, vendita diretta e ospitalità in agriturismo o cantina: scontrini elettronici dallo smartphone, senza registratore. Da €2,50/mese, prova gratis.",
+    metaDescription: `Degustazioni, vendita diretta e ospitalità in agriturismo o cantina: scontrini elettronici dallo smartphone, senza registratore. Da ${starter.yearlyPerMonth}/mese, prova gratis.`,
     heroSubtitle:
       "Dalla sala degustazione al punto vendita in vigna: lo scontrino esce dallo smartphone, anche dove il registratore non arriverebbe.",
     audience:
@@ -871,8 +856,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "fotografi",
     title: "Scontrino elettronico per fotografi",
     metaTitle: "Scontrino elettronico per fotografi e studi foto",
-    metaDescription:
-      "Servizi fotografici, stampe ed eventi: emetti lo scontrino elettronico dallo smartphone al momento dell'incasso, senza registratore. Da €2,50/mese.",
+    metaDescription: `Servizi fotografici, stampe ed eventi: emetti lo scontrino elettronico dallo smartphone al momento dell'incasso, senza registratore. Da ${starter.yearlyPerMonth}/mese.`,
     heroSubtitle:
       "Dallo studio al matrimonio al mini-shooting in piazza: lo scontrino segue te e la macchina fotografica, non un registratore.",
     audience:
@@ -915,8 +899,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "toelettatura",
     title: "Scontrino elettronico per toelettature e pet service",
     metaTitle: "Scontrino elettronico per toelettatura animali",
-    metaDescription:
-      "Toelettatura, pet sitting e servizi per animali: scontrini elettronici senza registratore, con listino servizi nel catalogo. Da €2,50/mese, prova gratis.",
+    metaDescription: `Toelettatura, pet sitting e servizi per animali: scontrini elettronici senza registratore, con listino servizi nel catalogo. Da ${starter.yearlyPerMonth}/mese, prova gratis.`,
     heroSubtitle:
       "Per toelettature e pet service: listino nel catalogo, scontrino in due tap a fine seduta, banco libero dal registratore.",
     audience:
@@ -958,8 +941,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "noleggio",
     title: "Scontrino elettronico per noleggio bici, attrezzature e sport",
     metaTitle: "Scontrino elettronico per attività di noleggio senza cassa",
-    metaDescription:
-      "Noleggio bici, sup, sci o attrezzature: scontrini elettronici dallo smartphone, perfetti per attività stagionali. Da €2,50/mese, prova 30 giorni gratis.",
+    metaDescription: `Noleggio bici, sup, sci o attrezzature: scontrini elettronici dallo smartphone, perfetti per attività stagionali. Da ${starter.yearlyPerMonth}/mese, prova 30 giorni gratis.`,
     heroSubtitle:
       "Per il noleggio stagionale — bici, sup, sci, attrezzature — dove la cassa deve stare in un marsupio, non su un banco.",
     audience:
@@ -986,8 +968,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
       {
         question: "Apro solo 4 mesi l'anno: conviene comunque?",
-        answer:
-          "È il caso ideale: attivi il piano mensile (da €4,99/mese) per i mesi di apertura e lo disdici a fine stagione, senza ammortizzare un registratore che resta fermo 8 mesi. Alla riapertura ritrovi catalogo e storico.",
+        answer: `È il caso ideale: attivi il piano mensile (da ${starter.monthly}/mese) per i mesi di apertura e lo disdici a fine stagione, senza ammortizzare un registratore che resta fermo 8 mesi. Alla riapertura ritrovi catalogo e storico.`,
       },
       {
         question: "Il turista straniero può ricevere lo scontrino?",
@@ -1001,8 +982,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "stabilimenti-balneari",
     title: "Scontrino elettronico per stabilimenti balneari",
     metaTitle: "Registratore di cassa per stabilimenti balneari e lidi",
-    metaDescription:
-      "Ombrelloni, lettini e abbonamenti stagionali: scontrini dallo smartphone tra le file, con IVA al 22% e bar al 10%. Da €2,50/mese, 30 giorni gratis.",
+    metaDescription: `Ombrelloni, lettini e abbonamenti stagionali: scontrini dallo smartphone tra le file, con IVA al 22% e bar al 10%. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
     heroSubtitle:
       "Batti lo scontrino tra le file di ombrelloni, senza rimandare il cliente in cassa: noleggio al 22% e bar al 10% nello stesso documento.",
     audience:

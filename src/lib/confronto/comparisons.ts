@@ -1,3 +1,7 @@
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter, pro } = PLAN_PRICES;
+
 // Contenuto della pagina /confronto (consolidata): una sola landing che copre
 // tutte le categorie di alternative (registratore telematico, fatturazione B2B,
 // SaaS scontrino). I dati sui competitor sono lo snapshot pubblico rilevato
@@ -157,7 +161,7 @@ export const confrontoContent: ConfrontoContent = {
   differentiators: [
     "Open source: puoi installarlo gratis sul tuo computer o server, le credenziali AdE non transitano da noi.",
     "Trial di 30 giorni senza carta di credito: alla scadenza l'account passa in sola lettura, nessun addebito a sorpresa.",
-    "Piani Starter da 29,99 €/anno e Pro da 49,99 €/anno: fra i listini più bassi del mercato.",
+    `Piani Starter da ${starter.yearly}/anno e Pro da ${pro.yearly}/anno: fra i listini più bassi del mercato.`,
     "Pensato per lo smartphone: emetti uno scontrino in pochi secondi, e puoi anche installare l'app direttamente dal browser senza passare dagli store.",
     "Codice sorgente ispezionabile su GitHub, incluso il modulo che cifra le credenziali AdE.",
   ],

@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PLAN_PRICES, type ListedPlan } from "@/lib/plan-prices";
 
 type Billing = "annual" | "monthly";
 
@@ -102,35 +103,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
             <CardHeader>
               <CardTitle className="text-xl">Starter</CardTitle>
               <CardDescription>Per ambulanti e micro-attività</CardDescription>
-              <div className="mt-2">
-                {isAnnual ? (
-                  <>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold">€2,50</span>
-                      <span className="text-muted-foreground text-sm line-through">
-                        €4,99
-                      </span>
-                      <span className="text-muted-foreground text-sm">
-                        /mese
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        −50% vs mensile
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      €29,99/anno (un solo addebito)
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-3xl font-bold">€4,99</span>
-                    <span className="text-muted-foreground text-sm">/mese</span>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      o €29,99/anno (equivalente €2,50/mese)
-                    </p>
-                  </>
-                )}
-              </div>
+              <PlanPrice plan="starter" isAnnual={isAnnual} />
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm">
@@ -154,35 +127,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
               <CardDescription>
                 Per attività con esigenze avanzate
               </CardDescription>
-              <div className="mt-2">
-                {isAnnual ? (
-                  <>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold">€4,17</span>
-                      <span className="text-muted-foreground text-sm line-through">
-                        €8,99
-                      </span>
-                      <span className="text-muted-foreground text-sm">
-                        /mese
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        −54% vs mensile
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      €49,99/anno (un solo addebito)
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-3xl font-bold">€8,99</span>
-                    <span className="text-muted-foreground text-sm">/mese</span>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      o €49,99/anno (equivalente €4,17/mese)
-                    </p>
-                  </>
-                )}
-              </div>
+              <PlanPrice plan="pro" isAnnual={isAnnual} />
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm">
@@ -203,35 +148,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
               <CardDescription>
                 Per chi ha collaboratori in cassa
               </CardDescription>
-              <div className="mt-2">
-                {isAnnual ? (
-                  <>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold">€8,33</span>
-                      <span className="text-muted-foreground text-sm line-through">
-                        €17,99
-                      </span>
-                      <span className="text-muted-foreground text-sm">
-                        /mese
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        −54% vs mensile
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      €99,99/anno (un solo addebito)
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-3xl font-bold">€17,99</span>
-                    <span className="text-muted-foreground text-sm">/mese</span>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      o €99,99/anno (equivalente €8,33/mese)
-                    </p>
-                  </>
-                )}
-              </div>
+              <PlanPrice plan="team" isAnnual={isAnnual} />
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm">
@@ -266,5 +183,41 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Il prezzo di un piano nella card: il mensile, o l'annuale diviso per 12. */
+function PlanPrice({
+  plan,
+  isAnnual,
+}: Readonly<{ plan: ListedPlan; isAnnual: boolean }>) {
+  const prices = PLAN_PRICES[plan];
+  if (!isAnnual) {
+    return (
+      <div className="mt-2">
+        <span className="text-3xl font-bold">{prices.monthly}</span>
+        <span className="text-muted-foreground text-sm">/mese</span>
+        <p className="text-muted-foreground mt-1 text-sm">
+          {`o ${prices.yearly}/anno (equivalente ${prices.yearlyPerMonth}/mese)`}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2">
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl font-bold">{prices.yearlyPerMonth}</span>
+        <span className="text-muted-foreground text-sm line-through">
+          {prices.monthly}
+        </span>
+        <span className="text-muted-foreground text-sm">/mese</span>
+        <Badge variant="secondary" className="text-xs">
+          {`−${prices.yearlyDiscountPercent}% vs mensile`}
+        </Badge>
+      </div>
+      <p className="text-muted-foreground mt-1 text-sm">
+        {`${prices.yearly}/anno (un solo addebito)`}
+      </p>
+    </div>
   );
 }

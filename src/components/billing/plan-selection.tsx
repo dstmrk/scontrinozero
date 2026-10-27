@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AdeLoginMethod } from "@/lib/ade/types";
 import { useIsNativeShell } from "@/lib/native/native-shell";
+import { PLAN_PRICES, type ListedPlan } from "@/lib/plan-prices";
 import { CheckoutButton } from "./checkout-button";
 
 type PlanSelectionProps = Readonly<{
@@ -15,6 +16,11 @@ type PlanSelectionProps = Readonly<{
   /** Come il titolare accede oggi all'AdE: decide l'avviso sotto Team. */
   adeLoginMethod: AdeLoginMethod;
 }>;
+
+function priceLabel(plan: ListedPlan, isAnnual: boolean): string {
+  const prices = PLAN_PRICES[plan];
+  return isAnnual ? `${prices.yearly}/anno` : `${prices.monthly}/mese`;
+}
 
 const INTERACTIVE_LOGIN_LABELS: Partial<Record<AdeLoginMethod, string>> = {
   cie: "CIE",
@@ -73,7 +79,7 @@ export function PlanSelection({
           Annuale
           {isAnnual && (
             <span className="rounded bg-green-100 px-1 py-0.5 text-xs font-semibold text-green-700">
-              -50%
+              -{PLAN_PRICES.starter.yearlyDiscountPercent}%
             </span>
           )}
         </button>
@@ -89,7 +95,7 @@ export function PlanSelection({
           </p>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">
-              {isAnnual ? "€29.99/anno" : "€4.99/mese"}
+              {priceLabel("starter", isAnnual)}
             </span>
             <CheckoutButton
               priceId={isAnnual ? starterYearly : starterMonthly}
@@ -107,7 +113,7 @@ export function PlanSelection({
           </p>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">
-              {isAnnual ? "€49.99/anno" : "€8.99/mese"}
+              {priceLabel("pro", isAnnual)}
             </span>
             <CheckoutButton
               priceId={isAnnual ? proYearly : proMonthly}
@@ -128,7 +134,7 @@ export function PlanSelection({
           <TeamLoginNotice adeLoginMethod={adeLoginMethod} />
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">
-              {isAnnual ? "€99.99/anno" : "€17.99/mese"}
+              {priceLabel("team", isAnnual)}
             </span>
             <CheckoutButton
               priceId={isAnnual ? teamYearly : teamMonthly}

@@ -1,3 +1,7 @@
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter, pro, team } = PLAN_PRICES;
+
 export const faqItems = [
   {
     question: "Serve per forza un registratore telematico fisico?",
@@ -27,8 +31,7 @@ export const faqItems = [
   },
   {
     question: "Quanto costa?",
-    answer:
-      "Starter €4,99/mese o €29,99/anno (equivalente a €2,50/mese). Pro €8,99/mese o €49,99/anno (equivalente a €4,17/mese). Team, cioè Pro con i collaboratori, €17,99/mese o €99,99/anno (equivalente a €8,33/mese). Tutti partono da 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
+    answer: `Starter ${starter.monthly}/mese o ${starter.yearly}/anno (equivalente a ${starter.yearlyPerMonth}/mese). Pro ${pro.monthly}/mese o ${pro.yearly}/anno (equivalente a ${pro.yearlyPerMonth}/mese). Team, cioè Pro con i collaboratori, ${team.monthly}/mese o ${team.yearly}/anno (equivalente a ${team.yearlyPerMonth}/mese). Tutti partono da 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.`,
   },
   {
     question: "È supportata la Lotteria degli Scontrini?",

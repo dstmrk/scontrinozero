@@ -5,18 +5,19 @@ import { Button } from "@/components/ui/button";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter, pro, team } = PLAN_PRICES;
 
 const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/prezzi`;
 
 export const metadata: Metadata = {
   title: "Prezzi",
-  description:
-    "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno), Team con i collaboratori da €8,33/mese (€99,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+  description: `Starter da ${starter.yearlyPerMonth}/mese (${starter.yearly}/anno), Pro da ${pro.yearlyPerMonth}/mese (${pro.yearly}/anno), Team con i collaboratori da ${team.yearlyPerMonth}/mese (${team.yearly}/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.`,
   openGraph: {
-    title: "Prezzi ScontrinoZero | Starter da €2,50/mese · Pro da €4,17/mese",
-    description:
-      "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno), Team con i collaboratori da €8,33/mese (€99,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+    title: `Prezzi ScontrinoZero | Starter da ${starter.yearlyPerMonth}/mese · Pro da ${pro.yearlyPerMonth}/mese`,
+    description: `Starter da ${starter.yearlyPerMonth}/mese (${starter.yearly}/anno), Pro da ${pro.yearlyPerMonth}/mese (${pro.yearly}/anno), Team con i collaboratori da ${team.yearlyPerMonth}/mese (${team.yearly}/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.`,
     url: PAGE_URL,
   },
   alternates: {
@@ -134,13 +135,11 @@ const pricingFaqs: { question: string; answer: string }[] = [
   },
   {
     question: "Che differenza c'è tra Starter e Pro?",
-    answer:
-      "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV, il messaggio personalizzato in fondo allo scontrino, gli sconti sullo scontrino, il pagamento misto (un incasso ripartito fra contanti ed elettronico sullo stesso scontrino), la ricerca dei documenti commerciali sull'archivio AdE, la Developer API e il supporto prioritario.",
+    answer: `Starter (${starter.yearly}/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (${pro.yearly}/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV, il messaggio personalizzato in fondo allo scontrino, gli sconti sullo scontrino, il pagamento misto (un incasso ripartito fra contanti ed elettronico sullo stesso scontrino), la ricerca dei documenti commerciali sull'archivio AdE, la Developer API e il supporto prioritario.`,
   },
   {
     question: "Che cos'è il piano Team?",
-    answer:
-      "Team (€99,99/anno o €17,99/mese) è Pro con i collaboratori: inviti chi lavora con te e ognuno entra con il proprio account, emettendo per la tua attività con le credenziali AdE che hai configurato, senza vederle. I collaboratori sono illimitati; nella prova gratuita puoi invitarne fino a 2. Serve Fisconline, tua o del gestore incaricato: con CIE o SPID ogni nuova sessione AdE richiede il titolare.",
+    answer: `Team (${team.yearly}/anno o ${team.monthly}/mese) è Pro con i collaboratori: inviti chi lavora con te e ognuno entra con il proprio account, emettendo per la tua attività con le credenziali AdE che hai configurato, senza vederle. I collaboratori sono illimitati; nella prova gratuita puoi invitarne fino a 2. Serve Fisconline, tua o del gestore incaricato: con CIE o SPID ogni nuova sessione AdE richiede il titolare.`,
   },
   {
     question: "Posso cambiare piano in qualsiasi momento?",
@@ -226,27 +225,27 @@ export default function PrezziPage() {
                 <tr className="border-t">
                   <td className="text-muted-foreground px-4 py-2 text-xs"></td>
                   <td className="px-4 py-2 text-center">
-                    <span className="font-semibold">€29,99/anno</span>
+                    <span className="font-semibold">{starter.yearly}/anno</span>
                     <span className="text-muted-foreground block text-xs">
-                      o €4,99/mese
+                      o {starter.monthly}/mese
                     </span>
                   </td>
                   <td className="px-4 py-2 text-center">
                     <span className="text-primary font-semibold">
-                      €49,99/anno
+                      {pro.yearly}/anno
                     </span>
                     <span className="text-muted-foreground block text-xs">
-                      o €8,99/mese
+                      o {pro.monthly}/mese
                     </span>
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <span className="font-semibold">€99,99/anno</span>
+                    <span className="font-semibold">{team.yearly}/anno</span>
                     <span className="text-muted-foreground block text-xs">
-                      o €17,99/mese
+                      o {team.monthly}/mese
                     </span>
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <span className="font-semibold">€0</span>
+                    <span className="font-semibold">0 €</span>
                     <span className="text-muted-foreground block text-xs">
                       per sempre
                     </span>

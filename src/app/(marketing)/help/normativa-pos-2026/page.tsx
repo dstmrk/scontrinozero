@@ -10,6 +10,9 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RT_COSTS } from "@/lib/marketing/rt-costs";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter } = PLAN_PRICES;
 
 export const metadata = helpArticleMetadata("normativa-pos-2026");
 
@@ -274,7 +277,7 @@ export default function NormativaPos2026Page() {
                   {RT_COSTS.periodicVerification.max}); assistenza facoltativa a
                   parte
                 </td>
-                <td className="py-2">Da €29,99/anno</td>
+                <td className="py-2">Da {starter.yearly}/anno</td>
               </tr>
             </tbody>
           </table>

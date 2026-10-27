@@ -232,9 +232,10 @@ post-deploy, procedura T&C/Privacy: skill `deploy-release`.
 | Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                                                                                                                   |
 | Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                                                                                                                         |
 
-Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
-carta all'iscrizione: include le feature Pro visibili **e** la Developer API
-(1 chiave, contro le 3 di Pro). P.IVA UNIQUE nel DB (anti-abuso trial).
+Feature gate canonico in `src/lib/plans.ts`, listino in
+`src/lib/plan-prices.ts`. Trial 30 giorni Starter/Pro, no carta
+all'iscrizione: include le feature Pro visibili **e** la Developer API (1
+chiave, contro le 3 di Pro). P.IVA UNIQUE nel DB (anti-abuso trial).
 
 ## Skill dominio-specifiche (`.claude/skills/`)
 

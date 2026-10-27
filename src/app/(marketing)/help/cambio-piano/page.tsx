@@ -11,6 +11,9 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter, pro, team } = PLAN_PRICES;
 
 export const metadata = helpArticleMetadata("cambio-piano");
 
@@ -40,11 +43,13 @@ export default function CambioPianoPage() {
           <Badge variant="secondary">Abbonamento</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Passare al piano annuale ti permette di risparmiare il{" "}
-          <strong>50% su Starter</strong> (€29,99/anno invece di €59,88) e il{" "}
-          <strong>54% su Pro</strong> (€49,99/anno invece di €107,88) e su{" "}
-          <strong>Team</strong> (€99,99/anno invece di €215,88). Il cambio
-          avviene tramite il portale di fatturazione Stripe.
+          {"Passare al piano annuale ti permette di risparmiare il "}
+          <strong>{`${starter.yearlyDiscountPercent}% su Starter`}</strong>
+          {` (${starter.yearly}/anno invece di ${starter.twelveMonthly}) e il `}
+          <strong>{`${pro.yearlyDiscountPercent}% su Pro`}</strong>
+          {` (${pro.yearly}/anno invece di ${pro.twelveMonthly}) e il `}
+          <strong>{`${team.yearlyDiscountPercent}% su Team`}</strong>
+          {` (${team.yearly}/anno invece di ${team.twelveMonthly}). Il cambio avviene tramite il portale di fatturazione Stripe.`}
         </p>
         <HelpArticleUpdatedAt slug="cambio-piano" />
         <figure className="mt-6">

@@ -10,6 +10,9 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter, pro, team } = PLAN_PRICES;
 
 export const metadata = helpArticleMetadata("piani-e-prezzi");
 
@@ -68,20 +71,20 @@ export default function PianiEPrezziPage() {
             <tbody className="divide-border divide-y">
               <tr>
                 <td className="text-foreground py-2 font-medium">Starter</td>
-                <td className="py-2">€4,99/mese</td>
-                <td className="py-2">€29,99/anno</td>
+                <td className="py-2">{starter.monthly}/mese</td>
+                <td className="py-2">{starter.yearly}/anno</td>
                 <td className="py-2">Micro-attività, ambulanti</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">Pro</td>
-                <td className="py-2">€8,99/mese</td>
-                <td className="py-2">€49,99/anno</td>
+                <td className="py-2">{pro.monthly}/mese</td>
+                <td className="py-2">{pro.yearly}/anno</td>
                 <td className="py-2">Negozi, attività regolari</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">Team</td>
-                <td className="py-2">€17,99/mese</td>
-                <td className="py-2">€99,99/anno</td>
+                <td className="py-2">{team.monthly}/mese</td>
+                <td className="py-2">{team.yearly}/anno</td>
                 <td className="py-2">Attività con collaboratori in cassa</td>
               </tr>
               <tr>
@@ -96,9 +99,15 @@ export default function PianiEPrezziPage() {
           </table>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;abbonamento annuale fa risparmiare il <strong>50%</strong>{" "}
-          rispetto al mensile per Starter e il <strong>54%</strong> per Pro e
-          Team. Non è richiesta nessuna carta di credito per iniziare il trial.
+          {"L'abbonamento annuale fa risparmiare il "}
+          <strong>{`${starter.yearlyDiscountPercent}%`}</strong>
+          {" rispetto al mensile per Starter, il "}
+          <strong>{`${pro.yearlyDiscountPercent}%`}</strong>
+          {" per Pro e il "}
+          <strong>{`${team.yearlyDiscountPercent}%`}</strong>
+          {
+            " per Team. Non è richiesta nessuna carta di credito per iniziare il trial."
+          }
         </p>
 
         {/* ─── Piano Starter ─── */}
@@ -125,8 +134,8 @@ export default function PianiEPrezziPage() {
           <li>Supporto via email entro 48 ore</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          A <strong>€29,99/anno</strong> è il prezzo più basso del mercato per
-          un registratore di cassa virtuale conforme all&apos;AdE.
+          A <strong>{starter.yearly}/anno</strong> è il prezzo più basso del
+          mercato per un registratore di cassa virtuale conforme all&apos;AdE.
         </p>
 
         {/* ─── Piano Pro ─── */}
@@ -183,17 +192,16 @@ export default function PianiEPrezziPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          A <strong>€49,99/anno</strong> Pro è più conveniente di Starter su
-          base percentuale (54% di risparmio sul mensile vs. 50% di Starter),
-          pensato per chi usa ScontrinoZero tutti i giorni.
+          A <strong>{pro.yearly}/anno</strong>
+          {` Pro è più conveniente di Starter su base percentuale (${pro.yearlyDiscountPercent}% di risparmio sul mensile vs. ${starter.yearlyDiscountPercent}% di Starter), pensato per chi usa ScontrinoZero tutti i giorni.`}
         </p>
 
         {/* ─── Piano Team ─── */}
         <h2 className="mt-10 text-xl font-semibold">Piano Team</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Team è Pro con i collaboratori, a <strong>€99,99/anno</strong> o
-          €17,99/mese. Inviti chi lavora con te e ognuno entra con il proprio
-          account, senza condividere la tua password.
+          {"Team è Pro con i collaboratori, a "}
+          <strong>{`${team.yearly}/anno`}</strong>
+          {` o ${team.monthly}/mese. Inviti chi lavora con te e ognuno entra con il proprio account, senza condividere la tua password.`}
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>Tutte le funzioni di Pro, Developer API compresa</li>

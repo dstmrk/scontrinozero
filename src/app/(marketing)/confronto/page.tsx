@@ -12,6 +12,9 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { confrontoContent } from "@/lib/confronto/comparisons";
 import { helpArticles } from "@/lib/help/articles";
 import { formatDate } from "@/lib/utils";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter, pro } = PLAN_PRICES;
 
 const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/confronto`;
@@ -63,7 +66,7 @@ export default function ConfrontoPage() {
               </a>
             </Button>
             <span className="text-muted-foreground text-sm">
-              {"30 giorni gratis · da €2,50/mese · nessuna carta richiesta"}
+              {`30 giorni gratis · da ${starter.yearlyPerMonth}/mese · nessuna carta richiesta`}
             </span>
           </div>
 
@@ -159,9 +162,9 @@ export default function ConfrontoPage() {
                     </span>
                   </th>
                   <td className="text-primary px-4 py-3 text-sm font-semibold">
-                    {"Starter 29,99 €/anno · Pro 49,99 €/anno"}
+                    {`Starter ${starter.yearly}/anno · Pro ${pro.yearly}/anno`}
                     <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                      {"(€2,50/mese · €4,17/mese equivalenti)"}
+                      {`(${starter.yearlyPerMonth}/mese · ${pro.yearlyPerMonth}/mese equivalenti)`}
                     </span>
                   </td>
                   <td className="text-primary px-4 py-3 text-sm font-semibold">

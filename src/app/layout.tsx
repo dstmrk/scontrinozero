@@ -9,7 +9,10 @@ import {
 } from "@/components/json-ld";
 import { marketingBaseUrl } from "@/lib/seo-indexable";
 import { UmamiScript } from "@/components/umami-script";
+import { PLAN_PRICES } from "@/lib/plan-prices";
 import "./globals.css";
+
+const { starter } = PLAN_PRICES;
 
 const nunitoSans = localFont({
   src: [
@@ -38,8 +41,7 @@ export const metadata: Metadata = {
       "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
     template: "%s | ScontrinoZero",
   },
-  description:
-    "Registratore di cassa virtuale per micro-attività. Emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate senza registratore telematico. Il più economico del mercato: da €29,99/anno.",
+  description: `Registratore di cassa virtuale per micro-attività. Emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate senza registratore telematico. Il più economico del mercato: da ${starter.yearly}/anno.`,
   // Base per la risoluzione di URL relativi (es. OG image): apex marketing
   // indicizzabile, non il dominio app.
   metadataBase: new URL(marketingBaseUrl()),
@@ -48,14 +50,12 @@ export const metadata: Metadata = {
     locale: "it_IT",
     siteName: "ScontrinoZero",
     title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
-    description:
-      "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
+    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da ${starter.yearly}/anno, 30 giorni gratis.`,
   },
   twitter: {
     card: "summary_large_image",
     title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
-    description:
-      "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
+    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da ${starter.yearly}/anno, 30 giorni gratis.`,
   },
   // Google non espone un opt-out dedicato per AI Overviews e AI Mode: la
   // comparsa in quelle superfici e la lunghezza del passaggio citato sono

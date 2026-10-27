@@ -16,18 +16,18 @@ describe("PricingSection", () => {
 
   it("parte dai prezzi annuali, con l'addebito unico di ciascun piano", () => {
     renderSection();
-    expect(screen.getByText("€29,99/anno (un solo addebito)")).toBeVisible();
-    expect(screen.getByText("€49,99/anno (un solo addebito)")).toBeVisible();
-    expect(screen.getByText("€99,99/anno (un solo addebito)")).toBeVisible();
-    expect(screen.getByText("€8,33")).toBeVisible();
+    expect(screen.getByText("29,99 €/anno (un solo addebito)")).toBeVisible();
+    expect(screen.getByText("49,99 €/anno (un solo addebito)")).toBeVisible();
+    expect(screen.getByText("99,99 €/anno (un solo addebito)")).toBeVisible();
+    expect(screen.getByText("8,33 €")).toBeVisible();
   });
 
-  it("col toggle mensile mostra €17,99 per Team", () => {
+  it("col toggle mensile mostra 17,99 € per Team", () => {
     renderSection();
     fireEvent.click(screen.getByRole("button", { name: "Mensile" }));
-    expect(screen.getByText("€17,99")).toBeVisible();
+    expect(screen.getByText("17,99 €")).toBeVisible();
     expect(
-      screen.getByText("o €99,99/anno (equivalente €8,33/mese)"),
+      screen.getByText("o 99,99 €/anno (equivalente 8,33 €/mese)"),
     ).toBeVisible();
   });
 

@@ -17,6 +17,9 @@ import {
   isCategorySlug,
 } from "@/lib/per/categories";
 import { helpArticles } from "@/lib/help/articles";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const { starter } = PLAN_PRICES;
 
 const SITE_URL = "https://scontrinozero.it";
 
@@ -104,7 +107,7 @@ export default async function CategoryLandingPage({ params }: PageParams) {
               </a>
             </Button>
             <span className="text-muted-foreground text-sm">
-              {"30 giorni gratis · da €2,50/mese · nessuna carta richiesta"}
+              {`30 giorni gratis · da ${starter.yearlyPerMonth}/mese · nessuna carta richiesta`}
             </span>
           </div>
 

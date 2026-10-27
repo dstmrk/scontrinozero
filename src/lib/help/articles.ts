@@ -1,3 +1,9 @@
+import { PLAN_PRICES } from "@/lib/plan-prices";
+
+const MAX_YEARLY_DISCOUNT_PERCENT = Math.max(
+  ...Object.values(PLAN_PRICES).map((p) => p.yearlyDiscountPercent),
+);
+
 export interface HelpArticle {
   readonly slug: string;
   /** Etichetta breve usata in breadcrumb, card dell'hub e correlati. */
@@ -83,8 +89,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     dateModified: "2026-10-23",
     title: "Come passare da mensile ad annuale",
     metaTitle: "Come passare da mensile ad annuale",
-    description:
-      "Guida per cambiare il piano ScontrinoZero da mensile ad annuale e risparmiare fino al 54%. Istruzioni passo-passo per la modifica dell'abbonamento.",
+    description: `Guida per cambiare il piano ScontrinoZero da mensile ad annuale e risparmiare fino al ${MAX_YEARLY_DISCOUNT_PERCENT}%. Istruzioni passo-passo per la modifica dell'abbonamento.`,
     related: ["piani-e-prezzi", "fatture-e-ricevute", "contatto-assistenza"],
   },
   "cassetto-fiscale": {

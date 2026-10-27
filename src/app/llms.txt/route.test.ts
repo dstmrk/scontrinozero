@@ -66,7 +66,8 @@ describe("GET /llms.txt", () => {
 
   it("elenca i piani con i prezzi, Team compreso", async () => {
     mockHeaderGet.mockReturnValue("scontrinozero.it");
-    const body = await (await getResponse()).text();
+    // I prezzi arrivano da Intl, con lo spazio non separabile prima di €.
+    const body = (await (await getResponse()).text()).replaceAll("\u00a0", " ");
 
     expect(body).toContain("Starter (4,99 €/mese o 29,99 €/anno)");
     expect(body).toContain("Pro (8,99 €/mese o 49,99 €/anno)");

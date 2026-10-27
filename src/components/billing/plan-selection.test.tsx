@@ -59,8 +59,8 @@ describe("PlanSelection", () => {
     },
     {
       name: "mostra i prezzi annuali nel default",
-      first: "€29.99/anno",
-      second: "€49.99/anno",
+      first: "29,99 €/anno",
+      second: "49,99 €/anno",
     },
     { name: "mostra le card Starter e Pro", first: "Starter", second: "Pro" },
   ])("$name", ({ first, second }) => {
@@ -96,8 +96,8 @@ describe("PlanSelection", () => {
   it("mostra i prezzi mensili dopo il toggle", () => {
     renderComponent();
     fireEvent.click(screen.getByText("Mensile"));
-    expect(screen.getByText("€4.99/mese")).toBeInTheDocument();
-    expect(screen.getByText("€8.99/mese")).toBeInTheDocument();
+    expect(screen.getByText("4,99 €/mese")).toBeInTheDocument();
+    expect(screen.getByText("8,99 €/mese")).toBeInTheDocument();
   });
 
   it("non mostra il badge -50% in modalità mensile", () => {
@@ -149,7 +149,7 @@ describe("PlanSelection — piano Team", () => {
   it("mostra la card Team con il prezzo annuale e il checkout annuale", () => {
     renderComponent();
     expect(screen.getByText("Team")).toBeInTheDocument();
-    expect(screen.getByText("€99.99/anno")).toBeInTheDocument();
+    expect(screen.getByText("99,99 €/anno")).toBeInTheDocument();
     expect(
       screen.getByTestId("checkout-price_team_yearly"),
     ).toBeInTheDocument();
@@ -158,7 +158,7 @@ describe("PlanSelection — piano Team", () => {
   it("dopo il toggle mostra il prezzo e il checkout mensili", () => {
     renderComponent();
     fireEvent.click(screen.getByText("Mensile"));
-    expect(screen.getByText("€17.99/mese")).toBeInTheDocument();
+    expect(screen.getByText("17,99 €/mese")).toBeInTheDocument();
     expect(
       screen.getByTestId("checkout-price_team_monthly"),
     ).toBeInTheDocument();
