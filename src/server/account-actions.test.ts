@@ -116,6 +116,22 @@ vi.mock("@/emails/account-deletion", () => ({
   AccountDeletionEmail: vi.fn().mockReturnValue(null),
 }));
 
+// Issue #1099: il collaboratore che elimina il proprio account lascia
+// l'attività. Di default l'utente non è un collaboratore e il flusso del
+// titolare resta com'era.
+const mockFindCollaboratorAccount = vi.fn();
+const mockRemoveCollaboratorAccount = vi.fn();
+const mockNotifyAccessEnded = vi.fn();
+vi.mock("@/lib/services/collaborator-account", () => ({
+  findCollaboratorAccount: (...a: unknown[]) =>
+    mockFindCollaboratorAccount(...a),
+  removeCollaboratorAccount: (...a: unknown[]) =>
+    mockRemoveCollaboratorAccount(...a),
+  notifyCollaboratorAccessEnded: (...a: unknown[]) =>
+    mockNotifyAccessEnded(...a),
+  listCollaboratorAccounts: vi.fn().mockResolvedValue([]),
+}));
+
 const mockRedirect = vi.fn();
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => mockRedirect(url),
@@ -152,6 +168,81 @@ describe("account-actions", () => {
     // per i test preesistenti).
     mockSelectLimit.mockResolvedValue([]);
     mockCustomersDel.mockResolvedValue({ id: "cus_x", deleted: true });
+    mockFindCollaboratorAccount.mockResolvedValue(null);
+    mockRemoveCollaboratorAccount.mockResolvedValue(true);
+  });
+
+  describe("deleteAccount — collaboratore", () => {
+    const ACCOUNT = {
+      memberId: "member-1",
+      authUserId: FAKE_USER.id,
+      email: FAKE_USER.email,
+      businessId: "biz-1",
+      businessName: "Bar Centrale",
+    };
+
+    beforeEach(() => {
+      mockFindCollaboratorAccount.mockResolvedValue(ACCOUNT);
+    });
+
+    it("dopo la password lascia l'attività: account rimosso, uscita, email, home", async () => {
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      expect(mockFindCollaboratorAccount).toHaveBeenCalledWith({
+        authUserId: FAKE_USER.id,
+      });
+      expect(mockRemoveCollaboratorAccount).toHaveBeenCalledWith(ACCOUNT);
+      expect(mockNotifyAccessEnded).toHaveBeenCalledWith(ACCOUNT, "left");
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+    });
+
+    // Niente Stripe né profilo: l'abbonamento e la cascata sono del titolare.
+    it("non tocca Stripe, il profilo né l'email del titolare", async () => {
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      expect(mockCustomersDel).not.toHaveBeenCalled();
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("un signOut fallito non blocca l'uscita", async () => {
+      mockSignOut.mockRejectedValue(new Error("cookie store"));
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it("con la password sbagliata non cerca nemmeno la membership", async () => {
+      mockSignInWithPassword.mockResolvedValue({
+        error: { message: "Invalid login credentials" },
+      });
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(formWithPassword("sbagliata"));
+
+      expect(result.error).toBe("Password non corretta.");
+      expect(mockFindCollaboratorAccount).not.toHaveBeenCalled();
+    });
+
+    it("se l'account non si cancella lo dice e resta dentro", async () => {
+      mockRemoveCollaboratorAccount.mockResolvedValue(false);
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(formWithPassword());
+
+      expect(result.error).toBe(
+        "Eliminazione account fallita. Riprova oppure contatta il supporto.",
+      );
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(mockNotifyAccessEnded).not.toHaveBeenCalled();
+    });
   });
 
   describe("deleteAccount", () => {

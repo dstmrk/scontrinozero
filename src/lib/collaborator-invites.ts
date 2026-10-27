@@ -246,6 +246,8 @@ export type TeamMember = {
   id: string;
   name: string | null;
   email: string | null;
+  /** Al più un giorno di ritardo: `touchLastSeen` scrive una volta ogni 24 ore. */
+  lastSeenAt: Date | null;
 };
 export type TeamInvite = {
   id: string;
@@ -269,6 +271,7 @@ export async function listTeam(
         id: businessMembers.id,
         name: businessMembers.name,
         email: businessMembers.email,
+        lastSeenAt: businessMembers.lastSeenAt,
       })
       .from(businessMembers)
       .where(

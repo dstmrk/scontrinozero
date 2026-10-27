@@ -57,6 +57,16 @@ vi.mock("@/lib/ade/interactive-session-store", () => ({
   },
 }));
 
+// Collaboratori dell'attività (issue #1099): non hanno un profilo, quindi la
+// cascata non li raggiunge e il purge del titolare cancella i loro account.
+const mockListCollaborators = vi.fn();
+const mockNotifyCollaborator = vi.fn();
+vi.mock("./collaborator-account", () => ({
+  listCollaboratorAccounts: (...a: unknown[]) => mockListCollaborators(...a),
+  notifyCollaboratorAccessEnded: (...a: unknown[]) =>
+    mockNotifyCollaborator(...a),
+}));
+
 const mockAdminDeleteUser = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminSupabaseClient: vi.fn().mockReturnValue({
@@ -79,6 +89,7 @@ describe("purgeUserById", () => {
     mockUpdateWhere.mockResolvedValue(undefined);
     mockInvalidateCache.mockResolvedValue(undefined);
     mockInvalidateStore.mockResolvedValue(undefined);
+    mockListCollaborators.mockResolvedValue([]);
   });
 
   describe("sessioni AdE in memoria", () => {
@@ -196,6 +207,96 @@ describe("purgeUserById", () => {
         expect.stringContaining("sessioni AdE"),
       );
     });
+  });
+
+  describe("collaboratori dell'attività", () => {
+    const BIZ_ID = "biz-9";
+    const COLLABORATORS = [
+      {
+        memberId: "m-1",
+        authUserId: "collab-1",
+        email: "anna@example.com",
+        businessId: BIZ_ID,
+        businessName: "Bar Centrale",
+      },
+      {
+        memberId: "m-2",
+        authUserId: "collab-2",
+        email: "luca@example.com",
+        businessId: BIZ_ID,
+        businessName: "Bar Centrale",
+      },
+    ];
+
+    beforeEach(() => {
+      mockSelectLimit
+        .mockReset()
+        .mockResolvedValueOnce([{ id: "profile-1" }])
+        .mockResolvedValueOnce([{ id: BIZ_ID }]);
+      mockListCollaborators.mockResolvedValue(COLLABORATORS);
+    });
+
+    it("cancella i loro account prima del titolare, poi li avvisa", async () => {
+      const order: string[] = [];
+      mockAdminDeleteUser.mockImplementation(async (id: string) => {
+        order.push(id);
+        return { error: null };
+      });
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(mockListCollaborators).toHaveBeenCalledWith(BIZ_ID);
+      expect(order.indexOf(USER_ID)).toBeGreaterThan(
+        Math.max(order.indexOf("collab-1"), order.indexOf("collab-2")),
+      );
+      expect(result).toEqual({ authDeleted: true, profileDeleted: true });
+      expect(mockNotifyCollaborator).toHaveBeenCalledTimes(2);
+      expect(mockNotifyCollaborator).toHaveBeenCalledWith(
+        COLLABORATORS[0],
+        "owner-deleted",
+      );
+    });
+
+    it("se l'account di un collaboratore non si cancella, il titolare resta intatto", async () => {
+      vi.useFakeTimers();
+      mockAdminDeleteUser.mockImplementation(async (id: string) =>
+        id === "collab-2" ? { error: { message: "boom" } } : { error: null },
+      );
+
+      const { purgeUserById } = await import("./purge-user");
+      const promise = purgeUserById(USER_ID);
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
+      expect(result).toEqual({ authDeleted: false, profileDeleted: false });
+      expect(mockAdminDeleteUser).not.toHaveBeenCalledWith(USER_ID);
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockNotifyCollaborator).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("se la lettura dei collaboratori fallisce non cancella nulla", async () => {
+      mockListCollaborators.mockRejectedValue(new Error("DB down"));
+
+      const { purgeUserById } = await import("./purge-user");
+      const result = await purgeUserById(USER_ID);
+
+      expect(result).toEqual({ authDeleted: false, profileDeleted: false });
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+    });
+  });
+
+  it("senza attività non cerca collaboratori", async () => {
+    mockSelectLimit
+      .mockReset()
+      .mockResolvedValueOnce([{ id: "profile-1" }])
+      .mockResolvedValueOnce([]);
+
+    const { purgeUserById } = await import("./purge-user");
+    await purgeUserById(USER_ID);
+
+    expect(mockListCollaborators).not.toHaveBeenCalled();
   });
 
   describe("revoca delle chiavi API", () => {

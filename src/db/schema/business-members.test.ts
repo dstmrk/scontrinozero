@@ -38,6 +38,7 @@ describe("business_members schema", () => {
     "termsAcceptedAt",
     "termsVersion",
     "collaboratorTermsVersion",
+    "lastSeenAt",
   ] as const)("%s è nullable", (column) => {
     expect(businessMembers[column].notNull).toBe(false);
   });

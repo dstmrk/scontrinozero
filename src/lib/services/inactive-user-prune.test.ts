@@ -264,6 +264,30 @@ describe("pruneInactiveUsers", () => {
     expect(occurrences.length).toBeGreaterThanOrEqual(2);
   });
 
+  // Decisione 4 della issue #1099: un'attività con collaboratori attivi non
+  // si cancella perché il titolare non entra. Vale sia per la SELECT dei
+  // candidati sia per la ri-lettura prima del purge.
+  it("conta l'ultimo accesso dei collaboratori, nei candidati e nella ri-lettura", async () => {
+    mockExecute
+      .mockResolvedValueOnce([deleteRow()])
+      .mockResolvedValueOnce([deleteRow()]);
+
+    const { pruneInactiveUsers } = await import("./inactive-user-prune");
+    await pruneInactiveUsers(NOW, CONFIG);
+
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+    for (const [query] of mockExecute.mock.calls) {
+      const sqlText = JSON.stringify(query);
+      expect(sqlText).toContain("business_members");
+      expect(sqlText).toContain("role = 'collaborator'");
+    }
+    const candidates = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+    // Nella colonna SELECT e nel WHERE.
+    expect(
+      candidates.match(/last_member_seen_at/g)?.length,
+    ).toBeGreaterThanOrEqual(3);
+  });
+
   it("degrada a zero senza lanciare se la query candidati fallisce", async () => {
     mockExecute.mockRejectedValue(new Error("DB down"));
 

@@ -301,7 +301,7 @@ regola 27 (skill `stripe-webhooks`):
 
 ## Invito a un'email già registrata: il rifiuto dice che l'account esiste (issue #1099)
 
-`inviteCollaborator` in `src/server/invite-actions.ts` rifiuta un'email che
+`inviteCollaborator` in `src/server/collaborator-actions.ts` rifiuta un'email che
 ha già un account (`emailHasAccount` in `src/lib/collaborator-invites.ts`),
 con un messaggio che lo dice, perché una persona appartiene a una sola
 attività (decisione 15). Il titolare scopre così se un indirizzo è iscritto

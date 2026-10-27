@@ -55,9 +55,23 @@ beforeEach(() => {
 });
 
 describe("CollaboratorsCard", () => {
-  it("passa alla sezione il passo, il limite e gli inviti con la scadenza in ora italiana", async () => {
+  it("passa alla sezione il passo, il limite, ultimi accessi e scadenze in ora italiana", async () => {
     mockListTeam.mockResolvedValue({
-      members: [{ id: "m-1", name: "Anna", email: "anna@example.com" }],
+      members: [
+        {
+          id: "m-1",
+          name: "Anna",
+          email: "anna@example.com",
+          // 23:30 UTC del 25 ottobre è già il 26 a Roma.
+          lastSeenAt: new Date("2026-10-25T23:30:00Z"),
+        },
+        {
+          id: "m-2",
+          name: "Luca",
+          email: "luca@example.com",
+          lastSeenAt: null,
+        },
+      ],
       invites: [
         {
           id: "inv-1",
@@ -82,7 +96,20 @@ describe("CollaboratorsCard", () => {
       businessId: BIZ,
       blocker: null,
       trialLimit: null,
-      members: [{ id: "m-1", name: "Anna", email: "anna@example.com" }],
+      members: [
+        {
+          id: "m-1",
+          name: "Anna",
+          email: "anna@example.com",
+          lastSeenLabel: "26/10/2026",
+        },
+        {
+          id: "m-2",
+          name: "Luca",
+          email: "luca@example.com",
+          lastSeenLabel: null,
+        },
+      ],
       invites: [
         {
           id: "inv-1",

@@ -311,11 +311,18 @@ describe("SettingsPage — collaboratore", () => {
       "ade-credentials",
       "receipt-note",
       "api-key",
-      "export-data",
-      "account-delete",
     ]) {
       expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
     }
+  });
+
+  // Le sezioni sono quelle del titolare: testo e action li scelgono dal ruolo.
+  it("rende l'export dei suoi dati e la cancellazione dell'account", async () => {
+    await renderSettings();
+    fireEvent.click(screen.getByRole("button", { name: /Altre impostazioni/ }));
+
+    expect(screen.getByTestId("export-data")).toBeInTheDocument();
+    expect(screen.getByTestId("account-delete")).toBeInTheDocument();
   });
 
   it("non legge profilo né attività", async () => {

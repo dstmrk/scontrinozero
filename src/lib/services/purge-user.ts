@@ -3,22 +3,13 @@ import { getDb } from "@/db";
 import { apiKeys, businesses, profiles, subscriptions } from "@/db/schema";
 import { adeInteractiveSessionStore } from "@/lib/ade/interactive-session-store";
 import { adeSessionCache } from "@/lib/ade/session-cache";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
-
-/** Numero massimo di tentativi per la delete dell'auth user (admin API). */
-const MAX_AUTH_DELETE_ATTEMPTS = 3;
-
-/**
- * True se l'errore della admin API indica che l'auth user NON esiste
- * (già cancellato). Check difensivo su entrambi i campi che Supabase può
- * esporre: HTTP `status` 404 e `code` "user_not_found".
- */
-function isUserNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const { status, code } = error as { status?: unknown; code?: unknown };
-  return status === 404 || code === "user_not_found";
-}
+import { deleteAuthUser } from "@/lib/services/auth-user-delete";
+import {
+  listCollaboratorAccounts,
+  notifyCollaboratorAccessEnded,
+  type CollaboratorAccount,
+} from "@/lib/services/collaborator-account";
 
 /** Chiude le due sessioni AdE in memoria di un business. Mai propaga. */
 async function evictAdeSessions(
@@ -69,10 +60,21 @@ export type PurgeUserResult = {
  * il chiamante NON deve trattarlo come hard failure, perché l'utente non può
  * più autenticarsi comunque.
  *
+ * Collaboratori (issue #1099): non hanno un profilo, quindi la cascata porta
+ * via le loro righe di `business_members` ma non i loro account auth. Si
+ * cancellano qui, prima del titolare: se uno non si cancella ci si ferma con
+ * il titolare intatto, perché un login valido senza attività è peggio di una
+ * cancellazione da ritentare (il ritentativo li trova già assenti). A
+ * titolare cancellato ricevono l'email "owner-deleted".
+ *
+ * Solo per chi ha un profilo: un collaboratore che lascia l'attività passa da
+ * `removeCollaboratorAccount` (`collaborator-account.ts`).
+ *
  * Condiviso tra `deleteAccount` (self-service, src/server/account-actions.ts) e
  * lo sweep GDPR di cancellazione inattivi (src/lib/services/inactive-user-prune.ts).
- * Non emette email né gestisce sessione/redirect: quelle sono responsabilità
- * del chiamante, che differisce per contesto.
+ * L'email al titolare, la sessione e il redirect restano del chiamante, che
+ * differisce per contesto; quella ai collaboratori è la stessa nei due
+ * contesti e parte da qui.
  */
 export async function purgeUserById(
   authUserId: string,
@@ -119,40 +121,39 @@ export async function purgeUserById(
     return { authDeleted: false, profileDeleted: false };
   }
 
-  // 1. Delete auth user via admin API (service role). Retry con backoff.
-  const adminClient = createAdminSupabaseClient();
-  let deleteAuthError: Error | null = null;
-  for (let attempt = 1; attempt <= MAX_AUTH_DELETE_ATTEMPTS; attempt++) {
-    const { error } = await adminClient.auth.admin.deleteUser(authUserId);
-    if (!error) {
-      deleteAuthError = null;
-      break;
-    }
-    if (isUserNotFoundError(error)) {
-      // Auth user già assente (es. profilo orfano di un run precedente in cui
-      // la delete di `profiles` era fallita): l'obiettivo — nessun auth user —
-      // è già raggiunto, quindi delete idempotente. Senza questo ramo lo sweep
-      // GDPR ritenterebbe per sempre (3 retry/giorno, error critical in Sentry)
-      // e la riga `profiles` (dati personali) non verrebbe MAI rimossa.
-      // Condizione attesa, non bug nostro → warn (regola 20), non error.
-      logger.warn(
-        { userId: authUserId },
-        "purgeUserById: auth user già assente — delete idempotente, procedo col profilo",
-      );
-      deleteAuthError = null;
-      break;
-    }
-    deleteAuthError = error;
-    if (attempt < MAX_AUTH_DELETE_ATTEMPTS) {
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // NOSONAR — backoff tra retry, sequenziale per design
-    }
-  }
-  if (deleteAuthError) {
+  // 0b. Gli account dei collaboratori, prima di quello del titolare.
+  let collaborators: CollaboratorAccount[] = [];
+  try {
+    if (businessId) collaborators = await listCollaboratorAccounts(businessId);
+  } catch (err) {
     logger.error(
-      { userId: authUserId, err: deleteAuthError, critical: true },
-      "purgeUserById: auth user deletion failed after retries — account not deleted",
+      { userId: authUserId, err, critical: true },
+      "purgeUserById: lettura dei collaboratori fallita — nessun dato cancellato, da ritentare",
     );
     return { authDeleted: false, profileDeleted: false };
+  }
+  const deleted = await Promise.all(
+    collaborators.map((collaborator) =>
+      deleteAuthUser(collaborator.authUserId),
+    ),
+  );
+  if (deleted.includes(false)) {
+    logger.error(
+      { userId: authUserId, critical: true },
+      "purgeUserById: account di un collaboratore non cancellato — titolare intatto, da ritentare",
+    );
+    return { authDeleted: false, profileDeleted: false };
+  }
+
+  // 1. Delete auth user via admin API (service role), con retry. Un utente
+  //    già assente (profilo orfano di un run precedente in cui la delete di
+  //    `profiles` era fallita) conta come cancellato: senza, lo sweep GDPR
+  //    ritenterebbe per sempre e la riga `profiles` non sparirebbe mai.
+  if (!(await deleteAuthUser(authUserId))) {
+    return { authDeleted: false, profileDeleted: false };
+  }
+  for (const collaborator of collaborators) {
+    notifyCollaboratorAccessEnded(collaborator, "owner-deleted");
   }
 
   // 1b. L'auth user non esiste più: si chiudono le sessioni AdE in memoria del

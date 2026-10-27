@@ -4,14 +4,15 @@ import {
   acceptCollaboratorTerms,
   inviteCollaborator,
   revokeCollaboratorInvite,
-} from "@/server/invite-actions";
+} from "@/server/collaborator-actions";
 import type { OwnerInviteBlocker } from "@/lib/collaborator-invites";
 import { CollaboratorsSection, type InviteRow } from "./collaborators-section";
 
-vi.mock("@/server/invite-actions", () => ({
+vi.mock("@/server/collaborator-actions", () => ({
   acceptCollaboratorTerms: vi.fn(),
   inviteCollaborator: vi.fn(),
   revokeCollaboratorInvite: vi.fn(),
+  removeCollaborator: vi.fn(),
 }));
 
 const BIZ = "11111111-1111-4111-8111-111111111111";
@@ -33,7 +34,12 @@ function renderSection(
   props: Partial<{
     blocker: OwnerInviteBlocker | null;
     trialLimit: number | null;
-    members: { id: string; name: string | null; email: string | null }[];
+    members: {
+      id: string;
+      name: string | null;
+      email: string | null;
+      lastSeenLabel: string | null;
+    }[];
     invites: InviteRow[];
   }> = {},
 ) {
@@ -156,14 +162,20 @@ describe("CollaboratorsSection", () => {
     });
   });
 
-  it("elenca i collaboratori con nome ed email", () => {
+  it("passa i collaboratori alla loro lista", () => {
     renderSection({
-      members: [{ id: "m-1", name: "Anna Bianchi", email: "anna@example.com" }],
+      members: [
+        {
+          id: "m-1",
+          name: "Anna Bianchi",
+          email: "anna@example.com",
+          lastSeenLabel: "26/10/2026",
+        },
+      ],
     });
 
     const list = screen.getByRole("list", { name: "Collaboratori attivi" });
     expect(list).toHaveTextContent("Anna Bianchi");
-    expect(list).toHaveTextContent("anna@example.com");
   });
 
   describe("inviti", () => {

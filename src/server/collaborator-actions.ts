@@ -25,6 +25,11 @@ import {
   ownerInviteBlocker,
 } from "@/lib/collaborator-invites";
 import { sendEmail } from "@/lib/email";
+import {
+  findCollaboratorAccount,
+  notifyCollaboratorAccessEnded,
+  removeCollaboratorAccount,
+} from "@/lib/services/collaborator-account";
 import { logger } from "@/lib/logger";
 import { getPlanSafe, type PlanInfo } from "@/lib/plans";
 import {
@@ -37,12 +42,13 @@ import { isValidUuid } from "@/lib/uuid";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
 /**
- * Inviti dei collaboratori, lato titolare (issue #1099, PR 6a). Tutte le
- * action sono solo del titolare; l'accettazione, che è una registrazione, sta
- * in `auth-actions.ts`.
+ * Collaboratori, lato titolare (issue #1099): condizioni, inviti e rimozione.
+ * Tutte le action sono solo del titolare. L'accettazione dell'invito, che è
+ * una registrazione, sta in `auth-actions.ts`; l'uscita del collaboratore in
+ * `deleteAccount` (`account-actions.ts`).
  */
 
-export type InviteActionResult = { error?: string };
+export type CollaboratorActionResult = { error?: string };
 
 const SETTINGS_PATH = "/dashboard/settings";
 
@@ -81,7 +87,7 @@ async function authorizeOwner(
  */
 export async function acceptCollaboratorTerms(
   businessId: string,
-): Promise<InviteActionResult> {
+): Promise<CollaboratorActionResult> {
   const auth = await authorizeOwner("acceptCollaboratorTerms", businessId);
   if ("error" in auth) return auth;
 
@@ -156,7 +162,7 @@ async function inviteeBlocker(
 export async function inviteCollaborator(
   businessId: string,
   rawEmail: string,
-): Promise<InviteActionResult> {
+): Promise<CollaboratorActionResult> {
   const auth = await authorizeOwner("inviteCollaborator", businessId);
   if ("error" in auth) return auth;
 
@@ -244,7 +250,7 @@ export async function inviteCollaborator(
 export async function revokeCollaboratorInvite(
   businessId: string,
   inviteId: string,
-): Promise<InviteActionResult> {
+): Promise<CollaboratorActionResult> {
   const auth = await authorizeOwner("revokeCollaboratorInvite", businessId);
   if ("error" in auth) return auth;
   if (!isValidUuid(inviteId)) return { error: "Identificativo non valido." };
@@ -258,6 +264,36 @@ export async function revokeCollaboratorInvite(
         eq(collaboratorInvites.businessId, businessId),
       ),
     );
+
+  revalidatePath(SETTINGS_PATH);
+  return {};
+}
+
+/**
+ * Rimuove un collaboratore: il suo account si cancella subito e i documenti
+ * che ha emesso restano, attribuiti al suo nome. L'effetto è immediato perché
+ * ogni azione rilegge l'appartenenza per auth user (decisione 16). Un membro
+ * già rimosso, o di un'altra attività, è un no-op.
+ */
+export async function removeCollaborator(
+  businessId: string,
+  memberId: string,
+): Promise<CollaboratorActionResult> {
+  const auth = await authorizeOwner("removeCollaborator", businessId);
+  if ("error" in auth) return auth;
+  if (!isValidUuid(memberId)) return { error: "Identificativo non valido." };
+
+  const account = await findCollaboratorAccount({ memberId, businessId });
+  if (account) {
+    if (!(await removeCollaboratorAccount(account))) {
+      return {
+        error:
+          "Non siamo riusciti a rimuovere il collaboratore. Riprova tra qualche minuto.",
+      };
+    }
+    notifyCollaboratorAccessEnded(account, "removed");
+    logger.info({ businessId, memberId }, "Collaboratore rimosso");
+  }
 
   revalidatePath(SETTINGS_PATH);
   return {};

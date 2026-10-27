@@ -169,6 +169,25 @@ le richieste `/api/*`. Conseguenze:
 > avrebbe identità diversa da quella vista dal test, facendo fallire ogni
 > `instanceof`.
 
+### Le pagine del dashboard restano in cache dopo il logout
+
+Le `NetworkFirst` di `defaultCache` scrivono HTML e payload RSC delle route
+autenticate in quattro cache: `pages`, `pages-rsc`, `pages-rsc-prefetch` e,
+per il resto delle richieste same-origin, `others` (i nomi stanno in
+`PAGES_CACHE_NAME` di `@serwist/next/dist/index.worker.mjs`). La CacheStorage
+è per origin e sopravvive al logout: sul tablet condiviso fra più
+collaboratori (issue #1099) chi entra dopo, offline o a rete lenta, vedrebbe
+lo storico di chi è uscito. Lo stesso vale per la cache di TanStack Query, che
+vive nel provider del root layout e sopravvive alla navigazione verso /login.
+
+`ClearSessionData` (`src/components/clear-session-data.tsx`), montato dal
+layout `(auth)`, svuota carrello, cache di TanStack Query e quelle quattro
+cache a ogni arrivo su una pagina senza sessione. Cancellarle dalla pagina
+basta: `caches.delete` dalla window vede la stessa CacheStorage del worker.
+**Se `defaultCache` cambia nome o aggiunge cache per le pagine, la lista in
+`clear-session-data.tsx` va aggiornata**: il test pinna i quattro nomi di
+oggi, non quelli che Serwist userà domani.
+
 `src/components/pwa/` contiene gli hook lato client per install prompt e
 update detection — sono Client Components che usano `window.matchMedia` e
 listener `beforeinstallprompt`. Da non importare in Server Component.

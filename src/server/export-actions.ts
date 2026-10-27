@@ -1,8 +1,9 @@
 "use server";
 
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
+  businessMembers,
   businesses,
   catalogItems,
   commercialDocumentLines,
@@ -208,4 +209,79 @@ export async function exportUserData(): Promise<ExportUserDataResult> {
       })),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// exportCollaboratorData
+// ---------------------------------------------------------------------------
+
+export interface ExportCollaboratorDataResult {
+  error?: string;
+  data?: {
+    exportedAt: string;
+    collaborator: {
+      name: string | null;
+      email: string | null;
+      joinedAt: Date;
+      termsAcceptedAt: Date | null;
+      termsVersion: string | null;
+      collaboratorTermsVersion: string | null;
+      lastSeenAt: Date | null;
+    };
+    business: { businessName: string | null };
+  };
+}
+
+/**
+ * Esporta i dati personali del collaboratore (GDPR art. 20, issue #1099): chi
+ * è, cosa ha accettato, quando è entrato l'ultima volta e per quale attività
+ * lavora. I documenti che ha emesso sono dell'attività e li esporta il
+ * titolare. Lettura: degrada invece di lanciare (regola 19).
+ */
+export async function exportCollaboratorData(): Promise<ExportCollaboratorDataResult> {
+  let user: { id: string };
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "exportCollaboratorData");
+  }
+
+  try {
+    const [row] = await getDb()
+      .select({
+        name: businessMembers.name,
+        email: businessMembers.email,
+        joinedAt: businessMembers.createdAt,
+        termsAcceptedAt: businessMembers.termsAcceptedAt,
+        termsVersion: businessMembers.termsVersion,
+        collaboratorTermsVersion: businessMembers.collaboratorTermsVersion,
+        lastSeenAt: businessMembers.lastSeenAt,
+        businessName: businesses.businessName,
+      })
+      .from(businessMembers)
+      .innerJoin(businesses, eq(businesses.id, businessMembers.businessId))
+      .where(
+        and(
+          eq(businessMembers.authUserId, user.id),
+          eq(businessMembers.role, "collaborator"),
+        ),
+      )
+      .limit(1);
+
+    if (!row) {
+      return { error: "Nessun dato da collaboratore per questo account." };
+    }
+
+    const { businessName, ...collaborator } = row;
+    return {
+      data: {
+        exportedAt: new Date().toISOString(),
+        collaborator,
+        business: { businessName },
+      },
+    };
+  } catch (err) {
+    logger.error({ err, userId: user.id }, "exportCollaboratorData failed");
+    return { error: "Servizio temporaneamente non disponibile. Riprova." };
+  }
 }

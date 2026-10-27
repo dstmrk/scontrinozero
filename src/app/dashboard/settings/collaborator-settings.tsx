@@ -1,15 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
+import { ExportDataSection } from "@/components/settings/export-data-section";
+import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
 import { PreferencesCard } from "@/components/settings/preferences-card";
 import { SupportCard } from "@/components/settings/support-card";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
 
 /**
  * Impostazioni del collaboratore (issue #1099): il suo accesso, le preferenze
- * del dispositivo e l'assistenza. Attività, credenziali AdE, abbonamento,
- * referral e chiavi API sono del titolare. Export dei dati e cancellazione
- * dell'account arrivano con gli inviti, che danno al collaboratore i suoi
- * dati personali.
+ * del dispositivo, l'assistenza, l'export dei suoi dati e l'uscita
+ * dall'attività. Attività, credenziali AdE, abbonamento, referral e chiavi API
+ * sono del titolare. Export e cancellazione sono le stesse sezioni del
+ * titolare, che scelgono testo e action dal ruolo.
  */
 export function CollaboratorSettings({
   email,
@@ -41,9 +44,15 @@ export function CollaboratorSettings({
 
       <SupportCard accountEmail={email} plan={plan} />
 
-      <p className="text-muted-foreground text-sm">
-        ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
-      </p>
+      <ExtraSettingsSection>
+        <ExportDataSection />
+
+        <AccountDeleteSection />
+
+        <p className="text-muted-foreground text-sm">
+          ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
+        </p>
+      </ExtraSettingsSection>
     </div>
   );
 }

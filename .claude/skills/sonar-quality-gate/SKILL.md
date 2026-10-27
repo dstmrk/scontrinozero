@@ -38,6 +38,15 @@ Se un file ha **no testable logic** (pure config, UI shell):
 - E al `exclude` in `vitest.config.ts`
 - Mai lasciare untested senza esclusione esplicita
 
+⚠️ **Ogni `page.tsx` nuovo va elencato a mano.** `vitest.config.ts` esclude
+`src/app/**/page.tsx` in blocco, quindi una pagina non produce mai righe in
+`lcov.info`; `sonar.coverage.exclusions` invece elenca le pagine una a una (la
+glob vale solo per `help/`). Una pagina nuova non elencata conta come codice
+nuovo scoperto al 100% e può far cadere il gate sotto l'80%. Se la pagina ha
+logica (letture, rami di stato), quella logica va in un file accanto con la
+sua suite e `page.tsx` resta un guscio elencato: è ciò che fa
+`src/app/(auth)/invito/[token]/` (`invite-view.ts`, `invite-unavailable.tsx`).
+
 **Service worker files (`src/sw.ts`)** devono essere in `sonar.exclusions`
 (non solo coverage exclusions). Usano WebWorker-specific globals
 (`ServiceWorkerGlobalScope`, `declare const self`) che confliggono con la DOM

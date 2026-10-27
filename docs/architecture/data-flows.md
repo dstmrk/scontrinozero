@@ -60,7 +60,7 @@
    collaboratori, credenziali Fisconline verificate, Condizioni per i
    collaboratori accettate nella versione corrente (`acceptCollaboratorTerms`,
    `profiles.collaborator_terms_*`).
-2. `inviteCollaborator` (`src/server/invite-actions.ts`) rifà gli stessi
+2. `inviteCollaborator` (`src/server/collaborator-actions.ts`) rifà gli stessi
    controlli, rifiuta un'email che ha già un account (`emailHasAccount`,
    rischio accettato in `docs/architecture/accepted-risks.md`) e applica i
    limiti di `docs/architecture/config-manifest.md` (`countTeamSeats` per la
@@ -85,6 +85,34 @@
    rifiuta CIE e `connectAdeWithSpid` rifiuta SPID
    (`hasCollaboratorsOrOpenInvites`): con più persone alla cassa l'accesso
    resta con Fisconline.
+
+## Uscita di un collaboratore
+
+1. Il collaboratore non ha un profilo: la cascata FK di `profiles` porta via
+   la sua riga di `business_members` ma non il suo account auth. Ogni uscita
+   passa quindi da `src/lib/services/collaborator-account.ts`:
+   `removeCollaboratorAccount` cancella l'account (`deleteAuthUser` in
+   `src/lib/services/auth-user-delete.ts`, con retry) e stacca la riga
+   (niente account, email né ultimo accesso; il nome resta e attribuisce i
+   documenti); `notifyCollaboratorAccessEnded` manda
+   `src/emails/collaborator-access-ended.tsx`.
+2. Il titolare rimuove un collaboratore dalla card
+   (`src/components/settings/collaborator-member-list.tsx`, che mostra anche
+   l'ultimo accesso) con `removeCollaborator`. L'effetto è immediato, perché
+   ogni azione rilegge l'appartenenza per auth user.
+3. Il collaboratore esce da solo con `deleteAccount`: stessa password di
+   conferma del titolare, poi il ramo `leaveBusiness`, senza Stripe né
+   purge. Il suo export GDPR è `exportCollaboratorData`: dati personali, non
+   i documenti dell'attività.
+4. Cancellazione del titolare, self-service o sweep: `purgeUserById` cancella
+   prima gli account dei collaboratori e si ferma con il titolare intatto se
+   uno fallisce; a titolare cancellato li avvisa. Lo sweep di inattività
+   (`src/lib/services/inactive-user-prune.ts`) conta anche
+   `business_members.last_seen_at`, scritto da `touchLastSeen` nella stessa
+   query del profilo: un'attività con collaboratori attivi non si cancella.
+5. Logout su un dispositivo condiviso: `ClearSessionData`
+   (`src/components/clear-session-data.tsx`, layout `(auth)`) svuota carrello,
+   cache di TanStack Query e cache delle pagine del service worker.
 
 ## Emissione scontrino (cassa)
 
