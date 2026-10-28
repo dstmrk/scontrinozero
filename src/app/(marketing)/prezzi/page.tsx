@@ -6,6 +6,7 @@ import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const { starter, pro, team } = PLAN_PRICES;
 
@@ -14,10 +15,10 @@ const PAGE_URL = `${SITE_URL}/prezzi`;
 
 export const metadata: Metadata = {
   title: "Prezzi",
-  description: `Starter da ${starter.yearlyPerMonth}/mese (${starter.yearly}/anno), Pro da ${pro.yearlyPerMonth}/mese (${pro.yearly}/anno), Team con i collaboratori da ${team.yearlyPerMonth}/mese (${team.yearly}/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.`,
+  description: `Starter da ${starter.yearlyPerMonth}/mese (${starter.yearly}/anno), Pro da ${pro.yearlyPerMonth}/mese (${pro.yearly}/anno), Team con i collaboratori da ${team.yearlyPerMonth}/mese (${team.yearly}/anno). ${TRIAL_DAYS} giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.`,
   openGraph: {
     title: `Prezzi ScontrinoZero | Starter da ${starter.yearlyPerMonth}/mese · Pro da ${pro.yearlyPerMonth}/mese`,
-    description: `Starter da ${starter.yearlyPerMonth}/mese (${starter.yearly}/anno), Pro da ${pro.yearlyPerMonth}/mese (${pro.yearly}/anno), Team con i collaboratori da ${team.yearlyPerMonth}/mese (${team.yearly}/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.`,
+    description: `Starter da ${starter.yearlyPerMonth}/mese (${starter.yearly}/anno), Pro da ${pro.yearlyPerMonth}/mese (${pro.yearly}/anno), Team con i collaboratori da ${team.yearlyPerMonth}/mese (${team.yearly}/anno). ${TRIAL_DAYS} giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.`,
     url: PAGE_URL,
   },
   alternates: {
@@ -130,8 +131,7 @@ const comparisonRows: ComparisonRow[] = [
 const pricingFaqs: { question: string; answer: string }[] = [
   {
     question: "Serve la carta di credito per la prova gratuita?",
-    answer:
-      "No. I 30 giorni di prova non richiedono alcuna carta di credito: ti registri e inizi subito a usare il servizio. Al termine della prova scegli se attivare un piano.",
+    answer: `No. I ${TRIAL_DAYS} giorni di prova non richiedono alcuna carta di credito: ti registri e inizi subito a usare il servizio. Al termine della prova scegli se attivare un piano.`,
   },
   {
     question: "Che differenza c'è tra Starter e Pro?",
@@ -187,7 +187,7 @@ export default function PrezziPage() {
             <span className="text-primary">per la tua attività</span>
           </>
         }
-        subtitle="30 giorni di prova gratuita su tutti i piani. Nessuna carta di credito richiesta per iniziare."
+        subtitle={`${TRIAL_DAYS} giorni di prova gratuita su tutti i piani. Nessuna carta di credito richiesta per iniziare.`}
       />
 
       {/* Pricing toggle + cards */}
@@ -302,11 +302,11 @@ export default function PrezziPage() {
       <section className="px-4 py-16 text-center">
         <h2 className="text-2xl font-bold">Inizia gratis, senza impegno</h2>
         <p className="text-muted-foreground mt-2">
-          30 giorni di prova gratuita. Nessuna carta richiesta.
+          {TRIAL_DAYS} giorni di prova gratuita. Nessuna carta richiesta.
         </p>
         <Button asChild size="lg" className="mt-6">
           <a href={registerHref("prezzi")}>
-            Inizia i 30 giorni gratis
+            Inizia i {TRIAL_DAYS} giorni gratis
             <ArrowRight className="h-4 w-4" />
           </a>
         </Button>

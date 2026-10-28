@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const PAGE_URL = "https://scontrinozero.it/funzionalita";
 
@@ -159,7 +160,7 @@ export default function FunzionalitaPage() {
       >
         <Button asChild size="lg" className="mt-8">
           <a href={registerHref("funzionalita")}>
-            Prova gratis per 30 giorni
+            Prova gratis per {TRIAL_DAYS} giorni
             <ArrowRight className="h-4 w-4" />
           </a>
         </Button>
@@ -208,7 +209,7 @@ export default function FunzionalitaPage() {
           Pronto a emettere il tuo primo scontrino?
         </h2>
         <p className="text-muted-foreground mt-2">
-          30 giorni gratis. Nessuna carta richiesta. Nessun hardware.
+          {TRIAL_DAYS} giorni gratis. Nessuna carta richiesta. Nessun hardware.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Button asChild size="lg">

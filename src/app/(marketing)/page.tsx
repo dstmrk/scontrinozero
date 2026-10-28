@@ -37,6 +37,7 @@ import {
   Store,
 } from "lucide-react";
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const { starter } = PLAN_PRICES;
 
@@ -47,14 +48,14 @@ export const metadata: Metadata = {
     absolute:
       "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
   },
-  description: `Registratore di cassa virtuale per esercenti e micro-attività: emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate dal telefono, senza registratore telematico. 30 giorni gratis, da ${starter.yearly}/anno.`,
+  description: `Registratore di cassa virtuale per esercenti e micro-attività: emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate dal telefono, senza registratore telematico. ${TRIAL_DAYS} giorni gratis, da ${starter.yearly}/anno.`,
   alternates: {
     canonical: "/",
   },
   openGraph: {
     url: "/",
     title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
-    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE dal telefono, senza registratore telematico. Da ${starter.yearly}/anno, 30 giorni gratis.`,
+    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE dal telefono, senza registratore telematico. Da ${starter.yearly}/anno, ${TRIAL_DAYS} giorni gratis.`,
   },
 };
 
@@ -121,7 +122,7 @@ export default function Home() {
                 </a>
               </Button>
               <div className="text-muted-foreground flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm md:justify-start">
-                <span>30 giorni gratis</span>
+                <span>{TRIAL_DAYS} giorni gratis</span>
                 <span aria-hidden="true">·</span>
                 <span>Da {starter.yearlyPerMonth}/mese</span>
                 <span aria-hidden="true">·</span>
@@ -523,8 +524,7 @@ export default function Home() {
               {
                 icon: CalendarRange,
                 title: "Paghi come preferisci",
-                description:
-                  "Mensile o annuale. 30 giorni gratis per iniziare, poi scegli il piano adatto a te. Nessun vincolo.",
+                description: `Mensile o annuale. ${TRIAL_DAYS} giorni gratis per iniziare, poi scegli il piano adatto a te. Nessun vincolo.`,
               },
               {
                 icon: Smartphone,

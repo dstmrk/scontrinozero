@@ -11,6 +11,7 @@ import { RT_COSTS } from "@/lib/marketing/rt-costs";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const { starter } = PLAN_PRICES;
 
@@ -341,8 +342,8 @@ export default function NormativaPos2026Page() {
               di hardware da comprare, installare e verificare ogni due anni, e
               costi fissi molto più bassi. Se hai un RT da rinnovare o un
               contratto di manutenzione costoso, il passaggio può essere
-              interessante. Puoi provare la prova gratuita di 30 giorni senza
-              inserire la carta di credito.
+              interessante.
+              {` Puoi provare la prova gratuita di ${TRIAL_DAYS} giorni senza inserire la carta di credito.`}
             </p>
           </div>
         </div>

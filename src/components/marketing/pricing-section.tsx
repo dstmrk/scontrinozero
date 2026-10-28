@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PLAN_PRICES, type ListedPlan } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 type Billing = "annual" | "monthly";
 
@@ -66,7 +67,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
           I prezzi più bassi del mercato
         </h2>
         <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-          30 giorni di prova gratuita.
+          {TRIAL_DAYS} giorni di prova gratuita.
         </p>
 
         {/* Toggle mensile / annuale */}
@@ -173,7 +174,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
         <div className="mt-8 text-center">
           <Button asChild size="lg">
             <a href={registerHref}>
-              Inizia i 30 giorni gratis
+              Inizia i {TRIAL_DAYS} giorni gratis
               <ArrowRight className="h-4 w-4" />
             </a>
           </Button>

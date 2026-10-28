@@ -6,6 +6,7 @@ import { tools } from "@/lib/strumenti/tools";
 import { confrontoContent } from "@/lib/confronto/comparisons";
 import { isIndexableHost, marketingBaseUrl } from "@/lib/seo-indexable";
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const { starter, pro, team } = PLAN_PRICES;
 
@@ -43,7 +44,7 @@ function buildLlmsTxt(baseUrl: string): string {
     "",
     '> Registratore di cassa virtuale per emettere scontrini elettronici e trasmettere i corrispettivi all\'Agenzia delle Entrate tramite la procedura "documento commerciale online", senza registratore telematico fisico. Web app (PWA) mobile-first per esercenti, micro-attività e regime forfettario in Italia.',
     "",
-    `Piani: Starter (${starter.monthly}/mese o ${starter.yearly}/anno), Pro (${pro.monthly}/mese o ${pro.yearly}/anno) e Team (${team.monthly}/mese o ${team.yearly}/anno), cioè Pro con collaboratori illimitati che emettono con le credenziali Fisconline del titolare; prova gratuita di 30 giorni senza carta; versione self-hosted gratuita.`,
+    `Piani: Starter (${starter.monthly}/mese o ${starter.yearly}/anno), Pro (${pro.monthly}/mese o ${pro.yearly}/anno) e Team (${team.monthly}/mese o ${team.yearly}/anno), cioè Pro con collaboratori illimitati che emettono con le credenziali Fisconline del titolare; prova gratuita di ${TRIAL_DAYS} giorni senza carta; versione self-hosted gratuita.`,
     "",
     `Il testo completo delle guide e delle pagine editoriali è in ${baseUrl}/llms-full.txt.`,
     "",

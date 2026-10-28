@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
  *
  * Stripe resta la fonte di ciò che si addebita: un cambio di prezzo tocca i
  * prezzi su Stripe e questa tabella, nient'altro. Il gate
- * `plan-prices.contract.test.ts` boccia un prezzo di listino scritto a mano
+ * `plan-copy.contract.test.ts` boccia un prezzo di listino scritto a mano
  * fuori da qui.
  */
 

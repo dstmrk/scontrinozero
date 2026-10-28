@@ -1,4 +1,5 @@
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const { starter } = PLAN_PRICES;
 
@@ -75,7 +76,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "ambulanti",
     title: "Registratore di cassa per ambulanti e mercati",
     metaTitle: "Registratore di cassa per ambulanti e mercati",
-    metaDescription: `Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico da comprare. Da ${starter.yearlyPerMonth}/mese, 30 giorni di prova gratuita.`,
+    metaDescription: `Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico da comprare. Da ${starter.yearlyPerMonth}/mese, ${TRIAL_DAYS} giorni di prova gratuita.`,
     heroSubtitle:
       "Emetti scontrini al banco del mercato, dal furgone, ovunque sei. Basta lo smartphone che hai già in tasca.",
     audience: "ambulanti, operatori di mercato, venditori su area pubblica",
@@ -115,7 +116,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "parrucchieri-estetisti",
     title: "Scontrino elettronico per parrucchieri ed estetisti",
     metaTitle: "Scontrino elettronico per parrucchieri ed estetisti",
-    metaDescription: `Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, nessun hardware da comprare. Da ${starter.yearlyPerMonth}/mese, prova 30 giorni gratis.`,
+    metaDescription: `Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, nessun hardware da comprare. Da ${starter.yearlyPerMonth}/mese, prova ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Emetti scontrini dal tablet alla reception o dallo smartphone in cabina, senza ingombrare il banco con un registratore fisico.",
     audience: "parrucchieri, estetisti e operatori dei servizi alla persona",
@@ -157,7 +158,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "artigiani",
     title: "Scontrino elettronico per artigiani e installatori",
     metaTitle: "Scontrino elettronico per artigiani e installatori",
-    metaDescription: `Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
+    metaDescription: `Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da ${starter.yearlyPerMonth}/mese, ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Emetti lo scontrino dal cantiere, dal furgone o dal laboratorio. Niente registratore in officina, niente carta che si perde.",
     audience: "artigiani: idraulici, elettricisti, falegnami, muratori",
@@ -466,7 +467,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "food-truck",
     title: "Scontrino elettronico per food truck e street food",
     metaTitle: "Scontrino elettronico per food truck e street food",
-    metaDescription: `Street food dal furgone o dal chiosco: scontrino elettronico dallo smartphone, aliquote IVA per riga e corrispettivi automatici. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
+    metaDescription: `Street food dal furgone o dal chiosco: scontrino elettronico dallo smartphone, aliquote IVA per riga e corrispettivi automatici. Da ${starter.yearlyPerMonth}/mese, ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Dal festival al mercato serale: scontrini a raffica dallo smartphone o dal tablet in cucina, senza registratore nel furgone.",
     audience:
@@ -551,7 +552,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "tatuatori-piercer",
     title: "Scontrino elettronico per tatuatori e piercer",
     metaTitle: "Scontrino elettronico per tatuatori e piercer",
-    metaDescription: `Studio tattoo o piercing: emetti scontrini per sedute e acconti direttamente dallo smartphone, senza registratore sul bancone. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
+    metaDescription: `Studio tattoo o piercing: emetti scontrini per sedute e acconti direttamente dallo smartphone, senza registratore sul bancone. Da ${starter.yearlyPerMonth}/mese, ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Chiudi la seduta e incassa: lo scontrino esce dal telefono, anche per l'acconto alla prenotazione. Niente registratore sul bancone dello studio.",
     audience: "tatuatori, piercer e studi di tattoo e body piercing",
@@ -599,7 +600,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "ristoranti-bar-asporto",
     title: "Scontrino elettronico per chioschi, asporto e bar stagionali",
     metaTitle: "Scontrino elettronico per chioschi, asporto e bar stagionali",
-    metaDescription: `Chiosco, asporto, bar stagionale: emetti scontrini elettronici dallo smartphone senza registratore telematico. Da ${starter.yearlyPerMonth}/mese, prova 30 giorni gratis.`,
+    metaDescription: `Chiosco, asporto, bar stagionale: emetti scontrini elettronici dallo smartphone senza registratore telematico. Da ${starter.yearlyPerMonth}/mese, prova ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Per chioschi, asporto, delivery e attività stagionali della ristorazione: scontrini dallo smartphone, senza registratore sul bancone.",
     audience:
@@ -941,7 +942,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "noleggio",
     title: "Scontrino elettronico per noleggio bici, attrezzature e sport",
     metaTitle: "Scontrino elettronico per attività di noleggio senza cassa",
-    metaDescription: `Noleggio bici, sup, sci o attrezzature: scontrini elettronici dallo smartphone, perfetti per attività stagionali. Da ${starter.yearlyPerMonth}/mese, prova 30 giorni gratis.`,
+    metaDescription: `Noleggio bici, sup, sci o attrezzature: scontrini elettronici dallo smartphone, perfetti per attività stagionali. Da ${starter.yearlyPerMonth}/mese, prova ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Per il noleggio stagionale — bici, sup, sci, attrezzature — dove la cassa deve stare in un marsupio, non su un banco.",
     audience:
@@ -982,7 +983,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     slug: "stabilimenti-balneari",
     title: "Scontrino elettronico per stabilimenti balneari",
     metaTitle: "Registratore di cassa per stabilimenti balneari e lidi",
-    metaDescription: `Ombrelloni, lettini e abbonamenti stagionali: scontrini dallo smartphone tra le file, con IVA al 22% e bar al 10%. Da ${starter.yearlyPerMonth}/mese, 30 giorni gratis.`,
+    metaDescription: `Ombrelloni, lettini e abbonamenti stagionali: scontrini dallo smartphone tra le file, con IVA al 22% e bar al 10%. Da ${starter.yearlyPerMonth}/mese, ${TRIAL_DAYS} giorni gratis.`,
     heroSubtitle:
       "Batti lo scontrino tra le file di ombrelloni, senza rimandare il cliente in cassa: noleggio al 22% e bar al 10% nello stesso documento.",
     audience:

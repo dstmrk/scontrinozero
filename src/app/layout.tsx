@@ -10,6 +10,7 @@ import {
 import { marketingBaseUrl } from "@/lib/seo-indexable";
 import { UmamiScript } from "@/components/umami-script";
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 import "./globals.css";
 
 const { starter } = PLAN_PRICES;
@@ -50,12 +51,12 @@ export const metadata: Metadata = {
     locale: "it_IT",
     siteName: "ScontrinoZero",
     title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
-    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da ${starter.yearly}/anno, 30 giorni gratis.`,
+    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da ${starter.yearly}/anno, ${TRIAL_DAYS} giorni gratis.`,
   },
   twitter: {
     card: "summary_large_image",
     title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
-    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da ${starter.yearly}/anno, 30 giorni gratis.`,
+    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da ${starter.yearly}/anno, ${TRIAL_DAYS} giorni gratis.`,
   },
   // Google non espone un opt-out dedicato per AI Overviews e AI Mode: la
   // comparsa in quelle superfici e la lunghezza del passaggio citato sono

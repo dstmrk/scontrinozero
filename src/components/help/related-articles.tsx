@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getRelatedArticles } from "@/lib/help/articles";
 import { registerHref } from "@/lib/marketing-to-app-href";
 import { EditorialNote } from "@/components/marketing/editorial-note";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 interface RelatedHelpArticlesProps {
   readonly slug: string;
@@ -30,7 +31,7 @@ export function RelatedHelpArticles({ slug }: RelatedHelpArticlesProps) {
       <div className="bg-muted/40 border-border mt-8 rounded-lg border p-5 text-center">
         <p className="text-sm font-semibold">Pronto a iniziare?</p>
         <p className="text-muted-foreground mt-1 text-sm">
-          {"30 giorni di prova gratuita, senza carta di credito."}
+          {`${TRIAL_DAYS} giorni di prova gratuita, senza carta di credito.`}
         </p>
         <Button asChild className="mt-3">
           <a href={registerHref("help", slug)}>

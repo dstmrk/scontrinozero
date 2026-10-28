@@ -141,11 +141,29 @@ separabile prima di € (nei test si normalizza `\u00a0`). Anche i derivati si
 leggono da lì: "da 2,50 €/mese", "−54%", "invece di 107,88 €" scritti a mano
 divergono al primo cambio di listino come i prezzi.
 
-Il gate è `src/lib/plan-prices.contract.test.ts`: scansiona tutto `src` tranne i
+Il gate è `src/lib/plan-copy.contract.test.ts`: scansiona tutto `src` tranne i
 test e boccia i sei importi di listino scritti a mano, con la virgola o col
 punto. Un prezzo di un concorrente che coincide col nostro (CassaDigitale a
-4,99 €/mese in `src/lib/confronto/comparisons.ts`) va nell'elenco `EXEMPT` del
-gate, col motivo: non si riscrive come template, perché non è il nostro listino.
+4,99 €/mese in `src/lib/confronto/comparisons.ts`) va nell'elenco
+`PRICE_EXEMPT` del gate, col motivo: non si riscrive come template, perché non
+è il nostro listino.
+
+**Durata della prova: `TRIAL_DAYS`.** Lo stesso gate boccia "30 giorni" scritto
+a mano accanto a prova, trial o gratis (fuori dalle righe di commento): nel
+copy si scrive `${TRIAL_DAYS} giorni`, e i 60 giorni di chi arriva con un
+referral sono `TRIAL_DAYS + REFERRAL_BONUS_DAYS`. Gli altri 30 giorni del sito
+(finestra delle analytics, tempi di cancellazione della Privacy) non c'entrano
+e il gate non li tocca. Fanno eccezione, in `TRIAL_EXEMPT`, la prova di un
+concorrente e i Termini v01: un testo legale versionato non diventa template,
+e un test fallisce se `TRIAL_DAYS` smette di coincidere con ciò che dicono,
+perché cambiare la durata della prova vuol dire una nuova versione dei Termini
+(skill `deploy-release`).
+
+Nel JSX, un'espressione che Prettier manda a capo dopo del testo perde lo
+spazio (`invece di` + a capo + `{TRIAL_DAYS}` esce "invece di30"), e il
+`{" "}` che Prettier aggiunge per salvarlo è S6772 per Sonar. Su una frase
+che contiene un valore derivato si scrive il pezzo come espressione unica,
+``{` invece di ${TRIAL_DAYS} giorni`}``, con lo spazio dentro la stringa.
 
 `formatUpdatedAt` formatta la stringa ISO **senza** `new Date()`: una
 data-only è parsata come UTC ma renderizzata in locale, quindi nei fusi

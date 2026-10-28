@@ -11,6 +11,7 @@ import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const { starter, pro, team } = PLAN_PRICES;
 
@@ -38,8 +39,8 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero è disponibile in quattro versioni: tre piani hosted a
           pagamento (Starter, Pro e Team, cioè Pro con i collaboratori) con un
-          trial gratuito di 30 giorni, e una versione self-hosted completamente
-          gratuita per chi preferisce gestire il proprio server.
+          trial gratuito di {TRIAL_DAYS} giorni, e una versione self-hosted
+          completamente gratuita per chi preferisce gestire il proprio server.
         </p>
         <HelpArticleUpdatedAt slug="piani-e-prezzi" />
         <figure className="mt-6">
@@ -262,14 +263,15 @@ export default function PianiEPrezziPage() {
 
         {/* ─── Trial gratuito ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Trial gratuito di 30 giorni
+          Trial gratuito di {TRIAL_DAYS} giorni
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Tutti i nuovi account hanno <strong>30 giorni di prova</strong>{" "}
-          gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata,
-          l&apos;export CSV, gli sconti sullo scontrino, il pagamento misto e il
-          messaggio personalizzato, e fino a 2 collaboratori. Nessuna carta di
-          credito richiesta per iniziare.
+          {"Tutti i nuovi account hanno "}
+          <strong>{TRIAL_DAYS} giorni di prova</strong> gratuita con accesso
+          alle funzioni Pro come l&apos;analytics avanzata, l&apos;export CSV,
+          gli sconti sullo scontrino, il pagamento misto e il messaggio
+          personalizzato, e fino a 2 collaboratori. Nessuna carta di credito
+          richiesta per iniziare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Cosa succede alla scadenza del trial:</strong>
@@ -450,8 +452,9 @@ export default function PianiEPrezziPage() {
           </div>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Ricorda: con il <strong>trial di 30 giorni</strong> provi le funzioni
-          Pro, con il catalogo limitato a 5 prodotti, e decidi alla scadenza.
+          Ricorda: con il <strong>trial di {TRIAL_DAYS} giorni</strong> provi le
+          funzioni Pro, con il catalogo limitato a 5 prodotti, e decidi alla
+          scadenza.
         </p>
 
         <RelatedHelpArticles slug="piani-e-prezzi" />

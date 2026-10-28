@@ -164,7 +164,8 @@ dietro il gate del layout.
 - `src/lib/logger.ts` — unico logger; `error` (≥50) → `Sentry.captureException`
 - `src/lib/plan-prices.ts` — listino dei piani in centesimi e le sue etichette
   (`29,99 €`), unica fonte di prezzi, sconti ed equivalenti mensili su sito e
-  app; gate `src/lib/plan-prices.contract.test.ts` (issue #1106);
+  app; gate `src/lib/plan-copy.contract.test.ts`, che controlla anche
+  `TRIAL_DAYS` (issue #1106);
 - `src/lib/plans.ts` / `src/lib/plans-shared.ts` — gate piani, fonte di verità;
   le server action **e le pagine RSC del dashboard** leggono il piano con
   `getPlanSafe` (envelope `{ ok, error }` su profilo orfano / DB sovraccarico,

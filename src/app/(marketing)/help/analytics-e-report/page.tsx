@@ -11,6 +11,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 export const metadata = helpArticleMetadata("analytics-e-report");
 
@@ -237,9 +238,9 @@ export default function AnalyticsEReportPage() {
           {"."}
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Durante la <strong>prova gratuita di 30 giorni</strong> vedi già
-          Analytics nella versione completa, selettore e grafici inclusi: è un
-          assaggio della versione Pro prima di scegliere il piano.
+          Durante la <strong>prova gratuita di {TRIAL_DAYS} giorni</strong> vedi
+          già Analytics nella versione completa, selettore e grafici inclusi: è
+          un assaggio della versione Pro prima di scegliere il piano.
         </p>
 
         {/* ─── Export CSV ─── */}
