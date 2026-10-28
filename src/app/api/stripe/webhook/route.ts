@@ -9,8 +9,10 @@ import {
 } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
 import { notifyOperatorOfSubscriptionEvent } from "@/lib/operator-notification";
+import { notifyCollaboratorsOfSuspension } from "@/lib/services/collaborator-suspension-notice";
 import {
   classifySubscriptionChange,
+  leavesTeam,
   type NextSubscriptionState,
   type PlanChoice,
   type PreviousSubscriptionState,
@@ -391,6 +393,22 @@ function fireOperatorNotification(
 }
 
 /**
+ * Avvisa i collaboratori del titolare quando il cambio porta via Team (issue
+ * #1099). Stesse regole della mail all'operatore: dopo il commit, senza
+ * attendere, senza poter far fallire il webhook. Se restano davvero fermi lo
+ * decide `notifyCollaboratorsOfSuspension` dal piano effettivo.
+ */
+function fireCollaboratorSuspensionNotice(
+  userId: string,
+  change: SubscriptionChange,
+): void {
+  if (!leavesTeam(change)) return;
+  void notifyCollaboratorsOfSuspension(userId).catch((err) =>
+    logger.warn({ err }, "Collaborator suspension notice failed"),
+  );
+}
+
+/**
  * Classifica la sync appena applicata e, se c'è un cambio da notificare,
  * lancia la mail. Tutto in un try/catch: nemmeno un errore di classificazione
  * deve arrivare al webhook.
@@ -403,7 +421,10 @@ function notifySyncedChange(
 ): void {
   try {
     const change = classifySubscriptionChange(prev, next, selectionFromPriceId);
-    if (change) fireOperatorNotification(userId, change, endsAt);
+    if (change) {
+      fireOperatorNotification(userId, change, endsAt);
+      fireCollaboratorSuspensionNotice(userId, change);
+    }
   } catch (err) {
     logger.warn({ err }, "Operator subscription notification skipped");
   }
@@ -475,7 +496,10 @@ async function handleSubscriptionDeleted(
   if (ended && subRow) {
     try {
       const to = selectionFromPriceId(sub.items.data[0]?.price.id ?? "");
-      if (to) fireOperatorNotification(subRow.userId, { kind: "ended", to });
+      if (to) {
+        fireOperatorNotification(subRow.userId, { kind: "ended", to });
+        fireCollaboratorSuspensionNotice(subRow.userId, { kind: "ended", to });
+      }
     } catch (err) {
       logger.warn({ err }, "Operator subscription notification skipped");
     }

@@ -72,3 +72,16 @@ export function classifySubscriptionChange(
   }
   return null;
 }
+
+/**
+ * Il cambio porta via il piano Team (issue #1099): da Team a un altro piano,
+ * o la fine di un abbonamento Team. È il segnale per avvisare i
+ * collaboratori, non la prova che restino fermi: lo decide il piano effettivo
+ * del titolare dopo il cambio, che con una prova ancora in corso li ammette.
+ */
+export function leavesTeam(change: SubscriptionChange): boolean {
+  if (change.kind === "changed") {
+    return change.from?.plan === "team" && change.to.plan !== "team";
+  }
+  return change.kind === "ended" && change.to.plan === "team";
+}

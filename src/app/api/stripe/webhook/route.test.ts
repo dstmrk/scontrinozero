@@ -18,6 +18,7 @@ const {
   mockLoggerError,
   mockLoggerWarn,
   mockNotifyOperator,
+  mockNotifyCollaboratorsOfSuspension,
 } = vi.hoisted(() => ({
   mockConstructEvent: vi.fn(),
   mockSubscriptionsRetrieve: vi.fn(),
@@ -31,10 +32,15 @@ const {
   mockLoggerError: vi.fn(),
   mockLoggerWarn: vi.fn(),
   mockNotifyOperator: vi.fn(),
+  mockNotifyCollaboratorsOfSuspension: vi.fn(),
 }));
 
 vi.mock("@/lib/operator-notification", () => ({
   notifyOperatorOfSubscriptionEvent: mockNotifyOperator,
+}));
+
+vi.mock("@/lib/services/collaborator-suspension-notice", () => ({
+  notifyCollaboratorsOfSuspension: mockNotifyCollaboratorsOfSuspension,
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -1090,6 +1096,7 @@ describe("POST /api/stripe/webhook — notifica all'operatore sugli eventi di ab
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
     mockUpdate.mockReturnValue(makeUpdateBuilder());
     mockNotifyOperator.mockResolvedValue(undefined);
+    mockNotifyCollaboratorsOfSuspension.mockResolvedValue(undefined);
     mockPlanFromPriceId.mockImplementation((id: string) =>
       id === "price_starter" ? "starter" : id === "price_pro" ? "pro" : null,
     );
@@ -1181,6 +1188,86 @@ describe("POST /api/stripe/webhook — notifica all'operatore sugli eventi di ab
       { kind: "cancel_scheduled", to: { plan: "pro", interval: "month" } },
       new Date(PERIOD_END * 1000),
     );
+  });
+
+  describe("collaboratori sospesi (issue #1099)", () => {
+    beforeEach(() => {
+      mockPlanFromPriceId.mockImplementation(
+        (id: string) =>
+          ({ price_team: "team", price_pro: "pro", price_starter: "starter" })[
+            id
+          ] ?? null,
+      );
+    });
+
+    function deletedEvent(priceId: string) {
+      return {
+        id: `evt_del_${priceId}`,
+        type: "customer.subscription.deleted",
+        created: 1_700_000_000,
+        data: {
+          object: {
+            id: "sub_123",
+            customer: "cus_123",
+            items: { data: [{ price: { id: priceId } }] },
+          },
+        },
+      };
+    }
+
+    it("da Team a Pro avvisa i collaboratori del titolare", async () => {
+      previousRow({ status: "active", stripePriceId: "price_team" });
+      mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+      const res = await POST(makeRequest());
+
+      expect(res.status).toBe(200);
+      expect(mockNotifyCollaboratorsOfSuspension).toHaveBeenCalledWith(
+        "user-123",
+      );
+    });
+
+    it("da Pro a Team no", async () => {
+      previousRow({ status: "active", stripePriceId: "price_pro" });
+      mockConstructEvent.mockReturnValue(updatedEvent("price_team"));
+
+      await POST(makeRequest());
+
+      expect(mockNotifyCollaboratorsOfSuspension).not.toHaveBeenCalled();
+    });
+
+    it("la fine di un abbonamento Team li avvisa", async () => {
+      previousRow({ status: "active", stripePriceId: "price_team" });
+      mockConstructEvent.mockReturnValue(deletedEvent("price_team"));
+
+      await POST(makeRequest());
+
+      expect(mockNotifyCollaboratorsOfSuspension).toHaveBeenCalledWith(
+        "user-123",
+      );
+    });
+
+    it("la fine di un abbonamento Pro no", async () => {
+      previousRow({ status: "active", stripePriceId: "price_pro" });
+      mockConstructEvent.mockReturnValue(deletedEvent("price_pro"));
+
+      await POST(makeRequest());
+
+      expect(mockNotifyCollaboratorsOfSuspension).not.toHaveBeenCalled();
+    });
+
+    it("un avviso che fallisce non tocca la risposta del webhook", async () => {
+      previousRow({ status: "active", stripePriceId: "price_team" });
+      mockNotifyCollaboratorsOfSuspension.mockRejectedValue(new Error("boom"));
+      mockConstructEvent.mockReturnValue(updatedEvent("price_pro"));
+
+      const res = await POST(makeRequest());
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(res.status).toBe(200);
+      expect(mockDelete).not.toHaveBeenCalled();
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    });
   });
 
   it("rinnovo o evento ripetuto sullo stesso stato: nessuna notifica", async () => {
