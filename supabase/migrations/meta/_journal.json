@@ -330,6 +330,13 @@
       "when": 1793133728275,
       "tag": "0046_business_members_last_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793199463651,
+      "tag": "0047_profile_fks_on_delete_cascade",
+      "breakpoints": true
     }
   ]
 }

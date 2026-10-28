@@ -18,6 +18,8 @@ import { profiles } from "./profiles";
  * partner" (query su `referral_redemptions`).
  *
  * `active`: disabilita il subdomain senza cancellare la riga (audit storico).
+ * La riga si cancella invece con il profilo del partner (migrazione 0047):
+ * senza cascata bloccava la cancellazione del suo account.
  */
 export const partners = pgTable("partners", {
   id: uuid("id")
@@ -27,7 +29,7 @@ export const partners = pgTable("partners", {
   label: text("label").notNull(),
   referrerProfileId: uuid("referrer_profile_id")
     .notNull()
-    .references(() => profiles.id),
+    .references(() => profiles.id, { onDelete: "cascade" }),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

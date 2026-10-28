@@ -43,6 +43,10 @@ export type PurgeUserResult = {
  *                         → commercial_documents → commercial_document_lines
  *                         → catalog_items
  *
+ * Più `api_keys` (0004), `referral_redemptions` e `partners` (0047). Una FK
+ * verso `profiles` senza cascata fa fallire la DELETE del profilo dopo quella
+ * dell'auth user: il gate è `src/db/schema/profile-foreign-keys.test.ts`.
+ *
  * La riga `subscriptions` NON è nella cascata (nessuna FK verso auth.users né
  * verso profiles), quindi va cancellata esplicitamente qui: senza questa DELETE
  * resterebbe orfana e i webhook Stripe continuerebbero a sincronizzarla con un
