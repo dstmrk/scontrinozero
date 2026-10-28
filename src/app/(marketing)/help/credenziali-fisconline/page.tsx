@@ -257,6 +257,17 @@ export default function CredenzialiPage() {
           <strong>800 90 96 96</strong>
           {" (gratuito da telefono fisso, lun–ven 9–17)."}
         </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {
+            "Con i collaboratori la password scaduta ferma anche loro: ScontrinoZero ti avvisa per email, e loro vedono un messaggio che chiede di avvisarti. "
+          }
+          <a
+            href="/help/collaboratori#password"
+            className="text-primary hover:underline"
+          >
+            Cosa succede con un team
+          </a>
+        </p>
 
         {/* ─── Domande frequenti ─── */}
         <h2 className="mt-10 text-xl font-semibold">Domande frequenti</h2>

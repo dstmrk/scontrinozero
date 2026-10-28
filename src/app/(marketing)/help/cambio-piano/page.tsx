@@ -178,6 +178,26 @@ export default function CambioPianoPage() {
           {"."}
         </p>
 
+        {/* ─── Lasciare Team ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Passare da Team a Pro o Starter
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Nel portale Stripe scegli il nuovo piano. I collaboratori restano
+          nella card Collaboratori ma non possono più emettere, annullare o fare
+          resi: ricevono un&apos;email, e i loro scontrini restano consultabili.
+          Se torni a Team riprendono da dove erano.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {"Dettagli: "}
+          <Link
+            href="/help/collaboratori#cambio-piano"
+            className="text-primary hover:underline"
+          >
+            cosa succede ai collaboratori quando cambi piano
+          </Link>
+        </p>
+
         {/* ─── Fatturazione ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Dove trovo la ricevuta del pagamento?

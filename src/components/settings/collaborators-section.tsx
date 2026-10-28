@@ -86,8 +86,17 @@ export function CollaboratorsSection({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-muted-foreground text-sm">
-          Chi inviti emette scontrini per l&apos;attività con un accesso suo:
-          vede solo i documenti che ha emesso e non vede le credenziali AdE.
+          {
+            "Chi inviti emette scontrini per l'attività con un accesso suo: vede solo i documenti che ha emesso e non vede le credenziali AdE. "
+          }
+          {/* Path relativo: dal dominio app il middleware porta al dominio
+              marketing, come in `ReceiptNoteCard`. */}
+          <a
+            href="/help/collaboratori"
+            className="text-primary hover:underline"
+          >
+            Come funziona
+          </a>
         </p>
 
         <InviteStep

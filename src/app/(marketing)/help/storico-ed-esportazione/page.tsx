@@ -124,6 +124,26 @@ export default function StoricoEdEsportazionePage() {
               <strong>Emesso</strong>: un reso trasmesso non si annulla.
             </p>
           </div>
+          <div>
+            <p className="text-sm font-medium">Emesso da</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Compare se hai almeno un collaboratore, anche rimosso: mostra i
+              documenti del titolare, di un collaboratore o della Developer API.
+              Sotto il numero degli scontrini che non hai emesso tu trovi il
+              nome di chi li ha emessi. Con questo filtro i documenti
+              dell&apos;archivio dell&apos;Agenzia restano fuori, perché
+              l&apos;archivio non sa chi li ha emessi.
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              {"Chi inviti e cosa vede: "}
+              <Link
+                href="/help/collaboratori"
+                className="text-primary hover:underline"
+              >
+                Collaboratori e piano Team
+              </Link>
+            </p>
+          </div>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Premi <strong>Cerca</strong> per applicare i filtri. Il numero totale
@@ -397,6 +417,14 @@ export default function StoricoEdEsportazionePage() {
                 </td>
               </tr>
               <tr>
+                <td className="py-2 pr-4 font-mono text-xs">emesso_da</td>
+                <td className="py-2">
+                  Chi ha emesso il documento: Titolare, il nome del
+                  collaboratore o Developer API; vuota sulle righe
+                  dell&apos;Agenzia
+                </td>
+              </tr>
+              <tr>
                 <td className="py-2 pr-4 font-mono text-xs">id_scontrino</td>
                 <td className="py-2">
                   Identificativo interno: è il riferimento da citare se scrivi
@@ -470,6 +498,12 @@ export default function StoricoEdEsportazionePage() {
                   Aliquota IVA della voce (<code>4</code>, <code>5</code>,{" "}
                   <code>10</code>, <code>22</code>) oppure il codice natura per
                   le operazioni non soggette (<code>N1</code>–<code>N6</code>)
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">emesso_da</td>
+                <td className="py-2">
+                  Chi ha emesso lo scontrino, come nel riepilogo
                 </td>
               </tr>
               <tr>

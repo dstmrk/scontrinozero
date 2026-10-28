@@ -74,8 +74,15 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   l'avviso per chi oggi usa CIE o SPID); nella prova i collaboratori sono
   **al massimo 2**; Team non ha altre feature oltre a Pro, quindi niente
   elenchi che gli attribuiscano più di questo. Il nome del collaboratore sullo
-  scontrino **non** compare (attribuzione solo interna). Le pagine help e le
-  guide dedicate ai collaboratori arrivano con la PR 7 della stessa issue.
+  scontrino **non** compare (attribuzione solo interna). La pagina di
+  riferimento è `/help/collaboratori` (inviti, permessi, Fisconline,
+  credenziali rifiutate, cambio piano, rimozione): le altre pagine rimandano
+  lì invece di ripetere. Nessuna guida in `/guide` per ora: la verifica
+  fiscale sull'emissione da parte dei collaboratori è ancora un prerequisito
+  manuale della issue #1099, e una guida educativa ne darebbe l'esito per
+  scontato. Al titolare con collaboratori arriva un'email quando l'AdE
+  rifiuta le credenziali, non un promemoria a 90 giorni: non promettere un
+  avviso prima della scadenza.
   Nell'app, su Starter, Pro e con la prova scaduta, la card Collaboratori si
   vede bloccata: «Li include il piano Team.» è una constatazione che vale
   anche nel guscio nativo, e accanto c'è il requisito Fisconline, perché da
@@ -247,6 +254,11 @@ grep -rn "<termine>" 'src/app/(marketing)' src/components/marketing src/componen
 ```
 
 e aggiorna ogni occorrenza stale nei data file / componenti sopra.
+
+Le colonne dell'export CSV hanno un gate: `csv-columns.contract.test.ts`
+accanto alla pagina `/help/storico-ed-esportazione` fallisce se una colonna
+dei due file manca dalle sue tabelle. Nasce da `emesso_da`, entrata nel CSV
+con la issue #1099 senza entrare nell'help.
 
 ## Checklist GEO (per ogni contenuto nuovo o aggiornato)
 
