@@ -151,12 +151,65 @@ describe("CollaboratorsCard", () => {
     expect(sectionProps().blocker.step).toBe("fisconline");
   });
 
-  it("non c'è su un piano senza collaboratori e senza nessuno da gestire", async () => {
+  // Decisione 2 della issue #1099: su Starter e Pro la sezione si vede,
+  // bloccata, con il rimando a Team.
+  it.each([
+    ["Starter", { plan: "starter", trialStartedAt: null, planExpiresAt: null }],
+    ["Pro", { plan: "pro", trialStartedAt: null, planExpiresAt: null }],
+    [
+      "la prova scaduta",
+      {
+        plan: "trial",
+        trialStartedAt: new Date("2020-01-01T10:00:00Z"),
+        planExpiresAt: null,
+      },
+    ],
+  ] as const)(
+    "con %s c'è, bloccata, anche senza nessuno da gestire",
+    async (_label, planInfo) => {
+      await renderCard({ planInfo });
+
+      expect(sectionProps().blocker.step).toBe("plan");
+      expect(sectionProps().members).toEqual([]);
+      expect(sectionProps().invites).toEqual([]);
+    },
+  );
+
+  it("non c'è sui piani developer, che non hanno la cassa", async () => {
     const { container } = await renderCard({
-      planInfo: { plan: "pro", trialStartedAt: null, planExpiresAt: null },
+      planInfo: {
+        plan: "developer_indie",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      },
     });
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("su un piano developer resta se ci sono inviti da revocare", async () => {
+    mockListTeam.mockResolvedValue({
+      members: [],
+      invites: [
+        {
+          id: "inv-1",
+          email: "luca@example.com",
+          expiresAt: new Date("2099-10-30T10:00:00Z"),
+          expired: false,
+        },
+      ],
+    });
+
+    await renderCard({
+      planInfo: {
+        plan: "developer_business",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      },
+    });
+
+    expect(sectionProps().blocker.step).toBe("plan");
+    expect(sectionProps().invites).toHaveLength(1);
   });
 
   it("resta dopo un downgrade, se ci sono inviti da revocare", async () => {

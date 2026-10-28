@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { WebBillingOnly } from "@/components/billing/web-billing-only";
 import type { OwnerInviteBlocker } from "@/lib/collaborator-invites";
+import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
 import {
   acceptCollaboratorTerms,
   inviteCollaborator,
@@ -156,6 +158,26 @@ function InviteStep({
 }>) {
   if (blocker?.step === "terms") {
     return <TermsAcceptance businessId={businessId} onFeedback={onFeedback} />;
+  }
+  if (blocker?.step === "plan") {
+    // Decisione 2 della issue #1099: le frasi sono constatazioni e valgono
+    // anche nel guscio nativo; il link all'acquisto lo rende solo il browser
+    // (issue #1044). Il requisito Fisconline si dichiara prima dell'acquisto
+    // (decisione 7): da Pro si passa a Team nel portale Stripe, fuori dalla
+    // nostra UI.
+    return (
+      <div className="space-y-3">
+        <p className="text-sm">{blocker.message} Li include il piano Team.</p>
+        <p className="text-muted-foreground text-xs">
+          I collaboratori richiedono le credenziali Fisconline.
+        </p>
+        <WebBillingOnly>
+          <Button asChild size="sm">
+            <a href={BILLING_SETTINGS_HREF}>Passa a Team</a>
+          </Button>
+        </WebBillingOnly>
+      </div>
+    );
   }
   if (blocker?.step === "fisconline") {
     return (

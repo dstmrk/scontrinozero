@@ -76,6 +76,13 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   elenchi che gli attribuiscano più di questo. Il nome del collaboratore sullo
   scontrino **non** compare (attribuzione solo interna). Le pagine help e le
   guide dedicate ai collaboratori arrivano con la PR 7 della stessa issue.
+  Nell'app, su Starter, Pro e con la prova scaduta, la card Collaboratori si
+  vede bloccata: «Li include il piano Team.» è una constatazione che vale
+  anche nel guscio nativo, e accanto c'è il requisito Fisconline, perché da
+  Pro si passa a Team nel portale Stripe; il bottone «Passa a Team» sta in
+  `WebBillingOnly`
+  ed è coperto dal gate `native-billing.contract.test.ts`. I piani
+  developer non la vedono: non hanno la cassa.
 
 - Il **reso merce** (documento commerciale di reso) è **spedito su tutti i
   piani**, Starter compreso: è un adempimento dell'esercente, non una feature

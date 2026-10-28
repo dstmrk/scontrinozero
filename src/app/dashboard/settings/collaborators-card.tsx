@@ -9,7 +9,7 @@ import {
 import { formatRomeDate } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import type { PlanInfo } from "@/lib/plans";
-import { getCollaboratorLimit } from "@/lib/plans-shared";
+import { getCollaboratorLimit, isDeveloperPlan } from "@/lib/plans-shared";
 
 type Props = Readonly<{
   businessId: string | undefined;
@@ -24,10 +24,12 @@ type Props = Readonly<{
  * Legge da sé collaboratori e inviti, così la pagina la monta in un
  * `Suspense` senza aspettarla.
  *
- * C'è quando il piano ammette collaboratori, e anche dopo un downgrade finché
- * resta qualcuno da gestire: con un invito in sospeso il passaggio a CIE o
- * SPID è bloccato, e il titolare deve poterlo revocare. Il blocco con upsell
- * per Starter e Pro arriva con la PR 7.
+ * C'è anche quando il piano non ammette collaboratori: su Starter, Pro e con
+ * la prova scaduta la sezione si vede bloccata, con il rimando a Team
+ * (decisione 2). Dopo un downgrade serve anche a gestire chi resta: con un
+ * invito in sospeso il passaggio a CIE o SPID è bloccato, e il titolare deve
+ * poterlo revocare. Non c'è sui piani developer, che non hanno la cassa:
+ * proporre Team lì vorrebbe dire proporre un altro prodotto.
  */
 export async function CollaboratorsCard({
   businessId,
@@ -64,7 +66,7 @@ export async function CollaboratorsCard({
     verifiedAt: credentials?.verifiedAt ?? null,
   });
   if (
-    blocker?.step === "plan" &&
+    isDeveloperPlan(planInfo.plan) &&
     team.members.length === 0 &&
     team.invites.length === 0
   ) {
