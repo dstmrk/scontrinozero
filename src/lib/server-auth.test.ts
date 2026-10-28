@@ -77,6 +77,12 @@ vi.mock("@sentry/nextjs", () => ({
   setUser: (...args: unknown[]) => mockSentrySetUser(...args),
 }));
 
+const mockNotifyOwnerOfAdeRejection = vi.fn();
+vi.mock("@/lib/services/ade-rejection-notice", () => ({
+  notifyOwnerOfAdeRejection: (...args: unknown[]) =>
+    mockNotifyOwnerOfAdeRejection(...args),
+}));
+
 // --- Helpers ---
 
 const FAKE_USER = { id: "user-123", email: "test@example.com" };
@@ -632,6 +638,22 @@ describe("server-auth", () => {
         });
       });
 
+      it("avvisa il titolare una volta sola, quando ferma davvero i login", async () => {
+        mockExecute.mockResolvedValueOnce([{ id: "cred-1" }]);
+        mockExecute.mockResolvedValueOnce([]);
+        const params = await rejectedParams();
+
+        await params.onLoginRejected("password_expired");
+        await params.onLoginRejected("password_expired");
+
+        expect(mockNotifyOwnerOfAdeRejection).toHaveBeenCalledTimes(1);
+        expect(mockNotifyOwnerOfAdeRejection).toHaveBeenCalledWith({
+          businessId: "biz-789",
+          outcome: "password_expired",
+          credentialVersion: CREDENTIAL_VERSION,
+        });
+      });
+
       it("un errore del DB non lancia: il rifiuto originale deve risalire", async () => {
         mockExecute.mockRejectedValueOnce(new Error("DB down"));
         const params = await rejectedParams();
@@ -639,6 +661,7 @@ describe("server-auth", () => {
         await expect(params.onLoginRejected("auth_error")).resolves.toBe(
           undefined,
         );
+        expect(mockNotifyOwnerOfAdeRejection).not.toHaveBeenCalled();
         expect(mockLoggerWarn).toHaveBeenCalledWith(
           expect.objectContaining({
             businessId: "biz-789",

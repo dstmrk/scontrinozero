@@ -140,7 +140,9 @@
    `src/lib/server-auth.ts`) azzera `ade_credentials.verified_at`. Da lì
    `fetchAdePrerequisites` ferma l'operazione prima del login finché il
    titolare non risalva o riverifica; con la password scaduta risponde
-   `ADE_PASSWORD_EXPIRED` come il login che l'ha scoperta.
+   `ADE_PASSWORD_EXPIRED` come il login che l'ha scoperta. Sulla stessa
+   transizione, se l'attività ha collaboratori con un accesso, parte un'email
+   al titolare (`src/lib/services/ade-rejection-notice.ts`), senza attenderla.
 5. **Ramo interattivo** (login method `cie` o `spid`): la sessione vive in
    `src/lib/ade/interactive-session-store.ts` e **non è rinnovabile in
    silenzio** (push CIE, o login SPID nella webview dell'app nativa adottato

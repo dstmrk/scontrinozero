@@ -360,6 +360,16 @@ ferma tutto su due livelli:
   stesso errore se portano lo stesso `credentialVersion`; un login riuscito o
   `invalidate()` cancellano il marker.
 
+Il passaggio del DB, che avviene una volta per episodio, è anche il punto in
+cui il titolare con collaboratori riceve un'email
+(`notifyOwnerOfAdeRejection` in `src/lib/services/ade-rejection-notice.ts`).
+**Non stimiamo la scadenza a 90 giorni della password Fisconline**: la data
+la conosce solo l'AdE, la password si può cambiare sul portale senza passare
+dall'app, e un promemoria calcolato dal salvataggio in ScontrinoZero
+sbaglierebbe proprio quando serve. Il rifiuto invece è un fatto. Se un giorno
+la risposta di `/api/login/telematico` mostrasse la scadenza, un promemoria
+vero si costruirebbe da lì.
+
 Due trappole. La re-auth su 401 traduceva ogni fallimento in
 `AdeSessionExpiredError`: un rifiuto delle credenziali deve risalire com'è,
 o non ferma nulla. E `last_verify_outcome` **non** si azzera al salvataggio,
