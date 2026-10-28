@@ -16,6 +16,7 @@ import {
   AdeAuthError,
   AdeNetworkError,
   AdePasswordExpiredError,
+  AdePortalError,
 } from "./errors";
 
 const FAKE_CREDENTIALS = {
@@ -297,6 +298,39 @@ describe("withAdeSession (credenziali rifiutate)", () => {
       AdeNetworkError,
     );
     expect(params.onLoginRejected).not.toHaveBeenCalled();
+  });
+
+  // Issue #1130: client reale e cache vera, solo `fetch` finto. Un 503 del
+  // portale IAM al login non deve arrivare a `onLoginRejected` né restare in
+  // memoria come rifiuto: l'operazione dopo rifà il login.
+  it("real mode: un 503 al login non è un rifiuto e non ferma il login successivo", async () => {
+    vi.stubEnv("ADE_MODE", "real");
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response("<html>Servizio non disponibile</html>", {
+          status: 503,
+          headers: { "Content-Type": "text/html" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const params = { ...fisconlineParams(), businessId: "biz-1130" };
+
+    try {
+      await expect(withAdeSession(params, vi.fn())).rejects.toBeInstanceOf(
+        AdePortalError,
+      );
+      await expect(withAdeSession(params, vi.fn())).rejects.toBeInstanceOf(
+        AdePortalError,
+      );
+
+      expect(params.onLoginRejected).not.toHaveBeenCalled();
+      // Una POST di Phase A per operazione: la seconda non è stata saltata.
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+      await adeSessionCache.invalidate("biz-1130");
+    }
   });
 
   it("un'operazione riuscita non segnala nulla", async () => {

@@ -637,7 +637,8 @@ export class RealAdeClient implements AdeClient {
    *
    * Nuovo endpoint: POST /api/login/telematico
    * Body JSON: {"username": CF, "password": pwd, "pin": pin}
-   * 200 = successo, non-200 → AdeAuthError
+   * 200 = successo, 401 → rifiuto delle credenziali (classe da `details`),
+   * ogni altro non-2xx → AdePortalError.
    */
   private async iampeLogin(credentials: FisconlineCredentials): Promise<void> {
     const url = `${ADE_IAM_BASE_URL}/api/login/telematico`;
@@ -652,6 +653,23 @@ export class RealAdeClient implements AdeClient {
     });
 
     if (!response.ok) {
+      // Il 401 è l'unico status misurato per un rifiuto delle credenziali
+      // (skill ade-integration). 5xx di manutenzione, 429 e 403 del WAF sono
+      // il portale che non risponde: classificati AdeAuthError fermavano ogni
+      // login automatico dell'attività come credenziali rifiutate (issue
+      // #1130). Lo status nel log rende visibile un rifiuto che un giorno
+      // arrivasse con un altro codice.
+      if (response.status !== 401) {
+        logger.warn(
+          { phase: "A", status: response.status },
+          "ade:login_unavailable",
+        );
+        throw new AdePortalError(
+          response.status,
+          `IAM login failed with status ${response.status}`,
+        );
+      }
+
       let details: string | undefined;
       try {
         const body = (await response.json()) as { details?: string };
@@ -678,7 +696,10 @@ export class RealAdeClient implements AdeClient {
 
       // `details` resta nel log: è l'unico posto da cui si scopre un valore
       // AdE che non conosciamo ancora e che meriterebbe la sua classe.
-      logger.warn({ phase: "A", details }, "ade:auth_failed");
+      logger.warn(
+        { phase: "A", status: response.status, details },
+        "ade:auth_failed",
+      );
       throw new AdeAuthError("Login failed: invalid credentials");
     }
   }
