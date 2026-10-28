@@ -27,7 +27,7 @@ import {
 import { sendEmail } from "@/lib/email";
 import {
   findCollaboratorAccount,
-  notifyCollaboratorAccessEnded,
+  notifyCollaboratorsAccessEnded,
   removeCollaboratorAccount,
 } from "@/lib/services/collaborator-account";
 import { logger } from "@/lib/logger";
@@ -291,7 +291,7 @@ export async function removeCollaborator(
           "Non siamo riusciti a rimuovere il collaboratore. Riprova tra qualche minuto.",
       };
     }
-    notifyCollaboratorAccessEnded(account, "removed");
+    notifyCollaboratorsAccessEnded([account], "removed");
     logger.info({ businessId, memberId }, "Collaboratore rimosso");
   }
 

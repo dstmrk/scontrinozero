@@ -63,7 +63,7 @@ const mockListCollaborators = vi.fn();
 const mockNotifyCollaborator = vi.fn();
 vi.mock("./collaborator-account", () => ({
   listCollaboratorAccounts: (...a: unknown[]) => mockListCollaborators(...a),
-  notifyCollaboratorAccessEnded: (...a: unknown[]) =>
+  notifyCollaboratorsAccessEnded: (...a: unknown[]) =>
     mockNotifyCollaborator(...a),
 }));
 
@@ -251,9 +251,10 @@ describe("purgeUserById", () => {
         Math.max(order.indexOf("collab-1"), order.indexOf("collab-2")),
       );
       expect(result).toEqual({ authDeleted: true, profileDeleted: true });
-      expect(mockNotifyCollaborator).toHaveBeenCalledTimes(2);
+      // Una chiamata sola con tutti: le email partono in sequenza.
+      expect(mockNotifyCollaborator).toHaveBeenCalledTimes(1);
       expect(mockNotifyCollaborator).toHaveBeenCalledWith(
-        COLLABORATORS[0],
+        COLLABORATORS,
         "owner-deleted",
       );
     });

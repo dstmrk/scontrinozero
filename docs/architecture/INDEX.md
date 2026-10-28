@@ -184,6 +184,7 @@ dietro il gate del layout.
   (TTL/LRU per-business; a differenza di `src/lib/ade/session-cache.ts`
   Fisconline non si rinnova in silenzio: serve la conferma push dell'utente)
 - `src/lib/identity-env.ts` — validazione env d'identità al boot (regola 24)
+- `src/lib/email.ts` — invio via Resend (`sendEmail`, timeout 8 s, chiave di idempotenza); `sendEmailsInSequence` per più destinatari alla volta, perché Resend accetta 10 richieste al secondo per account e i collaboratori di Team non hanno tetto
 - `src/lib/umami.ts` + `src/components/umami-script.tsx` — web-analytics Umami (script cookieless nel root layout + helper `track()`); ≠ dal dominio "analytics" business (KPI dashboard in `src/server/analytics-actions.ts`)
 - `src/db/schema/index.ts` — barrel dello schema Drizzle
 

@@ -51,7 +51,7 @@ vi.mock("@/lib/email", () => ({ sendEmail: mockSendEmail }));
 vi.mock("@/lib/services/collaborator-account", () => ({
   findCollaboratorAccount: mockFindCollaboratorAccount,
   removeCollaboratorAccount: mockRemoveCollaboratorAccount,
-  notifyCollaboratorAccessEnded: mockNotifyAccessEnded,
+  notifyCollaboratorsAccessEnded: mockNotifyAccessEnded,
 }));
 vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
@@ -477,7 +477,7 @@ describe("removeCollaborator", () => {
       businessId: BIZ,
     });
     expect(mockRemoveCollaboratorAccount).toHaveBeenCalledWith(ACCOUNT);
-    expect(mockNotifyAccessEnded).toHaveBeenCalledWith(ACCOUNT, "removed");
+    expect(mockNotifyAccessEnded).toHaveBeenCalledWith([ACCOUNT], "removed");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/settings");
   });
 

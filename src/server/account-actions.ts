@@ -20,7 +20,7 @@ import { AccountDeletionEmail } from "@/emails/account-deletion";
 import { purgeUserById } from "@/lib/services/purge-user";
 import {
   findCollaboratorAccount,
-  notifyCollaboratorAccessEnded,
+  notifyCollaboratorsAccessEnded,
   removeCollaboratorAccount,
   type CollaboratorAccount,
 } from "@/lib/services/collaborator-account";
@@ -69,7 +69,7 @@ async function leaveBusiness(
     .catch((err) =>
       logger.warn({ err }, "signOut after leaving the business failed"),
     );
-  notifyCollaboratorAccessEnded(account, "left");
+  notifyCollaboratorsAccessEnded([account], "left");
   logger.info(
     { memberId: account.memberId, businessId: account.businessId },
     "Collaboratore uscito dall'attività",

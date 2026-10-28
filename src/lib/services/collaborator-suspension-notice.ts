@@ -6,7 +6,7 @@ import {
   CollaboratorSuspendedEmail,
   collaboratorSuspendedSubject,
 } from "@/emails/collaborator-suspended";
-import { sendEmail } from "@/lib/email";
+import { sendEmailsInSequence } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { getPlanSafe } from "@/lib/plans";
 import { canUseCollaborators } from "@/lib/plans-shared";
@@ -49,28 +49,24 @@ export async function notifyCollaboratorsOfSuspension(
 
     const day = new Date().toISOString().slice(0, 10);
     const accounts = await listCollaboratorAccounts(business.id);
-    // Una alla volta: Resend accetta 10 richieste al secondo per account, e
-    // su Team i collaboratori non hanno tetto. Il webhook non aspetta questa
-    // funzione, quindi la sequenza non costa nulla a nessuno.
-    for (const account of accounts) {
-      if (!account.email) continue;
-      const message = {
+    const recipients = accounts.flatMap((account) =>
+      account.email ? [{ ...account, email: account.email }] : [],
+    );
+    await sendEmailsInSequence(
+      recipients.map((account) => ({
         to: account.email,
         subject: collaboratorSuspendedSubject(account.businessName),
         react: createElement(CollaboratorSuspendedEmail, {
           businessName: account.businessName,
         }),
         idempotencyKey: `collaborator-suspended/${account.memberId}/${day}`,
-      };
-      try {
-        await sendEmail(message); // NOSONAR — sequenziale per il rate limit di Resend
-      } catch (err) {
+      })),
+      (err, index) =>
         logger.warn(
-          { err, memberId: account.memberId },
+          { err, memberId: recipients[index]?.memberId },
           "notifyCollaboratorsOfSuspension: email non inviata",
-        );
-      }
-    }
+        ),
+    );
   } catch (err) {
     logger.warn(
       { err, ownerAuthUserId },

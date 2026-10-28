@@ -7,7 +7,7 @@ import {
   collaboratorAccessEndedSubject,
   type AccessEndedReason,
 } from "@/emails/collaborator-access-ended";
-import { sendEmail } from "@/lib/email";
+import { sendEmailsInSequence } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { deleteAuthUser } from "./auth-user-delete";
 
@@ -121,23 +121,36 @@ export async function removeCollaboratorAccount(
   return true;
 }
 
-/** Avvisa il collaboratore che l'accesso è finito. Fire-and-forget. */
-export function notifyCollaboratorAccessEnded(
-  account: Pick<CollaboratorAccount, "email" | "businessName">,
+/**
+ * Avvisa i collaboratori che l'accesso è finito. Fire-and-forget: chi chiama
+ * non aspetta Resend. Una email alla volta (`sendEmailsInSequence`): quando
+ * il titolare cancella l'account vanno a tutti i collaboratori, che su Team
+ * non hanno tetto, e Resend accetta 10 richieste al secondo.
+ */
+export function notifyCollaboratorsAccessEnded(
+  accounts: readonly Pick<
+    CollaboratorAccount,
+    "memberId" | "email" | "businessName"
+  >[],
   reason: AccessEndedReason,
 ): void {
-  if (!account.email) return;
-  void sendEmail({
-    to: account.email,
-    subject: collaboratorAccessEndedSubject(reason, account.businessName),
-    react: createElement(CollaboratorAccessEndedEmail, {
-      businessName: account.businessName,
-      reason,
-    }),
-  }).catch((err: unknown) =>
-    logger.warn(
-      { err, reason },
-      "notifyCollaboratorAccessEnded: email non inviata",
-    ),
+  const recipients = accounts.flatMap((account) =>
+    account.email ? [{ ...account, email: account.email }] : [],
+  );
+  if (recipients.length === 0) return;
+  void sendEmailsInSequence(
+    recipients.map((account) => ({
+      to: account.email,
+      subject: collaboratorAccessEndedSubject(reason, account.businessName),
+      react: createElement(CollaboratorAccessEndedEmail, {
+        businessName: account.businessName,
+        reason,
+      }),
+    })),
+    (err, index) =>
+      logger.warn(
+        { err, reason, memberId: recipients[index]?.memberId },
+        "notifyCollaboratorsAccessEnded: email non inviata",
+      ),
   );
 }
