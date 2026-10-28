@@ -13,6 +13,10 @@ import { profiles } from "./profiles";
  * `refereeId` è UNIQUE: ogni referee può far guadagnare il reward al
  * referrer una sola volta, anche sotto race (claim via
  * `UPDATE ... WHERE rewarded_at IS NULL`).
+ *
+ * Le due FK si cancellano con il profilo (migrazione 0047): senza cascata la
+ * cancellazione dell'account di uno dei due falliva a metà. Il bonus già
+ * riconosciuto resta su `profiles.referral_bonus_days`.
  */
 export const referralRedemptions = pgTable("referral_redemptions", {
   id: uuid("id")
@@ -20,11 +24,11 @@ export const referralRedemptions = pgTable("referral_redemptions", {
     .default(sql`gen_random_uuid()`),
   referrerId: uuid("referrer_id")
     .notNull()
-    .references(() => profiles.id),
+    .references(() => profiles.id, { onDelete: "cascade" }),
   refereeId: uuid("referee_id")
     .notNull()
     .unique()
-    .references(() => profiles.id),
+    .references(() => profiles.id, { onDelete: "cascade" }),
   referralCode: text("referral_code").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

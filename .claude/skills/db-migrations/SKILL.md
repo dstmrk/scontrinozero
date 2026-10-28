@@ -223,6 +223,31 @@ una funzione, non a livello di modulo: molti test mockano `drizzle-orm` con un
 
 ---
 
+## FK verso `profiles`: sempre `ON DELETE CASCADE`
+
+Cancellare un account è una DELETE su `profiles` (`purgeUserById`), che
+arriva **dopo** la cancellazione dell'utente auth. Una FK senza `ON DELETE`
+(cioè NO ACTION) la fa fallire a metà: l'utente auth è sparito, il profilo
+resta orfano, il diritto alla cancellazione salta. Le `REFERENCES` inline di
+0021 (`referral_redemptions`) e 0022 (`partners`) sono rimaste così per
+mesi; nessun test col DB mockato poteva accorgersene, l'ha trovato la
+stesura della Privacy v02 e la 0047 le ha corrette.
+
+Gate: `src/db/schema/profile-foreign-keys.test.ts` scorre tutte le tabelle
+dello schema Drizzle e boccia una FK verso `profiles` senza cascata. Vale
+finché lo schema rispecchia la migrazione (step 3 del workflow); su PGlite
+basta un `DELETE FROM profiles` su una riga referenziata per vederla
+fallire.
+
+Per cambiare l'azione di una FK esistente: `DROP CONSTRAINT IF EXISTS` e
+`ADD CONSTRAINT` con lo stesso nome, come la 0041 per i CHECK. Prima
+verifica il nome sui due progetti Supabase (`pg_constraint`): le
+`REFERENCES` inline prendono il default `<tabella>_<colonna>_fkey`, quelle
+generate da drizzle-kit `<tabella>_<colonna>_<tabella_ref>_<colonna_ref>_fk`,
+e un nome sbagliato fa passare la `DROP IF EXISTS` senza toccare nulla.
+
+---
+
 ## Race condition multi-riga: constraint DB > application lock
 
 Per operazioni duplicate concorrenti (es. doppio VOID dello stesso SALE), la
