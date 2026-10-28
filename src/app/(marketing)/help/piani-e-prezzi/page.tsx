@@ -234,6 +234,14 @@ export default function PianiEPrezziPage() {
             Come ottenere le credenziali Fisconline
           </a>
         </p>
+        <p className="mt-2 text-sm">
+          <a
+            href="/help/collaboratori"
+            className="text-primary hover:underline"
+          >
+            Come invitare i collaboratori e cosa possono fare
+          </a>
+        </p>
 
         {/* ─── Self-hosted ─── */}
         <h2 className="mt-10 text-xl font-semibold">

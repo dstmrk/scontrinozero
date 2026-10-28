@@ -202,6 +202,24 @@ export default function AnalyticsEReportPage() {
               l&apos;importo.
             </p>
           </div>
+          <div>
+            <p className="text-sm font-medium">Per chi ha emesso</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Una tabella che compare quando nel periodo ha emesso qualcuno
+              oltre a te, un collaboratore o la Developer API: per ciascuno
+              scontrini e ricavi. Un reso pesa su chi lo ha emesso, e la somma
+              delle righe è uguale ai ricavi dei KPI.
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              {"Come si invitano: "}
+              <Link
+                href="/help/collaboratori"
+                className="text-primary hover:underline"
+              >
+                Collaboratori e piano Team
+              </Link>
+            </p>
+          </div>
         </div>
         <figure className="mt-6">
           <AppScreenshot

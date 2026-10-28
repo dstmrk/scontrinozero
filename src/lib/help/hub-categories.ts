@@ -112,6 +112,31 @@ export const helpHubCategories: readonly HubCategory[] = [
     ],
   },
   {
+    name: "Collaboratori",
+    description: "Più persone alla cassa con il piano Team.",
+    articles: [
+      {
+        slug: "collaboratori",
+        section: { id: "invitare", label: "Invitare un collaboratore" },
+      },
+      {
+        slug: "collaboratori",
+        section: {
+          id: "cosa-puo-fare",
+          label: "Cosa può fare un collaboratore",
+        },
+      },
+      {
+        slug: "collaboratori",
+        section: {
+          id: "fisconline",
+          label: "Perché con i collaboratori serve Fisconline",
+        },
+      },
+    ],
+    categoryHref: "/help/collaboratori",
+  },
+  {
     name: "Abbonamento, fatture e supporto",
     description: "Piano, pagamenti e assistenza.",
     articles: [

@@ -45,6 +45,20 @@ export const helpArticles: Record<string, HelpArticle> = {
       "storico-ed-esportazione",
     ],
   },
+  collaboratori: {
+    slug: "collaboratori",
+    datePublished: "2026-10-28",
+    dateModified: "2026-10-28",
+    title: "Collaboratori e piano Team",
+    metaTitle: "Collaboratori in cassa con ScontrinoZero: inviti e permessi",
+    description:
+      "Come invitare collaboratori con il piano Team di ScontrinoZero: cosa possono fare, perché servono le credenziali Fisconline, cosa succede se cambi piano o l'Agenzia rifiuta la password.",
+    related: [
+      "piani-e-prezzi",
+      "credenziali-fisconline",
+      "storico-ed-esportazione",
+    ],
+  },
   "reso-merce": {
     slug: "reso-merce",
     datePublished: "2026-10-02",
@@ -62,7 +76,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "analytics-e-report": {
     slug: "analytics-e-report",
     datePublished: "2026-07-13",
-    dateModified: "2026-10-15",
+    dateModified: "2026-10-28",
     title: "Analytics e report: ricavi, scontrini e prodotti",
     metaTitle: "Analytics e report: ricavi, scontrini e prodotti più venduti",
     description:
@@ -86,7 +100,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "cambio-piano": {
     slug: "cambio-piano",
     datePublished: "2026-04-20",
-    dateModified: "2026-10-23",
+    dateModified: "2026-10-28",
     title: "Come passare da mensile ad annuale",
     metaTitle: "Come passare da mensile ad annuale",
     description: `Guida per cambiare il piano ScontrinoZero da mensile ad annuale e risparmiare fino al ${MAX_YEARLY_DISCOUNT_PERCENT}%. Istruzioni passo-passo per la modifica dell'abbonamento.`,
@@ -145,7 +159,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "credenziali-fisconline": {
     slug: "credenziali-fisconline",
     datePublished: "2026-04-11",
-    dateModified: "2026-10-15",
+    dateModified: "2026-10-28",
     title: "Credenziali Fisconline: dove trovarle e verificarle",
     metaTitle: "Credenziali Fisconline: dove trovarle e come verificarle",
     description:
@@ -251,7 +265,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
     datePublished: "2026-04-17",
-    dateModified: "2026-10-23",
+    dateModified: "2026-10-28",
     title: "Piani disponibili: Starter, Pro, Team e self-hosted",
     metaTitle: "Piani disponibili: Starter, Pro, Team e self-hosted",
     description:
@@ -351,7 +365,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "storico-ed-esportazione": {
     slug: "storico-ed-esportazione",
     datePublished: "2026-04-17",
-    dateModified: "2026-10-15",
+    dateModified: "2026-10-28",
     title: "Storico scontrini: filtri, ricerca ed esportazione",
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:

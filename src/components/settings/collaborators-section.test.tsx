@@ -100,6 +100,15 @@ describe("CollaboratorsSection", () => {
     );
   });
 
+  it("rimanda alla pagina help sui collaboratori", () => {
+    renderSection();
+
+    expect(screen.getByRole("link", { name: "Come funziona" })).toHaveAttribute(
+      "href",
+      "/help/collaboratori",
+    );
+  });
+
   it("nella prova dichiara il limite", () => {
     renderSection({ trialLimit: 2 });
 
@@ -158,7 +167,9 @@ describe("CollaboratorsSection", () => {
           "Il piano attuale non include i collaboratori. Li include il piano Team.",
         ),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "Passa a Team" }),
+      ).not.toBeInTheDocument();
     });
 
     it("dichiara il requisito Fisconline prima dell'acquisto", () => {
