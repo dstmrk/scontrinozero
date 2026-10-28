@@ -13,6 +13,7 @@ import { decrypt, getEncryptionKeys } from "@/lib/crypto";
 import { buildCedenteFromBusiness } from "@/lib/ade/mapper";
 import { UnauthenticatedError } from "@/lib/auth-errors";
 import { logger } from "@/lib/logger";
+import { notifyOwnerOfAdeRejection } from "@/lib/services/ade-rejection-notice";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore, InteractiveMethod } from "@/lib/ade/types";
 import type { WithAdeSessionParams } from "@/lib/ade";
@@ -126,6 +127,10 @@ export function toAdeSessionParams(
  * Registra l'esito su `last_verify_outcome` ma non incrementa
  * `verify_attempts`, che conta i tentativi fatti dall'esercente.
  *
+ * Sulla stessa transizione avvisa il titolare per email, se l'attività ha
+ * collaboratori (`notifyOwnerOfAdeRejection`). Senza attenderla: la risposta
+ * a chi sta alla cassa non aspetta Resend.
+ *
  * Non lancia: un errore qui sostituirebbe il rifiuto dell'AdE, che è
  * l'informazione utile per chi sta alla cassa.
  */
@@ -152,6 +157,11 @@ async function markFisconlineCredentialsRejected(
         { businessId, outcome, event: "ade_auto_login_stopped" },
         "AdE ha rifiutato le credenziali Fisconline: login automatici fermati fino a nuova verifica",
       );
+      void notifyOwnerOfAdeRejection({
+        businessId,
+        outcome,
+        credentialVersion,
+      });
     }
   } catch (err) {
     logger.warn(
