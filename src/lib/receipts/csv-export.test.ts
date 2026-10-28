@@ -110,8 +110,75 @@ function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
   };
 }
 
+/**
+ * Le colonne di v1.9.5, l'ultima versione in produzione prima di
+ * `emesso_da`. Chi legge il file per posizione (un foglio che pesca la
+ * colonna per lettera, una macro, un import in un gestionale) conta su
+ * questo ordine: una colonna nuova va in coda, mai in mezzo (issue #1131).
+ * Una colonna nuova si aggiunge solo agli header attesi, non qui.
+ */
+const RECEIPT_CSV_HEADERS_V1_9_5 = [
+  "data",
+  "ora",
+  "numero_ade",
+  "origine",
+  "stato",
+  "totale",
+  "sconto_a_pagare",
+  "incassato",
+  "metodo_pagamento",
+  "descrizione",
+  "codice_lotteria",
+  "data_annullo",
+  "rif_vendita",
+  "id_scontrino",
+  "id_transazione_ade",
+];
+
+const RECEIPT_LINES_CSV_HEADERS_V1_9_5 = [
+  "data",
+  "ora",
+  "numero_ade",
+  "stato",
+  "riga",
+  "descrizione",
+  "quantita",
+  "prezzo_unitario",
+  "totale_riga",
+  "aliquota",
+  "id_scontrino",
+];
+
+describe("ordine delle colonne: contratto per chi legge per posizione", () => {
+  it.each([
+    ["riepilogo", RECEIPT_CSV_HEADERS, RECEIPT_CSV_HEADERS_V1_9_5],
+    ["dettaglio", RECEIPT_LINES_CSV_HEADERS, RECEIPT_LINES_CSV_HEADERS_V1_9_5],
+  ] as const)(
+    "le colonne di v1.9.5 sono il prefisso del %s",
+    (_file, headers, published) => {
+      expect(headers.slice(0, published.length)).toEqual(published);
+    },
+  );
+
+  it.each([
+    ["riepilogo", RECEIPT_CSV_HEADERS],
+    ["dettaglio", RECEIPT_LINES_CSV_HEADERS],
+  ] as const)("emesso_da e' l'ultima colonna del %s", (_file, headers) => {
+    expect(headers.at(-1)).toBe("emesso_da");
+  });
+
+  it("ogni riga del riepilogo ha una cella per colonna", () => {
+    for (const row of [
+      formatReceiptRow(doc(), 1, ""),
+      formatReceiptRow(doc({ kind: "RETURN", publicRequest: null }), 1, ""),
+    ]) {
+      expect(row).toHaveLength(RECEIPT_CSV_HEADERS.length);
+    }
+  });
+});
+
 describe("RECEIPT_CSV_HEADERS", () => {
-  it("elenca le colonne in italiano, con gli id tecnici in fondo", () => {
+  it("elenca le colonne in italiano, id tecnici ed emesso_da in fondo", () => {
     expect(RECEIPT_CSV_HEADERS).toEqual([
       "data",
       "ora",
@@ -126,9 +193,9 @@ describe("RECEIPT_CSV_HEADERS", () => {
       "codice_lotteria",
       "data_annullo",
       "rif_vendita",
-      "emesso_da",
       "id_scontrino",
       "id_transazione_ade",
+      "emesso_da",
     ]);
   });
 
@@ -188,9 +255,9 @@ describe("formatReceiptRow", () => {
       "",
       "",
       "",
-      "Titolare",
       "doc-1",
       "tx-12345",
+      "Titolare",
     ]);
   });
 
@@ -417,7 +484,7 @@ describe("formatReceiptRow", () => {
     expect(row[sumCol("incassato")]).toBe("1,90");
   });
 
-  it("tiene gli identificativi tecnici nelle ultime due colonne", () => {
+  it("porta gli identificativi tecnici del documento", () => {
     const row = formatReceiptRow(doc(), 0, "");
     expect(row[sumCol("id_scontrino")]).toBe("doc-1");
     expect(row[sumCol("id_transazione_ade")]).toBe("tx-12345");
@@ -511,7 +578,7 @@ async function streamToString(
 }
 
 describe("RECEIPT_LINES_CSV_HEADERS", () => {
-  it("elenca le colonne del dettaglio, con la chiave di join in fondo", () => {
+  it("elenca le colonne del dettaglio, chiave di join ed emesso_da in fondo", () => {
     expect(RECEIPT_LINES_CSV_HEADERS).toEqual([
       "data",
       "ora",
@@ -523,8 +590,8 @@ describe("RECEIPT_LINES_CSV_HEADERS", () => {
       "prezzo_unitario",
       "totale_riga",
       "aliquota",
-      "emesso_da",
       "id_scontrino",
+      "emesso_da",
     ]);
   });
 
@@ -619,8 +686,8 @@ describe("formatReceiptLineRows", () => {
       "1,20",
       "2,40",
       "22",
-      "Titolare",
       "doc-1",
+      "Titolare",
     ]);
   });
 
@@ -639,7 +706,9 @@ describe("formatReceiptLineRows", () => {
         "00042",
         "emesso",
       ]);
-      expect(row[11]).toBe("doc-1");
+      expect(row[RECEIPT_LINES_CSV_HEADERS.indexOf("id_scontrino")]).toBe(
+        "doc-1",
+      );
     }
   });
 
@@ -715,8 +784,8 @@ describe("formatReceiptLineRows", () => {
       "1,20",
       "-2,40",
       "22",
-      "Titolare",
       "doc-1",
+      "Titolare",
     ]);
   });
 });

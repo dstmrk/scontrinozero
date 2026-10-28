@@ -257,8 +257,12 @@ e aggiorna ogni occorrenza stale nei data file / componenti sopra.
 
 Le colonne dell'export CSV hanno un gate: `csv-columns.contract.test.ts`
 accanto alla pagina `/help/storico-ed-esportazione` fallisce se una colonna
-dei due file manca dalle sue tabelle. Nasce da `emesso_da`, entrata nel CSV
-con la issue #1099 senza entrare nell'help.
+dei due file manca dalle sue tabelle o se le tabelle non ne seguono
+l'ordine. Nasce da `emesso_da`, entrata nel CSV con la issue #1099 senza
+entrare nell'help. L'ordine delle colonne è a sua volta un contratto: una
+colonna nuova va **in coda**, mai in mezzo, perché c'è chi legge il file per
+posizione (issue #1131); lo fissa `csv-export.test.ts`, che tiene le colonne
+di v1.9.5 come prefisso degli header.
 
 ## Checklist GEO (per ogni contenuto nuovo o aggiornato)
 
