@@ -1,17 +1,20 @@
 import { ImageResponse } from "next/og";
 import { OgImageTemplate, OG_SIZE } from "@/components/og-image-template";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 export { OG_SIZE as size } from "@/components/og-image-template";
 
-export const alt =
-  "Prezzi ScontrinoZero — Starter da €4.99/mese, Pro €8.99/mese";
+const { starter, pro } = PLAN_PRICES;
+
+export const alt = `Prezzi ScontrinoZero — Starter da ${starter.monthly}/mese, Pro ${pro.monthly}/mese`;
 export const contentType = "image/png";
 
 export default function Image() {
   return new ImageResponse(
     <OgImageTemplate
       title="Prezzi"
-      subtitle="Starter €4.99/mese, Pro €8.99/mese. 30 giorni di prova senza carta."
+      subtitle={`Starter ${starter.monthly}/mese, Pro ${pro.monthly}/mese. ${TRIAL_DAYS} giorni di prova senza carta.`}
     />,
     OG_SIZE,
   );

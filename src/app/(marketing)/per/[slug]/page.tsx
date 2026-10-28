@@ -17,6 +17,10 @@ import {
   isCategorySlug,
 } from "@/lib/per/categories";
 import { helpArticles } from "@/lib/help/articles";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
+
+const { starter } = PLAN_PRICES;
 
 const SITE_URL = "https://scontrinozero.it";
 
@@ -104,7 +108,7 @@ export default async function CategoryLandingPage({ params }: PageParams) {
               </a>
             </Button>
             <span className="text-muted-foreground text-sm">
-              {"30 giorni gratis · da €2,50/mese · nessuna carta richiesta"}
+              {`${TRIAL_DAYS} giorni gratis · da ${starter.yearlyPerMonth}/mese · nessuna carta richiesta`}
             </span>
           </div>
 
@@ -179,7 +183,7 @@ export default async function CategoryLandingPage({ params }: PageParams) {
           <div className="bg-muted/40 border-border mt-10 rounded-lg border p-5 text-center">
             <p className="text-sm font-semibold">{"Pronto a iniziare?"}</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              {"30 giorni di prova gratuita, senza carta di credito."}
+              {`${TRIAL_DAYS} giorni di prova gratuita, senza carta di credito.`}
             </p>
             <Button asChild className="mt-3">
               <a href={registerHref("per", slug)}>

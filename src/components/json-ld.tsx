@@ -1,4 +1,5 @@
 import { CONTACT_EMAIL } from "@/lib/contact";
+import { PLAN_PRICE_CENTS, schemaOrgPrice } from "@/lib/plan-prices";
 
 /**
  * Escapa i caratteri pericolosi nel JSON-LD per evitare che payload contenenti
@@ -32,13 +33,27 @@ interface RecurringOffer {
   readonly duration: BillingDuration;
 }
 
+const { starter, pro, team } = PLAN_PRICE_CENTS;
+
 const RECURRING_OFFERS: readonly RecurringOffer[] = [
-  { name: "Starter mensile", price: "4.99", duration: "P1M" },
-  { name: "Starter annuale", price: "29.99", duration: "P1Y" },
-  { name: "Pro mensile", price: "8.99", duration: "P1M" },
-  { name: "Pro annuale", price: "49.99", duration: "P1Y" },
-  { name: "Team mensile", price: "17.99", duration: "P1M" },
-  { name: "Team annuale", price: "99.99", duration: "P1Y" },
+  {
+    name: "Starter mensile",
+    price: schemaOrgPrice(starter.monthly),
+    duration: "P1M",
+  },
+  {
+    name: "Starter annuale",
+    price: schemaOrgPrice(starter.yearly),
+    duration: "P1Y",
+  },
+  { name: "Pro mensile", price: schemaOrgPrice(pro.monthly), duration: "P1M" },
+  { name: "Pro annuale", price: schemaOrgPrice(pro.yearly), duration: "P1Y" },
+  {
+    name: "Team mensile",
+    price: schemaOrgPrice(team.monthly),
+    duration: "P1M",
+  },
+  { name: "Team annuale", price: schemaOrgPrice(team.yearly), duration: "P1Y" },
 ];
 
 interface SoftwareOffer {

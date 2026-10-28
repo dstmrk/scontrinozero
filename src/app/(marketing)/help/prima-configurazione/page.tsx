@@ -12,6 +12,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 export const metadata = helpArticleMetadata("prima-configurazione");
 
@@ -106,9 +107,7 @@ export default function PrimaConfigurazioneePage() {
           >
             app.scontrinozero.it/register
           </a>
-          {
-            " e inserisci email e password. Hai 30 giorni di prova gratuita senza inserire alcuna carta di credito. Dopo la registrazione conferma l'indirizzo email cliccando il link che ricevi nella casella di posta: al primo login si aprirà automaticamente il wizard di onboarding. Se non trovi l'email controlla lo spam; se il link è scaduto, prova ad accedere e dalla pagina di login potrai farti reinviare l'email di conferma."
-          }
+          {` e inserisci email e password. Hai ${TRIAL_DAYS} giorni di prova gratuita senza inserire alcuna carta di credito. Dopo la registrazione conferma l'indirizzo email cliccando il link che ricevi nella casella di posta: al primo login si aprirà automaticamente il wizard di onboarding. Se non trovi l'email controlla lo spam; se il link è scaduto, prova ad accedere e dalla pagina di login potrai farti reinviare l'email di conferma.`}
         </p>
 
         {/* ─── Step 1 ─── */}

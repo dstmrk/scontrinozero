@@ -6,6 +6,7 @@ import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { registerHref } from "@/lib/marketing-to-app-href";
 import { categories, categorySlugs } from "@/lib/per/categories";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/per`;
@@ -70,9 +71,7 @@ export default function PerIndexPage() {
               {"Non trovi la tua categoria?"}
             </p>
             <p className="text-muted-foreground mt-1 text-sm">
-              {
-                "ScontrinoZero funziona per qualsiasi attività d'impresa con vendite o servizi a privati. Inizia i 30 giorni di prova gratuita."
-              }
+              {`ScontrinoZero funziona per qualsiasi attività d'impresa con vendite o servizi a privati. Inizia i ${TRIAL_DAYS} giorni di prova gratuita.`}
             </p>
             <Button asChild className="mt-3">
               <a href={registerHref("per")}>

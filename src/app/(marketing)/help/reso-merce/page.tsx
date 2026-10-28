@@ -13,6 +13,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 export const metadata = helpArticleMetadata("reso-merce");
 
@@ -39,8 +40,7 @@ const faqItems: readonly FaqItem[] = [
   },
   {
     question: "Il reso è incluso nel mio piano?",
-    answer:
-      "Sì. Il reso è disponibile su tutti i piani, Starter compreso, e nei 30 giorni di prova gratuita: è un adempimento fiscale dell'esercente, non una funzione aggiuntiva.",
+    answer: `Sì. Il reso è disponibile su tutti i piani, Starter compreso, e nei ${TRIAL_DAYS} giorni di prova gratuita: è un adempimento fiscale dell'esercente, non una funzione aggiuntiva.`,
   },
   {
     question:

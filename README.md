@@ -17,7 +17,7 @@ ScontrinoZero è un'applicazione mobile-first che consente a esercenti e profess
 
 ## Il problema
 
-In Italia, chi effettua vendite al dettaglio è obbligato a memorizzare e trasmettere telematicamente i corrispettivi (D.Lgs. 127/2015). La soluzione tradizionale — un registratore telematico (RT) — comporta costi di acquisto (300-600€), fiscalizzazione, verifiche periodiche biennali e canoni di assistenza. Per micro-attività, ambulanti, B&B e professionisti con pochi scontrini al giorno, è un peso sproporzionato.
+In Italia, chi effettua vendite al dettaglio è obbligato a memorizzare e trasmettere telematicamente i corrispettivi (D.Lgs. 127/2015). La soluzione tradizionale — un registratore telematico (RT) — comporta l'acquisto (400-800 €), l'installazione da parte di un tecnico abilitato, la verificazione periodica ogni due anni e, quasi sempre, un contratto di assistenza facoltativo. Per micro-attività, ambulanti e B&B con pochi scontrini al giorno, è un peso sproporzionato.
 
 ## La soluzione
 
@@ -35,16 +35,16 @@ ScontrinoZero usa la procedura web "Documento Commerciale Online" dell'Agenzia d
 
 ## Tech Stack
 
-| Layer        | Tecnologie                                                    |
-| ------------ | ------------------------------------------------------------- |
-| Frontend     | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 |
-| Componenti   | shadcn/ui, TanStack Query v5                                  |
-| Database     | Supabase (PostgreSQL), Drizzle ORM, Row Level Security        |
-| Pagamenti    | Stripe (Starter €4.99/mese · Pro €8.99/mese · Self-hosted €0) |
-| Email        | Resend + React Email                                          |
-| Integrazione | HTTP dirette verso portale AdE (no headless browser)          |
-| Deploy       | Docker standalone su VPS, Cloudflare Tunnel                   |
-| Qualità      | Vitest, SonarCloud, Sentry                                    |
+| Layer        | Tecnologie                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| Frontend     | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4                                       |
+| Componenti   | shadcn/ui, TanStack Query v5                                                                        |
+| Database     | Supabase (PostgreSQL), Drizzle ORM, Row Level Security                                              |
+| Pagamenti    | Stripe: piani Starter, Pro e Team ([prezzi](https://scontrinozero.it/prezzi)); self-hosted gratuito |
+| Email        | Resend + React Email                                                                                |
+| Integrazione | HTTP dirette verso portale AdE (no headless browser)                                                |
+| Deploy       | Docker standalone su VPS, Cloudflare Tunnel                                                         |
+| Qualità      | Vitest, SonarCloud, Sentry                                                                          |
 
 ## Conformità normativa
 

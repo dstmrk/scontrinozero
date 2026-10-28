@@ -10,6 +10,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 export const metadata = helpArticleMetadata("api");
 
@@ -23,8 +24,7 @@ export const metadata = helpArticleMetadata("api");
 const faqItems: readonly FaqItem[] = [
   {
     question: "Posso usare le API durante la prova gratuita?",
-    answer:
-      "Sì: la prova gratuita di 30 giorni include l'accesso alla Developer API con una chiave attiva, senza inserire una carta di credito. Il piano Pro ne consente fino a 3. Su Starter le API non sono disponibili.",
+    answer: `Sì: la prova gratuita di ${TRIAL_DAYS} giorni include l'accesso alla Developer API con una chiave attiva, senza inserire una carta di credito. Il piano Pro ne consente fino a 3. Su Starter le API non sono disponibili.`,
   },
   {
     question: "Cosa succede alle chiavi API quando scade la prova gratuita?",

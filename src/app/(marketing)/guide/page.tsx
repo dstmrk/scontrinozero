@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { guideArticles, guideSlugs } from "@/lib/guide/articles";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 const SITE_URL = "https://scontrinozero.it";
 
@@ -75,7 +76,7 @@ export default function GuideIndexPage() {
               {"Vuoi provare ScontrinoZero?"}
             </p>
             <p className="text-muted-foreground mt-1 text-sm">
-              {"30 giorni di prova gratuita, senza carta di credito."}
+              {`${TRIAL_DAYS} giorni di prova gratuita, senza carta di credito.`}
             </p>
             <Button asChild className="mt-3">
               <a href={registerHref("guide")}>

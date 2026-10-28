@@ -36,6 +36,10 @@ import {
   Percent,
   Store,
 } from "lucide-react";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
+
+const { starter } = PLAN_PRICES;
 
 // Homepage: pagina SEO #1 del progetto. Title assoluto (no template suffix),
 // description dedicata, canonical esplicito e Open Graph propri.
@@ -44,16 +48,14 @@ export const metadata: Metadata = {
     absolute:
       "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
   },
-  description:
-    "Registratore di cassa virtuale per esercenti e micro-attività: emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate dal telefono, senza registratore telematico. 30 giorni gratis, da €29,99/anno.",
+  description: `Registratore di cassa virtuale per esercenti e micro-attività: emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate dal telefono, senza registratore telematico. ${TRIAL_DAYS} giorni gratis, da ${starter.yearly}/anno.`,
   alternates: {
     canonical: "/",
   },
   openGraph: {
     url: "/",
     title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
-    description:
-      "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE dal telefono, senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
+    description: `Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE dal telefono, senza registratore telematico. Da ${starter.yearly}/anno, ${TRIAL_DAYS} giorni gratis.`,
   },
 };
 
@@ -69,7 +71,7 @@ export const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
     // assistenza facoltativo. Cifre da src/lib/marketing/rt-costs.ts.
     label: "Costi ricorrenti obbligatori",
     competitor: `€${RT_COSTS.periodicVerification.min}–${RT_COSTS.periodicVerification.max} ogni ${RT_COSTS.periodicVerification.everyYears} anni`,
-    ours: "da €29,99/anno",
+    ours: `da ${starter.yearly}/anno`,
   },
   {
     label: "Senza installazione del tecnico",
@@ -120,9 +122,9 @@ export default function Home() {
                 </a>
               </Button>
               <div className="text-muted-foreground flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm md:justify-start">
-                <span>30 giorni gratis</span>
+                <span>{TRIAL_DAYS} giorni gratis</span>
                 <span aria-hidden="true">·</span>
-                <span>Da €2,50/mese</span>
+                <span>Da {starter.yearlyPerMonth}/mese</span>
                 <span aria-hidden="true">·</span>
                 <span>Nessuna carta richiesta</span>
               </div>
@@ -522,8 +524,7 @@ export default function Home() {
               {
                 icon: CalendarRange,
                 title: "Paghi come preferisci",
-                description:
-                  "Mensile o annuale. 30 giorni gratis per iniziare, poi scegli il piano adatto a te. Nessun vincolo.",
+                description: `Mensile o annuale. ${TRIAL_DAYS} giorni gratis per iniziare, poi scegli il piano adatto a te. Nessun vincolo.`,
               },
               {
                 icon: Smartphone,

@@ -10,9 +10,10 @@
  */
 
 import { RT_COSTS, type CostRange } from "@/lib/marketing/rt-costs";
+import { PLAN_PRICE_CENTS } from "@/lib/plan-prices";
 
-const SZ_ANNUAL_PLAN_STARTER_EUR = 29.99;
-const SZ_ANNUAL_PLAN_PRO_EUR = 49.99;
+const SZ_ANNUAL_PLAN_STARTER_EUR = PLAN_PRICE_CENTS.starter.yearly / 100;
+const SZ_ANNUAL_PLAN_PRO_EUR = PLAN_PRICE_CENTS.pro.yearly / 100;
 const STARTER_RECEIPTS_THRESHOLD = 500; // sopra questa soglia consigliamo Pro per analytics + export
 const HORIZON_YEARS = 5;
 

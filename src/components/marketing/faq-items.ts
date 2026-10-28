@@ -1,3 +1,8 @@
+import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
+
+const { starter, pro, team } = PLAN_PRICES;
+
 export const faqItems = [
   {
     question: "Serve per forza un registratore telematico fisico?",
@@ -27,8 +32,7 @@ export const faqItems = [
   },
   {
     question: "Quanto costa?",
-    answer:
-      "Starter €4,99/mese o €29,99/anno (equivalente a €2,50/mese). Pro €8,99/mese o €49,99/anno (equivalente a €4,17/mese). Team, cioè Pro con i collaboratori, €17,99/mese o €99,99/anno (equivalente a €8,33/mese). Tutti partono da 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
+    answer: `Starter ${starter.monthly}/mese o ${starter.yearly}/anno (equivalente a ${starter.yearlyPerMonth}/mese). Pro ${pro.monthly}/mese o ${pro.yearly}/anno (equivalente a ${pro.yearlyPerMonth}/mese). Team, cioè Pro con i collaboratori, ${team.monthly}/mese o ${team.yearly}/anno (equivalente a ${team.yearlyPerMonth}/mese). Tutti partono da ${TRIAL_DAYS} giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.`,
   },
   {
     question: "È supportata la Lotteria degli Scontrini?",
@@ -46,14 +50,13 @@ export const faqItems = [
       "Le tue credenziali per l'Agenzia delle Entrate — Fisconline (codice fiscale, password e PIN) oppure l'email e la password dell'app CIE ID se ti colleghi con la CIE — vengono cifrate con tecnologia a livello bancario (AES-256-GCM) prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se installi la versione gratuita sul tuo server, restano lì e non transitano mai dai nostri sistemi.",
   },
   {
-    question: "Cosa succede alla scadenza dei 30 giorni di prova?",
+    question: `Cosa succede alla scadenza dei ${TRIAL_DAYS} giorni di prova?`,
     answer:
       "Alla scadenza, se non hai scelto un piano, l'account passa automaticamente in sola lettura: puoi consultare lo storico dei tuoi scontrini ma non puoi emetterne di nuovi. Non viene effettuato nessun addebito automatico. Puoi attivare un piano in qualsiasi momento per riprendere ad emettere.",
   },
   {
     question: "Qual è la differenza concreta tra Starter e Pro?",
-    answer:
-      "Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato, analytics avanzata, export CSV degli scontrini, il messaggio personalizzato in fondo allo scontrino, gli sconti (di riga e a pagare), il pagamento misto fra contanti ed elettronico, la Developer API (fino a 3 chiavi) e supporto prioritario via email entro 24 ore lavorative. Pro include inoltre la ricerca dei documenti commerciali sull'archivio dell'Agenzia delle Entrate: dallo storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola lettura, e li scarichi nel CSV di riepilogo. Entrambi i piani includono 30 giorni di prova gratuita. Durante la prova puoi usare anche le funzioni Pro: analytics avanzata, export CSV, messaggio personalizzato, sconti, pagamento misto, ricerca dei documenti sull'archivio AdE e la Developer API con una chiave. Il catalogo invece resta limitato a 5 prodotti, come su Starter. Team è Pro con collaboratori illimitati, ognuno con il proprio accesso.",
+    answer: `Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato, analytics avanzata, export CSV degli scontrini, il messaggio personalizzato in fondo allo scontrino, gli sconti (di riga e a pagare), il pagamento misto fra contanti ed elettronico, la Developer API (fino a 3 chiavi) e supporto prioritario via email entro 24 ore lavorative. Pro include inoltre la ricerca dei documenti commerciali sull'archivio dell'Agenzia delle Entrate: dallo storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola lettura, e li scarichi nel CSV di riepilogo. Entrambi i piani includono ${TRIAL_DAYS} giorni di prova gratuita. Durante la prova puoi usare anche le funzioni Pro: analytics avanzata, export CSV, messaggio personalizzato, sconti, pagamento misto, ricerca dei documenti sull'archivio AdE e la Developer API con una chiave. Il catalogo invece resta limitato a 5 prodotti, come su Starter. Team è Pro con collaboratori illimitati, ognuno con il proprio accesso.`,
   },
   {
     question: "Esiste una versione completamente gratuita?",

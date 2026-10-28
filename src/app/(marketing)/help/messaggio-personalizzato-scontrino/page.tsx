@@ -12,6 +12,7 @@ import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 
 export const metadata = helpArticleMetadata(
   "messaggio-personalizzato-scontrino",
@@ -85,7 +86,7 @@ export default function MessaggioPersonalizzatoScontrinoPage() {
           <strong>Impostazioni</strong>. Il limite è di{" "}
           <strong>64 caratteri su 2 righe</strong>, il messaggio compare su
           stampa termica, PDF e ricevuta digitale, ed è incluso nel piano{" "}
-          <strong>Pro</strong> e nei 30 giorni di prova gratuita.
+          <strong>Pro</strong> e nei {TRIAL_DAYS} giorni di prova gratuita.
         </p>
         <HelpArticleUpdatedAt slug="messaggio-personalizzato-scontrino" />
 
@@ -222,10 +223,10 @@ export default function MessaggioPersonalizzatoScontrinoPage() {
         <h2 className="mt-10 text-xl font-semibold">Quale piano serve</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il messaggio personalizzato è incluso nel piano <strong>Pro</strong> e
-          nei <strong>30 giorni di prova gratuita</strong>, durante i quali puoi
-          provarlo senza carta di credito. Sul piano Starter la card resta
-          visibile ma il campo è sostituito dall&apos;invito a passare a Pro. Il
-          confronto completo è in{" "}
+          nei <strong>{TRIAL_DAYS} giorni di prova gratuita</strong>, durante i
+          quali puoi provarlo senza carta di credito. Sul piano Starter la card
+          resta visibile ma il campo è sostituito dall&apos;invito a passare a
+          Pro.{" Il confronto completo è in "}
           <Link
             href="/help/piani-e-prezzi"
             className="text-primary hover:underline"

@@ -11,6 +11,8 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
+import { REFERRAL_BONUS_DAYS } from "@/lib/referral-code";
 
 export const metadata = helpArticleMetadata("presenta-un-amico");
 
@@ -63,9 +65,10 @@ export default function PresentaUnAmicoPage() {
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Il presentato</strong> (chi si registra con il tuo codice)
-            ottiene <strong>subito</strong> un mese di prova in più: invece di
-            30 giorni, ne ha <strong>60</strong> per provare ScontrinoZero senza
-            carta di credito.
+            ottiene <strong>subito</strong>
+            {` un mese di prova in più: invece di ${TRIAL_DAYS} giorni, ne ha `}
+            <strong>{TRIAL_DAYS + REFERRAL_BONUS_DAYS}</strong>
+            {" per provare ScontrinoZero senza carta di credito."}
           </li>
           <li>
             <strong>Il presentatore</strong> (tu, che inviti) ottiene{" "}

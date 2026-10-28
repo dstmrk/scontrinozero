@@ -3,6 +3,10 @@ import {
   RT_COSTS,
   rtThreeYearTotalRange,
 } from "@/lib/marketing/rt-costs";
+import { PLAN_PRICES } from "@/lib/plan-prices";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
+
+const { starter } = PLAN_PRICES;
 
 export const guideSlugs = [
   "scontrino-senza-registratore-di-cassa",
@@ -117,7 +121,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Quale app scegliere per lo scontrino elettronico",
-        body: "La risposta secca: un'app che trasmetta il documento commerciale direttamente all'Agenzia delle Entrate con le tue credenziali, senza hardware aggiuntivo, con prezzo trasparente e prova gratuita. I criteri che contano nella scelta sono cinque: velocità di emissione (al banco contano i secondi, non i minuti), costo chiaro senza vincoli di durata né hardware da comprare, storico consultabile e filtrabile per periodo, annullo dello scontrino direttamente dall'app, e assistenza raggiungibile quando qualcosa non va. ScontrinoZero è costruita esattamente su questi criteri: catalogo prodotti, emissione in pochi secondi, annullo e storico inclusi, da €29,99 l'anno con 30 giorni di prova senza carta. Per una checklist completa dei criteri vedi la guida alla scelta del software, linkata in fondo.",
+        body: `La risposta secca: un'app che trasmetta il documento commerciale direttamente all'Agenzia delle Entrate con le tue credenziali, senza hardware aggiuntivo, con prezzo trasparente e prova gratuita. I criteri che contano nella scelta sono cinque: velocità di emissione (al banco contano i secondi, non i minuti), costo chiaro senza vincoli di durata né hardware da comprare, storico consultabile e filtrabile per periodo, annullo dello scontrino direttamente dall'app, e assistenza raggiungibile quando qualcosa non va. ScontrinoZero è costruita esattamente su questi criteri: catalogo prodotti, emissione in pochi secondi, annullo e storico inclusi, da ${starter.yearly} l'anno con ${TRIAL_DAYS} giorni di prova senza carta. Per una checklist completa dei criteri vedi la guida alla scelta del software, linkata in fondo.`,
       },
       {
         heading: "Cosa contiene il documento commerciale",
@@ -146,7 +150,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
             [
               "App dedicata (es. ScontrinoZero)",
               "€0",
-              "30-100 € (ScontrinoZero da €29,99)",
+              `30-100 € (ScontrinoZero da ${starter.yearly})`,
               "pochi secondi",
             ],
             [
@@ -199,13 +203,11 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question:
           "Qual è la migliore app per fare scontrini senza registratore di cassa?",
-        answer:
-          "Quella che trasmette direttamente all'AdE con le tue credenziali, ha un prezzo trasparente e ti fa emettere in pochi secondi. Valuta velocità, costo annuo, storico e annullo inclusi, e la possibilità di provare gratis. ScontrinoZero copre tutti questi punti e si prova 30 giorni senza carta di credito.",
+        answer: `Quella che trasmette direttamente all'AdE con le tue credenziali, ha un prezzo trasparente e ti fa emettere in pochi secondi. Valuta velocità, costo annuo, storico e annullo inclusi, e la possibilità di provare gratis. ScontrinoZero copre tutti questi punti e si prova ${TRIAL_DAYS} giorni senza carta di credito.`,
       },
       {
         question: "Quanto costa fare scontrini senza registratore di cassa?",
-        answer:
-          "Da zero: il portale Fatture e Corrispettivi dell'AdE è gratuito, ma richiede 30-60 secondi a scontrino. Un'app dedicata costa in genere 30-100 € l'anno (ScontrinoZero parte da €29,99) ed emette in pochi secondi. Un registratore telematico fisico costa invece 400-800 € di acquisto, più 100-200 € di installazione e 50-100 € di verificazione ogni 2 anni.",
+        answer: `Da zero: il portale Fatture e Corrispettivi dell'AdE è gratuito, ma richiede 30-60 secondi a scontrino. Un'app dedicata costa in genere 30-100 € l'anno (ScontrinoZero parte da ${starter.yearly}) ed emette in pochi secondi. Un registratore telematico fisico costa invece 400-800 € di acquisto, più 100-200 € di installazione e 50-100 € di verificazione ogni 2 anni.`,
       },
     ],
     relatedHelp: ["primo-scontrino", "credenziali-fisconline", "errori-ade"],
@@ -529,8 +531,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         question: "Cosa devo dare al commercialista per la dichiarazione IVA?",
-        answer:
-          "Il commercialista può scaricare direttamente dal portale Fatture e Corrispettivi il riepilogo dei corrispettivi trasmessi per il periodo richiesto. In alternativa, esporta dal software l'elenco scontrini in CSV: in ScontrinoZero l'export è incluso nel piano Pro (ed è utilizzabile anche durante i 30 giorni di prova) e produce due file sullo stesso periodo — il riepilogo, con una riga per scontrino, totale e metodo di pagamento, e il dettaglio, con una riga per voce venduta e l'aliquota IVA applicata a ciascuna.",
+        answer: `Il commercialista può scaricare direttamente dal portale Fatture e Corrispettivi il riepilogo dei corrispettivi trasmessi per il periodo richiesto. In alternativa, esporta dal software l'elenco scontrini in CSV: in ScontrinoZero l'export è incluso nel piano Pro (ed è utilizzabile anche durante i ${TRIAL_DAYS} giorni di prova) e produce due file sullo stesso periodo — il riepilogo, con una riga per scontrino, totale e metodo di pagamento, e il dettaglio, con una riga per voce venduta e l'aliquota IVA applicata a ciascuna.`,
       },
       {
         question:
@@ -1216,7 +1217,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Mettersi in regola senza comprare hardware",
-        body: "Se apri ora o vuoi dismettere il registratore, la strada più economica è la procedura DCO: zero hardware, zero collaudi. Con ScontrinoZero emetti dallo smartphone in pochi secondi, trasmetti in automatico a ogni scontrino e hai lo storico digitale; la prova è di 30 giorni senza carta di credito. Se il tuo flusso al banco è molto alto, valuta onestamente un RT: la nostra guida al confronto spiega quando conviene l'uno o l'altro.",
+        body: `Se apri ora o vuoi dismettere il registratore, la strada più economica è la procedura DCO: zero hardware, zero collaudi. Con ScontrinoZero emetti dallo smartphone in pochi secondi, trasmetti in automatico a ogni scontrino e hai lo storico digitale; la prova è di ${TRIAL_DAYS} giorni senza carta di credito. Se il tuo flusso al banco è molto alto, valuta onestamente un RT: la nostra guida al confronto spiega quando conviene l'uno o l'altro.`,
       },
     ],
     faq: [
@@ -1304,7 +1305,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "L'alternativa software nel dettaglio",
-        body: "Con la procedura DCO emetti lo scontrino elettronico dal portale AdE (gratis, ma lento: ogni documento va compilato a mano) o da un'app che automatizza la compilazione e la trasmissione. ScontrinoZero parte da 29,99 €/anno (Starter) con scontrini illimitati, prova di 30 giorni senza carta e versione self-hosted gratuita: il calcolatore di risparmio linkato sotto confronta il tuo caso specifico con i costi di un RT.",
+        body: `Con la procedura DCO emetti lo scontrino elettronico dal portale AdE (gratis, ma lento: ogni documento va compilato a mano) o da un'app che automatizza la compilazione e la trasmissione. ScontrinoZero parte da ${starter.yearly}/anno (Starter) con scontrini illimitati, prova di ${TRIAL_DAYS} giorni senza carta e versione self-hosted gratuita: il calcolatore di risparmio linkato sotto confronta il tuo caso specifico con i costi di un RT.`,
       },
     ],
     faq: [
@@ -1325,8 +1326,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         question: "Quanto costa emettere scontrini con un'app?",
-        answer:
-          "Con ScontrinoZero il piano Starter costa 29,99 €/anno (o 4,99 €/mese) con scontrini illimitati; la prova è di 30 giorni senza carta. Il portale AdE resta gratuito ma richiede la compilazione manuale di ogni documento.",
+        answer: `Con ScontrinoZero il piano Starter costa ${starter.yearly}/anno (o ${starter.monthly}/mese) con scontrini illimitati; la prova è di ${TRIAL_DAYS} giorni senza carta. Il portale AdE resta gratuito ma richiede la compilazione manuale di ogni documento.`,
       },
     ],
     relatedHelp: ["piani-e-prezzi", "primo-scontrino", "pos-rt-obbligo"],
@@ -1568,7 +1568,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come si usano in ScontrinoZero",
-        body: 'Entrambi gli sconti sono inclusi nel piano Pro e nei 30 giorni di prova. Lo sconto di riga si aggiunge mentre inserisci l\'articolo, sotto l\'aliquota IVA, con il tasto "+ Sconto su questo articolo": è uno sconto sull\'intera riga, non per pezzo, quindi su 3 magliette da 40 € uno sconto di 20 € porta la riga a 100 €. Lo sconto a pagare si aggiunge nel riepilogo, sotto "Altre opzioni", con "+ Sconto a pagare": la schermata mostra il totale che resta pieno e, sotto, quanto devi incassare. Se non li usi non li vedi: lo sconto di riga è un link che si apre solo quando lo tocchi, e sconto a pagare, pagamento misto e codice lotteria stanno tutti dentro "Altre opzioni", chiuso finché non serve. Su entrambi i campi deve restare almeno un centesimo da incassare, e lo sconto di riga non può superare il totale della riga a cui si riferisce.',
+        body: `Entrambi gli sconti sono inclusi nel piano Pro e nei ${TRIAL_DAYS} giorni di prova. Lo sconto di riga si aggiunge mentre inserisci l'articolo, sotto l'aliquota IVA, con il tasto "+ Sconto su questo articolo": è uno sconto sull'intera riga, non per pezzo, quindi su 3 magliette da 40 € uno sconto di 20 € porta la riga a 100 €. Lo sconto a pagare si aggiunge nel riepilogo, sotto "Altre opzioni", con "+ Sconto a pagare": la schermata mostra il totale che resta pieno e, sotto, quanto devi incassare. Se non li usi non li vedi: lo sconto di riga è un link che si apre solo quando lo tocchi, e sconto a pagare, pagamento misto e codice lotteria stanno tutti dentro "Altre opzioni", chiuso finché non serve. Su entrambi i campi deve restare almeno un centesimo da incassare, e lo sconto di riga non può superare il totale della riga a cui si riferisce.`,
       },
       {
         heading: "Gli errori che costano un annullo",
