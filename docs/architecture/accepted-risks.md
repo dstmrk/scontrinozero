@@ -312,3 +312,103 @@ giorno per attività. Un rifiuto muto renderebbe incomprensibile il caso
 legittimo (la persona ha già un account e non riceverà mai l'invito).
 **Riaprire:** se compaiono attività che fanno molti inviti rifiutati, o se
 l'enumerazione diventa un vettore per un attacco reale.
+
+## Limiti degli inviti contati senza lock: due inviti simultanei li superano (issue #1099)
+
+`inviteCollaborator` in `src/server/collaborator-actions.ts` conta i posti
+occupati (`countTeamSeats` in `src/lib/collaborator-invites.ts`) e poi
+inserisce l'invito, senza lock e senza un vincolo nel DB che lo impedisca. Due
+inviti a email diverse, partiti nello stesso istante dalla stessa attività,
+leggono lo stesso conteggio e passano entrambi. Vale per il limite della prova
+(`TRIAL_COLLABORATOR_LIMIT`, 2 collaboratori inviti compresi) e per quello
+degli inviti validi (`MAX_OPEN_INVITES`, 10).
+
+Lo può fare solo il titolare, con due richieste concorrenti dalla sua
+sessione, e il tetto di 20 inviti al giorno resta. L'effetto peggiore è un
+collaboratore in più durante la prova: a prova scaduta il piano non ammette
+più collaboratori, e tutti restano in sola lettura. Chiuderlo vuol dire
+serializzare gli inviti dell'attività (`SELECT ... FOR UPDATE` sulla riga di
+`businesses`, o un advisory lock), con il suo test di concorrenza, per un caso
+che non porta danno a nessuno. Deciso nella review del piano Team del
+28/10/2026.
+
+**Riaprire:** se un limite di posti diventa una promessa commerciale (per
+esempio un piano a collaboratori contati), o se compare un'attività in prova
+con più di 2 collaboratori. Il conteggio va fatto sul DB: righe
+`collaborator` di `business_members` con `auth_user_id` non NULL, più gli
+inviti con `expires_at` nel futuro.
+
+## Token d'invito nel path dell'URL (issue #1099)
+
+Il link d'invito è `https://<app>/invito/<token>` (`inviteAcceptUrl` in
+`src/lib/collaborator-invites.ts`): 43 caratteri casuali, validi 7 giorni,
+che aprono un account nell'attività a chi accetta per primo. Nel DB c'è solo
+lo SHA-256, ma il token sta nel path, quindi finisce ovunque finisca l'URL
+della pagina: le pageview di Umami (lo script è nel root layout,
+`src/components/umami-script.tsx`), i log di Cloudflare, la cronologia del
+browser. Non esce nel `Referer` verso altri domini, perché
+`src/lib/security-headers.ts` imposta `strict-origin-when-cross-origin`.
+
+Accettato perché Umami, Cloudflare e Sentry li legge solo l'owner del
+progetto, e chi ha quell'accesso ha già modi più diretti per entrare in
+un'attività. Togliere il token dal path (nel frammento `#`, letto dal client
+e mandato all'action) o filtrarlo prima che Umami lo registri costa un ramo
+in più sulla pagina d'invito per chiudere un'esposizione verso noi stessi.
+Deciso nella review del piano Team del 28/10/2026.
+
+**Riaprire:** se l'accesso a Umami, Cloudflare o Sentry si estende ad altre
+persone, se Umami passa a un servizio di terzi, o se risulta accettato un
+invito da qualcuno che non l'ha ricevuto.
+
+## Rollback a v1.9.5 dopo la migrazione 0044 (issue #1099)
+
+La 0044 crea `business_members` con il titolare di ogni attività esistente e
+riempie `commercial_documents.created_by` una volta sola, al momento in cui
+crea la colonna. Il codice fino a v1.9.5 non conosce né l'una né l'altra:
+dopo un rollback scrive attività senza la riga `owner` e documenti con
+`created_by` NULL. Tornati su v1.10.x:
+
+- **il titolare di un'attività nata durante il rollback resta chiuso fuori.**
+  `getOnboardingStatus` parte da `business_members` e lo manda
+  all'onboarding; `saveBusiness` trova l'attività, prende il ramo di
+  aggiornamento e non inserisce la membership; ogni action risponde
+  "Business non trovato o non autorizzato".
+- **i documenti emessi durante il rollback risultano "Developer API"** in
+  storico, export CSV e Analytics, perché `created_by` e `api_key_id` sono
+  entrambi NULL.
+- **un titolare che cancella l'account durante il rollback lascia vivi gli
+  account dei suoi collaboratori**: il purge di v1.9.5 non li conosce. Senza
+  `business_members` quegli account non aprono nulla.
+
+Accettato senza trigger di compatibilità né rami `if (legacy)` (regola 28),
+come la decisione 6 della PR #1103 per la sandbox. In produzione il deploy
+applica le migrazioni prima di avviare il server e il container vecchio è
+già fermo, quindi il caso nasce solo da un rollback esplicito.
+
+**Se si fa rollback**, prima di ridistribuire v1.10.x si rilancia a mano
+questa riparazione, idempotente e provata su Postgres 16 il 28/10/2026.
+`<inizio del rollback>` è l'istante in cui è ripartito v1.9.5: il filtro
+lascia alla Developer API i documenti più vecchi con la chiave cancellata,
+che hanno anch'essi i due campi NULL. Gli account dei collaboratori rimasti
+sono gli auth user senza riga né in `profiles` né in `business_members`: si
+cancellano dalla dashboard Supabase.
+
+```sql
+INSERT INTO business_members (business_id, auth_user_id, role)
+SELECT b.id, p.auth_user_id, 'owner'
+FROM businesses b
+JOIN profiles p ON p.id = b.profile_id
+ON CONFLICT DO NOTHING;
+
+UPDATE commercial_documents cd
+   SET created_by = m.id
+  FROM business_members m
+ WHERE m.business_id = cd.business_id
+   AND m.role = 'owner'
+   AND cd.created_by IS NULL
+   AND cd.api_key_id IS NULL
+   AND cd.created_at >= '<inizio del rollback>'::timestamptz;
+```
+
+**Riaprire:** al primo rollback reale dopo il tag v1.10.0. A quel punto la
+riparazione entra in una migrazione nuova, così il deploy la applica da sé.
