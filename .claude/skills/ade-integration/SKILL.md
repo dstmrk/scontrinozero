@@ -360,6 +360,17 @@ ferma tutto su due livelli:
   stesso errore se portano lo stesso `credentialVersion`; un login riuscito o
   `invalidate()` cancellano il marker.
 
+Un meccanismo che ferma tutto su un rifiuto rende cara ogni classificazione
+sbagliata **a monte**. `iampeLogin` decide dallo status prima di leggere
+`details`: solo il `401` è un rifiuto, ogni altro non-2xx (5xx con la pagina
+di manutenzione, 429, 403 del WAF) è `AdePortalError(status)`. Fino alla
+issue #1130 un 503 del portale IAM usciva `AdeAuthError` e, dalla #1099 in
+poi, azzerava `verified_at` e mandava al titolare l'email di credenziali
+rifiutate. `request()` non lancia sugli status HTTP: un ramo `!response.ok`
+che lancia una classe di **rifiuto** deve sempre restringere lo status. Il
+log `ade:auth_failed` porta lo status, `ade:login_unavailable` conta i
+non-401.
+
 Il passaggio del DB, che avviene una volta per episodio, è anche il punto in
 cui il titolare con collaboratori riceve un'email
 (`notifyOwnerOfAdeRejection` in `src/lib/services/ade-rejection-notice.ts`).

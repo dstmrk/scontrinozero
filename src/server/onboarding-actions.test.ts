@@ -2898,6 +2898,21 @@ describe("onboarding-actions", () => {
         expect(result.credentialsRejected).toBeUndefined();
       });
 
+      // Issue #1130: il portale IAM giù durante la verifica non toglie il
+      // bottone "Verifica connessione" al titolare.
+      it("un 503 del portale al login registra 'transient' e NON alza `credentialsRejected`", async () => {
+        const { AdePortalError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdePortalError(503, "IAM login unavailable"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(result.error).toBeDefined();
+        expect(result.credentialsRejected).toBeUndefined();
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("transient");
+      });
+
       it("password scaduta registra 'password_expired'", async () => {
         const { AdePasswordExpiredError } = await import("@/lib/ade/errors");
         queueFailedLogin(new AdePasswordExpiredError());

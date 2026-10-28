@@ -22,6 +22,8 @@ import {
   AdeSessionExpiredError,
   AdeUnknownOutcomeError,
 } from "./errors";
+import { isTransientAdeError } from "./error-messages";
+import { loginRejectionOutcome } from "./verify-outcome";
 import { logger } from "@/lib/logger";
 import type { AdePayload, AdeResponse } from "./types";
 
@@ -298,10 +300,75 @@ describe("RealAdeClient", () => {
       expect(body.pin).toBe("1234567890");
     });
 
-    it("Phase A: lancia AdeAuthError se la risposta non è 200", async () => {
-      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+    it("Phase A: lancia AdeAuthError su 401 e logga lo status", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 401,
+          body: { details: "INVALID_CREDENTIALS" },
+        }),
+      );
 
       await expect(client.login(mockCredentials)).rejects.toThrow(AdeAuthError);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { phase: "A", status: 401, details: "INVALID_CREDENTIALS" },
+        "ade:auth_failed",
+      );
+    });
+
+    // Issue #1130: un guasto del portale IAM non è un rifiuto delle
+    // credenziali. Classificato AdeAuthError, fermava tutti i login automatici
+    // dell'attività finché il titolare non riverificava.
+    it.each([500, 502, 503, 504])(
+      "Phase A: un %i con pagina HTML è AdePortalError transitorio, non un rifiuto",
+      async (status) => {
+        fetchMock.mockResolvedValueOnce(
+          mockResponse({
+            status,
+            body: "<html><body>Servizio in manutenzione</body></html>",
+            headers: [["Content-Type", "text/html"]],
+          }),
+        );
+
+        const err = await client
+          .login(mockCredentials)
+          .catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(AdePortalError);
+        expect((err as AdePortalError).statusCode).toBe(status);
+        expect(isTransientAdeError(err)).toBe(true);
+        expect(loginRejectionOutcome(err)).toBeNull();
+        expect(logger.warn).toHaveBeenCalledWith(
+          { phase: "A", status },
+          "ade:login_unavailable",
+        );
+      },
+    );
+
+    it.each([429, 403])(
+      "Phase A: un %i senza details è AdePortalError, non un rifiuto",
+      async (status) => {
+        fetchMock.mockResolvedValueOnce(
+          mockResponse({ status, body: { error: "Too many requests" } }),
+        );
+
+        const err = await client
+          .login(mockCredentials)
+          .catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(AdePortalError);
+        expect((err as AdePortalError).statusCode).toBe(status);
+        expect(loginRejectionOutcome(err)).toBeNull();
+      },
+    );
+
+    it("Phase A: lo status decide prima di `details`, anche su un non-401", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 503, body: { details: "PASSWORD_EXPIRED" } }),
+      );
+
+      await expect(client.login(mockCredentials)).rejects.toBeInstanceOf(
+        AdePortalError,
+      );
     });
 
     it("Phase A: lancia AdePasswordExpiredError se details è PASSWORD_EXPIRED", async () => {
@@ -1483,6 +1550,20 @@ describe("RealAdeClient", () => {
         );
       },
     );
+
+    it("un 503 del portale IAM durante la re-auth resta AdeSessionExpiredError (issue #1130)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 503, body: "<html>maintenance</html>" }),
+      ); // Phase A della re-auth
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+    });
 
     it("un guasto di rete durante la re-auth resta AdeSessionExpiredError", async () => {
       mockLoginSequence(fetchMock);
