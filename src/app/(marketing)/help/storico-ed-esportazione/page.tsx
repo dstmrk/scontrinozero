@@ -417,14 +417,6 @@ export default function StoricoEdEsportazionePage() {
                 </td>
               </tr>
               <tr>
-                <td className="py-2 pr-4 font-mono text-xs">emesso_da</td>
-                <td className="py-2">
-                  Chi ha emesso il documento: Titolare, il nome del
-                  collaboratore o Developer API; vuota sulle righe
-                  dell&apos;Agenzia
-                </td>
-              </tr>
-              <tr>
                 <td className="py-2 pr-4 font-mono text-xs">id_scontrino</td>
                 <td className="py-2">
                   Identificativo interno: è il riferimento da citare se scrivi
@@ -438,6 +430,14 @@ export default function StoricoEdEsportazionePage() {
                 <td className="py-2">
                   Identificativo della trasmissione all&apos;Agenzia delle
                   Entrate
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">emesso_da</td>
+                <td className="py-2">
+                  Chi ha emesso il documento: Titolare, il nome del
+                  collaboratore o Developer API; vuota sulle righe
+                  dell&apos;Agenzia
                 </td>
               </tr>
             </tbody>
@@ -501,16 +501,16 @@ export default function StoricoEdEsportazionePage() {
                 </td>
               </tr>
               <tr>
-                <td className="py-2 pr-4 font-mono text-xs">emesso_da</td>
-                <td className="py-2">
-                  Chi ha emesso lo scontrino, come nel riepilogo
-                </td>
-              </tr>
-              <tr>
                 <td className="py-2 pr-4 font-mono text-xs">id_scontrino</td>
                 <td className="py-2">
                   Lo scontrino a cui la voce appartiene: è la colonna che
                   ricollega i due file
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">emesso_da</td>
+                <td className="py-2">
+                  Chi ha emesso lo scontrino, come nel riepilogo
                 </td>
               </tr>
             </tbody>

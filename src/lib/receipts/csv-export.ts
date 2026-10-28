@@ -78,12 +78,14 @@ export const RECEIPT_CSV_HEADERS = [
   // "Documento di riferimento" della ricevuta. Leggibile da una persona,
   // quindi sta prima degli id tecnici.
   "rif_vendita",
+  "id_scontrino",
+  "id_transazione_ade",
   // Chi ha emesso (issue #1099): Titolare, il nome del collaboratore o
   // Developer API. C'è sempre, anche senza collaboratori, per la stessa
   // ragione di `origine`. Vuota sulle righe AdE: lì nessuno di noi ha emesso.
+  // In coda e non accanto a `rif_vendita` (issue #1131): chi legge il file
+  // per posizione deve ritrovare le colonne di prima dove stavano.
   "emesso_da",
-  "id_scontrino",
-  "id_transazione_ade",
 ] as const;
 
 export type ReceiptStatusFilter = "ACCEPTED" | "VOID_ACCEPTED";
@@ -234,9 +236,9 @@ function formatReturnRow(
     doc.lotteryCode ?? "",
     "",
     doc.returnOfAdeProgressive ?? "",
-    describeIssuer(doc).label,
     doc.id,
     doc.adeTransactionId ?? "",
+    describeIssuer(doc).label,
   ];
 }
 
@@ -291,9 +293,9 @@ export function formatReceiptRow(
     doc.lotteryCode ?? "",
     doc.voidRegisteredAt ? formatRomeDate(doc.voidRegisteredAt) : "",
     "",
-    describeIssuer(doc).label,
     doc.id,
     doc.adeTransactionId ?? "",
+    describeIssuer(doc).label,
   ];
 }
 
@@ -329,8 +331,8 @@ export function formatAdeReceiptRow(row: AdeReceiptListItem): string[] {
     "",
     "",
     "",
-    "",
     row.idtrx,
+    "",
   ];
 }
 
@@ -359,8 +361,9 @@ export const RECEIPT_LINES_CSV_HEADERS = [
   "prezzo_unitario",
   "totale_riga",
   "aliquota",
-  "emesso_da",
   "id_scontrino",
+  // In coda come nel riepilogo (issue #1131).
+  "emesso_da",
 ] as const;
 
 /**
@@ -434,8 +437,8 @@ export function formatReceiptLineRows(
       formatItalianAmount(Number.parseFloat(line.grossUnitPrice ?? "0")),
       formatItalianAmount((sign * lineTotalCents) / 100),
       line.vatCode,
-      emessoDa,
       doc.id,
+      emessoDa,
     ];
   });
 }
