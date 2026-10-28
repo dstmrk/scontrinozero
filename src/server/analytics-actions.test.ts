@@ -77,6 +77,13 @@ vi.mock("@/db/schema", () => ({
     status: "status",
     createdAt: "created_at",
     publicRequest: "public_request",
+    createdBy: "created_by",
+  },
+  businessMembers: {
+    id: "member_id",
+    role: "member_role",
+    name: "member_name",
+    authUserId: "member_auth_user_id",
   },
 }));
 
@@ -161,10 +168,12 @@ async function getProductBreakdown(businessId: string, range: AnalyticsRange) {
 function makeSelectBuilder(result: unknown[]) {
   const builder = {
     from: vi.fn(),
+    leftJoin: vi.fn(),
     where: vi.fn(),
     limit: vi.fn(),
   };
   builder.from.mockReturnValue(builder);
+  builder.leftJoin.mockReturnValue(builder);
   builder.where.mockReturnValue(builder);
   builder.limit.mockReturnValue(Promise.resolve(result));
   return builder;
@@ -953,6 +962,95 @@ describe("getProductBreakdown", () => {
 });
 
 describe("getAnalyticsBundle", () => {
+  it("ripartisce i ricavi per chi ha emesso, collaboratori e API compresi", async () => {
+    const at = new Date("2026-05-19T10:00:00Z");
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        {
+          id: "own",
+          kind: "SALE",
+          status: "ACCEPTED",
+          createdAt: at,
+          createdBy: "member-owner",
+          issuerRole: "owner",
+          issuerName: null,
+          issuerAuthUserId: "user-1",
+        },
+        {
+          id: "luca",
+          kind: "SALE",
+          status: "ACCEPTED",
+          createdAt: at,
+          createdBy: "member-luca",
+          issuerRole: "collaborator",
+          issuerName: "Luca",
+          issuerAuthUserId: null,
+        },
+        {
+          id: "api",
+          kind: "SALE",
+          status: "ACCEPTED",
+          createdAt: at,
+          createdBy: null,
+          issuerRole: null,
+          issuerName: null,
+          issuerAuthUserId: null,
+        },
+      ]),
+    );
+    mockFetchLinesByDocIds.mockResolvedValue([
+      {
+        documentId: "own",
+        description: "A",
+        quantity: "1",
+        grossUnitPrice: "5.00",
+      },
+      {
+        documentId: "luca",
+        description: "B",
+        quantity: "1",
+        grossUnitPrice: "3.00",
+      },
+      {
+        documentId: "api",
+        description: "C",
+        quantity: "1",
+        grossUnitPrice: "1.00",
+      },
+    ]);
+
+    const res = await getAnalyticsBundle(
+      "11111111-1111-4111-8111-111111111111",
+      "7d",
+      new Date("2026-05-19T12:00:00Z"),
+    );
+
+    if ("error" in res) throw new Error(`Expected bundle, got: ${res.error}`);
+    expect(res.issuerBreakdown).toEqual([
+      {
+        key: "member-owner",
+        kind: "owner",
+        label: "Titolare",
+        revenueCents: 500,
+        count: 1,
+      },
+      {
+        key: "member-luca",
+        kind: "collaborator",
+        label: "Luca (rimosso)",
+        revenueCents: 300,
+        count: 1,
+      },
+      {
+        key: "api",
+        kind: "api",
+        label: "Developer API",
+        revenueCents: 100,
+        count: 1,
+      },
+    ]);
+  });
+
   it("returns kpis/timeseries/breakdown/productBreakdown from a single dataset fetch", async () => {
     const at = new Date("2026-05-19T10:00:00Z");
     mockSelect.mockReturnValue(
@@ -1035,10 +1133,12 @@ describe("getAnalyticsBundle", () => {
     });
     const rejectingBuilder = {
       from: vi.fn(),
+      leftJoin: vi.fn(),
       where: vi.fn(),
       limit: vi.fn(),
     };
     rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.leftJoin.mockReturnValue(rejectingBuilder);
     rejectingBuilder.where.mockReturnValue(rejectingBuilder);
     rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
     mockSelect.mockReturnValue(rejectingBuilder);
@@ -1077,10 +1177,12 @@ describe("getAnalyticsBundle", () => {
   it("rethrows unexpected fetch errors instead of masking them", async () => {
     const rejectingBuilder = {
       from: vi.fn(),
+      leftJoin: vi.fn(),
       where: vi.fn(),
       limit: vi.fn(),
     };
     rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.leftJoin.mockReturnValue(rejectingBuilder);
     rejectingBuilder.where.mockReturnValue(rejectingBuilder);
     rejectingBuilder.limit.mockReturnValue(
       Promise.reject(new Error("network glitch")),
@@ -1244,10 +1346,12 @@ describe("getStarterKpis", () => {
     });
     const rejectingBuilder = {
       from: vi.fn(),
+      leftJoin: vi.fn(),
       where: vi.fn(),
       limit: vi.fn(),
     };
     rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.leftJoin.mockReturnValue(rejectingBuilder);
     rejectingBuilder.where.mockReturnValue(rejectingBuilder);
     rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
     mockSelect.mockReturnValue(rejectingBuilder);
@@ -1280,10 +1384,12 @@ describe("getStarterKpis", () => {
   it("rethrows unexpected fetch errors instead of masking them", async () => {
     const rejectingBuilder = {
       from: vi.fn(),
+      leftJoin: vi.fn(),
       where: vi.fn(),
       limit: vi.fn(),
     };
     rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.leftJoin.mockReturnValue(rejectingBuilder);
     rejectingBuilder.where.mockReturnValue(rejectingBuilder);
     rejectingBuilder.limit.mockReturnValue(
       Promise.reject(new Error("network glitch")),

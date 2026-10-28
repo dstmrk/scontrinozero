@@ -173,6 +173,12 @@ si chiude al merge su `main`. Un fix parziale non usa `Closes`: la PR cita
 l'issue, e **dopo** il merge il corpo dell'issue si aggiorna con quello che
 resta, così torna a leggersi da solo.
 
+La parola chiave resta **in inglese** anche in un corpo scritto in italiano:
+GitHub riconosce solo `Closes`, `Fixes`, `Resolves` (e le loro coniugazioni)
+seguiti da `#N`. "Chiude #1106" nella PR #1118 non ha chiuso nulla: l'issue è
+rimasta aperta dopo il merge ed è stata chiusa a mano. Per una PR che è solo
+una parte del lavoro si scrive `Parte di #N`, che di proposito non chiude.
+
 ## La tabella del costo (sempre per ultima, dopo il ledger)
 
 Il ledger dice **cosa** è stato deciso; questa dice **quanto è costato**.

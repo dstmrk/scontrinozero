@@ -45,6 +45,12 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   commercialDocuments: "commercial-documents-table",
   commercialDocumentLines: "commercial-document-lines-table",
+  businessMembers: {
+    id: "bm.id",
+    role: "bm.role",
+    name: "bm.name",
+    authUserId: "bm.auth_user_id",
+  },
 }));
 
 // `commercialDocuments` qui e' una stringa, non una tabella Drizzle: l'`alias`
@@ -86,8 +92,8 @@ function setupDbMocksEmpty(total = 0): void {
   mockDocsLimit.mockReturnValue({ offset: mockDocsOffset });
   mockDocsOrderBy.mockReturnValue({ limit: mockDocsLimit });
   mockDocsWhere.mockReturnValue({ orderBy: mockDocsOrderBy });
-  // I self-join (annullo, vendita resa) si interpongono fra `.from()` e
-  // `.where()`: ogni `.leftJoin()` concede il successivo.
+  // I join (annullo, vendita resa, membro che ha emesso) si interpongono fra
+  // `.from()` e `.where()`: ogni `.leftJoin()` concede il successivo.
   mockDocsLeftJoin.mockReturnValue({
     leftJoin: mockDocsLeftJoin,
     where: mockDocsWhere,

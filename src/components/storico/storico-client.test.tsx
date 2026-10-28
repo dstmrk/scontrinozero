@@ -101,6 +101,7 @@ const ACCEPTED_ROW: ReceiptListItem = {
   adeTransactionId: "trx-001",
   createdAt: new Date("2026-02-15T09:59:57Z"),
   adeRegisteredAt: new Date("2026-02-15T10:00:00Z"),
+  issuer: { kind: "owner", label: "Titolare" },
   voidDocument: null,
   returnOf: null,
   paymentMethod: "PC",
@@ -667,5 +668,99 @@ describe("StoricoClient — dopo un reso", () => {
     // Nessuna nuova ricerca: i filtri del form potrebbero non essere quelli
     // applicati all'elenco.
     expect(searchReceipts).not.toHaveBeenCalled();
+  });
+});
+
+// issue #1099: il titolare vede chi ha emesso e filtra per membro.
+describe("StoricoClient — emesso da", () => {
+  const OPTIONS = [
+    { value: "owner-id", label: "Titolare" },
+    { value: "33333333-3333-4333-8333-333333333333", label: "Luca" },
+    { value: "api", label: "Developer API" },
+  ];
+  const LUCA_ROW: ReceiptListItem = {
+    ...ACCEPTED_ROW,
+    id: "luca-doc-uuid",
+    adeProgressive: "DCW2026/5111-3000",
+    issuer: { kind: "collaborator", label: "Luca" },
+  };
+
+  function renderWith(
+    role: "owner" | "collaborator",
+    props: Partial<Parameters<typeof StoricoClient>[0]> = {},
+  ) {
+    return render(
+      <MemberRoleProvider role={role}>
+        <StoricoClient
+          businessId={BUSINESS_ID}
+          initialItems={[ACCEPTED_ROW, LUCA_ROW]}
+          initialTotal={2}
+          plan="team"
+          issuerOptions={OPTIONS}
+          {...props}
+        />
+      </MemberRoleProvider>,
+    );
+  }
+
+  it("il titolare vede il filtro e chi ha emesso le righe di altri", () => {
+    renderWith("owner");
+
+    expect(
+      screen.getByRole("combobox", { name: "Emesso da" }),
+    ).toBeInTheDocument();
+    const lucaRow = screen.getByText("5111-3000").closest("tr");
+    expect(
+      within(lucaRow as HTMLElement).getByText("Luca"),
+    ).toBeInTheDocument();
+    const ownerRow = screen.getByText("5111-2188").closest("tr");
+    expect(
+      within(ownerRow as HTMLElement).queryByText("Titolare"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("senza collaboratori il filtro non c'è", () => {
+    renderWith("owner", { issuerOptions: [] });
+
+    expect(
+      screen.queryByRole("combobox", { name: "Emesso da" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("il collaboratore non vede né il filtro né l'etichetta", () => {
+    renderWith("collaborator");
+
+    expect(
+      screen.queryByRole("combobox", { name: "Emesso da" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Luca")).not.toBeInTheDocument();
+  });
+
+  it("la ricerca porta il filtro scelto", async () => {
+    renderWith("owner", {
+      initialIssuer: "33333333-3333-4333-8333-333333333333",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    await waitFor(() =>
+      expect(searchReceipts).toHaveBeenCalledWith(
+        BUSINESS_ID,
+        expect.objectContaining({
+          issuer: "33333333-3333-4333-8333-333333333333",
+        }),
+      ),
+    );
+  });
+
+  it("senza filtro la ricerca non manda l'emittente", async () => {
+    renderWith("owner");
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    await waitFor(() => expect(searchReceipts).toHaveBeenCalled());
+    expect(vi.mocked(searchReceipts).mock.calls[0][1]).not.toHaveProperty(
+      "issuer",
+    );
   });
 });

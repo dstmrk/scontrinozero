@@ -8,6 +8,7 @@ import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getPlanSafe } from "@/lib/plans";
 import { defaultLast7DaysRomeRange } from "@/lib/storico-default-range";
 import { fetchReceiptPrintProfile } from "@/lib/receipts/print-profile";
+import { listIssuerOptions } from "@/lib/receipts/document-issuer";
 
 const STATUS_VALUES = new Set<StatusFilter>(["ACCEPTED", "VOID_ACCEPTED", ""]);
 
@@ -31,6 +32,7 @@ export default async function StoricoPage({
     al?: string;
     stato?: string;
     ade?: string;
+    emesso?: string;
   }>;
 }) {
   const status = await getOnboardingStatus();
@@ -39,7 +41,7 @@ export default async function StoricoPage({
     redirect("/onboarding");
   }
 
-  const { dal, al, stato, ade } = await searchParams;
+  const { dal, al, stato, ade, emesso } = await searchParams;
   const { dateFrom: defaultFrom, dateTo: defaultTo } =
     defaultLast7DaysRomeRange();
 
@@ -47,15 +49,29 @@ export default async function StoricoPage({
   const dateTo = al ?? defaultTo;
   const statusParam = parseStatus(stato);
 
-  const [initialResult, user] = await Promise.all([
+  // Il filtro "Emesso da" è del titolare (issue #1099). Le voci si leggono
+  // in parallelo alla ricerca; si aspettano prima solo quando `?emesso=` va
+  // confrontato con loro, così un valore estraneo nell'URL non filtra.
+  const issuerOptionsPromise =
+    status.membership?.role === "owner"
+      ? listIssuerOptions(status.businessId)
+      : Promise.resolve([]);
+  const issuer = emesso
+    ? (await issuerOptionsPromise).find((option) => option.value === emesso)
+        ?.value
+    : undefined;
+
+  const [initialResult, user, issuerOptions] = await Promise.all([
     searchReceipts(status.businessId, {
       dateFrom,
       dateTo,
       ...(statusParam ? { status: statusParam } : {}),
+      ...(issuer ? { issuer } : {}),
       page: 1,
       pageSize: STORICO_PAGE_SIZE,
     }),
     getAuthenticatedUser(),
+    issuerOptionsPromise,
   ]);
   // `getPlanSafe` e non `getPlan` (PR #806): `searchReceipts` qui sopra
   // degrada già a `{ error, items: [], total: 0 }`, e un throw accanto
@@ -83,6 +99,8 @@ export default async function StoricoPage({
       plan={planInfo.plan}
       trialStartedAt={planInfo.trialStartedAt}
       printProfile={printProfile}
+      issuerOptions={issuerOptions}
+      initialIssuer={issuer}
     />
   );
 }

@@ -15,6 +15,7 @@ import {
   buildReceiptsCsvStream,
   type ReceiptStatusFilter,
 } from "@/lib/receipts/csv-export";
+import { issuerCondition } from "@/lib/receipts/document-issuer";
 import { buildAdeSearchRanges } from "@/lib/services/ade-document-search";
 import { fetchForeignAdeRows } from "@/lib/services/ade-storico-rows";
 import type { AdeReceiptListItem } from "@/types/storico";
@@ -52,6 +53,8 @@ const querySchema = z.object({
   format: z.enum(FORMAT_VALUES).optional(),
   /** `1` include anche i documenti che stanno solo sull'archivio AdE. */
   ade: z.literal("1").optional(),
+  /** Il filtro "Emesso da" dello storico: un id di membro o `api`. */
+  issuer: z.string().optional(),
 });
 
 function errorJson(status: number, error: string): Response {
@@ -144,6 +147,7 @@ export async function GET(req: Request): Promise<Response> {
     status: url.searchParams.get("status") ?? undefined,
     format: url.searchParams.get("format") ?? undefined,
     ade: url.searchParams.get("ade") ?? undefined,
+    issuer: url.searchParams.get("issuer") ?? undefined,
   });
   if (!parsed.success) {
     return errorJson(
@@ -151,20 +155,27 @@ export async function GET(req: Request): Promise<Response> {
       parsed.error.issues[0]?.message ?? "Parametri non validi.",
     );
   }
-  const { from, to, status } = parsed.data;
+  const { from, to, status, issuer } = parsed.data;
   const format: ExportFormat = parsed.data.format ?? "summary";
-  const includeAde = parsed.data.ade === "1";
+  const issuerFilter = issuerCondition(issuer);
+  if (issuerFilter && "error" in issuerFilter) {
+    return errorJson(400, issuerFilter.error);
+  }
+  const wantsAde = parsed.data.ade === "1";
 
   // Il taglio per voce venduta non può includere i documenti AdE: la ricerca
   // ne restituisce la sola testata, e le righe articolo starebbero dietro una
   // chiamata `getDocument` per documento. Rifiutare è l'unica risposta onesta
   // — un file "dettaglio" che ignora in silenzio il flag sembrerebbe completo.
-  if (includeAde && format === "detail") {
+  if (wantsAde && format === "detail") {
     return errorJson(
       400,
       "Il dettaglio per voce venduta copre solo i documenti emessi da ScontrinoZero: l'archivio dell'Agenzia delle Entrate non restituisce le righe articolo. Usa il riepilogo.",
     );
   }
+  // Come nello storico: l'archivio AdE non sa chi di noi ha emesso, quindi
+  // con il filtro "Emesso da" i suoi documenti restano fuori.
+  const includeAde = wantsAde && !issuer;
 
   // getAuthenticatedUser (non getUser() diretto): bind Sentry.setUser({ id })
   // (regola 22) e touch last_seen_at gratis anche per chi usa l'app solo per
@@ -209,6 +220,7 @@ export async function GET(req: Request): Promise<Response> {
     status: (status as ReceiptStatusFilter | undefined) ?? null,
     dateFrom,
     dateTo: dateToExclusive,
+    issuer: issuer ?? null,
   };
 
   if (format === "detail") {

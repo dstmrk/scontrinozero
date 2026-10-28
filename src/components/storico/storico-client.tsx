@@ -13,6 +13,7 @@ import {
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { SaleLookupDialog } from "./sale-lookup-dialog";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
+import type { IssuerOption } from "@/lib/receipts/document-issuer";
 import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -153,6 +154,9 @@ function SaleReturnBadge({
 
 const PAGE_SIZE = STORICO_PAGE_SIZE;
 
+/** Il valore del filtro "Emesso da" che vale tutti: Radix vuole un value non vuoto. */
+const ALL_ISSUERS = "ALL";
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -170,6 +174,13 @@ interface StoricoClientProps {
   readonly trialStartedAt?: Date | null;
   /** Intestazione esercente per la ristampa su termica; `null` se incompleta. */
   readonly printProfile?: ReceiptPrintProfile | null;
+  /**
+   * Voci del filtro "Emesso da" (issue #1099): vuote senza collaboratori, e
+   * sempre vuote per il collaboratore, che vede solo i propri documenti.
+   */
+  readonly issuerOptions?: readonly IssuerOption[];
+  /** Filtro "Emesso da" iniziale, da `?emesso=`, già fra le voci. */
+  readonly initialIssuer?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +198,8 @@ export function StoricoClient({
   plan,
   trialStartedAt = null,
   printProfile = null,
+  issuerOptions = [],
+  initialIssuer = "",
 }: StoricoClientProps) {
   const router = useRouter();
   const today = new Date();
@@ -240,6 +253,9 @@ export function StoricoClient({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     initialStatus ?? "ACCEPTED",
   );
+  /** "" = tutti. Il filtro e le etichette sono del titolare. */
+  const [issuerFilter, setIssuerFilter] = useState(initialIssuer);
+  const showIssuers = !isCollaborator && issuerOptions.length > 0;
 
   /** I filtri correnti nella forma che le due server action accettano. */
   function currentParams(): SearchReceiptsParams {
@@ -247,6 +263,7 @@ export function StoricoClient({
     if (dateRange?.from) params.dateFrom = format(dateRange.from, "yyyy-MM-dd");
     if (dateRange?.to) params.dateTo = format(dateRange.to, "yyyy-MM-dd");
     if (statusFilter) params.status = statusFilter;
+    if (issuerFilter) params.issuer = issuerFilter;
     return params;
   }
 
@@ -303,6 +320,7 @@ export function StoricoClient({
     if (params.dateTo) urlParams.set("al", params.dateTo);
     urlParams.set("stato", statusFilter);
     if (includeAde) urlParams.set("ade", "1");
+    if (issuerFilter) urlParams.set("emesso", issuerFilter);
     router.replace(`/dashboard/storico?${urlParams.toString()}`);
 
     runSearch(1, includeAde);
@@ -435,6 +453,32 @@ export function StoricoClient({
             </SelectContent>
           </Select>
         </div>
+        {showIssuers && (
+          <div className="min-w-[160px]">
+            <label
+              htmlFor="issuerFilter"
+              className="mb-1 block text-xs font-medium"
+            >
+              Emesso da
+            </label>
+            <Select
+              value={issuerFilter || ALL_ISSUERS}
+              onValueChange={(v) => setIssuerFilter(v === ALL_ISSUERS ? "" : v)}
+            >
+              <SelectTrigger id="issuerFilter" className="h-8 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ISSUERS}>Tutti</SelectItem>
+                {issuerOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {canSearchAde && (
           <div className="flex w-full items-start gap-2 pt-1">
             <Checkbox
@@ -477,6 +521,7 @@ export function StoricoClient({
             }
             status={statusFilter === "" ? null : statusFilter}
             includeAde={includeAde}
+            issuer={issuerFilter || null}
           />
         )}
       </form>
@@ -604,6 +649,11 @@ export function StoricoClient({
                       <span className="font-mono text-xs">
                         {formatProgressive(receipt.adeProgressive)}
                       </span>
+                      {!isCollaborator && receipt.issuer.kind !== "owner" && (
+                        <span className="text-muted-foreground block text-xs">
+                          {receipt.issuer.label}
+                        </span>
+                      )}
                     </td>
                     <td className="px-2 py-2 text-right font-medium tabular-nums sm:px-3">
                       {/* Il reso esce dalla cassa: in negativo, come nel CSV

@@ -1,5 +1,6 @@
 import type { DocumentStatus } from "@/lib/ade/public-types";
 import type { InteractiveMethod } from "@/lib/ade/types";
+import type { DocumentIssuer } from "@/lib/receipts/document-issuer";
 import type { PaymentEntry } from "@/lib/receipts/public-request";
 import type { PaymentMethod } from "@/types/cassa";
 
@@ -53,6 +54,11 @@ export interface ReceiptListItem {
    * così coincide con PDF e ricevuta pubblica.
    */
   adeRegisteredAt: Date;
+  /**
+   * Chi ha emesso il documento: il titolare, un collaboratore o la Developer
+   * API (issue #1099). Lo storico lo mostra al titolare.
+   */
+  issuer: DocumentIssuer;
   /**
    * L'annullo che ha annullato questa vendita, quando esiste. È l'entry point
    * della ricevuta di annullamento: dal dettaglio di una vendita annullata
@@ -167,6 +173,11 @@ export interface SearchReceiptsParams {
   page?: number;
   /** Dimensione pagina. Default STORICO_PAGE_SIZE. */
   pageSize?: number;
+  /**
+   * "Emesso da" (issue #1099): l'id di un membro dell'attività o `"api"` per
+   * la Developer API. Omesso = tutti.
+   */
+  issuer?: string;
 }
 
 export interface SearchReceiptsResult {

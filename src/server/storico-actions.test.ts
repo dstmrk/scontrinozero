@@ -55,6 +55,12 @@ vi.mock("@/db/schema", () => ({
     createdBy: "cd.created_by",
   },
   commercialDocumentLines: "commercial-document-lines-table",
+  businessMembers: {
+    id: "bm.id",
+    role: "bm.role",
+    name: "bm.name",
+    authUserId: "bm.auth_user_id",
+  },
 }));
 
 // Stubbati solo i costruttori di condizione che i test ispezionano: `desc`
@@ -254,6 +260,70 @@ describe("storico-actions", () => {
         adeProgressive: "DCW2026/5111-2189",
         adeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
       });
+    });
+
+    it("dice chi ha emesso ogni documento (issue #1099)", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(2))
+        .mockReturnValueOnce(
+          makeDocsBuilder([
+            {
+              ...FAKE_SALE_DOC,
+              issuerRole: "collaborator",
+              issuerName: "Luca",
+              issuerAuthUserId: "auth-luca",
+            },
+            {
+              ...FAKE_SALE_DOC,
+              id: "api-doc-uuid",
+              issuerRole: null,
+              issuerName: null,
+              issuerAuthUserId: null,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items.map((item) => item.issuer)).toEqual([
+        { kind: "collaborator", label: "Luca" },
+        { kind: "api", label: "Developer API" },
+      ]);
+    });
+
+    it("filtra per chi ha emesso", async () => {
+      const docs = makeDocsBuilder([]);
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(0))
+        .mockReturnValueOnce(docs);
+
+      const { searchReceipts } = await import("./storico-actions");
+      const memberId = "33333333-3333-4333-8333-333333333333";
+      await searchReceipts("11111111-1111-4111-8111-111111111111", {
+        issuer: memberId,
+      });
+
+      const where = docs.where.mock.calls[0][0] as { _and: unknown[] };
+      expect(where._and).toContainEqual({ _eq: ["cd.created_by", memberId] });
+    });
+
+    it("rifiuta un filtro «Emesso da» estraneo senza interrogare il DB", async () => {
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        { issuer: "titolare" },
+      );
+
+      expect(result).toEqual({
+        error: "Filtro «Emesso da» non valido.",
+        items: [],
+        total: 0,
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
     });
 
     it("lascia voidDocument null su una vendita non annullata", async () => {
