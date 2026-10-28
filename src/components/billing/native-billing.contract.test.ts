@@ -36,7 +36,7 @@ const OUT_OF_SHELL_DIRS = [
 
 /** Ciò che porta all'acquisto: endpoint, link, componenti e copy di CTA. */
 const BILLING_TOKEN =
-  /BILLING_SETTINGS_HREF|CheckoutButton|PlanSelection|\/api\/stripe\/(?:checkout|portal)|Passa a Pro|Attiva un piano|Scegli un piano/;
+  /BILLING_SETTINGS_HREF|CheckoutButton|PlanSelection|\/api\/stripe\/(?:checkout|portal)|Passa a (?:Pro|Team)|Attiva un piano|Scegli un piano/;
 
 const NATIVE_BRANCH = /useIsNativeShell|WebBillingOnly/;
 
@@ -94,6 +94,7 @@ describe("contratto billing ↔ guscio nativo (issue #1044)", () => {
         path.join("components", "billing", "plan-selection.tsx"),
         path.join("components", "billing", "pro-feature-gate.tsx"),
         path.join("app", "dashboard", "settings", "page.tsx"),
+        path.join("components", "settings", "collaborators-section.tsx"),
       ]),
     );
   });

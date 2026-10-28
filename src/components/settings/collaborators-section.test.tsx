@@ -15,6 +15,11 @@ vi.mock("@/server/collaborator-actions", () => ({
   removeCollaborator: vi.fn(),
 }));
 
+let mockNative = false;
+vi.mock("@/lib/native/native-shell", () => ({
+  useIsNativeShell: () => mockNative,
+}));
+
 const BIZ = "11111111-1111-4111-8111-111111111111";
 
 const PENDING: InviteRow = {
@@ -56,6 +61,7 @@ function renderSection(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockNative = false;
   vi.mocked(inviteCollaborator).mockResolvedValue({});
   vi.mocked(revokeCollaboratorInvite).mockResolvedValue({});
   vi.mocked(acceptCollaboratorTerms).mockResolvedValue({});
@@ -119,6 +125,61 @@ describe("CollaboratorsSection", () => {
     expect(
       screen.queryByLabelText("Email del collaboratore"),
     ).not.toBeInTheDocument();
+  });
+
+  describe("piano senza collaboratori", () => {
+    const PLAN: OwnerInviteBlocker = {
+      step: "plan",
+      message: "Il piano attuale non include i collaboratori.",
+    };
+
+    it("dice che li include Team e rimanda all'abbonamento", () => {
+      renderSection({ blocker: PLAN });
+
+      expect(
+        screen.getByText(
+          "Il piano attuale non include i collaboratori. Li include il piano Team.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Passa a Team" }),
+      ).toHaveAttribute("href", "/dashboard/settings#billing");
+      expect(
+        screen.queryByLabelText("Email del collaboratore"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("nell'app nativa resta la frase, senza il link all'acquisto", () => {
+      mockNative = true;
+      renderSection({ blocker: PLAN });
+
+      expect(
+        screen.getByText(
+          "Il piano attuale non include i collaboratori. Li include il piano Team.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    });
+
+    it("dichiara il requisito Fisconline prima dell'acquisto", () => {
+      // Decisione 7: chi oggi usa CIE o SPID lo deve sapere prima di passare
+      // a Team, anche quando poi passa dal portale Stripe.
+      renderSection({ blocker: PLAN });
+
+      expect(
+        screen.getByText(
+          "I collaboratori richiedono le credenziali Fisconline.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("spiega comunque cosa fa un collaboratore", () => {
+      renderSection({ blocker: PLAN });
+
+      expect(
+        screen.getByText(/emette scontrini per l.attività con un accesso suo/),
+      ).toBeInTheDocument();
+    });
   });
 
   describe("condizioni", () => {
@@ -234,7 +295,7 @@ describe("CollaboratorsSection", () => {
       });
 
       expect(
-        screen.getByText("Il piano attuale non include i collaboratori."),
+        screen.getByText(/Il piano attuale non include i collaboratori\./),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /Reinvia/ }),

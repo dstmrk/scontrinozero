@@ -88,7 +88,37 @@ non che i cookie funzionino.
 stampare uno scontrino, chiudere e riaprire l'app e ritrovarla collegata. Il
 simulatore iOS non ha Bluetooth: serve un iPhone vero.
 
+**Collaboratori (issue #1099).** Su sandbox (`sync:sandbox`), una volta da iOS
+e una da Android. Serve un titolare in prova o su Team, con credenziali
+Fisconline verificate.
+
+1. Invito. Dal browser il titolare invita un'email nella card Collaboratori.
+   Il link dell'email si apre nel browser e non nell'app: lì il collaboratore
+   crea il suo accesso, poi entra nell'app con email e password.
+2. Il collaboratore nell'app. Emette uno scontrino e lo stampa via BLE.
+   Nello storico vede solo i suoi documenti e annulla solo quelli. Rende una
+   vendita del titolare cercandola col numero stampato e la data. Il catalogo
+   è in sola lettura. Le impostazioni non hanno credenziali AdE né
+   abbonamento.
+3. Dispositivo condiviso. Il collaboratore esce e il titolare entra sullo
+   stesso telefono. Lo storico mostra i documenti dell'attività, e il tasto
+   indietro di Android dopo l'uscita non riporta alle pagine del
+   collaboratore.
+4. Card bloccata. Con un titolare Starter o Pro la card Collaboratori
+   nell'app dice «Li include il piano Team.» e il requisito Fisconline, ma
+   non ha il bottone «Passa a Team», che nel browser invece c'è. Nessun
+   prezzo né link d'acquisto nell'app (App Store 3.1.1, Payments policy di
+   Google Play).
+5. Sospensione. Il titolare passa a Pro dal browser. Nell'app il
+   collaboratore vede l'avviso che lo manda dal titolare, senza inviti
+   all'acquisto. Non emette più, ma lo storico resta leggibile.
+6. Uscita. Il collaboratore elimina il suo account dalle impostazioni
+   dell'app (App Store 5.1.1(v)). Un collaboratore rimosso dal titolare
+   torna al login alla richiesta successiva.
+
 ## Cosa non c'è ancora
 
 Icone e splash sono quelli del template Capacitor. Il resume di uno scontrino
 rifiutato per sessione scaduta è da progettare (`docs/mobile-v2.md` punto 6).
+Il link d'invito di un collaboratore si apre nel browser: l'app non registra
+Universal Links né App Links.
