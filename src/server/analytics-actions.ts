@@ -2,7 +2,7 @@
 
 import { cache } from "react";
 import { and, eq, gte, inArray, lt, or } from "drizzle-orm";
-import { commercialDocuments } from "@/db/schema";
+import { businessMembers, commercialDocuments } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { checkBusinessOwner } from "@/lib/business-permissions";
 import { authErrorResult } from "@/lib/auth-errors";
@@ -19,13 +19,23 @@ import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-docume
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
 import {
+  API_ISSUER,
+  describeIssuer,
+  issuerColumns,
+  issuerJoinCondition,
+  type DocumentIssuer,
+  type IssuerColumns,
+} from "@/lib/receipts/document-issuer";
+import {
   type AnalyticsKpis,
   type AnalyticsRange,
+  type IssuerBreakdownEntry,
   type PaymentBreakdownEntry,
   type ProductBreakdownEntry,
   type RevenuePoint,
   VALID_RANGES,
   computeBreakdown,
+  computeIssuerBreakdown,
   computeKpis,
   computeProductBreakdown,
   computeTimeseries,
@@ -35,6 +45,7 @@ import {
 export type {
   AnalyticsKpis,
   AnalyticsRange,
+  IssuerBreakdownEntry,
   PaymentBreakdownEntry,
   ProductBreakdownEntry,
   RevenuePoint,
@@ -134,20 +145,50 @@ function validateRange(
 // Queries
 // ---------------------------------------------------------------------------
 
-type DocRow = {
+type FetchedDocRow = {
   id: string;
   kind: string;
   status: string;
   createdAt: Date;
   publicRequest?: unknown;
+  createdBy?: string | null;
+} & Partial<IssuerColumns>;
+
+type DocRow = Omit<
+  FetchedDocRow,
+  "createdBy" | "issuerRole" | "issuerName" | "issuerAuthUserId"
+> & {
+  /** `created_by`, o `API_ISSUER` per la Developer API. */
+  issuerKey: string;
+  issuer: DocumentIssuer;
 };
+
+/** Chi ha emesso il documento, dal LEFT JOIN su `business_members`. */
+function withIssuer({
+  createdBy,
+  issuerRole,
+  issuerName,
+  issuerAuthUserId,
+  ...doc
+}: FetchedDocRow): DocRow {
+  return {
+    ...doc,
+    issuerKey: createdBy ?? API_ISSUER,
+    // `isDocRow` non garantisce le colonne del JOIN: assenti valgono NULL.
+    issuer: describeIssuer({
+      issuerRole: issuerRole ?? null,
+      issuerName: issuerName ?? null,
+      issuerAuthUserId: issuerAuthUserId ?? null,
+    }),
+  };
+}
 
 /**
  * Type guard runtime su una riga restituita da `commercialDocuments`.
  * Evita il cast cieco `as DocRow[]` che silenzia eventuali drift di schema
  * (es. colonna rinominata, JOIN parziale, valore null inatteso).
  */
-function isDocRow(value: unknown): value is DocRow {
+function isDocRow(value: unknown): value is FetchedDocRow {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
@@ -190,6 +231,9 @@ async function fetchSaleDocsInRange(
     kind: commercialDocuments.kind,
     status: commercialDocuments.status,
     createdAt: commercialDocuments.createdAt,
+    // Chi ha emesso, per la ripartizione per membro (issue #1099).
+    createdBy: commercialDocuments.createdBy,
+    ...issuerColumns,
   };
   const selection = options.includePublicRequest
     ? { ...baseSelection, publicRequest: commercialDocuments.publicRequest }
@@ -198,6 +242,7 @@ async function fetchSaleDocsInRange(
     tx
       .select(selection)
       .from(commercialDocuments)
+      .leftJoin(businessMembers, issuerJoinCondition)
       .where(
         and(
           eq(commercialDocuments.businessId, businessId),
@@ -230,7 +275,7 @@ async function fetchSaleDocsInRange(
   let skipped = 0;
   for (const row of rows) {
     if (isDocRow(row)) {
-      validRows.push(row);
+      validRows.push(withIssuer(row));
     } else {
       skipped++;
     }
@@ -388,6 +433,8 @@ export type AnalyticsBundle = {
   timeseries: RevenuePoint[];
   breakdown: PaymentBreakdownEntry[];
   productBreakdown: ProductBreakdownEntry[];
+  /** Ricavi e scontrini per chi ha emesso: titolare, collaboratori, API. */
+  issuerBreakdown: IssuerBreakdownEntry[];
   // Dataset tagliato dal cap: i quattro aggregati qui sopra sono sottostimati.
   // Campo obbligatorio, non opzionale: un consumer che dimentica di leggerlo
   // mostrerebbe numeri parziali come definitivi, cioe' il bug che questo flag
@@ -423,6 +470,7 @@ export async function getAnalyticsBundle(
     ),
     breakdown: computeBreakdown(result.docs, result.totalsByDoc),
     productBreakdown: computeProductBreakdown(result.docs, result.linesByDoc),
+    issuerBreakdown: computeIssuerBreakdown(result.docs, result.totalsByDoc),
     truncated: result.truncated,
   };
 }

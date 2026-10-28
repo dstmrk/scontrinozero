@@ -7,12 +7,14 @@ import { useRef, useState, useTransition } from "react";
 import {
   type AnalyticsKpis,
   type AnalyticsRange,
+  type IssuerBreakdownEntry,
   type PaymentBreakdownEntry,
   type ProductBreakdownEntry,
   type RevenuePoint,
   getAnalyticsBundle,
 } from "@/server/analytics-actions";
 import { KpiCards } from "./kpi-cards";
+import { hasIssuersBesidesOwner, IssuerBreakdown } from "./issuer-breakdown";
 import {
   Select,
   SelectContent,
@@ -63,6 +65,7 @@ interface AnalyticsClientProps {
   readonly initialTimeseries: RevenuePoint[];
   readonly initialBreakdown: PaymentBreakdownEntry[];
   readonly initialProductBreakdown: ProductBreakdownEntry[];
+  readonly initialIssuerBreakdown: IssuerBreakdownEntry[];
   readonly initialLoadFailed?: boolean;
   readonly initialTruncated?: boolean;
 }
@@ -83,6 +86,7 @@ export function AnalyticsClient({
   initialTimeseries,
   initialBreakdown,
   initialProductBreakdown,
+  initialIssuerBreakdown,
   initialLoadFailed = false,
   initialTruncated = false,
 }: AnalyticsClientProps) {
@@ -95,6 +99,9 @@ export function AnalyticsClient({
   const [productBreakdown, setProductBreakdown] = useState<
     ProductBreakdownEntry[]
   >(initialProductBreakdown);
+  const [issuerBreakdown, setIssuerBreakdown] = useState<
+    IssuerBreakdownEntry[]
+  >(initialIssuerBreakdown);
   const [loadFailed, setLoadFailed] = useState<boolean>(initialLoadFailed);
   const [truncated, setTruncated] = useState<boolean>(initialTruncated);
   const [isPending, startTransition] = useTransition();
@@ -123,6 +130,7 @@ export function AnalyticsClient({
         setTimeseries([]);
         setBreakdown([]);
         setProductBreakdown([]);
+        setIssuerBreakdown([]);
         setLoadFailed(true);
         // I dati sono azzerati: "dati parziali" accanto a KPI a zero
         // suggerirebbe numeri reali ma incompleti.
@@ -133,6 +141,7 @@ export function AnalyticsClient({
       setTimeseries(result.timeseries);
       setBreakdown(result.breakdown);
       setProductBreakdown(result.productBreakdown);
+      setIssuerBreakdown(result.issuerBreakdown);
       setLoadFailed(false);
       setTruncated(result.truncated);
     });
@@ -213,6 +222,17 @@ export function AnalyticsClient({
           <ProductBreakdown data={productBreakdown} />
         </CardContent>
       </Card>
+
+      {hasIssuersBesidesOwner(issuerBreakdown) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Per chi ha emesso</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <IssuerBreakdown data={issuerBreakdown} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

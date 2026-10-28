@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { calcDocTotal } from "@/lib/receipts/receipt-totals";
 import {
   computeBreakdown,
+  computeIssuerBreakdown,
   computeKpis,
   computeProductBreakdown,
   computeTimeseries,
@@ -909,5 +910,186 @@ describe("resi negli aggregati", () => {
     ]);
     // Riconcilia col KPI: la somma per prodotto è il ricavo netto.
     expect(products.reduce((acc, p) => acc + p.revenueCents, 0)).toBe(3750);
+  });
+});
+
+describe("computeIssuerBreakdown", () => {
+  const OWNER = { key: "owner-id", kind: "owner", label: "Titolare" } as const;
+  const LUCA = { key: "luca-id", kind: "collaborator", label: "Luca" } as const;
+  const SARA = {
+    key: "sara-id",
+    kind: "collaborator",
+    label: "Sara (rimosso)",
+  } as const;
+  const API = { kind: "api", label: "Developer API" } as const;
+  const at = new Date("2026-05-01T10:00:00Z");
+
+  function issued(
+    doc: DocRow,
+    issuerKey: string,
+    issuer: { kind: "owner" | "collaborator" | "api"; label: string },
+  ) {
+    return { ...doc, issuerKey, issuer };
+  }
+
+  it("separa ricavi e scontrini di due collaboratori e del titolare", () => {
+    const docs = [
+      issued(makeDoc("o1", "ACCEPTED", at), "owner-id", OWNER),
+      issued(makeDoc("l1", "ACCEPTED", at), "luca-id", LUCA),
+      issued(makeDoc("l2", "ACCEPTED", at), "luca-id", LUCA),
+      issued(makeDoc("s1", "ACCEPTED", at), "sara-id", SARA),
+    ];
+    const totals = new Map([
+      ["o1", 10],
+      ["l1", 2.5],
+      ["l2", 4],
+      ["s1", 1.2],
+    ]);
+
+    expect(computeIssuerBreakdown(docs, totals)).toEqual([
+      {
+        key: "owner-id",
+        kind: "owner",
+        label: "Titolare",
+        revenueCents: 1000,
+        count: 1,
+      },
+      {
+        key: "luca-id",
+        kind: "collaborator",
+        label: "Luca",
+        revenueCents: 650,
+        count: 2,
+      },
+      {
+        key: "sara-id",
+        kind: "collaborator",
+        label: "Sara (rimosso)",
+        revenueCents: 120,
+        count: 1,
+      },
+    ]);
+  });
+
+  it("un reso storna i ricavi di chi lo ha emesso, non di chi ha venduto", () => {
+    const docs = [
+      issued(makeDoc("l1", "ACCEPTED", at), "luca-id", LUCA),
+      issued(makeReturn("r1", at), "sara-id", SARA),
+    ];
+    const totals = new Map([
+      ["l1", 10],
+      ["r1", 3],
+    ]);
+
+    expect(computeIssuerBreakdown(docs, totals)).toEqual([
+      {
+        key: "luca-id",
+        kind: "collaborator",
+        label: "Luca",
+        revenueCents: 1000,
+        count: 1,
+      },
+      {
+        key: "sara-id",
+        kind: "collaborator",
+        label: "Sara (rimosso)",
+        revenueCents: -300,
+        count: 0,
+      },
+    ]);
+  });
+
+  it("un annullo non porta ricavi né scontrini", () => {
+    const docs = [
+      issued(makeDoc("v1", "VOID_ACCEPTED", at), "luca-id", LUCA),
+      issued(makeDoc("o1", "ACCEPTED", at), "owner-id", OWNER),
+    ];
+    const totals = new Map([
+      ["v1", 50],
+      ["o1", 5],
+    ]);
+
+    expect(computeIssuerBreakdown(docs, totals)).toEqual([
+      {
+        key: "owner-id",
+        kind: "owner",
+        label: "Titolare",
+        revenueCents: 500,
+        count: 1,
+      },
+      {
+        key: "luca-id",
+        kind: "collaborator",
+        label: "Luca",
+        revenueCents: 0,
+        count: 0,
+      },
+    ]);
+  });
+
+  it("la somma per chi ha emesso torna con il KPI dei ricavi", () => {
+    const docs = [
+      issued(makeDoc("o1", "ACCEPTED", at), "owner-id", OWNER),
+      issued(makeDoc("l1", "ACCEPTED", at), "luca-id", LUCA),
+      issued(makeReturn("r1", at), "luca-id", LUCA),
+      issued(makeDoc("a1", "ACCEPTED", at), "api", API),
+      issued(makeDoc("v1", "VOID_ACCEPTED", at), "owner-id", OWNER),
+    ];
+    const totals = new Map([
+      ["o1", 0.1],
+      ["l1", 0.2],
+      ["r1", 0.05],
+      ["a1", 19.99],
+      ["v1", 7],
+    ]);
+
+    const sum = computeIssuerBreakdown(docs, totals).reduce(
+      (acc, entry) => acc + entry.revenueCents,
+      0,
+    );
+    expect(sum).toBe(computeKpis(docs, totals).revenueCents);
+  });
+
+  it("ordine stabile: ricavi decrescenti, poi l'etichetta", () => {
+    const docs = [
+      issued(makeDoc("b", "ACCEPTED", at), "b-id", {
+        kind: "collaborator",
+        label: "Bruno",
+      }),
+      issued(makeDoc("a", "ACCEPTED", at), "a-id", {
+        kind: "collaborator",
+        label: "Anna",
+      }),
+      issued(makeDoc("x", "ACCEPTED", at), "api", API),
+    ];
+    const totals = new Map([
+      ["b", 5],
+      ["a", 5],
+      ["x", 9],
+    ]);
+
+    expect(
+      computeIssuerBreakdown(docs, totals).map((entry) => entry.label),
+    ).toEqual(["Developer API", "Anna", "Bruno"]);
+  });
+
+  it("due collaboratori omonimi si ordinano per chiave", () => {
+    const luca = { kind: "collaborator", label: "Luca (rimosso)" } as const;
+    const docs = [
+      issued(makeDoc("2", "ACCEPTED", at), "luca-2", luca),
+      issued(makeDoc("1", "ACCEPTED", at), "luca-1", luca),
+    ];
+    const totals = new Map([
+      ["2", 5],
+      ["1", 5],
+    ]);
+
+    expect(
+      computeIssuerBreakdown(docs, totals).map((entry) => entry.key),
+    ).toEqual(["luca-1", "luca-2"]);
+  });
+
+  it("nessun documento, nessuna voce", () => {
+    expect(computeIssuerBreakdown([], new Map())).toEqual([]);
   });
 });

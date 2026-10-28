@@ -147,6 +147,7 @@ export default async function AnalyticsPage({
       initialTimeseries={loadFailed ? [] : bundle.timeseries}
       initialBreakdown={loadFailed ? [] : bundle.breakdown}
       initialProductBreakdown={loadFailed ? [] : bundle.productBreakdown}
+      initialIssuerBreakdown={loadFailed ? [] : bundle.issuerBreakdown}
       initialLoadFailed={loadFailed}
       initialTruncated={!loadFailed && bundle.truncated}
     />

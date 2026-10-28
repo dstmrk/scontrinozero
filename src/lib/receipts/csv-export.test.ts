@@ -28,6 +28,13 @@ vi.mock("@/db/schema", () => ({
     voidedDocumentId: "voided_document_id",
     returnedDocumentId: "returned_document_id",
     publicRequest: "public_request",
+    createdBy: "created_by",
+  },
+  businessMembers: {
+    id: "bm.id",
+    role: "bm.role",
+    name: "bm.name",
+    authUserId: "bm.auth_user_id",
   },
 }));
 
@@ -55,6 +62,7 @@ vi.mock("drizzle-orm", () => ({
   eq: (a: unknown, b: unknown) => ({ _eq: [a, b] }),
   gte: (a: unknown, b: unknown) => ({ _gte: [a, b] }),
   inArray: (a: unknown, b: unknown) => ({ _inArray: [a, b] }),
+  isNull: (a: unknown) => ({ _isNull: a }),
   lt: (a: unknown, b: unknown) => ({ _lt: [a, b] }),
 }));
 
@@ -95,6 +103,9 @@ function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
     voidRegisteredAt: null,
     returnOfAdeProgressive: null,
     publicRequest: { paymentMethod: "PC" },
+    issuerRole: "owner",
+    issuerName: null,
+    issuerAuthUserId: "owner-auth",
     ...overrides,
   };
 }
@@ -115,6 +126,7 @@ describe("RECEIPT_CSV_HEADERS", () => {
       "codice_lotteria",
       "data_annullo",
       "rif_vendita",
+      "emesso_da",
       "id_scontrino",
       "id_transazione_ade",
     ]);
@@ -176,6 +188,7 @@ describe("formatReceiptRow", () => {
       "",
       "",
       "",
+      "Titolare",
       "doc-1",
       "tx-12345",
     ]);
@@ -409,6 +422,52 @@ describe("formatReceiptRow", () => {
     expect(row[sumCol("id_scontrino")]).toBe("doc-1");
     expect(row[sumCol("id_transazione_ade")]).toBe("tx-12345");
   });
+
+  it.each([
+    [
+      "un collaboratore",
+      {
+        issuerRole: "collaborator",
+        issuerName: "Luca",
+        issuerAuthUserId: "u2",
+      },
+      "Luca",
+    ],
+    [
+      "un collaboratore rimosso",
+      {
+        issuerRole: "collaborator",
+        issuerName: "Luca",
+        issuerAuthUserId: null,
+      },
+      "Luca (rimosso)",
+    ],
+    [
+      "la Developer API",
+      { issuerRole: null, issuerName: null, issuerAuthUserId: null },
+      "Developer API",
+    ],
+  ] as const)("emesso_da nomina %s", (_who, issuer, expected) => {
+    const row = formatReceiptRow(doc(issuer), 1, "");
+    expect(row[sumCol("emesso_da")]).toBe(expected);
+  });
+
+  it("un reso porta chi lo ha emesso, non chi ha emesso la vendita", () => {
+    const row = formatReceiptRow(
+      doc({
+        kind: "RETURN",
+        publicRequest: null,
+        returnOfAdeProgressive: "00041",
+        issuerRole: "collaborator",
+        issuerName: "Sara",
+        issuerAuthUserId: "u3",
+      }),
+      1,
+      "",
+    );
+    expect(row[sumCol("emesso_da")]).toBe("Sara");
+    expect(row).toHaveLength(RECEIPT_CSV_HEADERS.length);
+  });
 });
 
 function setupDbMock(docs: ReceiptDocRow[]) {
@@ -464,6 +523,7 @@ describe("RECEIPT_LINES_CSV_HEADERS", () => {
       "prezzo_unitario",
       "totale_riga",
       "aliquota",
+      "emesso_da",
       "id_scontrino",
     ]);
   });
@@ -559,6 +619,7 @@ describe("formatReceiptLineRows", () => {
       "1,20",
       "2,40",
       "22",
+      "Titolare",
       "doc-1",
     ]);
   });
@@ -578,8 +639,20 @@ describe("formatReceiptLineRows", () => {
         "00042",
         "emesso",
       ]);
-      expect(row[10]).toBe("doc-1");
+      expect(row[11]).toBe("doc-1");
     }
+  });
+
+  it("ripete chi ha emesso su ogni voce", () => {
+    const rows = formatReceiptLineRows(
+      doc({ issuerRole: null, issuerName: null, issuerAuthUserId: null }),
+      lines,
+    );
+    const col = RECEIPT_LINES_CSV_HEADERS.indexOf("emesso_da");
+    expect(rows.map((row) => row[col])).toEqual([
+      "Developer API",
+      "Developer API",
+    ]);
   });
 
   it("porta il codice aliquota cosi' com'e', natura incluse", () => {
@@ -642,6 +715,7 @@ describe("formatReceiptLineRows", () => {
       "1,20",
       "-2,40",
       "22",
+      "Titolare",
       "doc-1",
     ]);
   });
@@ -656,6 +730,7 @@ describe("buildReceiptLinesCsvStream", () => {
         status: null,
         dateFrom: null,
         dateTo: null,
+        issuer: null,
       }),
     );
     expect(body.charCodeAt(0)).toBe(0xfeff);
@@ -693,6 +768,7 @@ describe("buildReceiptLinesCsvStream", () => {
         status: null,
         dateFrom: null,
         dateTo: null,
+        issuer: null,
       }),
     );
 
@@ -711,6 +787,7 @@ describe("buildReceiptsCsvStream", () => {
       status: null,
       dateFrom: null,
       dateTo: null,
+      issuer: null,
     });
     const body = await streamToString(stream);
     expect(body.charCodeAt(0)).toBe(0xfeff); // BOM
@@ -756,6 +833,7 @@ describe("buildReceiptsCsvStream", () => {
       status: null,
       dateFrom: null,
       dateTo: null,
+      issuer: null,
     });
     const body = await streamToString(stream);
 
@@ -790,6 +868,7 @@ describe("buildReceiptsCsvStream", () => {
         status: null,
         dateFrom: null,
         dateTo: null,
+        issuer: null,
       }),
     );
 
@@ -823,6 +902,7 @@ describe("buildReceiptsCsvStream", () => {
       status: null,
       dateFrom: null,
       dateTo: null,
+      issuer: null,
     });
 
     await expect(streamToString(stream)).rejects.toThrow("db down");
@@ -849,6 +929,7 @@ describe("buildReceiptsCsvStream", () => {
       status: null,
       dateFrom: null,
       dateTo: null,
+      issuer: null,
     });
     await streamToString(stream);
 
@@ -882,6 +963,7 @@ describe("buildReceiptsCsvStream", () => {
       status: null,
       dateFrom,
       dateTo,
+      issuer: null,
     });
     await streamToString(stream);
 
@@ -897,6 +979,71 @@ describe("buildReceiptsCsvStream", () => {
     expect(conditions).toContainEqual({
       _inArray: ["kind", ["SALE", "RETURN"]],
     });
+  });
+
+  function captureWhere() {
+    const where = vi.fn();
+    const query = { leftJoin: () => query, where };
+    where.mockReturnValue({
+      orderBy: () => ({ limit: () => ({ offset: () => [] }) }),
+    });
+    mockGetDb.mockReturnValue({
+      select: vi.fn().mockReturnValue({ from: () => query }),
+    });
+    return where;
+  }
+
+  it("con il filtro «Emesso da» legge i soli documenti di quel membro", async () => {
+    const where = captureWhere();
+    const memberId = "22222222-2222-4222-8222-222222222222";
+
+    await streamToString(
+      buildReceiptsCsvStream({
+        businessId: "biz-1",
+        status: null,
+        dateFrom: null,
+        dateTo: null,
+        issuer: memberId,
+      }),
+    );
+
+    const conditions = (where.mock.calls[0][0] as { _and: unknown[] })._and;
+    expect(conditions).toContainEqual({ _eq: ["created_by", memberId] });
+  });
+
+  it("il filtro Developer API sono i documenti senza membro", async () => {
+    const where = captureWhere();
+
+    await streamToString(
+      buildReceiptLinesCsvStream({
+        businessId: "biz-1",
+        status: null,
+        dateFrom: null,
+        dateTo: null,
+        issuer: "api",
+      }),
+    );
+
+    const conditions = (where.mock.calls[0][0] as { _and: unknown[] })._and;
+    expect(conditions).toContainEqual({ _isNull: "created_by" });
+  });
+
+  it("un filtro estraneo fa fallire lo stream invece di esportare tutto", async () => {
+    // La route lo rifiuta prima con un 400: arrivare qui è un bug, e
+    // ignorarlo consegnerebbe un file più largo di quello chiesto.
+    captureWhere();
+
+    const stream = buildReceiptsCsvStream({
+      businessId: "biz-1",
+      status: null,
+      dateFrom: null,
+      dateTo: null,
+      issuer: "titolare",
+    });
+
+    await expect(streamToString(stream)).rejects.toThrow(
+      "Filtro «Emesso da» non valido.",
+    );
   });
 });
 
@@ -950,30 +1097,27 @@ describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati
     let queryIndex = 0;
     let orderKeys: { _desc: string }[] = [];
 
-    const select = vi.fn().mockReturnValue({
-      from: () => ({
-        leftJoin: () => ({
-          leftJoin: () => ({
-            where: () => ({
-              orderBy: (...keys: { _desc: string }[]) => {
-                orderKeys = keys;
-                return {
-                  limit: (batchSize: number) => ({
-                    offset: (offset: number) => {
-                      const ordered = applyOrder(all, orderKeys, queryIndex);
-                      queryIndex += 1;
-                      return Promise.resolve(
-                        ordered.slice(offset, offset + batchSize),
-                      );
-                    },
-                  }),
-                };
+    const query = {
+      // Annullo, vendita di riferimento del reso e membro che ha emesso.
+      leftJoin: () => query,
+      where: () => ({
+        orderBy: (...keys: { _desc: string }[]) => {
+          orderKeys = keys;
+          return {
+            limit: (batchSize: number) => ({
+              offset: (offset: number) => {
+                const ordered = applyOrder(all, orderKeys, queryIndex);
+                queryIndex += 1;
+                return Promise.resolve(
+                  ordered.slice(offset, offset + batchSize),
+                );
               },
             }),
-          }),
-        }),
+          };
+        },
       }),
-    });
+    };
+    const select = vi.fn().mockReturnValue({ from: () => query });
 
     mockGetDb.mockReturnValue({ select });
   }
@@ -990,6 +1134,7 @@ describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati
       status: null,
       dateFrom: null,
       dateTo: null,
+      issuer: null,
     });
     const reader = stream.getReader();
     const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -1034,6 +1179,10 @@ describe("formatAdeReceiptRow", () => {
     expect(row[sumCol("origine")]).toBe("agenzia entrate");
     expect(row[sumCol("id_transazione_ade")]).toBe("226076907");
     expect(row[sumCol("id_scontrino")]).toBe("");
+  });
+
+  it("lascia vuoto emesso_da: l'archivio non sa chi di noi ha emesso", () => {
+    expect(formatAdeReceiptRow(adeRow())[sumCol("emesso_da")]).toBe("");
   });
 
   it("scrive l'importo in convenzione italiana", () => {
@@ -1084,6 +1233,7 @@ describe("buildReceiptsCsvStream — fusione con l'archivio AdE", () => {
     status: null,
     dateFrom: null,
     dateTo: null,
+    issuer: null,
   } as const;
 
   it("colloca una riga AdE più recente PRIMA del documento nostro", async () => {

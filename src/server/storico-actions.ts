@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
-import { commercialDocuments } from "@/db/schema";
+import { businessMembers, commercialDocuments } from "@/db/schema";
 import type {
   SelectCommercialDocument,
   SelectCommercialDocumentLine,
@@ -58,6 +58,13 @@ import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { buildAdeSearchRanges } from "@/lib/services/ade-document-search";
 import { fetchForeignAdeRows } from "@/lib/services/ade-storico-rows";
 import { compareStoricoOrder } from "@/lib/receipts/storico-order";
+import {
+  describeIssuer,
+  issuerColumns,
+  issuerCondition,
+  issuerJoinCondition,
+  type IssuerColumns,
+} from "@/lib/receipts/document-issuer";
 
 // ---------------------------------------------------------------------------
 // Constants / helpers
@@ -127,7 +134,25 @@ const receiptColumns = {
   // riportare il metodo di pagamento REALE del documento trasmesso
   // all'AdE, non un default.
   publicRequest: commercialDocuments.publicRequest,
+  // Chi ha emesso il documento (issue #1099): il titolare lo vede sulla riga.
+  ...issuerColumns,
 };
+
+type Db = ReturnType<typeof getDb>;
+
+/**
+ * Le colonne di una riga dello storico con i loro tre JOIN: l'annullo, la
+ * vendita resa e chi ha emesso. Elenco, dettaglio, ricerca per numero e
+ * rilettura dopo il merge con l'AdE leggono la stessa forma.
+ */
+function selectReceipts(db: Db) {
+  return db
+    .select(receiptColumns)
+    .from(commercialDocuments)
+    .leftJoin(voidDocAlias, voidDocJoinCondition)
+    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
+    .leftJoin(businessMembers, issuerJoinCondition);
+}
 
 type ReceiptDocRow = Pick<
   SelectCommercialDocument,
@@ -146,7 +171,7 @@ type ReceiptDocRow = Pick<
   returnOfId: string | null;
   returnOfAdeProgressive: string | null;
   returnOfAdeRegisteredAt: Date | null;
-};
+} & IssuerColumns;
 
 /** Compone la riga DB + le sue righe articolo nella forma esposta al client. */
 function toReceiptListItem(
@@ -183,6 +208,7 @@ function toReceiptListItem(
             adeRegisteredAt: doc.returnOfAdeRegisteredAt,
           }
         : null,
+    issuer: describeIssuer(doc),
     paymentMethod: publicRequest.paymentMethod,
     payments: publicRequest.payments,
     lotteryCode: publicRequest.lotteryCode,
@@ -378,6 +404,12 @@ function buildStoricoConditions(
     return { error: "Filtro stato non valido." };
   }
 
+  // "Emesso da" (issue #1099): un membro o la Developer API. Al collaboratore
+  // si aggiunge comunque il filtro sui propri documenti (`scopedConditions`).
+  const issuer = issuerCondition(params.issuer);
+  if (issuer && "error" in issuer) return issuer;
+  if (issuer) conditions.push(issuer);
+
   if (status) {
     conditions.push(eq(commercialDocuments.status, status));
   } else {
@@ -415,11 +447,7 @@ export async function searchReceipts(
       .select({ value: count() })
       .from(commercialDocuments)
       .where(and(...conditions)),
-    db
-      .select(receiptColumns)
-      .from(commercialDocuments)
-      .leftJoin(voidDocAlias, voidDocJoinCondition)
-      .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
+    selectReceipts(db)
       .where(and(...conditions))
       // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
       // a parita' di `ade_registered_at` Postgres non garantisce un ordine
@@ -469,11 +497,7 @@ export async function getReceiptDetail(
   if ("error" in auth) return { error: auth.error, item: null };
 
   const db = getDb();
-  const [doc] = await db
-    .select(receiptColumns)
-    .from(commercialDocuments)
-    .leftJoin(voidDocAlias, voidDocJoinCondition)
-    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
+  const [doc] = await selectReceipts(db)
     .where(
       and(
         ...scopedConditions(
@@ -585,11 +609,7 @@ export async function findSaleForReturn(
   if (suspended) return { error: suspended };
 
   const db = getDb();
-  const [doc] = await db
-    .select(receiptColumns)
-    .from(commercialDocuments)
-    .leftJoin(voidDocAlias, voidDocJoinCondition)
-    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
+  const [doc] = await selectReceipts(db)
     .where(
       and(
         eq(commercialDocuments.businessId, businessId),
@@ -659,17 +679,12 @@ async function hydrateLocalRows(
   if (ids.length === 0) return new Map();
 
   const db = getDb();
-  const docs = await db
-    .select(receiptColumns)
-    .from(commercialDocuments)
-    .leftJoin(voidDocAlias, voidDocJoinCondition)
-    .leftJoin(returnedSaleAlias, returnedSaleJoinCondition)
-    .where(
-      and(
-        eq(commercialDocuments.businessId, businessId),
-        inArray(commercialDocuments.id, [...ids]),
-      ),
-    );
+  const docs = await selectReceipts(db).where(
+    and(
+      eq(commercialDocuments.businessId, businessId),
+      inArray(commercialDocuments.id, [...ids]),
+    ),
+  );
 
   const items = await toReceiptListItems(docs);
   return new Map(items.map((item) => [item.id, item]));
@@ -762,13 +777,18 @@ export async function searchReceiptsIncludingAde(
       })
       .from(commercialDocuments)
       .where(and(...built.conditions)),
-    fetchForeignAdeRows({
-      businessId,
-      ranges: ranges.ranges,
-      ...(params.status ? { status: params.status } : {}),
-      from: built.from,
-      toExclusive: built.toExclusive,
-    }),
+    // Un documento che vive solo sull'AdE non ha un membro che l'abbia
+    // emesso: con il filtro "Emesso da" non può comparire, e non serve
+    // chiederlo al portale (un login in meno).
+    params.issuer
+      ? Promise.resolve({ rows: [], truncated: false })
+      : fetchForeignAdeRows({
+          businessId,
+          ranges: ranges.ranges,
+          ...(params.status ? { status: params.status } : {}),
+          from: built.from,
+          toExclusive: built.toExclusive,
+        }),
   ]);
 
   let adeRows: AdeReceiptListItem[] = [];

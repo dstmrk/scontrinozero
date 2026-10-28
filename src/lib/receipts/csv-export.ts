@@ -6,7 +6,14 @@ import {
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
-import { commercialDocuments } from "@/db/schema";
+import { businessMembers, commercialDocuments } from "@/db/schema";
+import {
+  describeIssuer,
+  issuerColumns,
+  issuerCondition,
+  issuerJoinCondition,
+  type IssuerColumns,
+} from "@/lib/receipts/document-issuer";
 
 // Alias self-join: per ogni SALE, troviamo il documento VOID che lo annulla
 // (se esiste). Senza il join la colonna `data_annullo` del CSV resterebbe
@@ -71,6 +78,10 @@ export const RECEIPT_CSV_HEADERS = [
   // "Documento di riferimento" della ricevuta. Leggibile da una persona,
   // quindi sta prima degli id tecnici.
   "rif_vendita",
+  // Chi ha emesso (issue #1099): Titolare, il nome del collaboratore o
+  // Developer API. C'è sempre, anche senza collaboratori, per la stessa
+  // ragione di `origine`. Vuota sulle righe AdE: lì nessuno di noi ha emesso.
+  "emesso_da",
   "id_scontrino",
   "id_transazione_ade",
 ] as const;
@@ -101,13 +112,18 @@ export type ReceiptDocRow = {
    */
   returnOfAdeProgressive: string | null;
   publicRequest: unknown;
-};
+} & IssuerColumns;
 
 export type BuildCsvStreamParams = {
   businessId: string;
   status: ReceiptStatusFilter | null;
   dateFrom: Date | null;
   dateTo: Date | null;
+  /**
+   * Filtro "Emesso da" dello storico, già convalidato dalla route: un id di
+   * membro o `API_ISSUER`.
+   */
+  issuer: string | null;
 };
 
 /**
@@ -218,6 +234,7 @@ function formatReturnRow(
     doc.lotteryCode ?? "",
     "",
     doc.returnOfAdeProgressive ?? "",
+    describeIssuer(doc).label,
     doc.id,
     doc.adeTransactionId ?? "",
   ];
@@ -274,6 +291,7 @@ export function formatReceiptRow(
     doc.lotteryCode ?? "",
     doc.voidRegisteredAt ? formatRomeDate(doc.voidRegisteredAt) : "",
     "",
+    describeIssuer(doc).label,
     doc.id,
     doc.adeTransactionId ?? "",
   ];
@@ -311,6 +329,7 @@ export function formatAdeReceiptRow(row: AdeReceiptListItem): string[] {
     "",
     "",
     "",
+    "",
     row.idtrx,
   ];
 }
@@ -340,6 +359,7 @@ export const RECEIPT_LINES_CSV_HEADERS = [
   "prezzo_unitario",
   "totale_riga",
   "aliquota",
+  "emesso_da",
   "id_scontrino",
 ] as const;
 
@@ -393,6 +413,7 @@ export function formatReceiptLineRows(
   // prezzo unitario resta quello di listino: `quantita × prezzo` torna col
   // segno di `totale_riga`, e la pivot somma al netto come il riepilogo.
   const sign = amountSign(doc);
+  const emessoDa = describeIssuer(doc).label;
 
   return lines.map((line) => {
     // Canone condiviso: il `totale_riga` del dettaglio deve sommare al
@@ -413,6 +434,7 @@ export function formatReceiptLineRows(
       formatItalianAmount(Number.parseFloat(line.grossUnitPrice ?? "0")),
       formatItalianAmount((sign * lineTotalCents) / 100),
       line.vatCode,
+      emessoDa,
       doc.id,
     ];
   });
@@ -443,6 +465,13 @@ function buildConditions(params: BuildCsvStreamParams) {
       inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
     );
   }
+  const issuer = issuerCondition(params.issuer);
+  if (issuer && "error" in issuer) {
+    // La route lo convalida prima: qui un valore estraneo è un bug, e
+    // ignorarlo esporterebbe più documenti di quelli chiesti.
+    throw new Error(issuer.error);
+  }
+  if (issuer) conditions.push(issuer);
   return conditions;
 }
 
@@ -464,6 +493,7 @@ async function fetchDocsBatch(
       voidRegisteredAt: voidDocAlias.adeRegisteredAt,
       returnOfAdeProgressive: returnedSaleAlias.adeProgressive,
       publicRequest: commercialDocuments.publicRequest,
+      ...issuerColumns,
     })
     .from(commercialDocuments)
     .leftJoin(
@@ -478,6 +508,7 @@ async function fetchDocsBatch(
       returnedSaleAlias,
       eq(returnedSaleAlias.id, commercialDocuments.returnedDocumentId),
     )
+    .leftJoin(businessMembers, issuerJoinCondition)
     .where(and(...conditions))
     // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
     // a parita' di `ade_registered_at` — normalissima in cassa — Postgres non

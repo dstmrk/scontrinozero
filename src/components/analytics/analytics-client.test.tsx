@@ -4,6 +4,7 @@ import { AnalyticsClient } from "./analytics-client";
 import type {
   AnalyticsBundle,
   AnalyticsKpis,
+  IssuerBreakdownEntry,
   PaymentBreakdownEntry,
   ProductBreakdownEntry,
   RevenuePoint,
@@ -101,6 +102,7 @@ function makeBundle(kpis: AnalyticsKpis, truncated = false): AnalyticsBundle {
     timeseries: [],
     breakdown: [],
     productBreakdown: [],
+    issuerBreakdown: [],
     truncated,
   };
 }
@@ -140,6 +142,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
       />,
     );
 
@@ -199,6 +202,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
       />,
     );
 
@@ -230,6 +234,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
       />,
     );
 
@@ -251,6 +256,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
       />,
     );
 
@@ -274,6 +280,7 @@ describe("AnalyticsClient — avviso dataset parziale", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
         initialTruncated
       />,
     );
@@ -290,6 +297,7 @@ describe("AnalyticsClient — avviso dataset parziale", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
       />,
     );
 
@@ -309,6 +317,7 @@ describe("AnalyticsClient — avviso dataset parziale", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
       />,
     );
 
@@ -332,6 +341,7 @@ describe("AnalyticsClient — avviso dataset parziale", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
         initialTruncated
       />,
     );
@@ -356,6 +366,7 @@ describe("AnalyticsClient — avviso dataset parziale", () => {
         initialTimeseries={[]}
         initialBreakdown={[]}
         initialProductBreakdown={[]}
+        initialIssuerBreakdown={[]}
         initialTruncated
       />,
     );
@@ -366,5 +377,51 @@ describe("AnalyticsClient — avviso dataset parziale", () => {
       expect(screen.getByText(/Impossibile caricare/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/Dati parziali/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("AnalyticsClient, ripartizione per chi ha emesso", () => {
+  const OWNER = {
+    key: "owner-id",
+    kind: "owner",
+    label: "Titolare",
+    revenueCents: 100,
+    count: 1,
+  } as const;
+
+  function renderWith(issuers: IssuerBreakdownEntry[]) {
+    render(
+      <AnalyticsClient
+        businessId="11111111-1111-4111-8111-111111111111"
+        initialRange="30d"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+        initialIssuerBreakdown={issuers}
+      />,
+    );
+  }
+
+  it("con un collaboratore mostra chi ha emesso", () => {
+    renderWith([
+      OWNER,
+      {
+        key: "luca-id",
+        kind: "collaborator",
+        label: "Luca",
+        revenueCents: 50,
+        count: 1,
+      },
+    ]);
+
+    expect(screen.getByText("Per chi ha emesso")).toBeInTheDocument();
+    expect(screen.getByText("Luca")).toBeInTheDocument();
+  });
+
+  it("con il solo titolare la sezione non c'è", () => {
+    renderWith([OWNER]);
+
+    expect(screen.queryByText("Per chi ha emesso")).not.toBeInTheDocument();
   });
 });

@@ -43,6 +43,8 @@ interface ExportCsvButtonProps {
    * ricerca AdE non restituisce le righe articolo.
    */
   readonly includeAde?: boolean;
+  /** Filtro "Emesso da" dello storico: l'export legge le stesse righe. */
+  readonly issuer?: string | null;
 }
 
 function buildExportUrl(
@@ -53,6 +55,7 @@ function buildExportUrl(
   params.set("from", props.dateFrom);
   params.set("to", props.dateTo);
   if (props.status) params.set("status", props.status);
+  if (props.issuer) params.set("issuer", props.issuer);
   if (format) params.set("format", format);
   else if (props.includeAde) params.set("ade", "1");
   return `/api/export/receipts?${params.toString()}`;

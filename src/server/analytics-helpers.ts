@@ -14,6 +14,7 @@ import {
   parsePublicRequest,
   readRawPaymentMethod,
 } from "@/lib/receipts/public-request";
+import type { DocumentIssuer } from "@/lib/receipts/document-issuer";
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "ytd";
 
@@ -87,6 +88,22 @@ export type PaymentBreakdownEntry = {
   method: string;
   count: number;
   revenueCents: number;
+};
+
+/** Ricavi e scontrini di chi ha emesso nel periodo (issue #1099). */
+export type IssuerBreakdownEntry = {
+  /** `created_by` del membro, o `API_ISSUER`: unico anche fra due omonimi. */
+  key: string;
+  kind: DocumentIssuer["kind"];
+  /** "Titolare", il nome del collaboratore o "Developer API". */
+  label: string;
+  /**
+   * Vendite ACCEPTED meno resi ACCEPTED emessi da lui, in centesimi: la somma
+   * sulle voci è `AnalyticsKpis.revenueCents`.
+   */
+  revenueCents: number;
+  /** Scontrini SALE ACCEPTED emessi da lui. */
+  count: number;
 };
 
 export type ProductBreakdownEntry = {
@@ -617,4 +634,46 @@ export function computeProductBreakdown(
 
   if (stripped.length <= topN) return stripped;
   return [...stripped.slice(0, topN), aggregateTail(stripped.slice(topN))];
+}
+
+/**
+ * Ripartisce ricavi e scontrini per chi li ha emessi. Un reso storna i ricavi
+ * di chi lo emette, non di chi aveva venduto: la decisione 2 della issue
+ * #1099 attribuisce il reso a chi lo fa, come il resto del prodotto. Con lo
+ * stesso segno dei KPI (`revenueSign`), la somma sulle voci torna con
+ * `computeKpis(...).revenueCents`.
+ *
+ * Nessun taglio topN: i membri di un'attività sono pochi. L'ordine è
+ * deterministico: ricavi decrescenti, poi l'etichetta confrontata per
+ * codepoint come in `computeProductBreakdown`, poi la chiave.
+ */
+export function computeIssuerBreakdown(
+  docs: readonly (AnalyticsDocRow & {
+    /** `created_by`, o `API_ISSUER` per la Developer API. */
+    issuerKey: string;
+    issuer: DocumentIssuer;
+  })[],
+  totalsByDoc: ReadonlyMap<string, number>,
+): IssuerBreakdownEntry[] {
+  const byIssuer = new Map<string, IssuerBreakdownEntry>();
+  for (const doc of docs) {
+    const entry = byIssuer.get(doc.issuerKey) ?? {
+      key: doc.issuerKey,
+      kind: doc.issuer.kind,
+      label: doc.issuer.label,
+      revenueCents: 0,
+      count: 0,
+    };
+    const sign = revenueSign(doc);
+    entry.revenueCents += sign * toCents(totalsByDoc.get(doc.id) ?? 0);
+    if (sign === 1) entry.count++;
+    byIssuer.set(doc.issuerKey, entry);
+  }
+  return Array.from(byIssuer.values()).sort((a, b) => {
+    if (b.revenueCents !== a.revenueCents)
+      return b.revenueCents - a.revenueCents;
+    if (a.label !== b.label) return a.label < b.label ? -1 : 1;
+    // Due collaboratori omonimi restano due voci: la chiave chiude l'ordine.
+    return a.key < b.key ? -1 : 1;
+  });
 }

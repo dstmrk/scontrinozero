@@ -104,8 +104,15 @@ vi.mock("@/db/schema", () => ({
     adeProgressive: "cd.ade_progressive",
     adeTransactionId: "cd.ade_transaction_id",
     publicRequest: "cd.public_request",
+    createdBy: "cd.created_by",
   },
   commercialDocumentLines: "commercial-document-lines-table",
+  businessMembers: {
+    id: "bm.id",
+    role: "bm.role",
+    name: "bm.name",
+    authUserId: "bm.auth_user_id",
+  },
 }));
 
 import { searchReceiptsIncludingAde } from "./storico-actions";
@@ -330,6 +337,23 @@ describe("searchReceiptsIncludingAde — fusione delle due sorgenti", () => {
     expect(
       result.items.map((r) => (r.origin === "ade" ? r.idtrx : r.id)),
     ).toEqual(["900", "aaa", "800"]);
+  });
+
+  it("con il filtro «Emesso da» non interroga l'AdE: lì nessuno ha emesso", async () => {
+    mockWhereResults.push(
+      [localIndexRow("aaa", "2026-08-10T10:00:00Z")],
+      [localDocRow("aaa", "2026-08-10T10:00:00Z", "DCW2026/1-1")],
+    );
+
+    const result = await searchReceiptsIncludingAde(BIZ, {
+      ...RANGE,
+      issuer: "33333333-3333-4333-8333-333333333333",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.items.map((r) => r.origin)).toEqual(["local"]);
+    expect(mockFetchAdeSaleRows).not.toHaveBeenCalled();
+    expect(mockResolveAdeUserSession).not.toHaveBeenCalled();
   });
 
   it("conta i documenti di entrambe le sorgenti", async () => {

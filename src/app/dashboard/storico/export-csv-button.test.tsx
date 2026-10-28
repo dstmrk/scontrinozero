@@ -98,6 +98,29 @@ describe("ExportCsvButton", () => {
     );
   });
 
+  it("porta il filtro «Emesso da» su entrambi i formati (issue #1099)", () => {
+    render(
+      <ExportCsvButton
+        plan="team"
+        dateFrom="2026-01-01"
+        dateTo="2026-05-19"
+        status={null}
+        issuer="api"
+      />,
+    );
+    openExportMenu();
+
+    const { riepilogo, dettaglio } = menuLinks();
+    expect(riepilogo).toHaveAttribute(
+      "href",
+      "/api/export/receipts?from=2026-01-01&to=2026-05-19&issuer=api",
+    );
+    expect(dettaglio).toHaveAttribute(
+      "href",
+      "/api/export/receipts?from=2026-01-01&to=2026-05-19&issuer=api&format=detail",
+    );
+  });
+
   it("renders the download menu for unlimited treated as pro (same behaviour)", () => {
     render(
       <ExportCsvButton

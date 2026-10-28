@@ -51,13 +51,17 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   personalizzazione di intestazione/logo, che resta fuori dal prodotto: non
   prometterla.
 
-- **Storico e Analytics non sono la stessa cosa.** Lo Storico filtra solo per
+- **Storico e Analytics non sono la stessa cosa.** Lo Storico filtra per
   periodo e stato ed elenca i documenti (data, progressivo, importo, stato):
   **nessun totale** giornaliero o di periodo, niente metodo di pagamento in
   elenco, nessuna ricerca per importo o numero. I ricavi giorno per giorno
   stanno nei grafici di Analytics, che sono Pro (e prova). Audit ottobre 2026:
   la promessa del "totale per giornata" era in 7 punti fra `/funzionalita`,
   `/per`, `/help` e `/guide`, e "provi tutto" in prova in altri 3.
+  Con i collaboratori (Team, issue #1099) il titolare ha in più il filtro
+  «Emesso da» nello storico e la colonna `emesso_da` nel CSV, ma **i totali
+  per persona stanno in Analytics** («Per chi ha emesso»), non nello storico.
+  Il filtro compare solo quando c'è almeno un collaboratore, rimossi compresi.
 - **La prova non è "tutto Pro".** Sblocca le funzioni Pro e la Developer API
   con 1 chiave, ma il catalogo resta a 5 prodotti come su Starter
   (`canAddCatalogItem` in `src/lib/plans-shared.ts`).

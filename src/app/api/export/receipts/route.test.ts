@@ -41,10 +41,19 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   profiles: { id: "p_id", authUserId: "p_auth" },
   businesses: { id: "b_id", profileId: "b_profile" },
+  commercialDocuments: { createdBy: "cd_created_by" },
+  businessMembers: {
+    id: "bm_id",
+    role: "bm_role",
+    name: "bm_name",
+    authUserId: "bm_auth",
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
+  asc: (col: unknown) => ({ _asc: col }),
   eq: (a: unknown, b: unknown) => ({ _eq: [a, b] }),
+  isNull: (col: unknown) => ({ _isNull: col }),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -182,6 +191,7 @@ describe("GET /api/export/receipts", () => {
         // dateTo e' inclusivo per l'utente → upper bound esclusivo sull'inizio
         // del giorno italiano successivo (20/05, CEST).
         dateTo: new Date("2026-05-19T22:00:00.000Z"),
+        issuer: null,
       },
       // Senza `?ade=1` non si interroga l'Agenzia: nessuna riga esterna.
       [],
@@ -216,6 +226,7 @@ describe("GET /api/export/receipts", () => {
       status: null,
       dateFrom: new Date("2025-12-31T23:00:00.000Z"),
       dateTo: new Date("2026-05-19T22:00:00.000Z"),
+      issuer: null,
     });
   });
 
@@ -234,6 +245,7 @@ describe("GET /api/export/receipts", () => {
         status: null,
         dateFrom: null,
         dateTo: null,
+        issuer: null,
       },
       [],
     );
@@ -334,5 +346,65 @@ describe("GET /api/export/receipts — archivio AdE (?ade=1)", () => {
     await GET(makeRequest("?from=2026-02-01&to=2026-02-28"));
 
     expect(mockFetchForeignAdeRows).not.toHaveBeenCalled();
+  });
+});
+
+const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
+
+describe("GET /api/export/receipts — filtro «Emesso da» (?issuer=)", () => {
+  it.each([
+    ["un collaboratore", MEMBER_ID],
+    ["la Developer API", "api"],
+  ])("porta %s a entrambi i formati", async (_who, issuer) => {
+    await GET(makeRequest(`?from=2026-02-01&to=2026-02-28&issuer=${issuer}`));
+    await GET(
+      makeRequest(
+        `?from=2026-02-01&to=2026-02-28&issuer=${issuer}&format=detail`,
+      ),
+    );
+
+    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith(
+      expect.objectContaining({ issuer }),
+      [],
+    );
+    expect(mockBuildReceiptLinesCsvStream).toHaveBeenCalledWith(
+      expect.objectContaining({ issuer }),
+    );
+  });
+
+  it("un valore estraneo → 400 prima di toccare il DB", async () => {
+    const res = await GET(makeRequest("?issuer=titolare"));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "Filtro «Emesso da» non valido.",
+    });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockBuildReceiptsCsvStream).not.toHaveBeenCalled();
+  });
+
+  it("con il filtro l'archivio AdE resta fuori, come nello storico", async () => {
+    // L'archivio non sa chi di noi ha emesso: una sua riga in un file
+    // filtrato per collaboratore sarebbe attribuita a lui senza esserlo.
+    await GET(
+      makeRequest(`?from=2026-02-01&to=2026-02-28&ade=1&issuer=${MEMBER_ID}`),
+    );
+
+    expect(mockFetchForeignAdeRows).not.toHaveBeenCalled();
+    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith(
+      expect.objectContaining({ issuer: MEMBER_ID }),
+      [],
+    );
+  });
+
+  it("il dettaglio con ?ade=1 resta un 400 anche con il filtro", async () => {
+    const res = await GET(
+      makeRequest(
+        `?from=2026-02-01&to=2026-02-28&ade=1&format=detail&issuer=${MEMBER_ID}`,
+      ),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockBuildReceiptLinesCsvStream).not.toHaveBeenCalled();
   });
 });
