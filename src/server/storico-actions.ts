@@ -337,6 +337,35 @@ function resolvePaging(
   };
 }
 
+/**
+ * Le condizioni dei filtri «Stato» ed «Emesso da», o l'errore con cui
+ * rifiutarli. Fuori da `buildStoricoConditions` per restare sotto la soglia
+ * di Cognitive Complexity di SonarCloud.
+ */
+function resolveFilterConditions(
+  params: Pick<SearchReceiptsParams, "status" | "issuer">,
+): SQL[] | { error: string } {
+  // `|| undefined`: "" (tutti, vedi `StatusFilter`) e null valgono come omesso,
+  // come prima. Qualunque altro valore deve essere nell'enum: una server action
+  // è raggiungibile con un valore qualsiasi, e una stringa estranea arrivava a
+  // Postgres come cast di enum fallito (22P02), un throw al posto di `{ error }`.
+  const status: unknown = params.status || undefined;
+  if (status !== undefined && !isStatusFilter(status)) {
+    return { error: "Filtro stato non valido." };
+  }
+
+  // "Emesso da" (issue #1099): un membro o la Developer API. Al collaboratore
+  // si aggiunge comunque il filtro sui propri documenti (`scopedConditions`).
+  const issuer = issuerCondition(params.issuer);
+  if (issuer && "error" in issuer) return issuer;
+
+  // "Tutti" means only successfully processed documents — never show failed attempts
+  const statusCondition = status
+    ? eq(commercialDocuments.status, status)
+    : inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]);
+  return issuer ? [issuer, statusCondition] : [statusCondition];
+}
+
 function buildStoricoConditions(
   businessId: string,
   params: SearchReceiptsParams,
@@ -395,29 +424,9 @@ function buildStoricoConditions(
     conditions.push(lt(commercialDocuments.adeRegisteredAt, toExclusive));
   }
 
-  // `|| undefined`: "" (tutti, vedi `StatusFilter`) e null valgono come omesso,
-  // come prima. Qualunque altro valore deve essere nell'enum: una server action
-  // è raggiungibile con un valore qualsiasi, e una stringa estranea arrivava a
-  // Postgres come cast di enum fallito (22P02), un throw al posto di `{ error }`.
-  const status: unknown = params.status || undefined;
-  if (status !== undefined && !isStatusFilter(status)) {
-    return { error: "Filtro stato non valido." };
-  }
-
-  // "Emesso da" (issue #1099): un membro o la Developer API. Al collaboratore
-  // si aggiunge comunque il filtro sui propri documenti (`scopedConditions`).
-  const issuer = issuerCondition(params.issuer);
-  if (issuer && "error" in issuer) return issuer;
-  if (issuer) conditions.push(issuer);
-
-  if (status) {
-    conditions.push(eq(commercialDocuments.status, status));
-  } else {
-    // "Tutti" means only successfully processed documents — never show failed attempts
-    conditions.push(
-      inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
-    );
-  }
+  const filters = resolveFilterConditions(params);
+  if ("error" in filters) return filters;
+  conditions.push(...filters);
 
   return { conditions, from, toExclusive, ...paging };
 }
