@@ -10,7 +10,8 @@ vi.mock("resend", () => ({
 }));
 
 // Must import after vi.mock
-const { sendEmail, _resetResendForTest } = await import("./email");
+const { sendEmail, sendEmailsInSequence, _resetResendForTest } =
+  await import("./email");
 
 const fakeReact = { type: "div", props: {} } as unknown as Parameters<
   typeof sendEmail
@@ -189,5 +190,67 @@ describe("sendEmail reply-to", () => {
     await sendEmail({ to: "user@example.com", subject: "S", react: fakeReact });
 
     expect(mockResendSend.mock.calls[0][0]).not.toHaveProperty("replyTo");
+  });
+});
+
+describe("sendEmailsInSequence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetResendForTest();
+    process.env.FROM_EMAIL = "Test <test@mail.example.com>";
+  });
+
+  afterEach(() => {
+    delete process.env.FROM_EMAIL;
+  });
+
+  const messages = ["a@b.com", "c@d.com"].map((to) => ({
+    to,
+    subject: "s",
+    react: fakeReact,
+  }));
+
+  it("aspetta ogni invio prima del successivo", async () => {
+    // Resend accetta 10 richieste al secondo per account: partite tutte
+    // insieme, dall'undicesima in poi tornerebbero 429.
+    let releaseFirst: () => void = () => {};
+    mockResendSend
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseFirst = () => resolve({ data: { id: "1" }, error: null });
+          }),
+      )
+      .mockResolvedValueOnce({ data: { id: "2" }, error: null });
+
+    const done = sendEmailsInSequence(messages, vi.fn());
+    await vi.waitFor(() => expect(mockResendSend).toHaveBeenCalledTimes(1));
+    expect(mockResendSend).toHaveBeenCalledTimes(1);
+
+    releaseFirst();
+    await done;
+    expect(mockResendSend).toHaveBeenCalledTimes(2);
+    expect(mockResendSend.mock.calls[1]?.[0].to).toBe("c@d.com");
+  });
+
+  it("un invio fallito va a onError col suo indice, e gli altri partono", async () => {
+    mockResendSend
+      .mockResolvedValueOnce({ data: null, error: { message: "rate limit" } })
+      .mockResolvedValueOnce({ data: { id: "2" }, error: null });
+    const onError = vi.fn();
+
+    await expect(sendEmailsInSequence(messages, onError)).resolves.toBe(
+      undefined,
+    );
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), 0);
+    expect(mockResendSend).toHaveBeenCalledTimes(2);
+  });
+
+  it("senza messaggi non chiama Resend", async () => {
+    await sendEmailsInSequence([], vi.fn());
+
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 });

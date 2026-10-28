@@ -7,14 +7,14 @@ const {
   mockSelect,
   mockUpdate,
   mockDeleteAuthUser,
-  mockSendEmail,
+  mockSendEmailsInSequence,
   mockLoggerError,
   mockLoggerWarn,
 } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
   mockUpdate: vi.fn(),
   mockDeleteAuthUser: vi.fn(),
-  mockSendEmail: vi.fn(),
+  mockSendEmailsInSequence: vi.fn(),
   mockLoggerError: vi.fn(),
   mockLoggerWarn: vi.fn(),
 }));
@@ -23,7 +23,9 @@ vi.mock("@/db", () => ({
   getDb: () => ({ select: mockSelect, update: mockUpdate }),
 }));
 vi.mock("./auth-user-delete", () => ({ deleteAuthUser: mockDeleteAuthUser }));
-vi.mock("@/lib/email", () => ({ sendEmail: mockSendEmail }));
+vi.mock("@/lib/email", () => ({
+  sendEmailsInSequence: mockSendEmailsInSequence,
+}));
 vi.mock("@/lib/logger", () => ({
   logger: { error: mockLoggerError, warn: mockLoggerWarn, info: vi.fn() },
 }));
@@ -31,7 +33,7 @@ vi.mock("@/lib/logger", () => ({
 import {
   findCollaboratorAccount,
   listCollaboratorAccounts,
-  notifyCollaboratorAccessEnded,
+  notifyCollaboratorsAccessEnded,
   removeCollaboratorAccount,
   type CollaboratorAccount,
 } from "./collaborator-account";
@@ -62,7 +64,7 @@ let updateWhere: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.clearAllMocks();
   mockDeleteAuthUser.mockResolvedValue(true);
-  mockSendEmail.mockResolvedValue(undefined);
+  mockSendEmailsInSequence.mockResolvedValue(undefined);
   updateWhere = vi.fn().mockResolvedValue(undefined);
   updateSet = vi.fn(() => ({ where: updateWhere }));
   mockUpdate.mockReturnValue({ set: updateSet });
@@ -154,32 +156,65 @@ describe("removeCollaboratorAccount", () => {
   });
 });
 
-describe("notifyCollaboratorAccessEnded", () => {
-  it("manda l'email col motivo all'indirizzo del collaboratore", async () => {
-    notifyCollaboratorAccessEnded(ACCOUNT, "removed");
+describe("notifyCollaboratorsAccessEnded", () => {
+  const LUCA: CollaboratorAccount = {
+    ...ACCOUNT,
+    memberId: "member-2",
+    email: "luca@example.com",
+  };
+
+  it("manda a ciascuno l'email col motivo, in sequenza", async () => {
+    mockSendEmailsInSequence.mockResolvedValue(undefined);
+
+    notifyCollaboratorsAccessEnded([ACCOUNT, LUCA], "removed");
     await Promise.resolve();
 
-    const email = mockSendEmail.mock.calls[0][0];
-    expect(email.to).toBe("anna@example.com");
-    expect(email.subject).toBe("Il tuo accesso a Bar Centrale è stato rimosso");
-    expect(email.react.props).toEqual({
+    const [messages] = mockSendEmailsInSequence.mock.calls[0];
+    expect(messages.map((m: { to: string }) => m.to)).toEqual([
+      "anna@example.com",
+      "luca@example.com",
+    ]);
+    expect(messages[0].subject).toBe(
+      "Il tuo accesso a Bar Centrale è stato rimosso",
+    );
+    expect(messages[0].react.props).toEqual({
       businessName: "Bar Centrale",
       reason: "removed",
     });
   });
 
-  it("senza email non manda nulla", () => {
-    notifyCollaboratorAccessEnded({ ...ACCOUNT, email: null }, "left");
+  it("salta chi non ha più un'email", async () => {
+    mockSendEmailsInSequence.mockResolvedValue(undefined);
 
-    expect(mockSendEmail).not.toHaveBeenCalled();
+    notifyCollaboratorsAccessEnded([{ ...ACCOUNT, email: null }, LUCA], "left");
+    await Promise.resolve();
+
+    const [messages] = mockSendEmailsInSequence.mock.calls[0];
+    expect(messages).toHaveLength(1);
+    expect(messages[0].to).toBe("luca@example.com");
   });
 
-  it("un invio fallito resta un warn", async () => {
-    mockSendEmail.mockRejectedValue(new Error("Resend down"));
+  it("senza nessuno da avvisare non chiama Resend", () => {
+    notifyCollaboratorsAccessEnded([{ ...ACCOUNT, email: null }], "left");
 
-    notifyCollaboratorAccessEnded(ACCOUNT, "left");
+    expect(mockSendEmailsInSequence).not.toHaveBeenCalled();
+  });
+
+  it("un invio fallito resta un warn con il membro", async () => {
+    mockSendEmailsInSequence.mockImplementation(
+      async (_messages: unknown, onError: (err: unknown, i: number) => void) =>
+        onError(new Error("Resend down"), 1),
+    );
+
+    notifyCollaboratorsAccessEnded([ACCOUNT, LUCA], "owner-deleted");
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mockLoggerWarn).toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: "member-2",
+        reason: "owner-deleted",
+      }),
+      expect.any(String),
+    );
   });
 });

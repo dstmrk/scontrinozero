@@ -94,8 +94,10 @@
    `removeCollaboratorAccount` cancella l'account (`deleteAuthUser` in
    `src/lib/services/auth-user-delete.ts`, con retry) e stacca la riga
    (niente account, email né ultimo accesso; il nome resta e attribuisce i
-   documenti); `notifyCollaboratorAccessEnded` manda
-   `src/emails/collaborator-access-ended.tsx`.
+   documenti); `notifyCollaboratorsAccessEnded` manda
+   `src/emails/collaborator-access-ended.tsx`, una email alla volta
+   (`sendEmailsInSequence` in `src/lib/email.ts`: Resend accetta 10
+   richieste al secondo).
 2. Il titolare rimuove un collaboratore dalla card
    (`src/components/settings/collaborator-member-list.tsx`, che mostra anche
    l'ultimo accesso) con `removeCollaborator`. L'effetto è immediato, perché

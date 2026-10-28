@@ -5,13 +5,13 @@ const {
   mockSelect,
   mockGetPlanSafe,
   mockListCollaboratorAccounts,
-  mockSendEmail,
+  mockSendEmailsInSequence,
   mockLoggerWarn,
 } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
   mockGetPlanSafe: vi.fn(),
   mockListCollaboratorAccounts: vi.fn(),
-  mockSendEmail: vi.fn(),
+  mockSendEmailsInSequence: vi.fn(),
   mockLoggerWarn: vi.fn(),
 }));
 
@@ -20,7 +20,9 @@ vi.mock("@/lib/plans", () => ({ getPlanSafe: mockGetPlanSafe }));
 vi.mock("./collaborator-account", () => ({
   listCollaboratorAccounts: mockListCollaboratorAccounts,
 }));
-vi.mock("@/lib/email", () => ({ sendEmail: mockSendEmail }));
+vi.mock("@/lib/email", () => ({
+  sendEmailsInSequence: mockSendEmailsInSequence,
+}));
 vi.mock("@/lib/logger", () => ({
   logger: { warn: mockLoggerWarn, error: vi.fn(), info: vi.fn() },
 }));
@@ -61,10 +63,14 @@ function account(memberId: string, email: string | null) {
   };
 }
 
+function sentMessages(): { to: string; idempotencyKey?: string }[] {
+  return mockSendEmailsInSequence.mock.calls[0]?.[0] ?? [];
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
-  mockSendEmail.mockResolvedValue(undefined);
+  mockSendEmailsInSequence.mockResolvedValue(undefined);
   businessIs([{ id: BIZ }]);
   mockListCollaboratorAccounts.mockResolvedValue([
     account("m-1", "anna@example.com"),
@@ -79,15 +85,19 @@ describe("notifyCollaboratorsOfSuspension", () => {
     await notifyCollaboratorsOfSuspension(OWNER);
 
     expect(mockListCollaboratorAccounts).toHaveBeenCalledWith(BIZ);
-    expect(mockSendEmail).toHaveBeenCalledTimes(2);
-    expect(mockSendEmail).toHaveBeenCalledWith(
+    // In sequenza, con `sendEmailsInSequence`: il suo test fissa l'attesa.
+    expect(mockSendEmailsInSequence).toHaveBeenCalledTimes(1);
+    expect(sentMessages()).toEqual([
       expect.objectContaining({
         to: "anna@example.com",
         subject: "Il piano di Bar Centrale non include più i collaboratori",
         idempotencyKey: "collaborator-suspended/m-1/2026-10-28",
       }),
-    );
-    expect(mockSendEmail.mock.calls[1]?.[0].to).toBe("luca@example.com");
+      expect.objectContaining({
+        to: "luca@example.com",
+        idempotencyKey: "collaborator-suspended/m-2/2026-10-28",
+      }),
+    ]);
   });
 
   it("con la prova ancora in corso non scrive: i collaboratori emettono", async () => {
@@ -97,7 +107,7 @@ describe("notifyCollaboratorsOfSuspension", () => {
 
     await notifyCollaboratorsOfSuspension(OWNER);
 
-    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockSendEmailsInSequence).not.toHaveBeenCalled();
     expect(mockListCollaboratorAccounts).not.toHaveBeenCalled();
   });
 
@@ -106,26 +116,7 @@ describe("notifyCollaboratorsOfSuspension", () => {
 
     await notifyCollaboratorsOfSuspension(OWNER);
 
-    expect(mockSendEmail).not.toHaveBeenCalled();
-  });
-
-  it("scrive una email alla volta: Resend accetta 10 richieste al secondo", async () => {
-    planIs("pro");
-    let releaseFirst: () => void = () => {};
-    mockSendEmail.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseFirst = resolve;
-        }),
-    );
-
-    const done = notifyCollaboratorsOfSuspension(OWNER);
-    await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalledTimes(1));
-    expect(mockSendEmail).toHaveBeenCalledTimes(1);
-
-    releaseFirst();
-    await done;
-    expect(mockSendEmail).toHaveBeenCalledTimes(2);
+    expect(mockSendEmailsInSequence).not.toHaveBeenCalled();
   });
 
   it("un collaboratore senza email si salta, gli altri ricevono", async () => {
@@ -137,22 +128,21 @@ describe("notifyCollaboratorsOfSuspension", () => {
 
     await notifyCollaboratorsOfSuspension(OWNER);
 
-    expect(mockSendEmail).toHaveBeenCalledTimes(1);
-    expect(mockSendEmail.mock.calls[0]?.[0].to).toBe("luca@example.com");
+    expect(sentMessages().map((m) => m.to)).toEqual(["luca@example.com"]);
   });
 
-  it("un invio fallito non ferma gli altri e non lancia", async () => {
+  it("un invio fallito resta un warn con il membro, e non lancia", async () => {
     planIs("pro");
-    mockSendEmail
-      .mockRejectedValueOnce(new Error("Resend down"))
-      .mockResolvedValueOnce(undefined);
+    mockSendEmailsInSequence.mockImplementation(
+      async (_messages: unknown, onError: (err: unknown, i: number) => void) =>
+        onError(new Error("Resend down"), 1),
+    );
 
     await expect(notifyCollaboratorsOfSuspension(OWNER)).resolves.toBe(
       undefined,
     );
-    expect(mockSendEmail).toHaveBeenCalledTimes(2);
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({ memberId: "m-1" }),
+      expect.objectContaining({ memberId: "m-2" }),
       expect.any(String),
     );
   });
@@ -164,7 +154,7 @@ describe("notifyCollaboratorsOfSuspension", () => {
     await notifyCollaboratorsOfSuspension(OWNER);
 
     expect(mockListCollaboratorAccounts).not.toHaveBeenCalled();
-    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockSendEmailsInSequence).not.toHaveBeenCalled();
   });
 
   it("un piano illeggibile non scrive e non lancia", async () => {
@@ -172,7 +162,7 @@ describe("notifyCollaboratorsOfSuspension", () => {
 
     await notifyCollaboratorsOfSuspension(OWNER);
 
-    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockSendEmailsInSequence).not.toHaveBeenCalled();
   });
 
   it("un errore imprevisto non lancia", async () => {

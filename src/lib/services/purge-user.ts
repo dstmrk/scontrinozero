@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
 import { deleteAuthUser } from "@/lib/services/auth-user-delete";
 import {
   listCollaboratorAccounts,
-  notifyCollaboratorAccessEnded,
+  notifyCollaboratorsAccessEnded,
   type CollaboratorAccount,
 } from "@/lib/services/collaborator-account";
 
@@ -152,9 +152,7 @@ export async function purgeUserById(
   if (!(await deleteAuthUser(authUserId))) {
     return { authDeleted: false, profileDeleted: false };
   }
-  for (const collaborator of collaborators) {
-    notifyCollaboratorAccessEnded(collaborator, "owner-deleted");
-  }
+  notifyCollaboratorsAccessEnded(collaborators, "owner-deleted");
 
   // 1b. L'auth user non esiste più: si chiudono le sessioni AdE in memoria del
   //     suo business (Fisconline 10 minuti, CIE/SPID 6 ore), con il logout sul

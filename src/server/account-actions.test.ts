@@ -127,7 +127,7 @@ vi.mock("@/lib/services/collaborator-account", () => ({
     mockFindCollaboratorAccount(...a),
   removeCollaboratorAccount: (...a: unknown[]) =>
     mockRemoveCollaboratorAccount(...a),
-  notifyCollaboratorAccessEnded: (...a: unknown[]) =>
+  notifyCollaboratorsAccessEnded: (...a: unknown[]) =>
     mockNotifyAccessEnded(...a),
   listCollaboratorAccounts: vi.fn().mockResolvedValue([]),
 }));
@@ -193,7 +193,7 @@ describe("account-actions", () => {
         authUserId: FAKE_USER.id,
       });
       expect(mockRemoveCollaboratorAccount).toHaveBeenCalledWith(ACCOUNT);
-      expect(mockNotifyAccessEnded).toHaveBeenCalledWith(ACCOUNT, "left");
+      expect(mockNotifyAccessEnded).toHaveBeenCalledWith([ACCOUNT], "left");
       expect(mockSignOut).toHaveBeenCalled();
       expect(mockRedirect).toHaveBeenCalledWith("/");
     });

@@ -110,3 +110,26 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     throw new Error(error.message);
   }
 }
+
+/**
+ * Invia più email una alla volta. Resend accetta 10 richieste al secondo per
+ * account (https://resend.com/docs/api-reference/rate-limit): partite tutte
+ * insieme, dall'undicesima in poi risponderebbero 429 e si perderebbero. Chi
+ * scrive a tutti i collaboratori di un'attività passa da qui: su Team non
+ * hanno tetto.
+ *
+ * Un invio fallito non ferma i successivi: `onError` riceve l'errore e
+ * l'indice del messaggio, e decide come registrarlo. Non lancia.
+ */
+export async function sendEmailsInSequence(
+  messages: readonly SendEmailOptions[],
+  onError: (err: unknown, index: number) => void,
+): Promise<void> {
+  for (const [index, message] of messages.entries()) {
+    try {
+      await sendEmail(message); // NOSONAR — sequenziale per il rate limit di Resend
+    } catch (err) {
+      onError(err, index);
+    }
+  }
+}
