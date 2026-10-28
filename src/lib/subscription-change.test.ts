@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   classifySubscriptionChange,
+  leavesTeam,
   type PlanChoice,
 } from "./subscription-change";
 
@@ -133,5 +134,29 @@ describe("classifySubscriptionChange", () => {
     expect(
       classifySubscriptionChange(active("pro_m"), active("boh"), resolve),
     ).toBeNull();
+  });
+});
+
+describe("leavesTeam", () => {
+  const TEAM = { plan: "team", interval: "year" } as const;
+  const PRO = { plan: "pro", interval: "year" } as const;
+
+  it("da Team a un altro piano i collaboratori si fermano", () => {
+    expect(leavesTeam({ kind: "changed", from: TEAM, to: PRO })).toBe(true);
+  });
+
+  it("la fine di un abbonamento Team li ferma", () => {
+    expect(leavesTeam({ kind: "ended", to: TEAM })).toBe(true);
+  });
+
+  it.each([
+    ["verso Team", { kind: "changed", from: PRO, to: TEAM }],
+    ["fra due intervalli di Team", { kind: "changed", from: TEAM, to: TEAM }],
+    ["da un piano sconosciuto", { kind: "changed", from: null, to: PRO }],
+    ["la fine di Pro", { kind: "ended", to: PRO }],
+    ["la disdetta solo programmata", { kind: "cancel_scheduled", to: TEAM }],
+    ["un abbonamento nuovo", { kind: "started", to: PRO }],
+  ] as const)("%s no", (_label, change) => {
+    expect(leavesTeam(change)).toBe(false);
   });
 });

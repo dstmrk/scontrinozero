@@ -206,6 +206,14 @@ claim verrebbe rilasciato. Il pattern in `route.ts`:
 - Il tipo del piano si chiama `PlanChoice`, non `PlanSelection`: quel nome è un
   token del gate `native-billing.contract.test.ts` (componente di acquisto).
 
+Lo stesso schema vale per l'email ai collaboratori quando il titolare lascia
+Team (`notifyCollaboratorsOfSuspension`, issue #1099), con una regola in più:
+**l'evento è il segnale, non la verità.** `leavesTeam(change)` dice solo che
+Team se n'è andato; se i collaboratori restano fermi lo decide il piano
+effettivo del titolare letto dopo il commit. Chi annulla Team durante la prova
+torna a `trial`, e una prova in corso li ammette ancora: decidere dall'evento
+gli avrebbe scritto che sono sospesi mentre emettono.
+
 ---
 
 ## Stale recovery AdE → skill `ade-integration`

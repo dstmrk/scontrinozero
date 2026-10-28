@@ -356,6 +356,12 @@ scarto è la finestra del fallimento DB, non la soglia stale.
    `src/db/schema/stripe-webhook-events.ts`).
 3. API version `2026-09-30.endive` e gli 8 eventi obbligatori → skill
    `stripe-webhooks` + `CLAUDE.md`.
+4. Dopo il commit, senza attendere: la mail all'operatore e, quando il cambio
+   porta via Team (`leavesTeam` in `src/lib/subscription-change.ts`), l'email
+   ai collaboratori (`src/lib/services/collaborator-suspension-notice.ts`),
+   che parte solo se il piano effettivo del titolare non li ammette più. La
+   prova che scade da sola non manda eventi e non scrive a nessuno: il
+   collaboratore trova l'avviso nell'app (issue #1099).
 
 ## Osservabilità ed errori
 
