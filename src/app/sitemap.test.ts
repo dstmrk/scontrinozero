@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(91);
+    expect(result).toHaveLength(92);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -136,6 +136,7 @@ describe("sitemap", () => {
     const legalUrls = [
       "https://scontrinozero.it/privacy",
       "https://scontrinozero.it/privacy/v01",
+      "https://scontrinozero.it/privacy/v02",
       "https://scontrinozero.it/termini",
       "https://scontrinozero.it/termini/v01",
       "https://scontrinozero.it/cookie-policy",
@@ -157,6 +158,18 @@ describe("sitemap", () => {
           e.url === "https://scontrinozero.it/condizioni-collaboratori/v01",
       )?.lastModified,
     ).toEqual(new Date("2026-10-24"));
+    // La v02 sposta la data di /privacy; la v01 tiene la sua.
+    const privacyDate = (url: string) =>
+      result.find((e) => e.url === url)?.lastModified;
+    expect(privacyDate("https://scontrinozero.it/privacy")).toEqual(
+      new Date("2026-10-28"),
+    );
+    expect(privacyDate("https://scontrinozero.it/privacy/v02")).toEqual(
+      new Date("2026-10-28"),
+    );
+    expect(privacyDate("https://scontrinozero.it/privacy/v01")).toEqual(
+      new Date("2026-07-12"),
+    );
 
     // Help center hub
     const helpHubEntry = result.find(

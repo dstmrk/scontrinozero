@@ -18,6 +18,9 @@ const STATIC_PAGES_UPDATED = new Date("2026-07-22");
 const LEGAL_PAGES_UPDATED = new Date("2026-07-12");
 // Le Condizioni per i collaboratori hanno una versione e una data proprie.
 const COLLABORATOR_TERMS_UPDATED = new Date("2026-10-24");
+// La Privacy v02 (issue #1099) sposta la data di `/privacy`, non quella della
+// v01, il cui testo non cambia.
+const PRIVACY_V02_UPDATED = new Date("2026-10-28");
 
 /** Massimo (lessicografico, valido su date ISO) di una lista di date YYYY-MM-DD. */
 function maxIsoDate(dates: readonly string[]): Date {
@@ -72,13 +75,16 @@ const helpPages = helpSlugs.map((slug) => ({
 
 const legalPages = [
   ...[
-    "/privacy",
     "/privacy/v01",
     "/termini",
     "/termini/v01",
     "/cookie-policy",
     "/cookie-policy/v01",
   ].map((path) => ({ path, lastModified: LEGAL_PAGES_UPDATED })),
+  ...["/privacy", "/privacy/v02"].map((path) => ({
+    path,
+    lastModified: PRIVACY_V02_UPDATED,
+  })),
   ...["/condizioni-collaboratori", "/condizioni-collaboratori/v01"].map(
     (path) => ({ path, lastModified: COLLABORATOR_TERMS_UPDATED }),
   ),
