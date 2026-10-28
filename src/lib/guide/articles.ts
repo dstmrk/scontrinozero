@@ -146,16 +146,16 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
             "Tempo per scontrino",
           ],
           rows: [
-            ["Portale AdE (gratuito)", "€0", "€0", "30-60 secondi"],
+            ["Portale AdE (gratuito)", "0 €", "0 €", "30-60 secondi"],
             [
               "App dedicata (es. ScontrinoZero)",
-              "€0",
+              "0 €",
               `30-100 € (ScontrinoZero da ${starter.yearly})`,
               "pochi secondi",
             ],
             [
               "Registratore telematico",
-              "€400-800 + 100-200 € installazione",
+              "400-800 € + 100-200 € installazione",
               "50-100 € ogni 2 anni (verificazione)",
               "istantaneo al banco",
             ],
@@ -594,7 +594,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Casi pratici",
-        body: "Errore di battitura su un prezzo (es. €15 invece di €1,50): annulla e ribatti. Cliente cambia idea prima di uscire dal negozio: annulla e restituisci il contante o storna la carta. Doppia battitura accidentale dello stesso scontrino: annulla quello in eccesso. Reso a distanza di tempo (giorni): NON annullare, emetti un documento commerciale di reso. Vendita errata con fattura B2B: NON annullare il DCO, emetti una nota di credito sulla fattura.",
+        body: "Errore di battitura su un prezzo (es. 15 € invece di 1,50 €): annulla e ribatti. Cliente cambia idea prima di uscire dal negozio: annulla e restituisci il contante o storna la carta. Doppia battitura accidentale dello stesso scontrino: annulla quello in eccesso. Reso a distanza di tempo (giorni): NON annullare, emetti un documento commerciale di reso. Vendita errata con fattura B2B: NON annullare il DCO, emetti una nota di credito sulla fattura.",
       },
     ],
     faq: [

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 import { registerHref } from "@/lib/marketing-to-app-href";
-import { RT_COSTS } from "@/lib/marketing/rt-costs";
+import { RT_COSTS, formatRtCostRange } from "@/lib/marketing/rt-costs";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,15 +62,15 @@ export const metadata: Metadata = {
 export const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
   {
     label: "Costo acquisto hardware",
-    competitor: `€${RT_COSTS.purchase.min}–${RT_COSTS.purchase.max}`,
-    ours: "€0",
+    competitor: formatRtCostRange(RT_COSTS.purchase),
+    ours: "0 €",
   },
   {
     // Il costo ricorrente obbligatorio di un RT è la sola verificazione
-    // periodica: il "canone annuo €100-200" che stava qui è un contratto di
+    // periodica: il "canone annuo 100-200 €" che stava qui è un contratto di
     // assistenza facoltativo. Cifre da src/lib/marketing/rt-costs.ts.
     label: "Costi ricorrenti obbligatori",
-    competitor: `€${RT_COSTS.periodicVerification.min}–${RT_COSTS.periodicVerification.max} ogni ${RT_COSTS.periodicVerification.everyYears} anni`,
+    competitor: `${formatRtCostRange(RT_COSTS.periodicVerification)} ogni ${RT_COSTS.periodicVerification.everyYears} anni`,
     ours: `da ${starter.yearly}/anno`,
   },
   {
@@ -220,7 +220,7 @@ export default function Home() {
             <ComparisonTable
               competitorLabel="Registratore fisico"
               rows={HOME_COMPARISON_ROWS}
-              footer={{ label: "Risparmio anno 1", value: "oltre €470" }}
+              footer={{ label: "Risparmio anno 1", value: "oltre 470 €" }}
             />
           </div>
           <p className="text-muted-foreground mt-6 text-center text-sm">

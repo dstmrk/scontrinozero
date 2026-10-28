@@ -231,7 +231,7 @@ export default function PrimaConfigurazioneePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dopo il wizard atterri direttamente nella dashboard. Ti consigliamo di
           emettere subito uno scontrino di prova con un importo basso (per
-          esempio €1,00) per verificare end-to-end che tutto funzioni — è un
+          esempio 1,00 €) per verificare end-to-end che tutto funzioni — è un
           vero documento commerciale trasmesso all&apos;AdE, ma puoi annullarlo
           immediatamente se necessario.
         </p>

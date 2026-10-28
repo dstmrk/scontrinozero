@@ -401,7 +401,7 @@ export default function ApiDocsPage() {
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PE
                   </code>
-                  {" e se il totale scontrino è ≥ €1,00; viene ignorato con "}
+                  {" e se il totale scontrino è ≥ 1,00 €; viene ignorato con "}
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PC
                   </code>
