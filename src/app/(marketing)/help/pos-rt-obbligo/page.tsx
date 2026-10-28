@@ -196,7 +196,7 @@ export default function PosRtObbligoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per il <strong>mancato collegamento</strong> tra POS e strumento di
           memorizzazione dei corrispettivi si applica la sanzione amministrativa
-          da <strong>€1.000 a €4.000</strong> (art. 11 comma 5 D.Lgs. 471/97,
+          da <strong>1.000-4.000 €</strong> (art. 11 comma 5 D.Lgs. 471/97,
           esteso al mancato collegamento dall&apos;art. 1 comma 75 della L.
           207/2024). È inoltre prevista la sospensione della licenza o
           dell&apos;autorizzazione all&apos;esercizio dell&apos;attività da{" "}

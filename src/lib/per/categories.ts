@@ -256,7 +256,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emissione del Documento Commerciale Online verso privati anche in regime forfettario.",
       "Indicazione della natura N2 sullo scontrino (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014).",
       "Trasmissione corrispettivi all'Agenzia delle Entrate entro 12 giorni.",
-      "Limite di ricavi €85.000/anno per restare nel regime forfettario.",
+      "Limite di ricavi 85.000 €/anno per restare nel regime forfettario.",
     ],
     benefits: [
       "Natura N2 impostabile come aliquota prevalente in onboarding, così è già pre-compilata sulle righe a importo libero; i prodotti del catalogo hanno un'aliquota propria, da mettere su N2 quando li crei.",
@@ -271,14 +271,14 @@ export const categories: Record<CategorySlug, CategoryContent> = {
           "Sì, se vendi beni o servizi a privati e non emetti fattura. Il regime forfettario riguarda la fiscalità (IVA, IRPEF), non l'obbligo di documentare la transazione. Lo scontrino senza IVA, con natura N2, è la forma corretta.",
       },
       {
-        question: "Cosa cambia se supero gli €85.000 di ricavi?",
+        question: "Cosa cambia se supero gli 85.000 € di ricavi?",
         answer:
-          "Esci dal regime forfettario e applichi l'IVA ordinaria dall'anno successivo (o subito se superi €100.000). ScontrinoZero supporta entrambi i regimi: puoi cambiare l'aliquota IVA prevalente in qualsiasi momento da Impostazioni → Attività → Modifica.",
+          "Esci dal regime forfettario e applichi l'IVA ordinaria dall'anno successivo (o subito se superi 100.000 €). ScontrinoZero supporta entrambi i regimi: puoi cambiare l'aliquota IVA prevalente in qualsiasi momento da Impostazioni → Attività → Modifica.",
       },
       {
-        question: "Devo applicare la marca da bollo da €2 sullo scontrino?",
+        question: "Devo applicare la marca da bollo da 2 € sullo scontrino?",
         answer:
-          "La marca da bollo da €2 si applica alle fatture in forfettario per importi superiori a €77,47, non agli scontrini. Sul documento commerciale (scontrino) non si applica bollo.",
+          "La marca da bollo da 2 € si applica alle fatture in forfettario per importi superiori a 77,47 €, non agli scontrini. Sul documento commerciale (scontrino) non si applica bollo.",
       },
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "primo-scontrino"],

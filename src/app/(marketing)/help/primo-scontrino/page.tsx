@@ -151,9 +151,9 @@ export default function PrimoScontrinoPage() {
           Il metodo di pagamento è obbligatorio: lo scontrino accetta un solo
           metodo per documento (con il piano Pro puoi ripartire l&apos;incasso
           fra i due). Sotto <strong>Altre opzioni</strong> trovi il{" "}
-          <strong>Codice lotteria</strong> (8 caratteri, scontrini da almeno €1)
-          per far partecipare il cliente alla Lotteria degli Scontrini: il campo
-          accetta un codice solo se incassi tutto in elettronico.
+          <strong>Codice lotteria</strong> (8 caratteri, scontrini da almeno 1
+          €) per far partecipare il cliente alla Lotteria degli Scontrini: il
+          campo accetta un codice solo se incassi tutto in elettronico.
         </p>
         <figure className="mt-6">
           <AppScreenshot

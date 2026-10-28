@@ -208,7 +208,7 @@ export default function RegimeForfettarioPage() {
           {"Puoi modificare l'aliquota IVA prevalente in qualsiasi momento da "}
           <strong>Impostazioni → Attività → Modifica</strong>
           {
-            ": utile se cambi regime fiscale (es. esci dal forfettario superando €85.000/€100.000) o se hai sbagliato la selezione iniziale. Per problemi scrivi a "
+            ": utile se cambi regime fiscale (es. esci dal forfettario superando 85.000/100.000 €) o se hai sbagliato la selezione iniziale. Per problemi scrivi a "
           }
           <a
             href="mailto:info@scontrinozero.it"
@@ -239,7 +239,7 @@ export default function RegimeForfettarioPage() {
             all&apos;AdE.
           </li>
           <li>
-            <strong>Nessuna voce &quot;IVA: € 0,00&quot;</strong>: semplicemente
+            <strong>Nessuna voce &quot;IVA: 0,00 €&quot;</strong>: semplicemente
             l&apos;IVA non è esposta.
           </li>
         </ul>
@@ -281,8 +281,8 @@ export default function RegimeForfettarioPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La soglia base per accedere e rimanere nel regime forfettario è{" "}
-          <strong>€ 85.000 annui</strong> di incassi (principio di cassa),
-          innalzata dai precedenti € 65.000 dalla{" "}
+          <strong>85.000 € annui</strong> di incassi (principio di cassa),
+          innalzata dai precedenti 65.000 € dalla{" "}
           <strong>Legge di Bilancio 2023</strong> (L. 197/2022), con decorrenza{" "}
           <strong>dal 2023</strong>. Due scenari possibili in caso di
           superamento nel corso dell&apos;anno:

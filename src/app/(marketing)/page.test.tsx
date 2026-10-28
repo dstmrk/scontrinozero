@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HOME_COMPARISON_ROWS } from "./page";
-import { RT_COSTS } from "@/lib/marketing/rt-costs";
+import { RT_COSTS, formatRtCostRange } from "@/lib/marketing/rt-costs";
 
 /**
  * La tabella comparativa della homepage è il claim sui costi del concorrente
@@ -23,10 +23,8 @@ describe("HOME_COMPARISON_ROWS", () => {
 
   it("deriva il costo hardware dalla fonte unica", () => {
     const row = label("Costo acquisto hardware");
-    expect(row?.competitor).toBe(
-      `€${RT_COSTS.purchase.min}–${RT_COSTS.purchase.max}`,
-    );
-    expect(row?.ours).toBe("€0");
+    expect(row?.competitor).toBe(formatRtCostRange(RT_COSTS.purchase));
+    expect(row?.ours).toBe("0 €");
   });
 
   it("presenta la verificazione periodica come unico ricorrente obbligatorio", () => {

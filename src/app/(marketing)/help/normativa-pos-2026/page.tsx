@@ -7,7 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
-import { RT_COSTS } from "@/lib/marketing/rt-costs";
+import { RT_COSTS, formatRtCostRange } from "@/lib/marketing/rt-costs";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { PLAN_PRICES } from "@/lib/plan-prices";
@@ -235,8 +235,7 @@ export default function NormativaPos2026Page() {
               <tr>
                 <td className="text-foreground py-2 font-medium">Hardware</td>
                 <td className="py-2">
-                  RT certificato (€{RT_COSTS.purchase.min}-
-                  {RT_COSTS.purchase.max})
+                  RT certificato ({formatRtCostRange(RT_COSTS.purchase)})
                 </td>
                 <td className="py-2">Smartphone o PC</td>
               </tr>
@@ -274,9 +273,8 @@ export default function NormativaPos2026Page() {
                 </td>
                 <td className="py-2">
                   Verificazione ogni {RT_COSTS.periodicVerification.everyYears}{" "}
-                  anni (€{RT_COSTS.periodicVerification.min}-
-                  {RT_COSTS.periodicVerification.max}); assistenza facoltativa a
-                  parte
+                  anni ({formatRtCostRange(RT_COSTS.periodicVerification)});
+                  assistenza facoltativa a parte
                 </td>
                 <td className="py-2">Da {starter.yearly}/anno</td>
               </tr>
