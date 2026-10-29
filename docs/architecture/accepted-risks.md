@@ -412,3 +412,33 @@ UPDATE commercial_documents cd
 
 **Riaprire:** al primo rollback reale dopo il tag v1.10.0. A quel punto la
 riparazione entra in una migrazione nuova, così il deploy la applica da sé.
+
+## Il webhook Stripe live è fissato a `2025-08-27.basil`, l'SDK a `2026-09-30.endive`
+
+Misurato sull'account live il 2026-10-29: l'endpoint
+`we_1TCNwVH3rQpBbLw2sy8A6yrb` (`/api/stripe/webhook`) è stato creato con
+l'API `2025-08-27.basil`, mentre `src/lib/stripe.ts` costruisce il client con
+`2026-09-30.endive`. Il payload degli eventi segue la versione
+dell'**endpoint**, non quella dell'SDK, quindi il webhook riceve oggi la forma
+`basil`.
+
+Non rompe nulla perché i campi che il gestore legge hanno già la forma nuova
+in `basil`: `invoice.parent.subscription_details.subscription` e
+`subscription.items.data[0].current_period_end`
+(`src/app/api/stripe/webhook/route.ts`). Allineare le due versioni non porta
+un beneficio oggi.
+
+Non si cambia con un update: la versione si fissa alla creazione, e
+`POST /v1/webhook_endpoints/{id}` accetta solo `url`, `enabled_events`,
+`description`, `metadata` e `disabled`. Migrare significa creare un endpoint
+nuovo con `api_version`, sostituire `STRIPE_WEBHOOK_SECRET` (il secret è
+per-endpoint) e cancellare il vecchio. Nella finestra tra le due operazioni i
+due endpoint puntano allo stesso URL con secret diversi e metà delle consegne
+fallisce con 400: Stripe le ritenta con backoff, ma conviene chiuderla in pochi
+minuti e fuori da un checkout in corso.
+
+**Riaprire:** (a) Stripe annuncia la fine del supporto di `basil` per gli
+endpoint; (b) un gestore deve leggere un campo che esiste solo in `endive`; (c)
+compare un errore di parsing su un evento in Sentry con payload di forma
+diversa da quella attesa. In ognuno dei tre casi: prima sull'account test, poi
+live, e la voce esce da questo file.
