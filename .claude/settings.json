@@ -17,6 +17,15 @@
             "command": "bash .claude/hooks/block-commit-on-main.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__github__merge_pull_request",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-direct-merge.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
