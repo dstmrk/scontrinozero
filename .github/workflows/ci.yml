@@ -150,6 +150,7 @@ jobs:
           bash .claude/hooks/test-block-push-to-main.sh
           bash .claude/hooks/test-block-drizzle-generate.sh
           bash .claude/hooks/test-block-commit-on-main.sh
+          bash .claude/hooks/test-block-direct-merge.sh
           bash .claude/hooks/test-check-arch-docs-on-edit.sh
 
   # Testa il wrapper dello scan Sonar (retry + tolleranza 403 del CDN).

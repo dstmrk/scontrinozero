@@ -68,8 +68,13 @@ possiede. La numerazione è **stabile e non si ricicla**: il codice cita
 `regola N` in centinaia di punti, quindi un numero assente da questa lista non
 è stato abolito, è stato spostato nel registro.
 
-- **1 · Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre,
-  merge spetta all'utente (a meno che non chiesto esplicito).
+- **1 · Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre.
+  Il merge lo fa GitHub: a PR finita (titolo e corpo con il ledger, regola 32)
+  abiliti `enable_pr_auto_merge` in squash e GitHub mergia solo a required
+  checks verdi (CI + Sonar). `merge_pull_request` è bloccato da hook. Il
+  ledger lo ripeti anche in chat, perché il merge può avvenire prima che
+  l'utente lo legga. Se un check resta rosso, la PR è tua finché non è verde;
+  un errore scoperto dopo il merge si corregge con una nuova PR.
 - **2 · TDD.** Test prima dell'implementazione. Ogni file con logica ha il suo
   test file (anche `instrumentation.ts` e simili bootstrap).
 - **3 · Ambiguità: proponi, non chiedere a vuoto.** Una domanda aperta ("come lo
@@ -261,6 +266,8 @@ risolvere a una directory esistente sotto `.claude/skills`.
   (regola 1)
 - `.claude/hooks/block-commit-on-main.sh` — blocca `git commit` sul branch
   `main` (regola 1)
+- `.claude/hooks/block-direct-merge.sh` — blocca `merge_pull_request`: si usa
+  `enable_pr_auto_merge` (regola 1)
 - `.claude/hooks/check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit
   ai doc meta (regola 26)
 

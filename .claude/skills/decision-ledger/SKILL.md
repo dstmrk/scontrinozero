@@ -120,6 +120,14 @@ legge; come documento strutturato no. Quindi:
 riscrivere `main`, cioè non si fa. Il ledger non è un commento da aggiungere
 quando ci si ricorda.
 
+**Con l'auto-merge (regola 1) il ledger va anche in chat.** Abilitando
+`enable_pr_auto_merge` il merge parte appena i required checks sono verdi,
+quindi l'utente può leggere il corpo della PR dopo che è diventato storia.
+Scrivi titolo e corpo definitivi, **poi** abiliti l'auto-merge, e nello stesso
+turno incolli in chat il ledger e la tabella del costo. Una decisione che
+l'utente ribalta dopo il merge si corregge con una nuova PR, non riscrivendo
+`main`.
+
 > ⚠️ Lo squash crea un commit **nuovo**: il branch mergiato non è un antenato di
 > `main`. Riusarlo per il lavoro successivo ripropone il diff già mergiato. Per
 > un follow-up si riparte da `main`
