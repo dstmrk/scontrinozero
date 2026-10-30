@@ -17,10 +17,10 @@ ScontrinoZero espone le proprie API come prodotto B2B2B.
 
 ### Tier 1 — Merchant + Developer (MVP, Fase A)
 
-L'esercente si registra su ScontrinoZero, configura le credenziali AdE, attiva il piano Pro,
+L'esercente si registra su ScontrinoZero, configura le credenziali AdE, attiva il piano Pro o Team,
 genera un'API key dal dashboard e la consegna al suo sviluppatore.
 
-- **Billing:** nessun nuovo piano Stripe. API access = feature Pro (`canUsePro()`).
+- **Billing:** nessun nuovo piano Stripe. API access = feature Pro, inclusa nel piano Team (Pro + collaboratori); non disponibile su Starter (`canUseApi()`).
 - **Flusso:** esercente gestisce il proprio account; developer usa la key per emettere scontrini.
 
 ### Tier 2 — Developer Account / Partner (Fase B)
@@ -94,6 +94,9 @@ CREATE INDEX "idx_commercial_documents_api_key" ON "commercial_documents" ("api_
 Usata per il tracking del consumo mensile nei piani developer (Fase B).
 
 ### Piani Developer (nuovi valori `profiles.plan`)
+
+> **Fase B, non ancora in vendita.** Oggi l'accesso API è incluso solo in Pro e
+> Team (e nella prova gratuita); Starter non ha API.
 
 ```typescript
 export type Plan =
@@ -399,7 +402,7 @@ quindi leggibili anche da un client browser cross-origin.
 | `400`  | `INVALID_QUERY_PARAM`                              | no                         | Parametro di query malformato: `from`/`to` mancanti o non `YYYY-MM-DD`, intervallo > 31 giorni, `page`/`limit` non interi o `< 1`, `kind` ≠ `SALE`/`VOID`/`RETURN`, `status` fuori dall'enum |
 | `400`  | `INVALID_ID`                                       | no                         | UUID nel path non valido                                                                                                                                                                     |
 | `401`  | `UNAUTHORIZED`                                     | no                         | API key mancante, non valida, revocata o scaduta                                                                                                                                             |
-| `402`  | `PLAN_UPGRADE_REQUIRED`                            | no                         | Il piano attivo non include l'accesso API (upgrade a Pro/Developer)                                                                                                                          |
+| `402`  | `PLAN_UPGRADE_REQUIRED`                            | no                         | Il piano attivo non include l'accesso API (Starter: upgrade a Pro o Team)                                                                                                                    |
 | `403`  | `BUSINESS_KEY_REQUIRED`                            | no                         | Serve una business key `szk_live_`; usata una management key                                                                                                                                 |
 | `404`  | `NOT_FOUND`                                        | no                         | Scontrino inesistente o di un altro esercente. Vale per `GET /v1/receipts/{id}`, per l'annullo e per il reso                                                                                 |
 | `409`  | `PENDING_IN_PROGRESS` · `VOID_PENDING_IN_PROGRESS` | **sì** (`Retry-After: 2`)  | Una richiesta con la stessa `idempotencyKey` è ancora in corso                                                                                                                               |

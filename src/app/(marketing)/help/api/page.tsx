@@ -24,12 +24,12 @@ export const metadata = helpArticleMetadata("api");
 const faqItems: readonly FaqItem[] = [
   {
     question: "Posso usare le API durante la prova gratuita?",
-    answer: `Sì: la prova gratuita di ${TRIAL_DAYS} giorni include l'accesso alla Developer API con una chiave attiva, senza inserire una carta di credito. Il piano Pro ne consente fino a 3. Su Starter le API non sono disponibili.`,
+    answer: `Sì: la prova gratuita di ${TRIAL_DAYS} giorni include l'accesso alla Developer API con una chiave attiva, senza inserire una carta di credito. I piani Pro e Team ne consentono fino a 3. Su Starter le API non sono disponibili.`,
   },
   {
     question: "Cosa succede alle chiavi API quando scade la prova gratuita?",
     answer:
-      "Smettono di autenticare: ogni richiesta riceve un errore 402 PLAN_UPGRADE_REQUIRED. Le chiavi restano nella dashboard e tornano attive appena attivi il piano Pro, quindi non devi rigenerarle né aggiornare l'integrazione.",
+      "Smettono di autenticare: ogni richiesta riceve un errore 402 PLAN_UPGRADE_REQUIRED. Le chiavi restano nella dashboard e tornano attive appena attivi il piano Pro o Team, quindi non devi rigenerarle né aggiornare l'integrazione.",
   },
   {
     question:
@@ -60,7 +60,7 @@ export default function ApiDocsPage() {
           <h1 className="text-3xl font-extrabold tracking-tight">
             API per sviluppatori
           </h1>
-          <Badge variant="secondary">Pro e prova gratuita</Badge>
+          <Badge variant="secondary">Pro, Team e prova gratuita</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le API REST di ScontrinoZero permettono di integrare l&apos;emissione
@@ -75,11 +75,11 @@ export default function ApiDocsPage() {
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             {"Account ScontrinoZero con "}
-            <strong>piano Pro</strong>
+            <strong>piano Pro o Team</strong>
             {" attivo, oppure in "}
             <strong>prova gratuita</strong>
             {
-              " (la prova include l'accesso API con una chiave; su Pro le chiavi attive sono al massimo 3). Alla scadenza della prova le chiavi smettono di autenticare e tornano attive passando a Pro, senza rigenerarle."
+              " (la prova include l'accesso API con una chiave; su Pro e Team le chiavi attive sono al massimo 3). Alla scadenza della prova le chiavi smettono di autenticare e tornano attive passando a Pro o Team, senza rigenerarle."
             }
           </li>
           <li>
@@ -168,7 +168,7 @@ export default function ApiDocsPage() {
           <li>I dati sandbox possono essere resettati senza preavviso.</li>
           <li>
             {
-              "La prova gratuita basta per generare una chiave e integrare. Per testare anche il flusso di abbonamento — o il limite di 3 chiavi del piano Pro — attiva Pro con una "
+              "La prova gratuita basta per generare una chiave e integrare. Per testare anche il flusso di abbonamento — o il limite di 3 chiavi dei piani Pro e Team — attiva Pro con una "
             }
             <strong>carta di test Stripe</strong>
             {": numero "}
@@ -1118,7 +1118,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 [
                   "402",
                   "PLAN_UPGRADE_REQUIRED",
-                  "Il piano attivo non include la funzione richiesta: l'accesso alle API oppure, nel corpo di POST /v1/receipts, sconti o pagamento misto. Passa al Piano Pro.",
+                  "Il piano attivo non include la funzione richiesta: l'accesso alle API oppure, nel corpo di POST /v1/receipts, sconti o pagamento misto. Passa al piano Pro o Team.",
                 ],
                 [
                   "403",
