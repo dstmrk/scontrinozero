@@ -35,16 +35,16 @@ ScontrinoZero usa la procedura web "Documento Commerciale Online" dell'Agenzia d
 
 ## Tech Stack
 
-| Layer        | Tecnologie                                                                                          |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| Frontend     | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4                                       |
-| Componenti   | shadcn/ui, TanStack Query v5                                                                        |
-| Database     | Supabase (PostgreSQL), Drizzle ORM, Row Level Security                                              |
-| Pagamenti    | Stripe: piani Starter, Pro e Team ([prezzi](https://scontrinozero.it/prezzi)); self-hosted gratuito |
-| Email        | Resend + React Email                                                                                |
-| Integrazione | HTTP dirette verso portale AdE (no headless browser)                                                |
-| Deploy       | Docker standalone su VPS, Cloudflare Tunnel                                                         |
-| Qualità      | Vitest, SonarCloud, Sentry                                                                          |
+| Layer        | Tecnologie                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Frontend     | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4                                                           |
+| Componenti   | shadcn/ui, TanStack Query v5                                                                                            |
+| Database     | Supabase (PostgreSQL), Drizzle ORM, Row Level Security                                                                  |
+| Pagamenti    | Stripe: Starter, Pro e Team, con Developer API da Pro ([prezzi](https://scontrinozero.it/prezzi)); self-hosted gratuito |
+| Email        | Resend + React Email                                                                                                    |
+| Integrazione | HTTP dirette verso portale AdE (no headless browser)                                                                    |
+| Deploy       | Docker standalone su VPS, Cloudflare Tunnel                                                                             |
+| Qualità      | Vitest, SonarCloud, Sentry                                                                                              |
 
 ## Conformità normativa
 
