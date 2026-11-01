@@ -48,9 +48,13 @@ jobs:
               - 'src/components/marketing/**'
             tests:
               - 'tests/**'
+            # audit-ci.json decide cosa l'audit lascia passare: sta in
+            # `config`, non solo in `lockfile`, perché senza la pipeline
+            # completa Sonar non riporta e l'automerge resta bloccato.
             config:
               - 'package.json'
               - 'package-lock.json'
+              - 'audit-ci.json'
               - 'tsconfig.json'
               - 'next.config.ts'
               - 'vitest.config.ts'
@@ -58,11 +62,8 @@ jobs:
               - 'scripts/**'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
-            # audit-ci.json decide cosa l'audit lascia passare: cambiarlo
-            # senza far girare `audit` lascia l'allowlist non verificata.
             lockfile:
               - 'package-lock.json'
-              - 'audit-ci.json'
             migrations:
               - 'supabase/migrations/**'
               - 'scripts/check-migrations.mjs'
