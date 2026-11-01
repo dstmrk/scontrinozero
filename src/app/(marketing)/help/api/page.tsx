@@ -974,9 +974,14 @@ const idempotencyKey = crypto.randomUUID();`}</code>
         {/* ─── Rate limiting ─── */}
         <h2 className="mt-12 text-xl font-semibold">Rate limiting</h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          I limiti sono per chiave API, su una finestra fissa di 1 ora che parte
-          dalla prima richiesta: raggiunto il tetto, il contatore si azzera allo
-          scadere dell&apos;ora (Retry-After indica i secondi mancanti).
+          Le finestre sono fisse e partono dalla prima richiesta: raggiunto il
+          tetto, il contatore si azzera allo scadere della finestra (Retry-After
+          indica i secondi mancanti). Emissione e lista hanno due finestre, un
+          picco al minuto e una media oraria: vale la prima che si esaurisce.
+          L&apos;emissione conta per attività, non per chiave: tutte le chiavi e
+          la cassa della stessa attività usano lo stesso contatore, perché
+          trasmettono con la stessa utenza dell&apos;Agenzia delle Entrate. Gli
+          altri limiti sono per chiave API.
         </p>
         <div className="text-muted-foreground mt-3 overflow-x-auto text-sm">
           <table className="w-full border-collapse">
@@ -995,13 +1000,17 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 <td className="py-2 pr-6 font-mono text-xs">
                   POST /v1/receipts
                 </td>
-                <td className="py-2 text-xs">120 richieste / ora</td>
+                <td className="py-2 text-xs">
+                  8 / minuto e 250 / ora, per attività
+                </td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-6 font-mono text-xs">
                   GET /v1/receipts
                 </td>
-                <td className="py-2 text-xs">60 richieste / ora</td>
+                <td className="py-2 text-xs">
+                  20 / minuto e 120 / ora, per chiave
+                </td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-6 font-mono text-xs">

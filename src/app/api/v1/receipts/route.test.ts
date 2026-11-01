@@ -36,11 +36,20 @@ vi.mock("@/lib/db-timeout", () => ({
   withStatementTimeout: mockWithStatementTimeout,
 }));
 
+// Un solo check per i due limiter della route: il contatore emit per attività
+// (`@/lib/emit-rate-limit`, reale, costruito sul mock) e quello della lista.
 vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: mockRateLimiterCheck };
   }),
-  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
+  MultiWindowRateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
+  RATE_LIMIT_WINDOWS: {
+    MINUTE: 60 * 1000,
+    AUTH_15_MIN: 15 * 60 * 1000,
+    HOURLY: 60 * 60 * 1000,
+  },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -179,6 +188,14 @@ describe("POST /api/v1/receipts", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(429);
     expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  // Contatore per attività, non per chiave: stessa chiave della cassa
+  // (`emitReceipt`), così 3 chiavi non triplicano il tetto della stessa utenza AdE.
+  it("conta l'emissione sul contatore dell'attività, condiviso con la cassa", async () => {
+    await POST(makeRequest());
+
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith("emit:biz-uuid");
   });
 
   it("ritorna 400 se body non è JSON valido", async () => {
@@ -359,6 +376,23 @@ describe("GET /api/v1/receipts (validazione param lista)", () => {
       docs: [],
       lines: [],
     });
+  });
+
+  it("conta la lista per chiave API", async () => {
+    await GET(makeGetRequest(VALID_RANGE));
+
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith("api:list:key-uuid-123");
+  });
+
+  it("configura la lista a 20 al minuto e 120 all'ora", async () => {
+    vi.resetModules();
+    const { MultiWindowRateLimiter } = await import("@/lib/rate-limit");
+    await import("./route");
+
+    expect(MultiWindowRateLimiter).toHaveBeenCalledWith([
+      { maxRequests: 20, windowMs: 60 * 1000 },
+      { maxRequests: 120, windowMs: 60 * 60 * 1000 },
+    ]);
   });
 
   it.each([

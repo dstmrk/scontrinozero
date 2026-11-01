@@ -38,7 +38,16 @@ vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: mockRateLimiterCheck };
   }),
-  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
+  // Emissione (`@/lib/emit-rate-limit`) e lista API usano il limiter a due
+  // finestre: stesso check, così i test esistenti lo pilotano come prima.
+  MultiWindowRateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
+  RATE_LIMIT_WINDOWS: {
+    MINUTE: 60 * 1000,
+    AUTH_15_MIN: 15 * 60 * 1000,
+    HOURLY: 60 * 60 * 1000,
+  },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -274,11 +283,14 @@ describe("emitReceipt server action", () => {
       expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
     });
 
-    it("checks rate limit with per-user key", async () => {
+    // Contatore per attività, condiviso con la Developer API: stessa utenza
+    // AdE, stesso tetto (src/lib/emit-rate-limit.ts).
+    it("checks rate limit with per-business key", async () => {
       const { emitReceipt } = await import("@/server/receipt-actions");
       await emitReceipt(makeValidInput());
 
-      expect(mockRateLimiterCheck).toHaveBeenCalledWith(`emit:${USER_ID}`);
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(`emit:${BIZ_ID}`);
+      expect(mockRateLimiterCheck).not.toHaveBeenCalledWith(`emit:${USER_ID}`);
     });
   });
 

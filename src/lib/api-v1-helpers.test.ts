@@ -210,6 +210,30 @@ describe("checkRateLimitApi", () => {
     );
   });
 
+  it("entro il minuto il messaggio dice secondi, oltre dice ore", async () => {
+    const peak = checkRateLimitApi(
+      makeLimiter({ success: false, resetAt: Date.now() + 40_000 }),
+      "api:list:k1",
+      "k1",
+      "list rate limited",
+      REQUEST_ID,
+    );
+    const hourly = checkRateLimitApi(
+      makeLimiter({ success: false, resetAt: Date.now() + 30 * 60_000 }),
+      "api:list:k1",
+      "k1",
+      "list rate limited",
+      REQUEST_ID,
+    );
+
+    expect((await peak?.json()).message).toBe(
+      "Troppe richieste. Riprova tra qualche secondo.",
+    );
+    expect((await hourly?.json()).message).toBe(
+      "Troppe richieste. Riprova tra qualche ora.",
+    );
+  });
+
   it("floors Retry-After to at least 1 second when resetAt is in the past", () => {
     const res = checkRateLimitApi(
       makeLimiter({ success: false, resetAt: Date.now() - 5_000 }),

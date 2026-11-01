@@ -3,12 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 
-const mockRateLimiterCheck = vi.fn();
-vi.mock("@/lib/rate-limit", () => ({
-  RateLimiter: vi.fn().mockImplementation(function () {
-    return { check: mockRateLimiterCheck };
-  }),
-  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
+const mockCheckEmitRateLimit = vi.fn();
+vi.mock("@/lib/emit-rate-limit", () => ({
+  checkEmitRateLimit: (...args: unknown[]) => mockCheckEmitRateLimit(...args),
 }));
 
 const mockGetAuthenticatedUser = vi.fn();
@@ -177,9 +174,9 @@ describe("receipt-actions", () => {
     vi.clearAllMocks();
     process.env.ADE_MODE = "mock";
 
-    mockRateLimiterCheck.mockReturnValue({
+    mockCheckEmitRateLimit.mockReturnValue({
       success: true,
-      remaining: 29,
+      remaining: 7,
       resetAt: 0,
     });
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
@@ -266,7 +263,7 @@ describe("receipt-actions", () => {
       const result = await emitReceipt(VALID_INPUT);
 
       expect(result.error).toBe("Non autenticato.");
-      expect(mockRateLimiterCheck).not.toHaveBeenCalled();
+      expect(mockCheckEmitRateLimit).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -302,36 +299,70 @@ describe("receipt-actions", () => {
       expect(mockCanEmit).not.toHaveBeenCalled();
     });
 
-    it("returns error when emit rate limit is exceeded", async () => {
-      mockRateLimiterCheck.mockReturnValue({
+    it("blocco sul picco al minuto: invita a riprovare tra poco", async () => {
+      mockCheckEmitRateLimit.mockReturnValue({
         success: false,
         remaining: 0,
-        resetAt: Date.now(),
+        resetAt: Date.now() + 30_000,
       });
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
-      expect(result.error).toMatch(/Troppi/i);
+      expect(result.error).toBe(
+        "Troppi scontrini in pochi secondi. Riprova tra qualche istante.",
+      );
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    // PR #781: la soglia UI deve restare allineata a POST /api/v1/receipts
-    // (120/ora): con 30/ora un esercente nel picco pranzo veniva bloccato sul
-    // core flow mentre lo stesso account via Developer API poteva continuare.
-    // `resetModules` è necessario perché il limiter è costruito al top-level del
-    // modulo: senza registry pulito la chiamata al costruttore è già stata
-    // registrata (e azzerata da `clearAllMocks`) al primo import della suite.
-    it("configura il limiter emit a 120/ora, allineato all'API v1", async () => {
-      vi.resetModules();
-      const { RateLimiter } = await import("@/lib/rate-limit");
-      await import("./receipt-actions");
-
-      expect(RateLimiter).toHaveBeenCalledWith({
-        maxRequests: 120,
-        windowMs: 60 * 60 * 1000,
+    it("blocco sulla media oraria: invita a riprovare tra qualche minuto", async () => {
+      mockCheckEmitRateLimit.mockReturnValue({
+        success: false,
+        remaining: 0,
+        resetAt: Date.now() + 20 * 60_000,
       });
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBe(
+        "Troppi scontrini emessi. Riprova tra qualche minuto.",
+      );
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    // Il contatore è per attività, condiviso con la Developer API: la chiave
+    // è il businessId, non l'utente (cassa e collaboratori contano insieme).
+    it("conta l'emissione sul contatore dell'attività", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      await emitReceipt(VALID_INPUT);
+
+      expect(mockCheckEmitRateLimit).toHaveBeenCalledTimes(1);
+      expect(mockCheckEmitRateLimit).toHaveBeenCalledWith(
+        VALID_INPUT.businessId,
+      );
+    });
+
+    // Il businessId arriva dall'input: contarlo prima del check di
+    // appartenenza lascerebbe a chiunque esaurire il tetto di un'altra attività.
+    it("non tocca il contatore se l'utente non è membro dell'attività", async () => {
+      mockCheckBusinessMembership.mockResolvedValue({
+        error: "Attività non trovata.",
+      });
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBe("Attività non trovata.");
+      expect(mockCheckEmitRateLimit).not.toHaveBeenCalled();
+    });
+
+    it("non tocca il contatore su input non valido", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({ ...VALID_INPUT, lines: [] });
+
+      expect(result.error).toBeDefined();
+      expect(mockCheckEmitRateLimit).not.toHaveBeenCalled();
     });
 
     it("returns error when businessId is missing", async () => {

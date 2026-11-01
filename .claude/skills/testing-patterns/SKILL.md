@@ -172,43 +172,47 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 ```
 
 **Soglie consolidate** (le finestre stanno in `RATE_LIMIT_WINDOWS` di
-`src/lib/rate-limit.ts`: `AUTH_15_MIN`, `HOURLY` e `DAILY` — usa le costanti,
-non i magic number):
+`src/lib/rate-limit.ts`: `MINUTE`, `AUTH_15_MIN`, `HOURLY` e `DAILY` — usa le
+costanti, non i magic number; picco + media sulla stessa chiave con
+`MultiWindowRateLimiter`):
 
-| Bucket                           | Chiamante                           | Soglia   |
-| -------------------------------- | ----------------------------------- | -------- |
-| `emit:<userId>`                  | `emitReceipt`                       | 120/ora  |
-| `void:<userId>`                  | `voidReceipt`                       | 10/ora   |
-| `return:<userId>`                | `returnReceipt`                     | 20/ora   |
-| `saleLookup:<userId>`            | `findSaleForReturn`                 | 30/ora   |
-| `analytics:<userId>`             | analytics dashboard                 | 60/ora   |
-| `csv:<userId>`                   | `GET /api/export/receipts`          | 10/ora   |
-| `pdf-auth:<userId>`              | PDF autenticato                     | 60/ora   |
-| `pdf:<ip>`                       | PDF pubblico `/r/[documentId]/pdf`  | 60/ora   |
-| `receipt-page:<ip>`              | pagina pubblica `/r/[documentId]`   | 60/ora   |
-| `checkout:<userId>`              | `POST /api/stripe/checkout`         | 10/ora   |
-| `portal:<userId>`                | `GET\|POST /api/stripe/portal`      | 10/ora   |
-| `updateProfile:<userId>`         | `updateProfile`                     | 10/ora   |
-| `updateBusiness:<userId>`        | `updateBusiness`                    | 10/ora   |
-| `invite:<businessId>`            | `inviteCollaborator`                | 20/24h   |
-| `csp-report:<ip>`                | `POST /api/csp-report`              | 60/min   |
-| `<action>:<ip>`                  | auth actions (login/register/…)     | 5/15min  |
-| `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)    | 30/15min |
-| `verify-ade:<userId>`            | `verifyAdeCredentials`              | 5/15min  |
-| `save-ade:<userId>`              | `saveAdeCredentials`                | 10/15min |
-| `change-ade-pw:<userId>`         | `changeAdePassword`                 | 5/15min  |
-| `changePassword:<userId>`        | `changePassword` (profilo)          | 5/15min  |
-| `completePasswordReset:<userId>` | `completePasswordReset`             | 5/15min  |
-| `deleteAccount:<userId>`         | `deleteAccount`                     | 5/15min  |
-| `api:emit:<apiKeyId>`            | `POST /api/v1/receipts`             | 120/ora  |
-| `api:list:<apiKeyId>`            | `GET /api/v1/receipts`              | 60/ora   |
-| `api:void:<apiKeyId>`            | `POST /api/v1/receipts/[id]/void`   | 20/ora   |
-| `api:return:<apiKeyId>`          | `POST /api/v1/receipts/[id]/return` | 20/ora   |
+| Bucket                           | Chiamante                               | Soglia           |
+| -------------------------------- | --------------------------------------- | ---------------- |
+| `emit:<businessId>`              | `emitReceipt` + `POST /api/v1/receipts` | 8/min + 250/ora  |
+| `void:<userId>`                  | `voidReceipt`                           | 10/ora           |
+| `return:<userId>`                | `returnReceipt`                         | 20/ora           |
+| `saleLookup:<userId>`            | `findSaleForReturn`                     | 30/ora           |
+| `analytics:<userId>`             | analytics dashboard                     | 60/ora           |
+| `csv:<userId>`                   | `GET /api/export/receipts`              | 10/ora           |
+| `pdf-auth:<userId>`              | PDF autenticato                         | 60/ora           |
+| `pdf:<ip>`                       | PDF pubblico `/r/[documentId]/pdf`      | 60/ora           |
+| `receipt-page:<ip>`              | pagina pubblica `/r/[documentId]`       | 60/ora           |
+| `checkout:<userId>`              | `POST /api/stripe/checkout`             | 10/ora           |
+| `portal:<userId>`                | `GET\|POST /api/stripe/portal`          | 10/ora           |
+| `updateProfile:<userId>`         | `updateProfile`                         | 10/ora           |
+| `updateBusiness:<userId>`        | `updateBusiness`                        | 10/ora           |
+| `invite:<businessId>`            | `inviteCollaborator`                    | 20/24h           |
+| `csp-report:<ip>`                | `POST /api/csp-report`                  | 60/min           |
+| `<action>:<ip>`                  | auth actions (login/register/…)         | 5/15min          |
+| `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)        | 30/15min         |
+| `verify-ade:<userId>`            | `verifyAdeCredentials`                  | 5/15min          |
+| `save-ade:<userId>`              | `saveAdeCredentials`                    | 10/15min         |
+| `change-ade-pw:<userId>`         | `changeAdePassword`                     | 5/15min          |
+| `changePassword:<userId>`        | `changePassword` (profilo)              | 5/15min          |
+| `completePasswordReset:<userId>` | `completePasswordReset`                 | 5/15min          |
+| `deleteAccount:<userId>`         | `deleteAccount`                         | 5/15min          |
+| `api:list:<apiKeyId>`            | `GET /api/v1/receipts`                  | 20/min + 120/ora |
+| `api:void:<apiKeyId>`            | `POST /api/v1/receipts/[id]/void`       | 20/ora           |
+| `api:return:<apiKeyId>`          | `POST /api/v1/receipts/[id]/return`     | 20/ora           |
 
 Note che non si deducono dai numeri:
 
-- `emit` è a 120/ora **per allinearsi** a `api:emit`: la cassa non può avere un
-  tetto più basso della Developer API per lo stesso account (PR #781).
+- `emit` è **uno solo per attività**, condiviso da cassa, collaboratori e
+  chiavi API (`src/lib/emit-rate-limit.ts`): la stessa utenza AdE e la stessa
+  coda serializzata. Così la cassa non può avere un tetto più basso della
+  Developer API (PR #781) per costruzione. Si conta **dopo** il check di
+  appartenenza: il `businessId` arriva dall'input, e contarlo prima
+  lascerebbe a chiunque esaurire il tetto di un'altra attività.
 - `return` a 20/ora: irreversibile come l'annullo ma più frequente (un reso
   per pezzo restituito), allineato a `api:void`.
 - `saleLookup` a 30/ora, sopra `return`: ogni reso da scontrino parte da una
