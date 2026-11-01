@@ -253,3 +253,19 @@ describe("AdeInteractiveSessionStore", () => {
     });
   });
 });
+
+// Turbopack compila server action e route handler in layer diversi: lo stesso
+// file diventa due moduli. Il singleton deve essere uno per processo, o la
+// coda per attività, l'invalidate dopo un cambio credenziali e le sessioni
+// depositate dal login non arrivano dall'altra parte (skill security-patterns).
+describe("adeInteractiveSessionStore (singleton di processo)", () => {
+  it("due copie del modulo condividono la stessa istanza", async () => {
+    const first = (await import("./interactive-session-store"))
+      .adeInteractiveSessionStore;
+    vi.resetModules();
+    const copy = (await import("./interactive-session-store"))
+      .adeInteractiveSessionStore;
+
+    expect(copy).toBe(first);
+  });
+});
