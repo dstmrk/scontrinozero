@@ -155,6 +155,34 @@ chiamate esterne): a quel punto la route si sposta fuori dalla dot-directory
 `next.config.ts`, dove già vivono quelli di `/v1/:path*`. L'analisi Sonar
 vale l'indirezione solo da quel momento in poi.
 
+## audit-ci: advisory `glob` e `minimatch` solo build-time
+
+`audit-ci.json` allowlista due advisory moderate segnalate dall'audit
+dal 2026-11-01:
+
+- `GHSA-3g3m-2fjr-6pw4` su `glob` `>=9.0.0 <=14.0.1` (CWE-400: un
+  `AbortSignal` scaduto non ferma l'attraversamento del filesystem).
+  Abbiamo la 13.0.6, via `@sentry/nextjs` → `@sentry/bundler-plugins` e
+  `@serwist/next` → `@serwist/build`/`@serwist/cli`.
+- `GHSA-g3hv-75wg-m249` su `minimatch` `<11.0.1` (CWE-405: DoS per
+  amplificazione dei globparts). Arriva da ESLint, `typescript-eslint`,
+  `eslint-plugin-*`, `shadcn` → `ts-morph` e da `glob`.
+
+Il fix esiste (`glob` 14.0.2, `minimatch` 11.0.1) ma è un salto di
+major per chi li usa: ESLint e i suoi plugin dipendono da `minimatch`
+3 e 9. Forzarlo con un override rischia di rompere lint e build per
+un rischio che non arriva in produzione. Entrambi girano solo in
+build e in sviluppo: il plugin Sentry carica le source map, Serwist
+genera il service worker, ESLint fa il lint. Verificato sulla build
+di produzione: `.next/standalone/node_modules`, cioè quello che entra
+nel container, non contiene né `glob` né `minimatch`, e `src/` e
+`scripts/` non li importano. I pattern che elaborano sono i nostri
+(glob di config e di CLI), quindi un attaccante non può sceglierli.
+Superficie ≈ 0. **Riaprire:** quando Sentry, Serwist ed ESLint
+passano a `glob` ≥ 14.0.2 e `minimatch` ≥ 11.0.1 → aggiornare il
+lockfile e togliere le due voci. Subito, se uno dei due pacchetti
+compare in `.next/standalone/node_modules` o in un import di `src/`.
+
 ## audit-ci: advisory `braces` dev-only, senza patch
 
 `audit-ci.json` allowlista `GHSA-vfj7-8cjw-p6xm` (high, CWE-674: stack
