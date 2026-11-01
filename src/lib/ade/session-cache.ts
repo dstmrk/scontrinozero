@@ -22,6 +22,7 @@
  * mai trattenute nella cache long-lived.
  */
 
+import { processSingleton } from "@/lib/process-singleton";
 import type { AdeClient } from "./client";
 import type { FisconlineCredentials } from "./types";
 import { RealAdeClient } from "./real-client";
@@ -279,5 +280,12 @@ function trimOldest<K, V>(map: Map<K, V>, max: number): V[] {
   return removed;
 }
 
-/** Cache singleton usata in produzione. */
-export const adeSessionCache = new AdeSessionCache();
+/**
+ * Cache singleton usata in produzione: una per processo, non per modulo, così
+ * cassa (server action) e Developer API (route handler) si mettono nella
+ * stessa coda per attività e vedono lo stesso `invalidate()`.
+ */
+export const adeSessionCache = processSingleton(
+  "adeSessionCache",
+  () => new AdeSessionCache(),
+);

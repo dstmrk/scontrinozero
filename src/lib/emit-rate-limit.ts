@@ -3,6 +3,7 @@ import {
   RATE_LIMIT_WINDOWS,
   type RateLimitResult,
 } from "@/lib/rate-limit";
+import { processSingleton } from "@/lib/process-singleton";
 
 /**
  * Tetto alle emissioni di scontrino, **per attività**: cassa web,
@@ -21,36 +22,26 @@ import {
  * mobili può superare il conteggio per minuto di orologio, e ai tentativi
  * ripetuti; 250/ora è più di tre volte l'ora più carica vista.
  *
- * Il limiter vive in memoria nel processo (si azzera al deploy) ed è appeso a
- * `globalThis`, non a una costante di modulo. Turbopack compila la server
- * action della cassa e la route `/api/v1/receipts` in layer diversi, e lo
- * stesso file diventa due moduli con due ID: misurato sulla build di
- * produzione, una costante di modulo dava due contatori, cioè un tetto doppio.
+ * Il limiter vive in memoria nel processo (si azzera al deploy) ed è un
+ * `processSingleton`: con una costante di modulo, cassa e route API avevano
+ * due contatori, cioè un tetto doppio (misurato sulla build di produzione).
  */
 export const EMIT_RATE_LIMIT = { perMinute: 8, perHour: 250 } as const;
 
-const GLOBAL_KEY = Symbol.for("scontrinozero.emitRateLimiter");
-
-type GlobalWithEmitLimiter = typeof globalThis & {
-  [GLOBAL_KEY]?: MultiWindowRateLimiter;
-};
-
-function sharedEmitRateLimiter(): MultiWindowRateLimiter {
-  const g = globalThis as GlobalWithEmitLimiter;
-  g[GLOBAL_KEY] ??= new MultiWindowRateLimiter([
-    {
-      maxRequests: EMIT_RATE_LIMIT.perMinute,
-      windowMs: RATE_LIMIT_WINDOWS.MINUTE,
-    },
-    {
-      maxRequests: EMIT_RATE_LIMIT.perHour,
-      windowMs: RATE_LIMIT_WINDOWS.HOURLY,
-    },
-  ]);
-  return g[GLOBAL_KEY];
-}
-
-export const emitRateLimiter = sharedEmitRateLimiter();
+export const emitRateLimiter = processSingleton(
+  "emitRateLimiter",
+  () =>
+    new MultiWindowRateLimiter([
+      {
+        maxRequests: EMIT_RATE_LIMIT.perMinute,
+        windowMs: RATE_LIMIT_WINDOWS.MINUTE,
+      },
+      {
+        maxRequests: EMIT_RATE_LIMIT.perHour,
+        windowMs: RATE_LIMIT_WINDOWS.HOURLY,
+      },
+    ]),
+);
 
 /** Chiave del contatore: stessa stringa da cassa e da API, o non è condiviso. */
 export function emitRateLimitKey(businessId: string): string {
