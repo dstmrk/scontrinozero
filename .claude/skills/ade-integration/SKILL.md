@@ -77,6 +77,12 @@ Entrambi passano da `withAdeSession` (`src/lib/ade/index.ts`), che sceglie lo
 store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` +
 `logout` per operazione, così anche CIE dà un OK immediato in dev/sandbox.
 
+Le due istanze di produzione (`adeSessionCache`, `adeInteractiveSessionStore`)
+sono `processSingleton`, non costanti di modulo: Turbopack duplica il modulo
+tra server action e route handler, e con una costante la cassa e la Developer
+API avevano code, sessioni e `invalidate()` separati. Un nuovo store di
+sessione va costruito allo stesso modo (skill `security-patterns`).
+
 **Regole quando tocchi il ramo CIE:**
 
 1. **Pre-check prima di scrivere il documento.** `isInteractiveSessionMissing(businessId, method)`

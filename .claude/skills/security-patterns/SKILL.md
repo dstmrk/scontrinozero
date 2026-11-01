@@ -315,12 +315,20 @@ novembre 2026): `src/lib/emit-rate-limit.ts` usciva con ID diversi nella route
 `/api/v1/receipts` e nell'action della cassa, cioè due contatori e tetto
 doppio.
 
-Cura: appendere l'istanza a `globalThis` sotto un `Symbol.for(...)`, con `??=`
-alla prima lettura (`sharedEmitRateLimiter` in `src/lib/emit-rate-limit.ts`).
-Gate: il test che importa il modulo due volte dopo `vi.resetModules()` e
-pretende la stessa istanza. Per verificare un altro modulo: `next build`, poi
-cercare il suo corpo nei chunk sotto `.next/server/chunks/` e
-`.next/server/chunks/ssr/` e confrontare gli ID dei moduli.
+Cura: `processSingleton(key, factory)` (`src/lib/process-singleton.ts`), che
+appende l'istanza a `globalThis` sotto `Symbol.for("scontrinozero.<key>")`. Lo
+usano `emitRateLimiter`, `adeSessionCache` e `adeInteractiveSessionStore`:
+prima di questa cura le due cache AdE avevano più copie, quindi la coda per
+attività non valeva tra cassa e API, l'`invalidate()` dopo un cambio
+credenziali non arrivava alla route API, e una sessione CIE/SPID depositata
+dal login non era visibile alla Developer API. Gate: per ogni singleton, il
+test che importa il modulo due volte dopo `vi.resetModules()` e pretende la
+stessa istanza. Per verificare un altro modulo: `next build`, poi cercare il
+suo corpo nei chunk sotto `.next/server/chunks/` e `.next/server/chunks/ssr/`
+e controllare che ogni copia passi da `processSingleton`.
+
+Costo accettato: in `next dev` l'istanza sopravvive all'HMR, quindi una
+modifica alla classe si vede solo dopo il riavvio del dev server.
 
 ## `key_version` è per RIGA: chi riscrive un campo cifrato riscrive tutta la riga
 

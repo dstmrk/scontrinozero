@@ -20,6 +20,7 @@
  * processo. Un deploy/restart perde le sessioni → l'utente ri-collega (atteso).
  */
 
+import { processSingleton } from "@/lib/process-singleton";
 import type { AdeClient } from "./client";
 import type { InteractiveMethod } from "./types";
 import { AdeReauthRequiredError, AdeSessionExpiredError } from "./errors";
@@ -197,5 +198,12 @@ export class AdeInteractiveSessionStore {
   }
 }
 
-/** Store singleton usato in produzione. */
-export const adeInteractiveSessionStore = new AdeInteractiveSessionStore();
+/**
+ * Store singleton usato in produzione: uno per processo, non per modulo, così
+ * la sessione depositata dal login (server action) è la stessa che leggono
+ * la cassa e la Developer API (route handler).
+ */
+export const adeInteractiveSessionStore = processSingleton(
+  "adeInteractiveSessionStore",
+  () => new AdeInteractiveSessionStore(),
+);
