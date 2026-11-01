@@ -304,6 +304,24 @@ endpoint che inneschi invio email, call AdE, generazione PDF, ecc.
 
 ---
 
+## Stato condiviso tra cassa e API: `globalThis`, non una costante di modulo
+
+Un limiter (o una cache) che deve valere **sia** per una server action **sia**
+per una route handler non può essere un `export const x = new ...` di modulo.
+Turbopack compila le server action nel layer `action-browser` e le route nel
+layer `rsc`: lo stesso file diventa due moduli con due ID numerici, quindi due
+istanze nello stesso processo. Misurato sulla build di produzione (Next 16.4,
+novembre 2026): `src/lib/emit-rate-limit.ts` usciva con ID diversi nella route
+`/api/v1/receipts` e nell'action della cassa, cioè due contatori e tetto
+doppio.
+
+Cura: appendere l'istanza a `globalThis` sotto un `Symbol.for(...)`, con `??=`
+alla prima lettura (`sharedEmitRateLimiter` in `src/lib/emit-rate-limit.ts`).
+Gate: il test che importa il modulo due volte dopo `vi.resetModules()` e
+pretende la stessa istanza. Per verificare un altro modulo: `next build`, poi
+cercare il suo corpo nei chunk sotto `.next/server/chunks/` e
+`.next/server/chunks/ssr/` e confrontare gli ID dei moduli.
+
 ## `key_version` è per RIGA: chi riscrive un campo cifrato riscrive tutta la riga
 
 `ade_credentials.key_version` è **una colonna per riga**, non per campo: dice

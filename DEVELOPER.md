@@ -154,8 +154,8 @@ esposta qui, e non per dimenticanza:
   indicizzate con 5s di budget; con l'AdE dentro diventa un login più N query,
   fino a decine di secondi. Un client con timeout a 10s vedrebbe fallire
   chiamate che sul server stanno riuscendo.
-- **Il rate limit non regge il cambio di scala.** `api:list` è 60/ora: sessanta
-  ricerche annuali sarebbero centinaia di query sul portale a nome
+- **Il rate limit non regge il cambio di scala.** `api:list` è 120/ora:
+  centoventi ricerche annuali sarebbero centinaia di query sul portale a nome
   dell'esercente, fatte da una macchina in loop invece che da una persona. È il
   profilo di traffico che fa bloccare un'utenza Fisconline — e per il Vincolo
   Fondamentale qui sopra, il conto lo paga lui.
@@ -603,18 +603,23 @@ WHERE b.profile_id = $developer_profile_id
 
 ### Rate Limits API
 
-| Key pattern             | Endpoint                        | Limite  | Finestra |
-| ----------------------- | ------------------------------- | ------- | -------- |
-| `api:emit:{apiKeyId}`   | `POST /v1/receipts`             | 120/ora | 1h       |
-| `api:list:{apiKeyId}`   | `GET /v1/receipts`              | 60/ora  | 1h       |
-| `api:void:{apiKeyId}`   | `POST /v1/receipts/{id}/void`   | 20/ora  | 1h       |
-| `api:return:{apiKeyId}` | `POST /v1/receipts/{id}/return` | 20/ora  | 1h       |
+| Key pattern             | Endpoint                        | Limite               | Contatore    |
+| ----------------------- | ------------------------------- | -------------------- | ------------ |
+| `emit:{businessId}`     | `POST /v1/receipts` + cassa     | 8/min **e** 250/ora  | per attività |
+| `api:list:{apiKeyId}`   | `GET /v1/receipts`              | 20/min **e** 120/ora | per chiave   |
+| `api:void:{apiKeyId}`   | `POST /v1/receipts/{id}/void`   | 20/ora               | per chiave   |
+| `api:return:{apiKeyId}` | `POST /v1/receipts/{id}/return` | 20/ora               | per chiave   |
 
 `GET /v1/receipts/{id}` (lettura singola indicizzata) non ha rate limiter
-dedicato. L'emissione è **allineata alla cassa** (`emit:{userId}`, 120/ora): lo
-stesso account non può avere in UI un tetto più basso di quello che ottiene via
-API (PR #781). L'elenco completo dei bucket è nella skill
-`testing-patterns`.
+dedicato. L'emissione ha **un contatore per attività condiviso con la cassa**
+(`src/lib/emit-rate-limit.ts`): cassa, collaboratori e chiavi della stessa
+attività trasmettono con la stessa utenza AdE e passano dalla stessa coda
+serializzata, quindi un contatore per chiave o per utente moltiplicava il tetto
+senza aggiungere capacità. Le soglie sono uguali per tutti i piani per la
+stessa ragione, e tarate sulla produzione (picco 6/min e 70/ora per singola
+attività, latenza AdE p50 ~1,1 s). Le due finestre (`MultiWindowRateLimiter`
+in `src/lib/rate-limit.ts`) assorbono la fila senza lasciar tenere il picco
+per un'ora. L'elenco completo dei bucket è nella skill `testing-patterns`.
 
 ---
 

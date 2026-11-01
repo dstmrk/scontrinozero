@@ -2,7 +2,11 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RateLimiter, RATE_LIMIT_WINDOWS } from "./rate-limit";
+import {
+  MultiWindowRateLimiter,
+  RateLimiter,
+  RATE_LIMIT_WINDOWS,
+} from "./rate-limit";
 
 describe("RateLimiter", () => {
   let limiter: RateLimiter;
@@ -167,8 +171,90 @@ describe("RateLimiter", () => {
 
 describe("RATE_LIMIT_WINDOWS", () => {
   it("expone le finestre canoniche", () => {
+    expect(RATE_LIMIT_WINDOWS.MINUTE).toBe(60 * 1000);
     expect(RATE_LIMIT_WINDOWS.AUTH_15_MIN).toBe(15 * 60 * 1000);
     expect(RATE_LIMIT_WINDOWS.HOURLY).toBe(60 * 60 * 1000);
     expect(RATE_LIMIT_WINDOWS.DAILY).toBe(24 * 60 * 60 * 1000);
+  });
+});
+
+describe("MultiWindowRateLimiter", () => {
+  let limiter: MultiWindowRateLimiter;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    limiter = new MultiWindowRateLimiter([
+      { maxRequests: 2, windowMs: 60_000 },
+      { maxRequests: 3, windowMs: 3_600_000 },
+    ]);
+  });
+
+  afterEach(() => {
+    limiter.destroy();
+    vi.useRealTimers();
+  });
+
+  it("blocca sul picco quando la finestra breve è piena", () => {
+    expect(limiter.check("k").success).toBe(true);
+    expect(limiter.check("k").success).toBe(true);
+
+    const blocked = limiter.check("k");
+
+    expect(blocked.success).toBe(false);
+    // resetAt della finestra breve: si riprova entro il minuto, non tra un'ora
+    expect(blocked.resetAt).toBe(Date.now() + 60_000);
+  });
+
+  it("blocca sulla media quando la finestra lunga è piena", () => {
+    limiter.check("k");
+    limiter.check("k");
+    vi.advanceTimersByTime(60_000);
+    limiter.check("k");
+    vi.advanceTimersByTime(60_000);
+
+    const blocked = limiter.check("k");
+
+    expect(blocked.success).toBe(false);
+    expect(blocked.resetAt).toBe(Date.now() - 120_000 + 3_600_000);
+  });
+
+  it("un rifiuto della finestra breve non consuma la finestra lunga", () => {
+    limiter.check("k");
+    limiter.check("k");
+    limiter.check("k"); // rifiutata dal picco
+    limiter.check("k"); // rifiutata dal picco
+    vi.advanceTimersByTime(60_000);
+
+    // la media ha contato solo le 2 accettate: ne resta una
+    const r = limiter.check("k");
+    expect(r.success).toBe(true);
+    expect(r.remaining).toBe(0);
+  });
+
+  it("su successo riporta il remaining della finestra più stretta", () => {
+    const r = limiter.check("k");
+
+    expect(r.success).toBe(true);
+    expect(r.remaining).toBe(1); // min(2-1, 3-1)
+  });
+
+  it("tiene separate le chiavi", () => {
+    limiter.check("a");
+    limiter.check("a");
+
+    expect(limiter.check("a").success).toBe(false);
+    expect(limiter.check("b").success).toBe(true);
+  });
+
+  it("reset() azzera la chiave su tutte le finestre", () => {
+    limiter.check("k");
+    limiter.check("k");
+    limiter.reset("k");
+
+    expect(limiter.check("k").success).toBe(true);
+  });
+
+  it("rifiuta una configurazione senza finestre", () => {
+    expect(() => new MultiWindowRateLimiter([])).toThrow();
   });
 });

@@ -7,7 +7,7 @@ import {
   discountGateError,
   mixedPaymentGateError,
 } from "@/lib/receipts/pro-feature-gates";
-import { RateLimiter } from "@/lib/rate-limit";
+import { checkEmitRateLimit } from "@/lib/emit-rate-limit";
 import {
   SALE_LINES_MAX,
   SALE_LINES_MIN,
@@ -50,16 +50,8 @@ const submitReceiptSchema = z
   })
   .superRefine(refineSaleBody);
 
-// Rate limit: 120 receipts per hour per user (per-user key, not per-IP).
-// Allineato a POST /api/v1/receipts: lo stesso account non può avere un tetto
-// più basso dalla cassa che dalla Developer API (PR #781). La soglia serve
-// come guardia anti-loop — ogni submit costa un round-trip AdE — non come
-// throttling di business: un bar nel picco pranzo supera 30/ora senza sforzo e
-// veniva bloccato sul core flow (blocco operativo/fiscale su utente legittimo).
-const receiptLimiter = new RateLimiter({
-  maxRequests: 120,
-  windowMs: 60 * 60 * 1000,
-});
+/** Sotto questa attesa il blocco è del picco al minuto, non della media oraria. */
+const PEAK_RETRY_MS = 60 * 1000;
 
 export async function emitReceipt(
   input: SubmitReceiptInput,
@@ -73,12 +65,6 @@ export async function emitReceipt(
     user = await getAuthenticatedUser();
   } catch (err) {
     return authErrorResult(err, "emitReceipt");
-  }
-
-  const rateLimitResult = receiptLimiter.check(`emit:${user.id}`);
-  if (!rateLimitResult.success) {
-    logger.warn({ userId: user.id }, "Receipt emit rate limit exceeded");
-    return { error: "Troppi scontrini emessi. Riprova tra qualche minuto." };
   }
 
   // Enforce plan/trial gate server-side before any business logic.
@@ -121,6 +107,24 @@ export async function emitReceipt(
   // (issue #1099): sceso a Pro, resta membro ma non emette.
   const suspended = collaboratorSuspendedError(membership, planInfo);
   if (suspended) return { error: suspended };
+
+  // Contatore per attività, condiviso con POST /api/v1/receipts: stessa
+  // utenza AdE, stesso tetto (`src/lib/emit-rate-limit.ts`). Dopo il check di
+  // appartenenza e non prima: con il `businessId` preso dall'input, un utente
+  // qualsiasi potrebbe altrimenti esaurire il contatore di un'attività altrui.
+  const rateLimit = checkEmitRateLimit(validation.data.businessId);
+  if (!rateLimit.success) {
+    logger.warn(
+      { userId: user.id, businessId: validation.data.businessId },
+      "Receipt emit rate limit exceeded",
+    );
+    const isPeak = rateLimit.resetAt - Date.now() <= PEAK_RETRY_MS;
+    return {
+      error: isPeak
+        ? "Troppi scontrini in pochi secondi. Riprova tra qualche istante."
+        : "Troppi scontrini emessi. Riprova tra qualche minuto.",
+    };
+  }
 
   // Il valore validato, non l'oggetto grezzo del client: ciò che è stato
   // controllato e ciò che il servizio usa devono essere la stessa cosa.

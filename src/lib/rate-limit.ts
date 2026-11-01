@@ -4,6 +4,8 @@
  * varie server actions e rende ovvia la policy.
  */
 export const RATE_LIMIT_WINDOWS = {
+  /** 1 minuto — finestra di picco nei limiter a due finestre (emit, list API) */
+  MINUTE: 60 * 1000,
   /** 15 minuti — flussi auth interattivi (signIn/signUp/changePassword/...) */
   AUTH_15_MIN: 15 * 60 * 1000,
   /** 1 ora — operazioni autenticate frequenti (emit/void/checkout/portal/profile) */
@@ -129,5 +131,49 @@ export class RateLimiter {
         this.windows.delete(key);
       }
     }
+  }
+}
+
+/**
+ * Più finestre sulla stessa chiave: una breve per il picco, una lunga per la
+ * media. È l'approssimazione a finestre fisse di un token bucket: assorbe la
+ * fila alla cassa senza lasciar tenere il ritmo massimo per un'ora intera, e
+ * chi sbatte sul picco riprova entro il minuto invece di aspettare l'ora.
+ *
+ * Le finestre si controllano in ordine e ci si ferma alla prima che rifiuta:
+ * una richiesta respinta dal picco non consuma la media. Il contrario sì (la
+ * finestra breve conta anche una richiesta che poi la lunga respinge), ed è
+ * innocuo: a media esaurita la chiave è comunque ferma.
+ */
+export class MultiWindowRateLimiter {
+  private readonly limiters: RateLimiter[];
+
+  /** @param windows - dalla più breve alla più lunga */
+  constructor(windows: RateLimiterOptions[]) {
+    if (windows.length === 0) {
+      throw new Error("MultiWindowRateLimiter: serve almeno una finestra");
+    }
+    this.limiters = windows.map((w) => new RateLimiter(w));
+  }
+
+  check(key: string): RateLimitResult {
+    let tightest: RateLimitResult | null = null;
+    for (const limiter of this.limiters) {
+      const result = limiter.check(key);
+      if (!result.success) return result;
+      if (!tightest || result.remaining < tightest.remaining) {
+        tightest = result;
+      }
+    }
+    // Il costruttore garantisce almeno una finestra.
+    return tightest as RateLimitResult;
+  }
+
+  reset(key: string): void {
+    for (const limiter of this.limiters) limiter.reset(key);
+  }
+
+  destroy(): void {
+    for (const limiter of this.limiters) limiter.destroy();
   }
 }

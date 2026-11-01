@@ -88,14 +88,17 @@ export async function requireBusinessApiAuth(
  * Checks rate limit and returns a 429 Response if exceeded, null otherwise.
  * The response includes a `Retry-After` header (seconds) for machine-readable backoff.
  *
- * @param limiter   - RateLimiter instance (module-level singleton in the route)
- * @param key       - Rate limit bucket key, e.g. "api:emit:<apiKeyId>"
+ * Il messaggio segue l'attesa: entro il minuto è il picco di un limiter a due
+ * finestre (emissione, lista) e "qualche ora" sarebbe falso.
+ *
+ * @param limiter   - singleton di modulo (RateLimiter o MultiWindowRateLimiter)
+ * @param key       - Rate limit bucket key, e.g. "api:list:<apiKeyId>"
  * @param apiKeyId  - Used in the warning log only
  * @param logMsg    - Log message distinguishing the operation (emit vs void, etc.)
  * @param requestId - UUID della richiesta corrente (envelope + log)
  */
 export function checkRateLimitApi(
-  limiter: RateLimiter,
+  limiter: Pick<RateLimiter, "check">,
   key: string,
   apiKeyId: string,
   logMsg: string,
@@ -110,7 +113,9 @@ export function checkRateLimitApi(
     );
     return v1Error(
       "RATE_LIMIT_EXCEEDED",
-      ERROR_MESSAGES.RATE_LIMIT_API_HOURS,
+      retryAfterSeconds <= 60
+        ? ERROR_MESSAGES.RATE_LIMIT_API_SECONDS
+        : ERROR_MESSAGES.RATE_LIMIT_API_HOURS,
       requestId,
       { retryAfterSeconds },
     );

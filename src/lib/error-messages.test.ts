@@ -9,6 +9,9 @@ describe("ERROR_MESSAGES", () => {
     expect(ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES).toBe(
       "Troppi tentativi. Riprova tra qualche minuto.",
     );
+    expect(ERROR_MESSAGES.RATE_LIMIT_API_SECONDS).toBe(
+      "Troppe richieste. Riprova tra qualche secondo.",
+    );
     expect(ERROR_MESSAGES.RATE_LIMIT_API_HOURS).toBe(
       "Troppe richieste. Riprova tra qualche ora.",
     );

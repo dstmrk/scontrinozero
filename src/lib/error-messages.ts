@@ -19,6 +19,8 @@ export const ERROR_MESSAGES = {
   RATE_LIMIT_AUTH_MINUTES: "Troppi tentativi. Riprova tra qualche minuto.",
   /** Rate-limit window misurata in ore (Developer API pubblica). */
   RATE_LIMIT_API_HOURS: "Troppe richieste. Riprova tra qualche ora.",
+  /** Picco al minuto della Developer API (limiter a due finestre). */
+  RATE_LIMIT_API_SECONDS: "Troppe richieste. Riprova tra qualche secondo.",
   /** Rate-limit window per PDF pubblico (per-IP, finestra 1h). */
   RATE_LIMIT_PUBLIC_MINUTES: "Troppe richieste. Riprova tra qualche minuto.",
   PASSWORD_NOT_STRONG: `Password non sicura. ${PASSWORD_REQUIREMENTS_MESSAGE}`,

@@ -25,7 +25,8 @@ import {
 } from "@/lib/api-v1-errors";
 import { withStatementTimeout } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
-import { RateLimiter } from "@/lib/rate-limit";
+import { emitRateLimiter, emitRateLimitKey } from "@/lib/emit-rate-limit";
+import { MultiWindowRateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import {
   requireBusinessApiAuth,
@@ -43,17 +44,22 @@ import type { SubmitReceiptInput } from "@/types/cassa";
 // `saleBodySchema` (src/lib/receipts/receipt-schema.ts). Unica fonte di verità
 // dei limiti di precisione fiscale e dei vincoli del corpo scontrino.
 
-// Rate limit: 120 receipts per hour per API key
-const receiptApiLimiter = new RateLimiter({
-  maxRequests: 120,
-  windowMs: 60 * 60 * 1000,
-});
+// Emissione: nessun limiter locale. Conta sul contatore per attività condiviso
+// con la cassa (`src/lib/emit-rate-limit.ts`): chiavi e UI della stessa
+// attività usano la stessa utenza AdE, quindi lo stesso tetto.
 
-// Rate limit: 60 list requests per hour per API key (read but potentially heavy)
-const listApiLimiter = new RateLimiter({
-  maxRequests: 60,
-  windowMs: 60 * 60 * 1000,
-});
+// Lista: per chiave, 20 al minuto di picco e 120 all'ora di media. Legge solo
+// dal nostro DB (count + fino a 100 righe, 5s di budget): la finestra al
+// minuto lascia paginare un mese intero di fila senza aspettare l'ora.
+const LIST_RATE_LIMIT = { perMinute: 20, perHour: 120 } as const;
+
+const listApiLimiter = new MultiWindowRateLimiter([
+  {
+    maxRequests: LIST_RATE_LIMIT.perMinute,
+    windowMs: RATE_LIMIT_WINDOWS.MINUTE,
+  },
+  { maxRequests: LIST_RATE_LIMIT.perHour, windowMs: RATE_LIMIT_WINDOWS.HOURLY },
+]);
 
 /**
  * Ampiezza massima dell'intervallo `from`→`to` di questa lista.
@@ -93,8 +99,8 @@ export async function POST(request: Request): Promise<Response> {
 
   // ── Rate limit ────────────────────────────────────────────────────────────
   const rateLimitError = checkRateLimitApi(
-    receiptApiLimiter,
-    `api:emit:${auth.apiKey.id}`,
+    emitRateLimiter,
+    emitRateLimitKey(auth.businessId),
     auth.apiKey.id,
     "API receipt emit rate limit exceeded",
     requestId,
