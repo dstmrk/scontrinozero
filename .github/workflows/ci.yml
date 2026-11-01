@@ -58,8 +58,11 @@ jobs:
               - 'scripts/**'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
+            # audit-ci.json decide cosa l'audit lascia passare: cambiarlo
+            # senza far girare `audit` lascia l'allowlist non verificata.
             lockfile:
               - 'package-lock.json'
+              - 'audit-ci.json'
             migrations:
               - 'supabase/migrations/**'
               - 'scripts/check-migrations.mjs'
