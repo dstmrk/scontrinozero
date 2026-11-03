@@ -237,6 +237,11 @@ export function CassaClient({
     setEditingLineId(null);
   };
 
+  const handleCancelLine = () => {
+    setStep("cart");
+    resetLineForm();
+  };
+
   const handleAddLine = () => {
     if (!canAdd) return;
     const lineData = {
@@ -354,14 +359,7 @@ export function CassaClient({
           <h1 className="text-xl font-semibold">
             {isEditing ? "Modifica articolo" : "Aggiungi articolo"}
           </h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setStep("cart");
-              resetLineForm();
-            }}
-          >
+          <Button variant="ghost" size="sm" onClick={handleCancelLine}>
             Annulla
           </Button>
         </div>
@@ -386,7 +384,14 @@ export function CassaClient({
         </div>
 
         {/* Tastierino numerico */}
-        <NumericKeypad value={amountCents} onChange={setAmountCents} />
+        <NumericKeypad
+          aria-label="Importo"
+          value={amountCents}
+          onChange={setAmountCents}
+          autoFocus
+          onSubmit={handleAddLine}
+          onCancel={handleCancelLine}
+        />
 
         {/* Quantità */}
         <div className="flex items-center justify-between rounded-xl border px-4 py-3">
@@ -465,6 +470,10 @@ export function CassaClient({
               </span>
             </div>
             <NumericKeypad
+              aria-label="Sconto sulla riga"
+              autoFocus
+              onSubmit={handleAddLine}
+              onCancel={handleCancelLine}
               value={lineDiscountCents}
               onChange={(cents) =>
                 setLineDiscountCents(Math.min(cents, amountCents * quantity))

@@ -206,6 +206,8 @@ export function ReceiptOptions({
                   centesimi interi (regola 17), quindi non serve nessun parser
                   di importi. */}
               <NumericKeypad
+                aria-label="Sconto a pagare"
+                autoFocus
                 value={globalDiscountCents}
                 onChange={onGlobalDiscountChange}
               />

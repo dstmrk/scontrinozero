@@ -305,7 +305,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "primo-scontrino": {
     slug: "primo-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-10-15",
+    dateModified: "2026-11-03",
     title: "Come emettere il primo scontrino elettronico",
     metaTitle: "Come emettere il primo scontrino elettronico",
     description:

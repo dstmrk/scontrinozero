@@ -73,6 +73,8 @@ export function PaymentSplit({
       {/* Il tastierino lavora già in centesimi interi (regola 17): nessun
           parser di importi, e nessun passaggio da un float intermedio. */}
       <NumericKeypad
+        aria-label="Contanti"
+        autoFocus
         value={cashCents}
         onChange={(cents) => onCashChange(Math.min(cents, collectedCents))}
       />

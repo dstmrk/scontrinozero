@@ -68,3 +68,57 @@ describe("PaymentSplit", () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe("PaymentSplit — tastiera fisica", () => {
+  const group = () => screen.getByRole("group", { name: "Contanti" });
+
+  it("espone il tastierino come group 'Contanti'", () => {
+    renderSplit();
+
+    expect(group()).toContainElement(screen.getByRole("button", { name: "5" }));
+  });
+
+  it("propaga la cifra digitata come quota in contanti", () => {
+    const { onCashChange } = renderSplit({ cashCents: 2 });
+
+    fireEvent.keyDown(group(), { key: "5" });
+
+    expect(onCashChange).toHaveBeenLastCalledWith(25);
+  });
+
+  it("clampa all'incassato anche da tastiera", () => {
+    const { onCashChange } = renderSplit({ collectedCents: 5 });
+
+    fireEvent.keyDown(group(), { key: "9" });
+
+    expect(onCashChange).toHaveBeenLastCalledWith(5);
+  });
+
+  it("Backspace toglie l'ultima cifra", () => {
+    const { onCashChange } = renderSplit({ cashCents: 250 });
+
+    fireEvent.keyDown(group(), { key: "Backspace" });
+
+    expect(onCashChange).toHaveBeenLastCalledWith(25);
+  });
+
+  it("Delete azzera la quota in contanti", () => {
+    const { onCashChange } = renderSplit({ cashCents: 250 });
+
+    fireEvent.keyDown(group(), { key: "Delete" });
+
+    expect(onCashChange).toHaveBeenLastCalledWith(0);
+  });
+
+  it.each(["Enter", "Escape"])(
+    "%s non chiude la ripartizione né cambia la quota",
+    (key) => {
+      const { onCashChange, onClose } = renderSplit({ cashCents: 250 });
+
+      fireEvent.keyDown(group(), { key });
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onCashChange).not.toHaveBeenCalled();
+    },
+  );
+});
