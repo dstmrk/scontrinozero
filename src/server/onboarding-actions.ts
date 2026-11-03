@@ -32,7 +32,10 @@ import {
   AdePasswordExpiredError,
   AdeUtenzaSelectionRequiredError,
 } from "@/lib/ade/errors";
-import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import {
+  getUserFacingAdeErrorMessage,
+  isTransientAdeError,
+} from "@/lib/ade/error-messages";
 import {
   classifyAdeLoginFailure,
   type RecordedVerifyOutcome,
@@ -1239,7 +1242,16 @@ async function fetchFiscalData(
   try {
     return await adeClient.getFiscalData();
   } catch (err) {
-    logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
+    // SCONTRINOZERO-19: un 5xx/rete del portale è transient e la lettura è
+    // best-effort → warn, niente issue Sentry (regola 20). Il resto resta error.
+    if (isTransientAdeError(err)) {
+      logger.warn(
+        { err, businessId, errorClass: "ade_transient" },
+        "Failed to fetch fiscal data from AdE (transient)",
+      );
+    } else {
+      logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
+    }
     return null;
   }
 }
