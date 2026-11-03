@@ -23,7 +23,16 @@ const nextConfig: NextConfig = {
   // degrada a un warning nei log del container (v1.9.0). Il gate è
   // scripts/check-sentry-runtime-injection.mjs, incatenato a `npm run build`.
   outputFileTracingIncludes: {
-    "/*": ["./node_modules/@sentry/server-runtime-injection/build/esm/**"],
+    "/*": [
+      "./node_modules/@sentry/server-runtime-injection/build/esm/**",
+      // Da 11.9.0 il loader importa anche `@sentry/core` e
+      // `@sentry/server-utils/orchestrion/config` (e questi a cascata
+      // `@sentry/conventions`): il file tracing non li vede perché il
+      // loader è caricato per path.
+      "./node_modules/@sentry/core/build/esm/**",
+      "./node_modules/@sentry/server-utils/build/esm/**",
+      "./node_modules/@sentry/conventions/dist/**",
+    ],
   },
   // `@point-of-sale/webbluetooth-receipt-printer@2` dichiara negli `exports`
   // la SOLA condition "browser". Il bundle client la risolve, ma il pass
