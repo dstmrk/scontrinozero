@@ -204,7 +204,6 @@ function stubBluetoothAvailable(available = true) {
 }
 
 beforeEach(() => {
-  localStorage.clear();
   resetPrinterStoreForTests();
   mockTransport.connectSucceeds = true;
   mockTransport.connectThrows = false;
@@ -231,7 +230,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  localStorage.clear();
   resetPrinterStoreForTests();
 });
 

@@ -11,7 +11,6 @@ vi.stubGlobal("crypto", {
 
 beforeEach(() => {
   uuidCounter = 0;
-  sessionStorage.clear();
 });
 
 describe("useCassa", () => {

@@ -463,6 +463,18 @@ Sempre fire-and-forget (`.catch(logger.warn)`). Throttle consigliato: 10 min.
 
 ---
 
+## Web Storage si azzera da solo fra un test e l'altro — ci pensa il setup
+
+jsdom tiene lo stesso `sessionStorage`/`localStorage` per tutti i test di un
+file: il carrello di `useCassa` scritto da un test ricompariva nel successivo
+("multiple elements with text Vendita"). Il reset è in `tests/setup.ts`, dopo
+gli `afterEach` del file e dopo `cleanup`; il contratto è
+`tests/unit/web-storage-reset.test.tsx`. Quindi **niente `storage.clear()`
+nei singoli file**. L'unico obbligo che resta: un test che sostituisce lo
+storage con uno stub che lancia lo ripristina nel proprio `afterEach`
+(`vi.restoreAllMocks()` / `vi.unstubAllGlobals()`), altrimenti è il reset
+globale a esplodere.
+
 ## Browser ostile: storage bloccato, in-app webview, cookies off
 
 **Storia (SCONTRINOZERO-H, Chrome Mobile su Android 10, 7 eventi in

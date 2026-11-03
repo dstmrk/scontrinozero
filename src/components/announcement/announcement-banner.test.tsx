@@ -1,18 +1,13 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnnouncementBanner } from "./announcement-banner";
 
 const DISMISS_KEY = "announcement-dismissed:abc123";
 
 describe("AnnouncementBanner", () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
-    localStorage.clear();
   });
 
   it("rende il messaggio dell'annuncio", () => {
