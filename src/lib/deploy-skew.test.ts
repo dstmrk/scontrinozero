@@ -29,7 +29,6 @@ const mockReload = vi.fn<() => void>();
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsUnrecognizedActionError.mockReturnValue(false);
-  sessionStorage.clear();
   Object.defineProperty(globalThis, "location", {
     configurable: true,
     value: { ...realLocation, reload: mockReload },

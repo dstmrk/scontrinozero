@@ -17,14 +17,12 @@ function setUserAgent(ua: string) {
 
 describe("PwaInstallPrompt", () => {
   beforeEach(() => {
-    localStorage.clear();
     resetInstallPromptStoreForTests();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     setUserAgent(ORIGINAL_UA);
-    localStorage.clear();
     resetInstallPromptStoreForTests();
     delete (window as { Capacitor?: unknown }).Capacitor;
   });

@@ -17,7 +17,6 @@ function renderCleaner() {
 
 describe("ClearSessionData", () => {
   beforeEach(() => {
-    sessionStorage.clear();
     queryClient = new QueryClient();
     mockCachesDelete.mockReset().mockResolvedValue(true);
     vi.stubGlobal("caches", { delete: mockCachesDelete });
