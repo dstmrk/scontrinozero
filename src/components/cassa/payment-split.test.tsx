@@ -70,18 +70,20 @@ describe("PaymentSplit", () => {
 });
 
 describe("PaymentSplit — tastiera fisica", () => {
-  const group = () => screen.getByRole("group", { name: "Contanti" });
+  const toolbar = () => screen.getByRole("toolbar", { name: "Contanti" });
 
-  it("espone il tastierino come group 'Contanti'", () => {
+  it("espone il tastierino come toolbar 'Contanti'", () => {
     renderSplit();
 
-    expect(group()).toContainElement(screen.getByRole("button", { name: "5" }));
+    expect(toolbar()).toContainElement(
+      screen.getByRole("button", { name: "5" }),
+    );
   });
 
   it("propaga la cifra digitata come quota in contanti", () => {
     const { onCashChange } = renderSplit({ cashCents: 2 });
 
-    fireEvent.keyDown(group(), { key: "5" });
+    fireEvent.keyDown(toolbar(), { key: "5" });
 
     expect(onCashChange).toHaveBeenLastCalledWith(25);
   });
@@ -89,7 +91,7 @@ describe("PaymentSplit — tastiera fisica", () => {
   it("clampa all'incassato anche da tastiera", () => {
     const { onCashChange } = renderSplit({ collectedCents: 5 });
 
-    fireEvent.keyDown(group(), { key: "9" });
+    fireEvent.keyDown(toolbar(), { key: "9" });
 
     expect(onCashChange).toHaveBeenLastCalledWith(5);
   });
@@ -97,7 +99,7 @@ describe("PaymentSplit — tastiera fisica", () => {
   it("Backspace toglie l'ultima cifra", () => {
     const { onCashChange } = renderSplit({ cashCents: 250 });
 
-    fireEvent.keyDown(group(), { key: "Backspace" });
+    fireEvent.keyDown(toolbar(), { key: "Backspace" });
 
     expect(onCashChange).toHaveBeenLastCalledWith(25);
   });
@@ -105,7 +107,7 @@ describe("PaymentSplit — tastiera fisica", () => {
   it("Delete azzera la quota in contanti", () => {
     const { onCashChange } = renderSplit({ cashCents: 250 });
 
-    fireEvent.keyDown(group(), { key: "Delete" });
+    fireEvent.keyDown(toolbar(), { key: "Delete" });
 
     expect(onCashChange).toHaveBeenLastCalledWith(0);
   });
@@ -115,7 +117,7 @@ describe("PaymentSplit — tastiera fisica", () => {
     (key) => {
       const { onCashChange, onClose } = renderSplit({ cashCents: 250 });
 
-      fireEvent.keyDown(group(), { key });
+      fireEvent.keyDown(toolbar(), { key });
 
       expect(onClose).not.toHaveBeenCalled();
       expect(onCashChange).not.toHaveBeenCalled();

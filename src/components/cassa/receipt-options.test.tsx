@@ -343,40 +343,40 @@ describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
     return {
       onGlobalDiscountChange,
       onSplitCashChange,
-      group: screen.getByRole("group", { name: "Sconto a pagare" }),
+      toolbar: screen.getByRole("toolbar", { name: "Sconto a pagare" }),
     };
   }
 
-  it("espone il tastierino come group 'Sconto a pagare'", () => {
-    const { group } = openDiscount();
+  it("espone il tastierino come toolbar 'Sconto a pagare'", () => {
+    const { toolbar } = openDiscount();
 
-    expect(group).toContainElement(screen.getByRole("button", { name: "5" }));
+    expect(toolbar).toContainElement(screen.getByRole("button", { name: "5" }));
   });
 
   it("propaga al padre le cifre digitate", () => {
-    const { group, onGlobalDiscountChange } = openDiscount();
+    const { toolbar, onGlobalDiscountChange } = openDiscount();
 
-    fireEvent.keyDown(group, { key: "5" });
+    fireEvent.keyDown(toolbar, { key: "5" });
 
     expect(onGlobalDiscountChange).toHaveBeenCalledWith(5);
   });
 
   it("Backspace toglie l'ultima cifra dello sconto", () => {
-    const { group, onGlobalDiscountChange } = openDiscount({
+    const { toolbar, onGlobalDiscountChange } = openDiscount({
       globalDiscountCents: 320,
     });
 
-    fireEvent.keyDown(group, { key: "Backspace" });
+    fireEvent.keyDown(toolbar, { key: "Backspace" });
 
     expect(onGlobalDiscountChange).toHaveBeenCalledWith(32);
   });
 
   it("Delete azzera lo sconto lasciando aperto il campo", () => {
-    const { group, onGlobalDiscountChange } = openDiscount({
+    const { toolbar, onGlobalDiscountChange } = openDiscount({
       globalDiscountCents: 320,
     });
 
-    fireEvent.keyDown(group, { key: "Delete" });
+    fireEvent.keyDown(toolbar, { key: "Delete" });
 
     expect(onGlobalDiscountChange).toHaveBeenCalledWith(0);
     expect(
@@ -387,11 +387,10 @@ describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
   it.each(["Enter", "Escape"])(
     "%s non chiude il campo né tocca lo sconto",
     (key) => {
-      const { group, onGlobalDiscountChange, onSplitCashChange } = openDiscount(
-        { globalDiscountCents: 320 },
-      );
+      const { toolbar, onGlobalDiscountChange, onSplitCashChange } =
+        openDiscount({ globalDiscountCents: 320 });
 
-      fireEvent.keyDown(group, { key });
+      fireEvent.keyDown(toolbar, { key });
 
       expect(onGlobalDiscountChange).not.toHaveBeenCalled();
       expect(onSplitCashChange).not.toHaveBeenCalled();
@@ -402,9 +401,9 @@ describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
   );
 
   it("Enter non previene il default (nessun onSubmit cablato)", () => {
-    const { group } = openDiscount({ globalDiscountCents: 320 });
+    const { toolbar } = openDiscount({ globalDiscountCents: 320 });
 
-    expect(fireEvent.keyDown(group, { key: "Enter" })).toBe(true);
+    expect(fireEvent.keyDown(toolbar, { key: "Enter" })).toBe(true);
   });
 
   it("le cifre sullo sconto non toccano la quota contanti del misto", () => {
@@ -414,9 +413,12 @@ describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
       cashCents: 200,
     });
 
-    fireEvent.keyDown(screen.getByRole("group", { name: "Sconto a pagare" }), {
-      key: "5",
-    });
+    fireEvent.keyDown(
+      screen.getByRole("toolbar", { name: "Sconto a pagare" }),
+      {
+        key: "5",
+      },
+    );
 
     expect(onGlobalDiscountChange).toHaveBeenCalledWith(1005);
     expect(onSplitCashChange).not.toHaveBeenCalled();
@@ -429,7 +431,7 @@ describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
       cashCents: 2,
     });
 
-    fireEvent.keyDown(screen.getByRole("group", { name: "Contanti" }), {
+    fireEvent.keyDown(screen.getByRole("toolbar", { name: "Contanti" }), {
       key: "5",
     });
 

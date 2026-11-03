@@ -8,7 +8,7 @@ import { appendDigitCents, backspaceCents, cn } from "@/lib/utils";
 interface NumericKeypadProps {
   readonly value: number; // centesimi
   readonly onChange: (value: number) => void;
-  /** Nome del gruppo per lo screen reader: in cassa convivono più tastierini. */
+  /** Nome della toolbar per lo screen reader: in cassa convivono più tastierini. */
   readonly "aria-label": string;
   /** Prende il focus al mount, ma solo con un puntatore preciso (desktop). */
   readonly autoFocus?: boolean;
@@ -111,11 +111,14 @@ export function NumericKeypad({
   };
 
   return (
-    // Un contenitore focusabile con keydown è il pattern del gruppo
-    // interattivo: i tasti figli restano raggiungibili con Tab.
+    // `toolbar` e non `group`: è il ruolo ARIA del contenitore di controlli
+    // che riceve il focus e gestisce la tastiera. `group` è strutturale, e un
+    // elemento strutturale focusabile con keydown è proprio ciò che le regole
+    // jsx-a11y (Sonar S6847, S6845, S6819) segnalano. I tasti figli restano
+    // raggiungibili con Tab.
     <div
       ref={containerRef}
-      role="group"
+      role="toolbar"
       aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={handleKeyDown}

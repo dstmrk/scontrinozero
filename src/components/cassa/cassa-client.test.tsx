@@ -286,7 +286,7 @@ function stubPointerFine(fine: boolean) {
 }
 
 function keypad(name: string): HTMLElement {
-  return screen.getByRole("group", { name });
+  return screen.getByRole("toolbar", { name });
 }
 
 function typeKeys(target: HTMLElement, keys: readonly string[]): void {
@@ -535,9 +535,9 @@ describe("CassaClient — tastiera fisica nel riepilogo", () => {
   it("Enter ed Escape sullo sconto a pagare non emettono né chiudono", () => {
     openSummaryOptions();
     fireEvent.click(screen.getByText("+ Sconto a pagare"));
-    const group = keypad("Sconto a pagare");
+    const toolbar = keypad("Sconto a pagare");
 
-    typeKeys(group, ["1", "0", "0", "Enter", "Escape"]);
+    typeKeys(toolbar, ["1", "0", "0", "Enter", "Escape"]);
 
     expect(mockMutate).not.toHaveBeenCalled();
     expect(
