@@ -229,18 +229,19 @@ post-deploy, procedura T&C/Privacy: skill `deploy-release`.
 
 ## Pricing (per plan-gate nel codice)
 
-| Piano       | Mensile | Annuale | Note                                                                                                                                                                                                                  |
-| ----------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                                                                                                                                        |
-| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV, messaggio personalizzato sullo scontrino, sconti (di riga e a pagare), pagamento misto, ricerca documenti commerciali su AdE (sola lettura) |
-| Team        | €17.99  | €99.99  | Pro + collaboratori illimitati (inviti, permessi per ruolo, attribuzione: `/help/collaboratori`), 3 chiavi API, collaboratori solo con Fisconline                                                                     |
-| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                                                                                                                   |
-| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                                                                                                                         |
+| Piano       | Mensile | Annuale | Note                                                                                                                                                                                                                                            |
+| ----------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                                                                                                                                                                  |
+| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV, messaggio personalizzato sullo scontrino, sconti (di riga e a pagare), pagamento misto, ricerca documenti commerciali su AdE (sola lettura), Developer API (3 chiavi) |
+| Team        | €17.99  | €99.99  | Pro + collaboratori illimitati (inviti, permessi per ruolo, attribuzione: `/help/collaboratori`), 3 chiavi API, collaboratori solo con Fisconline                                                                                               |
+| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                                                                                                                                             |
+| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                                                                                                                                                   |
 
 Feature gate canonico in `src/lib/plans.ts`, listino in
 `src/lib/plan-prices.ts`. Trial 30 giorni Starter/Pro, no carta
 all'iscrizione: include le feature Pro visibili **e** la Developer API (1
-chiave, contro le 3 di Pro). P.IVA UNIQUE nel DB (anti-abuso trial).
+chiave, contro le 3 di Pro e Team; alla scadenza le chiavi restano ma non
+autenticano più). P.IVA UNIQUE nel DB (anti-abuso trial).
 
 ## Skill dominio-specifiche (`.claude/skills/`)
 

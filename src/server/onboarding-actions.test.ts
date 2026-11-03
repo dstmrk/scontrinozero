@@ -1782,6 +1782,78 @@ describe("onboarding-actions", () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
+    // SCONTRINOZERO-19: un 503 del portale sulla GET dati/fiscali è transient
+    // e la lettura è best-effort → warn, nessuna issue Sentry (regola 20).
+    it("getFiscalData con AdE 5xx logga warn ade_transient, non error (SCONTRINOZERO-19)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "11111111-1111-4111-8111-111111111111",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      const { AdePortalError } = await import("@/lib/ade/errors");
+      mockGetFiscalData.mockRejectedValue(
+        new AdePortalError(503, "Failed to fetch fiscal data: status 503"),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.error).toBeUndefined();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          errorClass: "ade_transient",
+        }),
+        "Failed to fetch fiscal data from AdE (transient)",
+      );
+      const fiscalErrors = (
+        logger.error as ReturnType<typeof vi.fn>
+      ).mock.calls.filter((c) => String(c[1] ?? "").includes("fiscal data"));
+      expect(fiscalErrors).toHaveLength(0);
+    });
+
+    it("getFiscalData con errore non transient resta logger.error", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "11111111-1111-4111-8111-111111111111",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      const { AdePortalError } = await import("@/lib/ade/errors");
+      mockGetFiscalData.mockRejectedValue(
+        new AdePortalError(404, "Failed to fetch fiscal data: status 404"),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
+
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "11111111-1111-4111-8111-111111111111",
+        }),
+        "Failed to fetch fiscal data from AdE",
+      );
+    });
+
     it("returns error when credentials not found", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id, ...OWNER_ROW }]);
