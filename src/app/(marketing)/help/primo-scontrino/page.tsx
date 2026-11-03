@@ -111,6 +111,14 @@ export default function PrimoScontrinoPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Da computer puoi digitare l&apos;importo anche sulla tastiera: le
+          cifre entrano come sul tastierino, partendo dai centesimi (scrivi 1250
+          o 12,50 per 12,50 €), <strong>Invio</strong> aggiunge la riga ed{" "}
+          <strong>Esc</strong> la annulla. La tastiera scrive nel tastierino
+          evidenziato: se ne vedi due, come con lo sconto, cliccaci sopra o
+          passa da uno all&apos;altro con <strong>Tab</strong>.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Puoi mescolare le due modalità: aggiungi prodotti dal catalogo e
           inserisci righe manuali per gli articoli non catalogati. Le aliquote
           disponibili sono 4%, 5%, 10%, 22% e sei codici natura a 0% (N1–N6) per
