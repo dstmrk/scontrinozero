@@ -33,13 +33,11 @@ function printerState(overrides: Partial<UsePrinterResult> = {}) {
 }
 
 beforeEach(() => {
-  localStorage.clear();
   mockPrinter.current = printerState();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
-  localStorage.clear();
 });
 
 describe("stato della stampante", () => {

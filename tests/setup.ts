@@ -58,4 +58,23 @@ if (typeof window !== "undefined" && globalThis.ResizeObserver === undefined) {
     ResizeObserverStub as unknown as typeof globalThis.ResizeObserver;
 }
 
+// jsdom tiene lo stesso Web Storage per tutti i test di un file: quello che un
+// test scrive (il carrello di `useCassa`, le preferenze stampante) lo eredita
+// il successivo. Il reset sta qui e non nei singoli file per lo stesso motivo
+// di `cleanup`: è isolamento dell'ambiente, e un file che se ne dimentica
+// regge solo finché nessun test conta ciò che trova.
+//
+// L'ordine conta. Vitest esegue gli `afterEach` in ordine "stack" (l'ultimo
+// registrato gira per primo), e questo setup registra prima dei file di test.
+// Quindi il reset gira dopo gli `afterEach` del file, cioè dopo che uno
+// storage sostituito con uno stub che lancia è stato ripristinato, e dopo
+// `cleanup` qui sotto: un componente che scrive nello storage mentre si
+// smonta non lascia niente al test successivo.
+// Contratto in `tests/unit/web-storage-reset.test.tsx`.
+afterEach(() => {
+  if (typeof window === "undefined") return;
+  sessionStorage.clear();
+  localStorage.clear();
+});
+
 afterEach(cleanup);

@@ -74,13 +74,11 @@ function renderSuccess(props: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-  localStorage.clear();
   mockPrinter.current = printerState();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
-  localStorage.clear();
 });
 
 describe("auto-stampa", () => {

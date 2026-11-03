@@ -300,9 +300,6 @@ function inAddItemStep(): boolean {
 
 describe("CassaClient — tastiera fisica nello step aggiunta riga", () => {
   beforeEach(() => {
-    // Il carrello persiste in sessionStorage: senza pulirlo le righe dei test
-    // precedenti ricompaiono al mount.
-    sessionStorage.clear();
     mockMutate.mockClear();
     mutationData = undefined;
   });
@@ -443,9 +440,6 @@ describe("CassaClient — tastiera fisica nello step aggiunta riga", () => {
 
 describe("CassaClient — tastiera fisica sullo sconto di riga", () => {
   beforeEach(() => {
-    // Il carrello persiste in sessionStorage: senza pulirlo le righe dei test
-    // precedenti ricompaiono al mount.
-    sessionStorage.clear();
     mockMutate.mockClear();
     mutationData = undefined;
   });
@@ -526,9 +520,6 @@ describe("CassaClient — tastiera fisica sullo sconto di riga", () => {
 
 describe("CassaClient — tastiera fisica nel riepilogo", () => {
   beforeEach(() => {
-    // Il carrello persiste in sessionStorage: senza pulirlo le righe dei test
-    // precedenti ricompaiono al mount.
-    sessionStorage.clear();
     mockMutate.mockClear();
     mutationData = undefined;
   });

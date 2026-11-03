@@ -55,7 +55,6 @@ const PDF_HREF = "/api/documents/doc-1/pdf";
 let openSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  localStorage.clear();
   mockPrinter.current = printerState();
   openSpy = vi.fn();
   vi.stubGlobal("open", openSpy);

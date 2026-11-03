@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   DEFAULT_PRINTER_PREFERENCES,
   readPrinterPreferences,
@@ -9,16 +9,12 @@ import {
   clearLastPrinter,
 } from "./printer-preferences";
 
-beforeEach(() => {
-  localStorage.clear();
-});
-
 afterEach(() => {
-  // Ordine obbligato: il test dello storage ostile sostituisce il *getter* di
-  // window.localStorage con uno che lancia, quindi va ripristinato PRIMA di
-  // toccare lo store, altrimenti il clear esplode e inquina i test successivi.
+  // Il test dello storage ostile sostituisce il *getter* di
+  // window.localStorage con uno che lancia: va ripristinato qui, perché il
+  // reset dello storage in tests/setup.ts gira dopo questo afterEach e
+  // altrimenti esploderebbe.
   vi.restoreAllMocks();
-  localStorage.clear();
 });
 
 describe("preferenze stampante", () => {
