@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { Delete } from "lucide-react";
 import { appendDigitCents, backspaceCents, cn } from "@/lib/utils";
 
@@ -154,7 +154,7 @@ export function NumericKeypad({
 }
 
 interface KeyButtonProps {
-  readonly label: React.ReactNode;
+  readonly label: ReactNode;
   readonly onClick: () => void;
   readonly pressed?: boolean;
   readonly muted?: boolean;
