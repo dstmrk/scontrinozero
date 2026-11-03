@@ -167,6 +167,12 @@ incatenato a `npm run build` che carica l'artefatto dalla standalone
 basta: il problema esiste solo nell'output del build. Per riprodurlo in locale:
 `next build`, poi `node .next/standalone/server.js` con un `SENTRY_DSN`
 finto.
+Il loader ha anche import bare (`@sentry/core`, `@sentry/server-utils`, a
+cascata `@sentry/conventions`, che espone `dist/` e non `build/esm`): un
+bump di `@sentry/nextjs` può aggiungerne di nuovi (11.9.0 ha rotto la
+build con `@sentry/core`). Se il gate fallisce con `ERR_MODULE_NOT_FOUND`,
+aggiungi il pacchetto mancante a `outputFileTracingIncludes` e rilancia
+`npm run build` finché passa.
 
 ## L'edge Cloudflare può scavalcare la config dell'app
 
