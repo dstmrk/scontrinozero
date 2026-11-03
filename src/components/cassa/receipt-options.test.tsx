@@ -322,3 +322,118 @@ describe("ReceiptOptions — codice lotteria", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
+  /** Pannello e tastierino sconto aperti da zero. */
+  function openDiscount(overrides: Partial<typeof base> = {}) {
+    const onGlobalDiscountChange = vi.fn();
+    const onSplitCashChange = vi.fn();
+    render(
+      <ReceiptOptions
+        {...base}
+        onGlobalDiscountChange={onGlobalDiscountChange}
+        onSplitCashChange={onSplitCashChange}
+        {...overrides}
+      />,
+    );
+    if (screen.queryByLabelText("Rimuovi sconto a pagare") === null) {
+      fireEvent.click(toggle());
+      fireEvent.click(screen.getByText("+ Sconto a pagare"));
+    }
+    return {
+      onGlobalDiscountChange,
+      onSplitCashChange,
+      group: screen.getByRole("group", { name: "Sconto a pagare" }),
+    };
+  }
+
+  it("espone il tastierino come group 'Sconto a pagare'", () => {
+    const { group } = openDiscount();
+
+    expect(group).toContainElement(screen.getByRole("button", { name: "5" }));
+  });
+
+  it("propaga al padre le cifre digitate", () => {
+    const { group, onGlobalDiscountChange } = openDiscount();
+
+    fireEvent.keyDown(group, { key: "5" });
+
+    expect(onGlobalDiscountChange).toHaveBeenCalledWith(5);
+  });
+
+  it("Backspace toglie l'ultima cifra dello sconto", () => {
+    const { group, onGlobalDiscountChange } = openDiscount({
+      globalDiscountCents: 320,
+    });
+
+    fireEvent.keyDown(group, { key: "Backspace" });
+
+    expect(onGlobalDiscountChange).toHaveBeenCalledWith(32);
+  });
+
+  it("Delete azzera lo sconto lasciando aperto il campo", () => {
+    const { group, onGlobalDiscountChange } = openDiscount({
+      globalDiscountCents: 320,
+    });
+
+    fireEvent.keyDown(group, { key: "Delete" });
+
+    expect(onGlobalDiscountChange).toHaveBeenCalledWith(0);
+    expect(
+      screen.getByLabelText("Rimuovi sconto a pagare"),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["Enter", "Escape"])(
+    "%s non chiude il campo né tocca lo sconto",
+    (key) => {
+      const { group, onGlobalDiscountChange, onSplitCashChange } = openDiscount(
+        { globalDiscountCents: 320 },
+      );
+
+      fireEvent.keyDown(group, { key });
+
+      expect(onGlobalDiscountChange).not.toHaveBeenCalled();
+      expect(onSplitCashChange).not.toHaveBeenCalled();
+      expect(
+        screen.getByLabelText("Rimuovi sconto a pagare"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("Enter non previene il default (nessun onSubmit cablato)", () => {
+    const { group } = openDiscount({ globalDiscountCents: 320 });
+
+    expect(fireEvent.keyDown(group, { key: "Enter" })).toBe(true);
+  });
+
+  it("le cifre sullo sconto non toccano la quota contanti del misto", () => {
+    const { onGlobalDiscountChange, onSplitCashChange } = openDiscount({
+      globalDiscountCents: 100,
+      isSplit: true,
+      cashCents: 200,
+    });
+
+    fireEvent.keyDown(screen.getByRole("group", { name: "Sconto a pagare" }), {
+      key: "5",
+    });
+
+    expect(onGlobalDiscountChange).toHaveBeenCalledWith(1005);
+    expect(onSplitCashChange).not.toHaveBeenCalled();
+  });
+
+  it("le cifre sui contanti non toccano lo sconto", () => {
+    const { onGlobalDiscountChange, onSplitCashChange } = openDiscount({
+      globalDiscountCents: 100,
+      isSplit: true,
+      cashCents: 2,
+    });
+
+    fireEvent.keyDown(screen.getByRole("group", { name: "Contanti" }), {
+      key: "5",
+    });
+
+    expect(onSplitCashChange).toHaveBeenCalledWith(25);
+    expect(onGlobalDiscountChange).not.toHaveBeenCalled();
+  });
+});
