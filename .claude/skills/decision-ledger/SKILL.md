@@ -128,6 +128,17 @@ turno incolli in chat il ledger e la tabella del costo. Una decisione che
 l'utente ribalta dopo il merge si corregge con una nuova PR, non riscrivendo
 `main`.
 
+**L'auto-merge si abilita subito, mentre la CI gira.** `enable_pr_auto_merge`
+rifiuta una PR già in stato `clean` ("auto-merge only applies when checks are
+pending"), e il merge diretto è bloccato da `block-direct-merge.sh`: se aspetti
+i check verdi per abilitarlo, la PR resta ferma finché l'utente non la mergia
+a mano. Successo il 03/11/2026 con #1152 e #1153. Quindi il corpo con il
+ledger si scrive completo già in `create_pull_request`, e l'auto-merge si
+abilita nella chiamata successiva. Se un push successivo cambia una decisione,
+aggiorni il corpo prima che i check finiscano: l'auto-merge parte al verde e
+non aspetta il testo. Se la PR è già `clean`, lo dici in chat e il merge è
+dell'utente.
+
 **PR di sola documentazione: l'auto-merge non parte, il merge è dell'utente.**
 Sonar è un required check su `main`, ma il job `sonar` di `ci.yml` gira solo
 quando cambia codice. Su una PR che tocca solo `.md` (o altri file fuori dai
