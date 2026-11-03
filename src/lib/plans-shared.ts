@@ -212,9 +212,8 @@ export function canEmit(
  * **scaduto** o un caller che non passa `trialStartedAt` (default `null` →
  * `isTrialExpired(null) === true`) NON sblocca nulla. Questo default è
  * intenzionale: solo i call site che passano esplicitamente `trialStartedAt`
- * abilitano il trial. `canUseApi` e `canAddCatalogItem` NON lo passano, quindi
- * il trial resta gated su Developer API e limite catalogo — anche se `canUseApi`
- * chiama internamente `canUsePro`.
+ * abilitano il trial. `canUseApi` lo inoltra a `canUsePro` (vedi la sua doc):
+ * il trial attivo ha quindi la Developer API, con 1 chiave (`API_KEY_LIMITS`).
  */
 export function canUsePro(
   plan: Plan,
