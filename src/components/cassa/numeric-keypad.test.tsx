@@ -19,8 +19,8 @@ function renderKeypad(overrides: Partial<KeypadProps> = {}) {
   return { onChange, ...utils };
 }
 
-function group(): HTMLElement {
-  return screen.getByRole("group", { name: LABEL });
+function toolbar(): HTMLElement {
+  return screen.getByRole("toolbar", { name: LABEL });
 }
 
 /**
@@ -157,22 +157,24 @@ describe("NumericKeypad", () => {
 });
 
 describe("NumericKeypad — contenitore accessibile", () => {
-  it("espone un group con l'aria-label passata", () => {
+  it("espone una toolbar con l'aria-label passata", () => {
     renderKeypad();
 
-    expect(group()).toBeInTheDocument();
+    expect(toolbar()).toBeInTheDocument();
   });
 
-  it("il group è raggiungibile da tastiera (tabIndex 0)", () => {
+  it("la toolbar è raggiungibile da tastiera (tabIndex 0)", () => {
     renderKeypad();
 
-    expect(group()).toHaveAttribute("tabindex", "0");
+    expect(toolbar()).toHaveAttribute("tabindex", "0");
   });
 
-  it("il group contiene i tasti del tastierino", () => {
+  it("la toolbar contiene i tasti del tastierino", () => {
     renderKeypad();
 
-    expect(group()).toContainElement(screen.getByRole("button", { name: "7" }));
+    expect(toolbar()).toContainElement(
+      screen.getByRole("button", { name: "7" }),
+    );
   });
 
   it("due tastierini con label diverse sono distinguibili", () => {
@@ -183,8 +185,12 @@ describe("NumericKeypad — contenitore accessibile", () => {
       </>,
     );
 
-    expect(screen.getByRole("group", { name: "Importo" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Contanti" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("toolbar", { name: "Importo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("toolbar", { name: "Contanti" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -194,7 +200,7 @@ describe("NumericKeypad — tastiera fisica: cifre", () => {
     (digit) => {
       const { onChange } = renderKeypad({ value: 12 });
 
-      fireEvent.keyDown(group(), { key: digit });
+      fireEvent.keyDown(toolbar(), { key: digit });
 
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenCalledWith(12 * 10 + Number(digit));
@@ -204,7 +210,7 @@ describe("NumericKeypad — tastiera fisica: cifre", () => {
   it("parte da zero: '7' su 0 dà 7 centesimi", () => {
     const { onChange } = renderKeypad({ value: 0 });
 
-    fireEvent.keyDown(group(), { key: "7" });
+    fireEvent.keyDown(toolbar(), { key: "7" });
 
     expect(onChange).toHaveBeenCalledWith(7);
   });
@@ -212,7 +218,7 @@ describe("NumericKeypad — tastiera fisica: cifre", () => {
   it("rispetta il tetto di 999999 centesimi", () => {
     const { onChange } = renderKeypad({ value: 999999 });
 
-    fireEvent.keyDown(group(), { key: "1" });
+    fireEvent.keyDown(toolbar(), { key: "1" });
 
     // Stesso risultato del click: il valore resta al tetto, mai oltre.
     expect(onChange.mock.calls.every(([cents]) => cents === 999999)).toBe(true);
@@ -242,7 +248,7 @@ describe("NumericKeypad — tastiera fisica: cifre", () => {
     );
 
     for (const key of ["1", "2", ",", "5", "0"]) {
-      fireEvent.keyDown(group(), { key });
+      fireEvent.keyDown(toolbar(), { key });
       rerender(
         <NumericKeypad
           value={current}
@@ -261,7 +267,7 @@ describe("NumericKeypad — tastiera fisica: separatori e cancellazione", () => 
   it.each([",", "."])("il separatore '%s' è ignorato", (key) => {
     const { onChange } = renderKeypad({ value: 12 });
 
-    fireEvent.keyDown(group(), { key });
+    fireEvent.keyDown(toolbar(), { key });
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -269,7 +275,7 @@ describe("NumericKeypad — tastiera fisica: separatori e cancellazione", () => 
   it("Backspace toglie l'ultima cifra (1358 → 135)", () => {
     const { onChange } = renderKeypad({ value: 1358 });
 
-    fireEvent.keyDown(group(), { key: "Backspace" });
+    fireEvent.keyDown(toolbar(), { key: "Backspace" });
 
     expect(onChange).toHaveBeenCalledWith(135);
   });
@@ -277,7 +283,7 @@ describe("NumericKeypad — tastiera fisica: separatori e cancellazione", () => 
   it("Backspace su 0 resta 0", () => {
     const { onChange } = renderKeypad({ value: 0 });
 
-    fireEvent.keyDown(group(), { key: "Backspace" });
+    fireEvent.keyDown(toolbar(), { key: "Backspace" });
 
     expect(onChange.mock.calls.every(([cents]) => cents === 0)).toBe(true);
   });
@@ -285,7 +291,7 @@ describe("NumericKeypad — tastiera fisica: separatori e cancellazione", () => 
   it("Delete azzera l'importo", () => {
     const { onChange } = renderKeypad({ value: 1234 });
 
-    fireEvent.keyDown(group(), { key: "Delete" });
+    fireEvent.keyDown(toolbar(), { key: "Delete" });
 
     expect(onChange).toHaveBeenCalledWith(0);
   });
@@ -296,7 +302,7 @@ describe("NumericKeypad — tastiera fisica: Enter ed Escape", () => {
     const onSubmit = vi.fn();
     const { onChange } = renderKeypad({ value: 500, onSubmit });
 
-    fireEvent.keyDown(group(), { key: "Enter" });
+    fireEvent.keyDown(toolbar(), { key: "Enter" });
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
@@ -306,7 +312,7 @@ describe("NumericKeypad — tastiera fisica: Enter ed Escape", () => {
     renderKeypad({ onSubmit: vi.fn() });
 
     // false = preventDefault() chiamato.
-    expect(fireEvent.keyDown(group(), { key: "Enter" })).toBe(false);
+    expect(fireEvent.keyDown(toolbar(), { key: "Enter" })).toBe(false);
   });
 
   it("Enter su un bottone-cifra chiama onSubmit e previene il riclick", () => {
@@ -327,7 +333,7 @@ describe("NumericKeypad — tastiera fisica: Enter ed Escape", () => {
   it("Enter senza onSubmit non fa nulla e non previene il default", () => {
     const { onChange } = renderKeypad({ value: 500 });
 
-    const notPrevented = fireEvent.keyDown(group(), { key: "Enter" });
+    const notPrevented = fireEvent.keyDown(toolbar(), { key: "Enter" });
 
     expect(notPrevented).toBe(true);
     expect(onChange).not.toHaveBeenCalled();
@@ -337,7 +343,7 @@ describe("NumericKeypad — tastiera fisica: Enter ed Escape", () => {
     const onCancel = vi.fn();
     const { onChange } = renderKeypad({ value: 500, onCancel });
 
-    fireEvent.keyDown(group(), { key: "Escape" });
+    fireEvent.keyDown(toolbar(), { key: "Escape" });
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
@@ -346,7 +352,7 @@ describe("NumericKeypad — tastiera fisica: Enter ed Escape", () => {
   it("Escape senza onCancel non lancia e non cambia l'importo", () => {
     const { onChange } = renderKeypad({ value: 500 });
 
-    fireEvent.keyDown(group(), { key: "Escape" });
+    fireEvent.keyDown(toolbar(), { key: "Escape" });
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -356,10 +362,10 @@ describe("NumericKeypad — tastiera fisica: Enter ed Escape", () => {
     const onCancel = vi.fn();
     renderKeypad({ value: 500, onSubmit, onCancel });
 
-    fireEvent.keyDown(group(), { key: "Escape" });
+    fireEvent.keyDown(toolbar(), { key: "Escape" });
     expect(onSubmit).not.toHaveBeenCalled();
 
-    fireEvent.keyDown(group(), { key: "Enter" });
+    fireEvent.keyDown(toolbar(), { key: "Enter" });
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
@@ -376,7 +382,7 @@ describe("NumericKeypad — modificatori e tasti non gestiti", () => {
   ])("$label è ignorato e non previene il default", ({ key, mod }) => {
     const { onChange } = renderKeypad({ value: 1234 });
 
-    const notPrevented = fireEvent.keyDown(group(), { key, ...mod });
+    const notPrevented = fireEvent.keyDown(toolbar(), { key, ...mod });
 
     expect(onChange).not.toHaveBeenCalled();
     expect(notPrevented).toBe(true);
@@ -386,7 +392,7 @@ describe("NumericKeypad — modificatori e tasti non gestiti", () => {
     const onSubmit = vi.fn();
     renderKeypad({ value: 500, onSubmit });
 
-    fireEvent.keyDown(group(), { key: "Enter", ctrlKey: true });
+    fireEvent.keyDown(toolbar(), { key: "Enter", ctrlKey: true });
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -395,7 +401,7 @@ describe("NumericKeypad — modificatori e tasti non gestiti", () => {
     const onCancel = vi.fn();
     renderKeypad({ value: 500, onCancel });
 
-    fireEvent.keyDown(group(), { key: "Escape", metaKey: true });
+    fireEvent.keyDown(toolbar(), { key: "Escape", metaKey: true });
 
     expect(onCancel).not.toHaveBeenCalled();
   });
@@ -405,7 +411,7 @@ describe("NumericKeypad — modificatori e tasti non gestiti", () => {
     (key) => {
       renderKeypad({ value: 12 });
 
-      expect(fireEvent.keyDown(group(), { key })).toBe(false);
+      expect(fireEvent.keyDown(toolbar(), { key })).toBe(false);
     },
   );
 
@@ -414,7 +420,7 @@ describe("NumericKeypad — modificatori e tasti non gestiti", () => {
     (key) => {
       const { onChange } = renderKeypad({ value: 12 });
 
-      const notPrevented = fireEvent.keyDown(group(), { key });
+      const notPrevented = fireEvent.keyDown(toolbar(), { key });
 
       expect(notPrevented).toBe(true);
       expect(onChange).not.toHaveBeenCalled();
@@ -477,7 +483,7 @@ describe("NumericKeypad — feedback visivo del tasto fisico", () => {
 
     expect(button).not.toHaveAttribute("data-pressed", "true");
 
-    fireEvent.keyDown(group(), { key: "5" });
+    fireEvent.keyDown(toolbar(), { key: "5" });
     expect(button).toHaveAttribute("data-pressed", "true");
 
     act(() => {
@@ -495,7 +501,7 @@ describe("NumericKeypad — feedback visivo del tasto fisico", () => {
     vi.useFakeTimers();
     renderKeypad({ value: 0 });
 
-    fireEvent.keyDown(group(), { key: "0" });
+    fireEvent.keyDown(toolbar(), { key: "0" });
 
     // "0" e non "00": il tasto fisico è una cifra sola.
     expect(screen.getByRole("button", { name: "0" })).toHaveAttribute(
@@ -517,7 +523,7 @@ describe("NumericKeypad — feedback visivo del tasto fisico", () => {
     renderKeypad({ value: 12 });
     const backspace = screen.getByRole("button", { name: "⌫" });
 
-    fireEvent.keyDown(group(), { key: "Backspace" });
+    fireEvent.keyDown(toolbar(), { key: "Backspace" });
     expect(backspace).toHaveAttribute("data-pressed", "true");
 
     act(() => {
@@ -530,7 +536,7 @@ describe("NumericKeypad — feedback visivo del tasto fisico", () => {
     vi.useFakeTimers();
     renderKeypad({ value: 12 });
 
-    fireEvent.keyDown(group(), { key: "5", ctrlKey: true });
+    fireEvent.keyDown(toolbar(), { key: "5", ctrlKey: true });
 
     expect(screen.getByRole("button", { name: "5" })).not.toHaveAttribute(
       "data-pressed",
@@ -545,7 +551,7 @@ describe("NumericKeypad — feedback visivo del tasto fisico", () => {
       .mockImplementation(() => {});
     const { unmount } = renderKeypad({ value: 0 });
 
-    fireEvent.keyDown(group(), { key: "5" });
+    fireEvent.keyDown(toolbar(), { key: "5" });
     unmount();
 
     expect(() => {
@@ -563,7 +569,7 @@ describe("NumericKeypad — autoFocus", () => {
     const mockMatchMedia = stubPointer(true);
     renderKeypad({ autoFocus: true });
 
-    expect(group()).toHaveFocus();
+    expect(toolbar()).toHaveFocus();
     expect(mockMatchMedia).toHaveBeenCalledWith("(pointer: fine)");
   });
 
@@ -571,7 +577,7 @@ describe("NumericKeypad — autoFocus", () => {
     stubPointer(false);
     renderKeypad({ autoFocus: true });
 
-    expect(group()).not.toHaveFocus();
+    expect(toolbar()).not.toHaveFocus();
   });
 
   it("senza matchMedia (jsdom di default) non prende il focus e non lancia", () => {
@@ -580,13 +586,13 @@ describe("NumericKeypad — autoFocus", () => {
 
     renderKeypad({ autoFocus: true });
 
-    expect(group()).not.toHaveFocus();
+    expect(toolbar()).not.toHaveFocus();
   });
 
   it("senza autoFocus non prende mai il focus, anche con pointer fine", () => {
     stubPointer(true);
     renderKeypad();
 
-    expect(group()).not.toHaveFocus();
+    expect(toolbar()).not.toHaveFocus();
   });
 });
