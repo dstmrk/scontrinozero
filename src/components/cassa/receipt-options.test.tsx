@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ReceiptOptions } from "./receipt-options";
+import { formatCurrency } from "@/lib/utils";
 
 const HINT_OK = "Per la Lotteria degli Scontrini — solo pagamenti elettronici";
 
@@ -346,6 +347,16 @@ describe("ReceiptOptions — tastiera fisica sullo sconto a pagare", () => {
       toolbar: screen.getByRole("toolbar", { name: "Sconto a pagare" }),
     };
   }
+
+  it("il clic sul display dello sconto gli dà il focus", () => {
+    const { toolbar } = openDiscount();
+
+    fireEvent.click(
+      screen.getByText(formatCurrency(0).replaceAll("\u00a0", " ")),
+    );
+
+    expect(toolbar).toHaveFocus();
+  });
 
   it("espone il tastierino come toolbar 'Sconto a pagare'", () => {
     const { toolbar } = openDiscount();

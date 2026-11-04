@@ -1,6 +1,7 @@
+import { createRef } from "react";
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { NumericKeypad } from "./numeric-keypad";
+import { NumericKeypad, type NumericKeypadHandle } from "./numeric-keypad";
 
 const LABEL = "Importo";
 
@@ -594,5 +595,62 @@ describe("NumericKeypad — autoFocus", () => {
     renderKeypad();
 
     expect(toolbar()).not.toHaveFocus();
+  });
+});
+
+describe("NumericKeypad — display e focus col puntatore", () => {
+  it("rende il display dentro la toolbar", () => {
+    renderKeypad({ display: <span>{"12,50"}</span> });
+
+    expect(toolbar()).toContainElement(screen.getByText("12,50"));
+  });
+
+  it("il clic sul display dà il focus alla toolbar senza cambiare l'importo", () => {
+    const { onChange } = renderKeypad({ display: <span>{"12,50"}</span> });
+
+    fireEvent.click(screen.getByText("12,50"));
+
+    expect(toolbar()).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("il clic su un tasto col focus fuori porta il focus nella toolbar", () => {
+    // Safari macOS non dà il focus ai bottoni al clic: senza questo, la cifra
+    // entra ma la tastiera fisica continua a scrivere nel campo di prima.
+    const outside = document.createElement("input");
+    document.body.appendChild(outside);
+    outside.focus();
+    const { onChange } = renderKeypad();
+
+    fireEvent.click(screen.getByRole("button", { name: "7" }));
+
+    expect(toolbar()).toHaveFocus();
+    expect(onChange).toHaveBeenCalledWith(7);
+    outside.remove();
+  });
+
+  it("il clic su un tasto già a fuoco non gli toglie il focus", () => {
+    renderKeypad();
+    const seven = screen.getByRole("button", { name: "7" });
+    seven.focus();
+
+    fireEvent.click(seven);
+
+    expect(seven).toHaveFocus();
+  });
+
+  it("senza display non aggiunge nulla oltre ai tasti", () => {
+    renderKeypad();
+
+    expect(toolbar().children).toHaveLength(1);
+  });
+
+  it("l'handle esposto via ref dà il focus alla toolbar", () => {
+    const ref = createRef<NumericKeypadHandle>();
+    renderKeypad({ ref });
+
+    act(() => ref.current?.focus());
+
+    expect(toolbar()).toHaveFocus();
   });
 });

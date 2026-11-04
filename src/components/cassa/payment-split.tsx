@@ -65,15 +65,20 @@ export function PaymentSplit({
         </button>
       </div>
 
-      <div className="mb-2 grid grid-cols-2 gap-3">
-        <SplitRow method="PC" cents={split.cashCents} active />
-        <SplitRow method="PE" cents={split.electronicCents} active={false} />
-      </div>
-
       {/* Il tastierino lavora già in centesimi interi (regola 17): nessun
           parser di importi, e nessun passaggio da un float intermedio. */}
       <NumericKeypad
         aria-label="Contanti"
+        display={
+          <div className="mb-2 grid grid-cols-2 gap-3">
+            <SplitRow method="PC" cents={split.cashCents} active />
+            <SplitRow
+              method="PE"
+              cents={split.electronicCents}
+              active={false}
+            />
+          </div>
+        }
         autoFocus
         value={cashCents}
         onChange={(cents) => onCashChange(Math.min(cents, collectedCents))}

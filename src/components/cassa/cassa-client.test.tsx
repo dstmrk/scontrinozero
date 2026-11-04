@@ -438,6 +438,65 @@ describe("CassaClient — tastiera fisica nello step aggiunta riga", () => {
   });
 });
 
+describe("CassaClient — ritorno del focus sul tastierino", () => {
+  const descr = () => screen.getByPlaceholderText("Descrizione (opzionale)");
+
+  it("il clic sul display dell'importo dà il focus al tastierino Importo", () => {
+    render(<CassaClient {...defaultProps} />);
+    openAddItem();
+    descr().focus();
+
+    fireEvent.click(screen.getByText(euro(0)));
+
+    expect(keypad("Importo")).toHaveFocus();
+    expect(screen.getByText(euro(0))).toBeInTheDocument();
+  });
+
+  it("Invio nella descrizione passa il focus al tastierino Importo", () => {
+    render(<CassaClient {...defaultProps} />);
+    openAddItem();
+    descr().focus();
+
+    fireEvent.keyDown(descr(), { key: "Enter" });
+
+    expect(keypad("Importo")).toHaveFocus();
+  });
+
+  it("Invio nella descrizione non aggiunge la riga anche con importo > 0", () => {
+    render(<CassaClient {...defaultProps} />);
+    openAddItem();
+    typeKeys(keypad("Importo"), ["5", "0", "0"]);
+    descr().focus();
+
+    fireEvent.keyDown(descr(), { key: "Enter" });
+
+    expect(inAddItemStep()).toBe(true);
+    expect(keypad("Importo")).toHaveFocus();
+  });
+
+  it("Invio che conferma una composizione IME resta nella descrizione", () => {
+    render(<CassaClient {...defaultProps} />);
+    openAddItem();
+    descr().focus();
+
+    fireEvent.keyDown(descr(), { key: "Enter", isComposing: true });
+
+    expect(descr()).toHaveFocus();
+  });
+
+  it("con lo sconto aperto, il clic sul suo display va al tastierino sconto", () => {
+    render(<CassaClient {...defaultProps} discountsUnlocked />);
+    openAddItem();
+    typeKeys(keypad("Importo"), ["5", "0", "0"]);
+    fireEvent.click(screen.getByRole("button", { name: DISCOUNT_LINK }));
+    descr().focus();
+
+    fireEvent.click(screen.getByText(`-${euro(0)}`));
+
+    expect(keypad("Sconto sulla riga")).toHaveFocus();
+  });
+});
+
 describe("CassaClient — tastiera fisica sullo sconto di riga", () => {
   beforeEach(() => {
     mockMutate.mockClear();

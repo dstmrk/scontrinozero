@@ -16,7 +16,10 @@ import {
   type PaymentInput,
 } from "@/lib/receipts/payment-input";
 import type { PaymentEntry } from "@/lib/receipts/public-request";
-import { NumericKeypad } from "@/components/cassa/numeric-keypad";
+import {
+  NumericKeypad,
+  type NumericKeypadHandle,
+} from "@/components/cassa/numeric-keypad";
 import { VatSelector } from "@/components/cassa/vat-selector";
 import { CartLineItem } from "@/components/cassa/cart-line-item";
 import { ReceiptSummary } from "@/components/cassa/receipt-summary";
@@ -124,6 +127,7 @@ export function CassaClient({
 
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
+  const amountKeypadRef = useRef<NumericKeypadHandle>(null);
 
   // Pre-popola il carrello se navigato dal catalogo
   //   ?description=...&price=...&vatCode=...  → aggiunge direttamente al carrello
@@ -371,21 +375,31 @@ export function CassaClient({
           autoComplete="off"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={(e) => {
+            // Invio passa all'importo, come un Tab: descrizione → importo →
+            // Invio aggiunge, senza lasciare la tastiera. Durante una
+            // composizione IME l'Invio conferma il testo e resta qui.
+            if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            amountKeypadRef.current?.focus();
+          }}
           className="rounded-xl py-3 text-base"
         />
 
-        {/* Display importo */}
-        <div className="rounded-xl px-4 py-6 text-center">
-          <span
-            className={`text-4xl font-bold tracking-tight tabular-nums transition-opacity ${amountCents > 0 ? "opacity-100" : "text-muted-foreground opacity-30"}`}
-          >
-            {formatCurrency(parsedAmount)}
-          </span>
-        </div>
-
-        {/* Tastierino numerico */}
+        {/* Display importo + tastierino: il clic sul display torna al
+            tastierino senza digitare una cifra. */}
         <NumericKeypad
+          ref={amountKeypadRef}
           aria-label="Importo"
+          display={
+            <div className="mb-4 rounded-xl px-4 py-6 text-center">
+              <span
+                className={`text-4xl font-bold tracking-tight tabular-nums transition-opacity ${amountCents > 0 ? "opacity-100" : "text-muted-foreground opacity-30"}`}
+              >
+                {formatCurrency(parsedAmount)}
+              </span>
+            </div>
+          }
           value={amountCents}
           onChange={setAmountCents}
           autoFocus
@@ -463,14 +477,16 @@ export function CassaClient({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="rounded-xl py-2 text-center">
-              <span className="text-3xl font-bold tracking-tight tabular-nums">
-                {"-"}
-                {formatCurrency(lineDiscountEuro())}
-              </span>
-            </div>
             <NumericKeypad
               aria-label="Sconto sulla riga"
+              display={
+                <div className="rounded-xl py-2 text-center">
+                  <span className="text-3xl font-bold tracking-tight tabular-nums">
+                    {"-"}
+                    {formatCurrency(lineDiscountEuro())}
+                  </span>
+                </div>
+              }
               autoFocus
               onSubmit={handleAddLine}
               onCancel={handleCancelLine}
