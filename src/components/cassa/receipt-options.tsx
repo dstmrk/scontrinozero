@@ -197,16 +197,18 @@ export function ReceiptOptions({
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="mb-2 rounded-xl py-2 text-center">
-                <span className="text-3xl font-bold tracking-tight tabular-nums">
-                  {formatCurrency(globalDiscountCents / 100)}
-                </span>
-              </div>
               {/* Stesso tastierino del resto della cassa: lavora gia' in
                   centesimi interi (regola 17), quindi non serve nessun parser
                   di importi. */}
               <NumericKeypad
                 aria-label="Sconto a pagare"
+                display={
+                  <div className="mb-2 rounded-xl py-2 text-center">
+                    <span className="text-3xl font-bold tracking-tight tabular-nums">
+                      {formatCurrency(globalDiscountCents / 100)}
+                    </span>
+                  </div>
+                }
                 autoFocus
                 value={globalDiscountCents}
                 onChange={onGlobalDiscountChange}

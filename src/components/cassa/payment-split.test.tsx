@@ -124,3 +124,13 @@ describe("PaymentSplit — tastiera fisica", () => {
     },
   );
 });
+
+describe("PaymentSplit — focus col puntatore", () => {
+  it("il clic sulle quote dà il focus al tastierino Contanti", () => {
+    renderSplit({ cashCents: 250 });
+
+    fireEvent.click(screen.getByText(euro(2.5)));
+
+    expect(screen.getByRole("toolbar", { name: "Contanti" })).toHaveFocus();
+  });
+});

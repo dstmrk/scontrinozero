@@ -487,6 +487,29 @@ Note operative:
 
 ---
 
+## Campo composito non nativo: il focus al clic lo gestisci tu
+
+Un "campo" fatto di un display e di bottoni (il `NumericKeypad` della cassa)
+non ha un `<input>` a cui un `<label>` possa passare il focus. Due trappole:
+
+- **Il display va dentro il contenitore focusabile**, non accanto: il clic sul
+  display diventa un clic dentro la toolbar e l'anello `focus-within` racchiude
+  l'intero campo. Un `onClick` su uno `span` accanto sarebbe un elemento
+  statico interattivo (jsx-a11y / Sonar S6847).
+- **Safari macOS non dà il focus ai `<button>` al clic.** Contare sul focus
+  nativo del bottone vuol dire che, in Safari, la cifra cliccata entra ma la
+  tastiera fisica continua a scrivere nel campo di prima. Il contenitore porta
+  il focus su di sé se `!contains(document.activeElement)`, senza rubarlo a un
+  bottone che lo ha già.
+
+Nei test `fireEvent.click` **non sposta il focus** (jsdom non lo fa al
+mousedown): il test fissa il focus altrove con `.focus()`, clicca, e verifica
+`toHaveFocus()` sul contenitore. Per un controllo esterno che deve passare il
+focus al campo (Invio nella descrizione) esponi un handle stretto con
+`useImperativeHandle` (`{ focus }`), non il nodo DOM.
+
+---
+
 ## Pagina lenta: un `await` in cima blocca tutto l'HTML
 
 Una RSC che fa `const [a, b] = await Promise.all([…])` prima di ritornare JSX

@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { KeyboardEvent, ReactNode, Ref } from "react";
 import { Delete } from "lucide-react";
 import { appendDigitCents, backspaceCents, cn } from "@/lib/utils";
 
+/** Ciò che un altro controllo della cassa può chiedere al tastierino. */
+export interface NumericKeypadHandle {
+  /** Porta il focus sulla toolbar, così la tastiera fisica scrive qui. */
+  focus: () => void;
+}
+
 interface NumericKeypadProps {
+  readonly ref?: Ref<NumericKeypadHandle>;
+  /**
+   * Il display del valore. Sta dentro la toolbar perché display e tasti sono
+   * un campo solo: il clic sul display gli dà il focus (come un `<label>` col
+   * suo input) e l'anello di focus li racchiude entrambi.
+   */
+  readonly display?: ReactNode;
   readonly value: number; // centesimi
   readonly onChange: (value: number) => void;
   /** Nome della toolbar per lo screen reader: in cassa convivono più tastierini. */
@@ -40,6 +53,8 @@ const DIGIT_RE = /^\d$/;
  * semantica a centesimi "12,50" e "1250" danno lo stesso importo.
  */
 export function NumericKeypad({
+  ref,
+  display,
   value,
   onChange,
   "aria-label": ariaLabel,
@@ -59,6 +74,14 @@ export function NumericKeypad({
       containerRef.current?.focus({ preventScroll: true });
     }
   }, [autoFocus]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => containerRef.current?.focus({ preventScroll: true }),
+    }),
+    [],
+  );
 
   useEffect(
     () => () => {
@@ -83,6 +106,17 @@ export function NumericKeypad({
 
   const handleBackspace = () => {
     onChange(backspaceCents(value));
+  };
+
+  // Un clic dentro il tastierino ci porta il focus se è ancora altrove: sul
+  // display, che non è un controllo, e sui tasti in Safari macOS, che al clic
+  // non dà il focus ai bottoni. Se il focus è già dentro (un tasto, in Chrome)
+  // non lo si sposta.
+  const handleClick = () => {
+    const container = containerRef.current;
+    if (container && !container.contains(document.activeElement)) {
+      container.focus({ preventScroll: true });
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -122,36 +156,42 @@ export function NumericKeypad({
       aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onClick={handleClick}
       className={cn(
-        "grid grid-cols-3 gap-2 rounded-xl outline-none",
+        "rounded-xl outline-none",
         "pointer-fine:focus-within:ring-ring pointer-fine:focus-within:ring-2 pointer-fine:focus-within:ring-offset-2",
       )}
     >
-      {KEYS.map((row, rowIdx) =>
-        row.map((key, colIdx) => (
-          <KeyButton
-            key={`${rowIdx}-${colIdx}`}
-            label={key}
-            pressed={pressedKey === key}
-            onClick={() => handleDigit(key)}
-          />
-        )),
+      {display !== undefined && (
+        <div className="pointer-fine:cursor-pointer">{display}</div>
       )}
+      <div className="grid grid-cols-3 gap-2">
+        {KEYS.map((row, rowIdx) =>
+          row.map((key, colIdx) => (
+            <KeyButton
+              key={`${rowIdx}-${colIdx}`}
+              label={key}
+              pressed={pressedKey === key}
+              onClick={() => handleDigit(key)}
+            />
+          )),
+        )}
 
-      {/* Bottom row: 00 | 0 | backspace */}
-      <KeyButton label="00" onClick={handle00} aria-label="00" />
-      <KeyButton
-        label="0"
-        pressed={pressedKey === "0"}
-        onClick={() => handleDigit("0")}
-      />
-      <KeyButton
-        label={<Delete className="h-5 w-5" aria-hidden="true" />}
-        aria-label={BACKSPACE_LABEL}
-        pressed={pressedKey === BACKSPACE_LABEL}
-        muted
-        onClick={handleBackspace}
-      />
+        {/* Bottom row: 00 | 0 | backspace */}
+        <KeyButton label="00" onClick={handle00} aria-label="00" />
+        <KeyButton
+          label="0"
+          pressed={pressedKey === "0"}
+          onClick={() => handleDigit("0")}
+        />
+        <KeyButton
+          label={<Delete className="h-5 w-5" aria-hidden="true" />}
+          aria-label={BACKSPACE_LABEL}
+          pressed={pressedKey === BACKSPACE_LABEL}
+          muted
+          onClick={handleBackspace}
+        />
+      </div>
     </div>
   );
 }
