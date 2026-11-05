@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnauthenticatedError } from "@/lib/auth-errors";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 
 // --- Hoisted mocks ---
 
@@ -686,6 +687,25 @@ describe("profile-actions", () => {
       const { changePassword } = await import("./profile-actions");
       const result = await changePassword(formData(VALID));
       expect(result.error).toMatch(/aggiornamento/i);
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: FAKE_USER.id }),
+        "changePassword: updateUser failed",
+      );
+    });
+
+    it("same_password: messaggio esplicito e warn, non error (regola 20)", async () => {
+      mockUpdateUser.mockResolvedValue({
+        error: { code: "same_password", status: 422, message: "same" },
+      });
+      const { changePassword } = await import("./profile-actions");
+      const result = await changePassword(formData(VALID));
+      expect(result.error).toBe(ERROR_MESSAGES.SAME_PASSWORD);
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        { userId: FAKE_USER.id, code: "same_password" },
+        "changePassword: same password rejected",
+      );
+      expect(mockSignOut).not.toHaveBeenCalled();
     });
 
     it("returns rate limit error when limiter rejects", async () => {
@@ -787,6 +807,36 @@ describe("profile-actions", () => {
       const { completePasswordReset } = await import("./profile-actions");
       const result = await completePasswordReset(formData(VALID));
       expect(result.error).toMatch(/aggiornamento/i);
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: FAKE_USER.id }),
+        "completePasswordReset: updateUser failed",
+      );
+    });
+
+    it("same_password: messaggio esplicito e warn, non error (regola 20)", async () => {
+      mockUpdateUser.mockResolvedValue({
+        error: { code: "same_password", status: 422, message: "same" },
+      });
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(formData(VALID));
+      expect(result.error).toBe(ERROR_MESSAGES.SAME_PASSWORD);
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        { userId: FAKE_USER.id, code: "same_password" },
+        "completePasswordReset: same password rejected",
+      );
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
+
+    it("altro codice 422 resta errore generico con logger.error", async () => {
+      mockUpdateUser.mockResolvedValue({
+        error: { code: "weak_password", status: 422, message: "weak" },
+      });
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(formData(VALID));
+      expect(result.error).toMatch(/aggiornamento/i);
+      expect(mockLoggerError).toHaveBeenCalled();
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
     it("signOut others is fire-and-forget — success even if revoke fails", async () => {

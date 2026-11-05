@@ -129,6 +129,13 @@ if (isExpectedUserAdeError(err)) {
 Estensione naturale: copia il pattern per Stripe (card declined),
 Resend (bounced email) appena emerge il caso.
 
+Supabase Auth ha lo stesso asse: un `AuthApiError` porta un `code`
+stabile (`same_password`, `weak_password`, …) e si distingue su quello,
+mai sul `message`. Un `updateUser` che logga ogni errore come
+`logger.error` con un "Riprova" generico trasforma "hai riscritto la
+password attuale" in issue Sentry e in un retry che non può riuscire
+(`updatePasswordErrorMessage` in `src/server/profile-actions.ts`).
+
 Il `logger.error` (level ≥ 50) → `Sentry.captureException` va riservato a
 condizioni inattese (DB down, SDK che fallisce in modo non documentato):
 un errore d'input utente in Sentry è noise esattamente come "password
