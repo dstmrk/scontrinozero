@@ -5,9 +5,37 @@ import { isSafeRelativeRedirect } from "@/lib/validation";
 import { logger } from "@/lib/logger";
 
 /**
- * Auth callback handler for Supabase email confirmation / magic link / OAuth /
- * password recovery. Exchanges the `code` query parameter for a session, then
- * redirects.
+ * Crea la sessione dai parametri del link: `token_hash` per il reset (solo
+ * `type=recovery`, l'unico che le nostre email generano), `code` PKCE per il
+ * resto. `true` se la sessione è stata creata.
+ */
+async function establishSession(searchParams: URLSearchParams) {
+  const tokenHash = searchParams.get("token_hash");
+  const code = searchParams.get("code");
+  if (tokenHash && searchParams.get("type") === "recovery") {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.verifyOtp({
+      type: "recovery",
+      token_hash: tokenHash,
+    });
+    return !error;
+  }
+  if (code) {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    return !error;
+  }
+  return false;
+}
+
+/**
+ * Auth callback handler: conferma email (PKCE, `?code=`) e reset password
+ * (`?token_hash=…&type=recovery`). Crea la sessione nei cookie, poi redirige.
+ *
+ * Il reset ha un ramo suo perché il link nasce da `admin.generateLink`, che
+ * non usa PKCE: passando da GoTrue `/verify` la sessione tornerebbe nel
+ * fragment `#access_token=…`, invisibile al server, e qui non arriverebbe mai
+ * un `code`. Con il `token_hash` la verifica la facciamo noi con `verifyOtp`.
  *
  * I redirect sono costruiti contro `getTrustedAppUrl()` (da `NEXT_PUBLIC_APP_URL`,
  * validata al boot — regola 24), NON contro l'origin di `request.url`. Dietro
@@ -31,7 +59,6 @@ export async function GET(request: Request) {
     base = origin;
   }
 
-  const code = searchParams.get("code");
   // Only allow relative redirects to prevent open redirect attacks
   // (predicato condiviso con `signIn` — vedi `isSafeRelativeRedirect`).
   const rawRedirect = searchParams.get("redirect") ?? "";
@@ -39,22 +66,18 @@ export async function GET(request: Request) {
     ? rawRedirect
     : "/dashboard";
 
-  if (code) {
-    const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (!error) {
-      return NextResponse.redirect(new URL(redirect, base));
-    }
+  if (await establishSession(searchParams)) {
+    return NextResponse.redirect(new URL(redirect, base));
   }
 
-  // If code exchange failed or no code, redirect to login with error.
-  // L'errore reale di Supabase (es. otp_expired) è nel fragment, invisibile qui;
-  // ma se il link puntava al flusso di reset (redirect=/reset-password*) sappiamo
-  // che è un link di reset scaduto/non valido e diamo a /login un codice mirato
-  // per mostrare il messaggio giusto (e indirizzare a "Password dimenticata?").
-  const failureError = redirect.startsWith("/reset-password")
-    ? "reset_link_invalid"
-    : "auth_callback_failed";
+  // Verifica fallita o parametri assenti: torna al login con un codice d'errore.
+  // Un link di reset (type=recovery, o redirect=/reset-password* sui link
+  // GoTrue già spediti prima di questo ramo) prende il codice mirato, così
+  // /login indirizza a "Password dimenticata?".
+  const failureError =
+    searchParams.get("type") === "recovery" ||
+    redirect.startsWith("/reset-password")
+      ? "reset_link_invalid"
+      : "auth_callback_failed";
   return NextResponse.redirect(new URL(`/login?error=${failureError}`, base));
 }

@@ -2,9 +2,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockExchangeCodeForSession = vi.fn();
+const mockVerifyOtp = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
-    auth: { exchangeCodeForSession: mockExchangeCodeForSession },
+    auth: {
+      exchangeCodeForSession: mockExchangeCodeForSession,
+      verifyOtp: mockVerifyOtp,
+    },
   }),
 }));
 
@@ -173,6 +177,89 @@ describe("auth callback route", () => {
     const location = new URL(response.headers.get("location")!);
     expect(location.pathname).toBe("/login");
     expect(location.searchParams.get("error")).toBe("reset_link_invalid");
+  });
+
+  describe("recovery link (token_hash)", () => {
+    // Il link di reset nasce da `admin.generateLink`, che non usa PKCE: se
+    // passasse da GoTrue /verify tornerebbe con i token nel fragment e senza
+    // `code`, e questa route lo scambierebbe per un link scaduto (bug del
+    // 05/11/2026). Per questo l'email porta qui il `token_hash` e la sessione
+    // si crea lato server con verifyOtp.
+    const RESET_URL =
+      "http://localhost:3000/callback?token_hash=hash123&type=recovery&redirect=/reset-password/update";
+
+    it("verifies the token_hash and lands on /reset-password/update", async () => {
+      mockVerifyOtp.mockResolvedValue({ error: null });
+      const { GET } = await import("./route");
+
+      const response = await GET(new Request(RESET_URL));
+
+      expect(mockVerifyOtp).toHaveBeenCalledWith({
+        type: "recovery",
+        token_hash: "hash123",
+      });
+      expect(mockExchangeCodeForSession).not.toHaveBeenCalled();
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/reset-password/update");
+    });
+
+    it("flags an expired or already-used token_hash with reset_link_invalid", async () => {
+      mockVerifyOtp.mockResolvedValue({
+        error: { message: "Email link is invalid or has expired" },
+      });
+      const { GET } = await import("./route");
+
+      const response = await GET(new Request(RESET_URL));
+
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("error")).toBe("reset_link_invalid");
+    });
+
+    it("ignores a token_hash with a type other than recovery", async () => {
+      // Solo il reset passa da token_hash: un `type` diverso non apre una
+      // sessione per una via che nessuna nostra email genera.
+      const { GET } = await import("./route");
+
+      const response = await GET(
+        new Request(
+          "http://localhost:3000/callback?token_hash=hash123&type=magiclink",
+        ),
+      );
+
+      expect(mockVerifyOtp).not.toHaveBeenCalled();
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("error")).toBe("auth_callback_failed");
+    });
+
+    it("treats type=recovery without token_hash as an invalid reset link", async () => {
+      const { GET } = await import("./route");
+
+      const response = await GET(
+        new Request("http://localhost:3000/callback?type=recovery"),
+      );
+
+      expect(mockVerifyOtp).not.toHaveBeenCalled();
+      const location = new URL(response.headers.get("location")!);
+      expect(location.searchParams.get("error")).toBe("reset_link_invalid");
+    });
+
+    it("still rejects an absolute redirect on the recovery branch", async () => {
+      mockVerifyOtp.mockResolvedValue({ error: null });
+      const { GET } = await import("./route");
+
+      const response = await GET(
+        new Request(
+          "http://localhost:3000/callback?token_hash=hash123&type=recovery&redirect=https://evil.com",
+        ),
+      );
+
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("localhost");
+      expect(location.pathname).toBe("/dashboard");
+    });
   });
 
   it("builds the redirect host from NEXT_PUBLIC_APP_URL, not the request host", async () => {
