@@ -44,16 +44,14 @@ import {
 const CURRENT_TERMS_VERSION = "v01";
 
 /**
- * Dove atterra l'utente dopo che Supabase ha verificato il token di recovery.
- * Flusso: link mail → `/auth/v1/verify` (Supabase) → `/callback`
- * (`exchangeCodeForSession` crea la sessione di recovery) → questa pagina, dove
- * `completePasswordReset` chiama `updateUser` SENZA richiedere la vecchia
- * password (è la sessione di recovery ad autorizzare il cambio). Senza questo
- * step finale il flusso si fermava sulla dashboard e la password non veniva
- * mai cambiata. Il `/callback` accetta solo redirect relativi (no open
- * redirect), quindi passiamo un path, non un URL assoluto.
+ * Dove atterra l'utente dopo che `confirmPasswordReset` ha verificato il token
+ * di recovery: `completePasswordReset` chiama `updateUser` SENZA chiedere la
+ * vecchia password, perché è la sessione di recovery ad autorizzare il cambio.
  */
 const PASSWORD_RESET_LANDING_PATH = "/reset-password/update";
+
+/** Link di reset scaduto, già usato o malformato: `/login` lo spiega. */
+const RESET_LINK_INVALID_PATH = "/login?error=reset_link_invalid";
 
 const authLimiter = new RateLimiter({
   maxRequests: 5,
@@ -882,9 +880,11 @@ export async function resetPassword(
 
   // Dal link GoTrue usiamo solo `hashed_token`. L'`action_link` (su
   // `/auth/v1/verify`) non va spedito: un link admin non è PKCE, quindi la
-  // sessione tornerebbe nel fragment `#access_token=…`, che /callback non
-  // vede, e ogni reset finiva in "link scaduto" (05/11/2026). Il link punta
-  // al nostro /callback, che verifica il token con `verifyOtp`.
+  // sessione tornerebbe nel fragment `#access_token=…`, invisibile al server
+  // (reset rotto fino al 05/11/2026). Il link porta il token alla pagina di
+  // conferma, che NON lo consuma: lo consuma `confirmPasswordReset`, al clic
+  // dell'utente. Una GET che chiamasse `verifyOtp` brucerebbe il token al
+  // primo scanner di link aziendale che apre l'email (issue #1159).
   const supabaseAdmin = createAdminSupabaseClient();
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
@@ -906,10 +906,8 @@ export async function resetPassword(
     redirect("/verify-email");
   }
 
-  const resetLink = new URL(`https://${appHostname}/callback`);
+  const resetLink = new URL(`https://${appHostname}/reset-password/confirm`);
   resetLink.searchParams.set("token_hash", tokenHash);
-  resetLink.searchParams.set("type", "recovery");
-  resetLink.searchParams.set("redirect", PASSWORD_RESET_LANDING_PATH);
 
   try {
     await sendEmail({
@@ -930,6 +928,51 @@ export async function resetPassword(
   }
 
   redirect("/verify-email");
+}
+
+/**
+ * Consuma il token del link di reset e crea la sessione di recovery nei
+ * cookie. La chiama il pulsante di `/reset-password/confirm`: il token si
+ * spende con un POST voluto dall'utente, mai con la GET del link, che uno
+ * scanner di posta aziendale può fare prima di lui (issue #1159).
+ *
+ * Token assente o rifiutato da GoTrue (scaduto, già usato) → `/login` con
+ * `reset_link_invalid`, che rimanda a "Password dimenticata?". Un 5xx o un
+ * 429 di GoTrue non dice nulla sul token: l'utente resta sulla pagina e
+ * riprova, senza richiedere un'email che non serve.
+ */
+export async function confirmPasswordReset(
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const tokenHash = getFormString(formData, "tokenHash");
+  if (!tokenHash) redirect(RESET_LINK_INVALID_PATH);
+
+  const ip = await getClientIpFromNextHeaders();
+  const rateLimited = checkRateLimit(ip, "confirmPasswordReset");
+  if (rateLimited) return rateLimited;
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.verifyOtp({
+    type: "recovery",
+    token_hash: tokenHash,
+  });
+
+  if (error) {
+    const errorClass = classifySupabaseAuthError(error);
+    // Link scaduto o già usato è input utente prevedibile (regola 20).
+    logger.warn({ errorClass }, "Password reset confirm: verifyOtp failed");
+    if (
+      errorClass === "auth_provider_5xx" ||
+      errorClass === "auth_provider_throttled"
+    ) {
+      return {
+        error: "Non siamo riusciti a verificare il link. Riprova tra poco.",
+      };
+    }
+    redirect(RESET_LINK_INVALID_PATH);
+  }
+
+  redirect(PASSWORD_RESET_LANDING_PATH);
 }
 
 // ---------------------------------------------------------------------------

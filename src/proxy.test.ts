@@ -263,29 +263,20 @@ describe("proxy", () => {
   });
 
   describe("auth-only routes — redirect if authenticated", () => {
-    it("redirects /login to /dashboard when authenticated", async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: { id: "user-123" } },
-      });
-      const { proxy } = await import("./proxy");
+    it.each(["/login", "/register", "/reset-password"])(
+      "redirects %s to /dashboard when authenticated",
+      async (path) => {
+        mockGetUser.mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        });
+        const { proxy } = await import("./proxy");
 
-      const response = await proxy(createRequest("/login"));
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.pathname).toBe("/dashboard");
-    });
-
-    it("redirects /register to /dashboard when authenticated", async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: { id: "user-123" } },
-      });
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(createRequest("/register"));
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.pathname).toBe("/dashboard");
-    });
+        const response = await proxy(createRequest(path));
+        expect(response.status).toBe(307);
+        const location = new URL(response.headers.get("location")!);
+        expect(location.pathname).toBe("/dashboard");
+      },
+    );
 
     // Issue #1099: chi ha già una sessione non accetta inviti (una persona,
     // una sola attività); aprire il link lo porta al suo dashboard.
@@ -308,6 +299,23 @@ describe("proxy", () => {
       const response = await proxy(createRequest(`/invito/${"a".repeat(43)}`));
       expect(response.status).toBe(200);
     });
+
+    // Sotto `/reset-password` due pagine si aprono CON una sessione: `/update`
+    // arriva dalla sessione di recovery appena creata, `/confirm` da un link
+    // email che chi è già loggato può aprire lo stesso. Rimbalzate sul
+    // dashboard, il reset finiva loggato ma con la password vecchia.
+    it.each(["/reset-password/update", "/reset-password/confirm?token_hash=x"])(
+      "lets an authenticated session through to %s",
+      async (path) => {
+        mockGetUser.mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        });
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(createRequest(path));
+        expect(response.status).toBe(200);
+      },
+    );
 
     it("allows unauthenticated access to /login", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });

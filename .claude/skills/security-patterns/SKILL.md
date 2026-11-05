@@ -88,16 +88,32 @@ fallimento.
 
 Regola: dal risultato di `generateLink` si usa solo
 `properties.hashed_token`, e il link si costruisce sull'host dell'app:
-`https://<app>/callback?token_hash=…&type=recovery&redirect=…`. La route
-chiama `verifyOtp({ type, token_hash })`, che scrive la sessione nei cookie
-(`src/app/(auth)/callback/route.ts`, `resetPassword` in
-`src/server/auth-actions.ts`). Per un nuovo tipo di link (magic link, email
-change) si aggiunge quel `type` all'allowlist di `establishSession`, con il
-suo test.
+`https://<app>/reset-password/confirm?token_hash=…`.
+
+**Il token lo consuma un POST, mai una GET.** Le caselle aziendali
+(Microsoft Defender Safe Links, Mimecast, Proofpoint, antivirus con
+prefetch) aprono i link delle email prima dell'utente. Una GET che chiama
+`verifyOtp` brucia il token monouso e lascia la sessione nei cookie dello
+scanner; al click vero l'utente vede "link scaduto", a ogni nuova email
+(issue #1159). Per questo la pagina di conferma non chiama Supabase e
+mostra un pulsante; il server action `confirmPasswordReset`
+(`src/server/auth-actions.ts`) chiama `verifyOtp({ type: "recovery",
+token_hash })` e porta a `/reset-password/update`. Una pagina che porta un
+token nella query ha anche: `robots` noindex, `referrer: "no-referrer"`
+nei metadata, ed è `NetworkOnly` nel service worker (`src/sw.ts`), che
+altrimenti la salverebbe in CacheStorage con il token nella chiave.
+
+Firma nei log auth di Supabase: verify riuscito pochi secondi dopo
+`generate_link` da un IP che non è quello dell'utente, poi `403 One-time
+token not found` al click vero.
+
+Un nuovo link di auth spedito da noi (magic link, email change) segue lo
+stesso schema: pagina di atterraggio senza effetti, pulsante, POST che
+consuma il token, ciascuno con i suoi test.
 
 I link che GoTrue spedisce da sé (signup via `signUp` dal client server)
-restano PKCE: `/verify` torna con `?code=` e il ramo
-`exchangeCodeForSession` li copre.
+restano PKCE: `/verify` torna con `?code=` e `/callback` li scambia con
+`exchangeCodeForSession`.
 
 Costruire il link sul nostro host rende inutile il vecchio check
 sull'hostname dell'`action_link`, tolto. Se un giorno si spedisce di nuovo

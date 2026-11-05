@@ -2088,7 +2088,7 @@ describe("auth-actions", () => {
         }
 
         expect(sentResetLink()).toBe(
-          "https://app.scontrinozero.it/callback?token_hash=abc&type=recovery&redirect=%2Freset-password%2Fupdate",
+          "https://app.scontrinozero.it/reset-password/confirm?token_hash=abc",
         );
       },
     );
@@ -2109,11 +2109,11 @@ describe("auth-actions", () => {
       }
 
       expect(sentResetLink()).toBe(
-        "https://sandbox.scontrinozero.it/callback?token_hash=abc&type=recovery&redirect=%2Freset-password%2Fupdate",
+        "https://sandbox.scontrinozero.it/reset-password/confirm?token_hash=abc",
       );
     });
 
-    it("sends PasswordResetEmail with the /callback token_hash link on success", async () => {
+    it("sends PasswordResetEmail with the confirm-page token_hash link on success", async () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
@@ -2132,7 +2132,7 @@ describe("auth-actions", () => {
         }),
       );
       expect(sentResetLink()).toBe(
-        "https://app.scontrinozero.it/callback?token_hash=abc&type=recovery&redirect=%2Freset-password%2Fupdate",
+        "https://app.scontrinozero.it/reset-password/confirm?token_hash=abc",
       );
     });
 
@@ -2250,7 +2250,7 @@ describe("auth-actions", () => {
 
       await Promise.resolve();
       expect(sentResetLink()).toBe(
-        "https://app.scontrinozero.it/callback?token_hash=abc&type=recovery&redirect=%2Freset-password%2Fupdate",
+        "https://app.scontrinozero.it/reset-password/confirm?token_hash=abc",
       );
     });
   });

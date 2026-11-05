@@ -140,6 +140,26 @@ describe("service worker (src/sw.ts)", () => {
     ).toBe(true);
   });
 
+  it("keeps the reset-password confirm page out of the runtime cache (issue #1159)", () => {
+    // Il token del reset sta nella query: la NetworkFirst delle navigazioni
+    // scriverebbe in CacheStorage la pagina con l'URL (e il token) come chiave.
+    const rule = networkOnlyRule();
+
+    expect(
+      matches(
+        rule,
+        "https://app.scontrinozero.it/reset-password/confirm?token_hash=abc",
+        true,
+      ),
+    ).toBe(true);
+    expect(
+      matches(rule, "https://app.scontrinozero.it/reset-password", true),
+    ).toBe(false);
+    expect(
+      matches(rule, "https://app.scontrinozero.it/reset-password/update", true),
+    ).toBe(false);
+  });
+
   it("leaves navigations and cross-origin requests to defaultCache", () => {
     const rule = networkOnlyRule();
 

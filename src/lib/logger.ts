@@ -37,6 +37,7 @@ export const REDACT_PATHS = [
   "apiKeyRaw",
   "actionLink",
   "resetLink",
+  "tokenHash",
   "*.password",
   "*.pin",
   "*.credentials",
@@ -51,6 +52,7 @@ export const REDACT_PATHS = [
   "*.apiKeyRaw",
   "*.actionLink",
   "*.resetLink",
+  "*.tokenHash",
 ];
 
 /**

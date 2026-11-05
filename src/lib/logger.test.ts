@@ -499,4 +499,23 @@ describe("logger REDACT_PATHS — Sentry Logs (pino integration) safety", () => 
     expect(parsed.ipHash).toBe("abc123");
     expect(parsed.ip).toBe("[REDACTED]");
   });
+
+  // Issue #1159: il token_hash del reset password è una credenziale
+  // monouso. Il codice non lo logga, ma se un giorno finisse in un
+  // oggetto di log deve uscire censurato, come `token`.
+  it("censors 'tokenHash' top-level and nested", async () => {
+    const { REDACT_PATHS } = await import("./logger");
+    const { logger, getOutput } = createTestLogger({
+      redact: { paths: [...REDACT_PATHS], censor: "[REDACTED]" },
+    });
+
+    logger.warn(
+      { tokenHash: "RESET-SECRET", form: { tokenHash: "NESTED-SECRET" } },
+      "reset",
+    );
+
+    const output = getOutput();
+    expect(output).not.toContain("RESET-SECRET");
+    expect(output).not.toContain("NESTED-SECRET");
+  });
 });
