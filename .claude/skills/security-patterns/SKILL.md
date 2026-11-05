@@ -75,36 +75,35 @@ La validation UUID sta al route handler boundary, non dentro il service.
 
 ---
 
-## Hostname validation di link Supabase prima di emailing
+## Link di auth spediti da noi: `token_hash` sul nostro dominio
 
-Prima di mandare via email qualsiasi link generato da Supabase (password reset,
-magic link, email change), assertare che l'URL inizi con `https://${expectedHostname}`.
-Una misconfig Supabase (Site URL sbagliato) può produrre link a domini inattesi,
-abilitando open redirect.
+Un link generato con `admin.generateLink` **non è PKCE**. Il suo
+`action_link` passa da GoTrue `/auth/v1/verify`, che consuma il token e
+rimanda a `redirect_to` con la sessione nel **fragment**
+(`#access_token=…`). Il fragment non arriva mai al server: `/callback`, che
+cerca `?code=`, vede un link "scaduto" anche quando il token era valido.
+Così il reset password è rimasto rotto per tutti dal 30/05 al 05/11/2026; i
+log auth mostravano `/verify` 303 con `action: login` subito prima del
+fallimento.
 
-Se il check fallisce: log error, NON inviare email, redirect utente a
-`/verify-email` con messaggio generico.
+Regola: dal risultato di `generateLink` si usa solo
+`properties.hashed_token`, e il link si costruisce sull'host dell'app:
+`https://<app>/callback?token_hash=…&type=recovery&redirect=…`. La route
+chiama `verifyOtp({ type, token_hash })`, che scrive la sessione nei cookie
+(`src/app/(auth)/callback/route.ts`, `resetPassword` in
+`src/server/auth-actions.ts`). Per un nuovo tipo di link (magic link, email
+change) si aggiunge quel `type` all'allowlist di `establishSession`, con il
+suo test.
 
-### URL parsing vs `startsWith`
+I link che GoTrue spedisce da sé (signup via `signUp` dal client server)
+restano PKCE: `/verify` torna con `?code=` e il ramo
+`exchangeCodeForSession` li copre.
 
-`link.startsWith("https://mio.dominio.it")` è bypassabile con
-`https://mio.dominio.it.attacker.tld/`. Pattern corretto:
-
-```typescript
-let parsed: URL | null = null;
-try {
-  parsed = new URL(link);
-} catch {
-  /* malformed */
-}
-if (
-  !parsed ||
-  parsed.protocol !== "https:" ||
-  parsed.hostname !== expectedHostname
-) {
-  // blocca
-}
-```
+Costruire il link sul nostro host rende inutile il vecchio check
+sull'hostname dell'`action_link`, tolto. Se un giorno si spedisce di nuovo
+un URL ricevuto da un servizio esterno, si valida con `new URL()` e
+confronto esatto di `protocol` e `hostname`, mai `startsWith`
+(`https://mio.dominio.it.attacker.tld/` passa un prefix check).
 
 ---
 

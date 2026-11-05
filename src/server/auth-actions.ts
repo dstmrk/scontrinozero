@@ -880,28 +880,24 @@ export async function resetPassword(
       process.env.NEXT_PUBLIC_APP_HOSTNAME, // baked at build time
     ) ?? "app.scontrinozero.it";
 
+  // Dal link GoTrue usiamo solo `hashed_token`. L'`action_link` (su
+  // `/auth/v1/verify`) non va spedito: un link admin non è PKCE, quindi la
+  // sessione tornerebbe nel fragment `#access_token=…`, che /callback non
+  // vede, e ogni reset finiva in "link scaduto" (05/11/2026). Il link punta
+  // al nostro /callback, che verifica il token con `verifyOtp`.
   const supabaseAdmin = createAdminSupabaseClient();
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
     email,
-    // Pin where the user lands after Supabase verifies the token. Must be in the
-    // Supabase Redirect URLs allow-list (the /callback route already is — used by
-    // signup/OAuth), otherwise GoTrue falls back to the Site URL. Makes the
-    // redirect_to validated below deterministic, not dependent on dashboard config.
-    options: {
-      redirectTo: `https://${appHostname}/callback?redirect=${encodeURIComponent(
-        PASSWORD_RESET_LANDING_PATH,
-      )}`,
-    },
   });
+  const tokenHash = data?.properties?.hashed_token;
 
-  if (error || !data.properties?.action_link) {
+  if (error || !tokenHash) {
     // Causa di gran lunga più comune: email non registrata → GoTrue risponde
     // "User not found". È input utente prevedibile, non un bug nostro: warn
     // (osservabilità in pino → Sentry Logs) ma NON un'issue Sentry. Allinea
     // questo branch al flow gemello resendConfirmationEmail (CLAUDE.md regola
-    // 20, SCONTRINOZERO-Q). Il logger.error resta riservato al mismatch di
-    // hostname sotto, che segnala una vera misconfigurazione/anomalia.
+    // 20, SCONTRINOZERO-Q).
     logger.warn(
       { errorClass: classifySupabaseAuthError(error ?? {}) },
       "Reset password generateLink failed",
@@ -910,61 +906,17 @@ export async function resetPassword(
     redirect("/verify-email");
   }
 
-  // Defensive check: the link the user clicks must point to OUR Supabase issuer
-  // (the /auth/v1/verify endpoint), and its embedded redirect_to must point back
-  // to OUR app domain. generateLink returns an action_link on the SUPABASE project
-  // host (e.g. <ref>.supabase.co), NOT on the app host — so the action_link is
-  // validated against NEXT_PUBLIC_SUPABASE_URL, while redirect_to carries the app
-  // host. Parse the URLs explicitly instead of using startsWith — a prefix check
-  // can be bypassed via subdomain spoofing (e.g., https://<host>.evil.tld/).
-  const actionLink = data.properties.action_link;
-  let supabaseHostname: string | null = null;
-  try {
-    supabaseHostname = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
-      .hostname;
-  } catch {
-    // Missing or malformed NEXT_PUBLIC_SUPABASE_URL — treat as mismatch
-  }
-  let parsedActionLink: URL | null = null;
-  try {
-    parsedActionLink = new URL(actionLink);
-  } catch {
-    // Malformed URL — treat as mismatch
-  }
-  let parsedRedirectTo: URL | null = null;
-  try {
-    parsedRedirectTo = new URL(
-      parsedActionLink?.searchParams.get("redirect_to") ?? "",
-    );
-  } catch {
-    // Missing or malformed redirect_to — treat as mismatch
-  }
-  if (
-    !supabaseHostname ||
-    parsedActionLink?.protocol !== "https:" ||
-    parsedActionLink.hostname !== supabaseHostname ||
-    parsedRedirectTo?.protocol !== "https:" ||
-    parsedRedirectTo.hostname !== appHostname
-  ) {
-    logger.error(
-      {
-        actionLinkHostname: parsedActionLink?.hostname ?? null,
-        supabaseHostname,
-        redirectToHostname: parsedRedirectTo?.hostname ?? null,
-        appHostname,
-        hasToken: true,
-      },
-      "Reset password: action_link hostname mismatch or invalid URL — email not sent",
-    );
-    redirect("/verify-email");
-  }
+  const resetLink = new URL(`https://${appHostname}/callback`);
+  resetLink.searchParams.set("token_hash", tokenHash);
+  resetLink.searchParams.set("type", "recovery");
+  resetLink.searchParams.set("redirect", PASSWORD_RESET_LANDING_PATH);
 
   try {
     await sendEmail({
       to: email,
       subject: "Reimposta la tua password — ScontrinoZero",
       react: createElement(PasswordResetEmail, {
-        resetLink: actionLink,
+        resetLink: resetLink.toString(),
       }),
     });
   } catch (err) {
