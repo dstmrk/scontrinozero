@@ -19,6 +19,9 @@ describe("ERROR_MESSAGES", () => {
       "Le password non coincidono.",
     );
     expect(ERROR_MESSAGES.UNAUTHORIZED).toBe("Non autorizzato.");
+    expect(ERROR_MESSAGES.SAME_PASSWORD).toBe(
+      "La nuova password deve essere diversa da quella attuale.",
+    );
   });
 
   it("distingue errore transiente server e offline (entrambi retry-able)", () => {

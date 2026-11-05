@@ -559,11 +559,9 @@ export async function changePassword(
     password: newPassword,
   });
   if (updateError) {
-    logger.error(
-      { err: updateError, userId: user.id },
-      "changePassword: updateUser failed",
-    );
-    return { error: "Aggiornamento password fallito. Riprova." };
+    return {
+      error: updatePasswordErrorMessage(updateError, user.id, "changePassword"),
+    };
   }
 
   // Revoca le altre sessioni dell'utente. Supabase per default NON
@@ -638,11 +636,13 @@ export async function completePasswordReset(
     password: newPassword,
   });
   if (updateError) {
-    logger.error(
-      { err: updateError, userId: user.id },
-      "completePasswordReset: updateUser failed",
-    );
-    return { error: "Aggiornamento password fallito. Riprova." };
+    return {
+      error: updatePasswordErrorMessage(
+        updateError,
+        user.id,
+        "completePasswordReset",
+      ),
+    };
   }
 
   // Revoca le altre sessioni: chi resetta perché un attaccante gli ha preso
@@ -651,6 +651,26 @@ export async function completePasswordReset(
   await revokeOtherSessionsWithRetry(supabase, user.id);
 
   return {};
+}
+
+/**
+ * Traduce l'errore di `updateUser({ password })` nel messaggio per l'utente.
+ * `same_password` (GoTrue 422) è input prevedibile — l'utente ha riscritto la
+ * password attuale — quindi warn senza `err`, niente issue Sentry (regola 20),
+ * e un messaggio che dice cosa cambiare invece di un "Riprova" inutile.
+ * Qualsiasi altro codice resta un errore nostro o di Supabase.
+ */
+function updatePasswordErrorMessage(
+  err: { code?: string },
+  userId: string,
+  flow: "changePassword" | "completePasswordReset",
+): string {
+  if (err.code === "same_password") {
+    logger.warn({ userId, code: err.code }, `${flow}: same password rejected`);
+    return ERROR_MESSAGES.SAME_PASSWORD;
+  }
+  logger.error({ err, userId }, `${flow}: updateUser failed`);
+  return "Aggiornamento password fallito. Riprova.";
 }
 
 /**

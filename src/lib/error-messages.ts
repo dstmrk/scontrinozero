@@ -26,6 +26,8 @@ export const ERROR_MESSAGES = {
   PASSWORD_NOT_STRONG: `Password non sicura. ${PASSWORD_REQUIREMENTS_MESSAGE}`,
   NEW_PASSWORD_NOT_STRONG: `La nuova password non è sicura. ${PASSWORD_REQUIREMENTS_MESSAGE}`,
   PASSWORDS_MISMATCH: "Le password non coincidono.",
+  /** GoTrue `same_password` (422): input utente, ritentare è inutile. */
+  SAME_PASSWORD: "La nuova password deve essere diversa da quella attuale.",
   UNAUTHORIZED: "Non autorizzato.",
   /** Eccezione inattesa lato server (DB/SDK): transiente, retry sicuro. */
   GENERIC_TRANSIENT:
