@@ -10,6 +10,7 @@ const {
   mockRedirect,
   mockLoggerError,
   mockLoggerWarn,
+  mockVerifyOtp,
 } = vi.hoisted(() => ({
   mockGenerateLink: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
@@ -17,6 +18,7 @@ const {
   mockRedirect: vi.fn(),
   mockLoggerError: vi.fn(),
   mockLoggerWarn: vi.fn(),
+  mockVerifyOtp: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -40,7 +42,9 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(async () => ({
+    auth: { verifyOtp: mockVerifyOtp },
+  })),
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -145,10 +149,10 @@ describe("resetPassword — reset link", () => {
     });
   });
 
-  it("emails a link to /callback with token_hash, type=recovery and the update landing", async () => {
-    // Regressione 05/11/2026: l'email portava l'action_link di GoTrue, che
-    // per un link admin (no PKCE) torna con la sessione nel fragment. Il
-    // /callback non vedeva nessun `code` e mostrava sempre "link scaduto".
+  it("emails a link to the confirm page carrying only the token_hash", async () => {
+    // Issue #1159: il link non punta più a /callback, che consumava il token
+    // alla prima GET (anche quella di uno scanner aziendale). La pagina di
+    // conferma non chiama Supabase: il token lo consuma il clic dell'utente.
     mockSuccessfulGenerateLink();
 
     const { resetPassword } = await import("@/server/auth-actions");
@@ -160,10 +164,9 @@ describe("resetPassword — reset link", () => {
     const link = sentResetLink();
     expect(link.protocol).toBe("https:");
     expect(link.host).toBe(APP_HOSTNAME);
-    expect(link.pathname).toBe("/callback");
+    expect(link.pathname).toBe("/reset-password/confirm");
+    expect([...link.searchParams.keys()]).toEqual(["token_hash"]);
     expect(link.searchParams.get("token_hash")).toBe(HASHED_TOKEN);
-    expect(link.searchParams.get("type")).toBe("recovery");
-    expect(link.searchParams.get("redirect")).toBe("/reset-password/update");
     expect(mockRedirect).toHaveBeenCalledWith("/verify-email");
   });
 
@@ -250,5 +253,133 @@ describe("resetPassword — reset link", () => {
       expect.objectContaining({ err: expect.any(Error) }),
       "Password reset email failed",
     );
+  });
+});
+
+describe("confirmPasswordReset — il clic che consuma il token", () => {
+  // Issue #1159: la GET della pagina di conferma non tocca Supabase; è questo
+  // POST, partito dal pulsante, a chiamare verifyOtp. Uno scanner che apre il
+  // link non brucia più il token.
+  function confirmFormData(tokenHash: string | null): FormData {
+    const fd = new FormData();
+    if (tokenHash !== null) fd.set("tokenHash", tokenHash);
+    return fd;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRateLimiterCheck.mockReturnValue({ success: true });
+    setupRedirectThrows();
+  });
+
+  it("verifies the token_hash and lands on /reset-password/update", async () => {
+    mockVerifyOtp.mockResolvedValue({ error: null });
+
+    const { confirmPasswordReset } = await import("@/server/auth-actions");
+    await expect(
+      confirmPasswordReset(confirmFormData(HASHED_TOKEN)),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      type: "recovery",
+      token_hash: HASHED_TOKEN,
+    });
+    expect(mockRedirect).toHaveBeenCalledWith("/reset-password/update");
+  });
+
+  it("sends an expired or already-used token to /login with reset_link_invalid", async () => {
+    mockVerifyOtp.mockResolvedValue({
+      error: { status: 403, message: "Email link is invalid or has expired" },
+    });
+
+    const { confirmPasswordReset } = await import("@/server/auth-actions");
+    await expect(
+      confirmPasswordReset(confirmFormData(HASHED_TOKEN)),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      "/login?error=reset_link_invalid",
+    );
+    // Input utente prevedibile (regola 20): warn, mai un'issue Sentry.
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      { errorClass: "other" },
+      "Password reset confirm: verifyOtp failed",
+    );
+    expect(mockLoggerError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: "missing", tokenHash: null },
+    { name: "empty", tokenHash: "" },
+    { name: "whitespace only", tokenHash: "   " },
+  ])(
+    "does not call Supabase when the token_hash is $name",
+    async ({ tokenHash }) => {
+      const { confirmPasswordReset } = await import("@/server/auth-actions");
+      await expect(
+        confirmPasswordReset(confirmFormData(tokenHash)),
+      ).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockVerifyOtp).not.toHaveBeenCalled();
+      expect(mockRateLimiterCheck).not.toHaveBeenCalled();
+      expect(mockRedirect).toHaveBeenCalledWith(
+        "/login?error=reset_link_invalid",
+      );
+    },
+  );
+
+  it.each([
+    { status: 500, errorClass: "auth_provider_5xx" },
+    { status: 429, errorClass: "auth_provider_throttled" },
+  ])(
+    "keeps the user on the page to retry when Supabase answers $status",
+    async ({ status, errorClass }) => {
+      // Un 5xx o un 429 di GoTrue non dice nulla sul token, che con ogni
+      // probabilità è ancora buono: mandare l'utente a "link scaduto" gli
+      // farebbe richiedere un'email che non serve.
+      mockVerifyOtp.mockResolvedValue({
+        error: { status, message: "upstream" },
+      });
+
+      const { confirmPasswordReset } = await import("@/server/auth-actions");
+      const result = await confirmPasswordReset(confirmFormData(HASHED_TOKEN));
+
+      expect(result).toEqual({
+        error: "Non siamo riusciti a verificare il link. Riprova tra poco.",
+      });
+      expect(mockRedirect).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        { errorClass },
+        "Password reset confirm: verifyOtp failed",
+      );
+    },
+  );
+
+  it("returns the rate-limit error without calling Supabase", async () => {
+    mockRateLimiterCheck.mockReturnValue({ success: false });
+
+    const { confirmPasswordReset } = await import("@/server/auth-actions");
+    const result = await confirmPasswordReset(confirmFormData(HASHED_TOKEN));
+
+    expect(result.error).toEqual(expect.any(String));
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("never logs the token_hash", async () => {
+    mockVerifyOtp.mockResolvedValue({
+      error: { status: 403, message: "expired" },
+    });
+
+    const { confirmPasswordReset } = await import("@/server/auth-actions");
+    await expect(
+      confirmPasswordReset(confirmFormData(HASHED_TOKEN)),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    const logged = JSON.stringify([
+      mockLoggerWarn.mock.calls,
+      mockLoggerError.mock.calls,
+    ]);
+    expect(logged).not.toContain(HASHED_TOKEN);
   });
 });

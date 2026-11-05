@@ -26,6 +26,26 @@ const PROTECTED_PREFIXES = ["/admin", "/dashboard", "/onboarding"];
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password", "/invito"];
 
 /**
+ * Pagine sotto un AUTH_ONLY_PATH che si aprono CON una sessione, quindi
+ * escluse dal redirect al dashboard. `/reset-password/update` è dove
+ * `confirmPasswordReset` porta la sessione di recovery appena creata;
+ * `/reset-password/confirm` è il link dell'email, che apre anche chi è già
+ * loggato su quel browser. Rimbalzato sul dashboard, il reset lasciava
+ * l'utente dentro con la password vecchia.
+ */
+const SESSION_ALLOWED_AUTH_PATHS = [
+  "/reset-password/confirm",
+  "/reset-password/update",
+];
+
+function isAuthOnlyPath(pathname: string): boolean {
+  return (
+    AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path)) &&
+    !SESSION_ALLOWED_AUTH_PATHS.some((path) => pathname.startsWith(path))
+  );
+}
+
+/**
  * True per le sole route il cui esito dipende dalla sessione auth: i
  * PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS (redirect-se-loggato).
  * Per ogni altra route (marketing/SSG) il middleware non deve nemmeno creare
@@ -353,7 +373,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Auth-only routes: redirect to /dashboard if already authenticated
-  if (user && AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path))) {
+  if (user && isAuthOnlyPath(pathname)) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     const redirectResponse = NextResponse.redirect(dashboardUrl);

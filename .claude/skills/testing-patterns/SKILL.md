@@ -708,6 +708,30 @@ bottone, uno aveva già la guardia e l'altro no — ed era l'unico dei due a
 fallire, una run completa su quattro. Quando un flake sparisce su un test e
 resta su quello accanto, la differenza fra i due è la diagnosi.
 
+### Una action mai risolta tiene in pending i test successivi
+
+Per provare lo stato di pending viene spontaneo
+`mockAction.mockReturnValue(new Promise(() => {}))`. Con React 19 è una
+trappola: le transition async ancora aperte restano **legate fra loro**,
+anche fra root diverse, e `isPending` torna `false` solo quando si chiudono
+tutte. La promise mai risolta del test N lascia `disabled` il bottone del
+test N+1, che aspetta fino al timeout un render che non arriva. Il dump del
+DOM mostra il messaggio d'errore già comparso e il bottone ancora inerte.
+
+La fix: una promise che il test risolve prima di uscire.
+
+```tsx
+let settle: (value: undefined) => void = () => {};
+mockAction.mockReturnValue(new Promise((r) => (settle = r)));
+// … asserzioni sul pending …
+settle(undefined);
+expect(await screen.findByRole("button", { name: "Conferma" })).toBeEnabled();
+```
+
+Misurato su `reset-password/confirm/confirm-reset-form.test.tsx` (issue
+#1159): il test di pending passava, quello dopo falliva da solo e passava
+in isolamento.
+
 ## Assert su una query Drizzle: `String(sql\`…\`)` non guarda niente
 
 Un template `sql` è un **oggetto**, non una stringa: il testo vive nei

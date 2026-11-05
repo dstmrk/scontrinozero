@@ -309,6 +309,35 @@ describe("proxy", () => {
       expect(response.status).toBe(200);
     });
 
+    it("redirects /reset-password to /dashboard when authenticated", async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+      });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/reset-password"));
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/dashboard");
+    });
+
+    // Sotto `/reset-password` due pagine si aprono CON una sessione: `/update`
+    // arriva dalla sessione di recovery appena creata, `/confirm` da un link
+    // email che chi è già loggato può aprire lo stesso. Rimbalzate sul
+    // dashboard, il reset finiva loggato ma con la password vecchia.
+    it.each(["/reset-password/update", "/reset-password/confirm?token_hash=x"])(
+      "lets an authenticated session through to %s",
+      async (path) => {
+        mockGetUser.mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        });
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(createRequest(path));
+        expect(response.status).toBe(200);
+      },
+    );
+
     it("allows unauthenticated access to /login", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { proxy } = await import("./proxy");

@@ -1,15 +1,17 @@
 /**
- * Mappa i codici `?error=` impostati dal route handler `/callback`
- * (`src/app/(auth)/callback/route.ts`) nel messaggio mostrato sulla pagina
- * `/login`.
+ * Mappa i codici `?error=` con cui i link delle email riportano a `/login`
+ * nel messaggio mostrato sulla pagina.
  *
- * Perché esiste: l'errore reale di Supabase (es. `otp_expired`) viaggia nel
- * **fragment** `#` dell'URL, invisibile al server. Il `/callback` non può
- * leggerlo, ma sa (a) che lo scambio del code è fallito / assente e (b) verso
- * quale flusso puntava il link, dal parametro `redirect` (server-visible). Da
- * questi due fatti deriva un codice d'errore stabile che qui traduciamo in copy
- * utente. Funzione pura → testabile a sé (la pagina /login è esclusa dalla
- * coverage).
+ * - `auth_callback_failed` — lo imposta `/callback`
+ *   (`src/app/(auth)/callback/route.ts`) quando lo scambio del `code` PKCE
+ *   della conferma email fallisce o il `code` manca. L'errore reale di
+ *   Supabase (es. `otp_expired`) viaggia nel fragment `#`, invisibile al
+ *   server: il codice stabile lo sostituisce.
+ * - `reset_link_invalid` — lo imposta `confirmPasswordReset`
+ *   (`src/server/auth-actions.ts`) quando il token del reset manca o GoTrue lo
+ *   rifiuta (scaduto, già usato).
+ *
+ * Funzione pura → testabile a sé (la pagina /login è esclusa dalla coverage).
  */
 export function mapAuthCallbackError(code: string | null): string | null {
   switch (code) {

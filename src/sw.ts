@@ -32,11 +32,17 @@ declare const self: ServiceWorkerGlobalScope;
 // sulla `NetworkFirst` delle navigazioni di `defaultCache`. Non è autenticata —
 // nessun leak cross-account — ed è un artefatto da consegnare al cliente, per
 // cui poterla mostrare offline è un vantaggio, non un rischio.
+//
+// `/reset-password/confirm` porta nella query il token del reset password
+// (issue #1159): la `NetworkFirst` delle navigazioni salverebbe la pagina in
+// CacheStorage con l'URL, quindi il token, come chiave.
 const runtimeCaching: RuntimeCaching[] = [
   {
     matcher: ({ url, sameOrigin }) =>
       sameOrigin &&
-      (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/")),
+      (url.pathname.startsWith("/api/") ||
+        url.pathname.startsWith("/v1/") ||
+        url.pathname === "/reset-password/confirm"),
     handler: new NetworkOnly(),
   },
   ...defaultCache,
