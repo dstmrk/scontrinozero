@@ -4,11 +4,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────
 
-const mockCaptureException = vi.fn<(error: unknown) => void>();
+const mockCaptureException =
+  vi.fn<(error: unknown, context?: unknown) => void>();
 const mockFlush = vi.fn<(timeout?: number) => Promise<boolean>>();
 
 vi.mock("@sentry/nextjs", () => ({
-  captureException: (error: unknown) => mockCaptureException(error),
+  captureException: (error: unknown, context?: unknown) =>
+    mockCaptureException(error, context),
   flush: (timeout?: number) => mockFlush(timeout),
 }));
 
@@ -101,7 +103,10 @@ describe("AppErrorFallback — guasto generico", () => {
 
     render(<AppErrorFallback error={clientError} reset={vi.fn()} />);
 
-    expect(mockCaptureException).toHaveBeenCalledExactlyOnceWith(clientError);
+    expect(mockCaptureException).toHaveBeenCalledExactlyOnceWith(
+      clientError,
+      undefined,
+    );
   });
 
   it("cattura una sola volta anche se il boundary ri-renderizza sullo stesso errore", () => {
@@ -175,7 +180,23 @@ describe("AppErrorFallback — deploy skew", () => {
 
     render(<AppErrorFallback error={error} reset={vi.fn()} />);
 
-    expect(mockCaptureException).toHaveBeenCalledExactlyOnceWith(error);
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException.mock.calls[0][0]).toBe(error);
+  });
+
+  it("raggruppa ogni skew in una issue sola, come warning, qualunque sia l'ID dell'action", () => {
+    // Ogni release cambia gli ID e il messaggio li contiene: senza fingerprint
+    // fisso Sentry apriva una issue "new" a release (SCONTRINOZERO-Z, -1C).
+    render(<AppErrorFallback error={skewError()} reset={vi.fn()} />);
+
+    expect(mockCaptureException).toHaveBeenCalledExactlyOnceWith(
+      expect.any(Error),
+      {
+        fingerprint: ["deploy-skew"],
+        level: "warning",
+        tags: { errorClass: "deploy_skew" },
+      },
+    );
   });
 
   it("offre il ricarico manuale quando un reload è già stato tentato da poco", async () => {

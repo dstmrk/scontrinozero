@@ -36,6 +36,20 @@ import {
  */
 const SENTRY_FLUSH_TIMEOUT_MS = 2000;
 
+/**
+ * Contesto Sentry dell'evento di skew. Messaggio (contiene l'ID dell'action) e
+ * frame minificati cambiano a ogni build, e il grouping di default ci si
+ * appoggia: lo stesso fenomeno già gestito è finito in issue "new" distinte
+ * (SCONTRINOZERO-Z, poi -1C).
+ * Così resta una issue sola, con il conteggio per release che è la metrica che
+ * ci interessa; `warning` perché lo skew è atteso e il recupero è automatico.
+ */
+const DEPLOY_SKEW_CAPTURE_CONTEXT = {
+  fingerprint: ["deploy-skew"],
+  level: "warning" as const,
+  tags: { errorClass: "deploy_skew" },
+};
+
 interface AppErrorFallbackProps {
   error: Error & { digest?: string };
   reset: () => void;
@@ -58,7 +72,10 @@ export function AppErrorFallback({
     // significherebbe contare due volte lo stesso guasto. Gli errori client
     // — skew compreso — non hanno digest e nessun altro li vede.
     if (!error.digest) {
-      Sentry.captureException(error);
+      Sentry.captureException(
+        error,
+        isSkew ? DEPLOY_SKEW_CAPTURE_CONTEXT : undefined,
+      );
     }
     if (!isSkew) return;
 

@@ -91,7 +91,7 @@ describe("DashboardError — cattura Sentry senza doppioni", () => {
     render(<DashboardError error={clientError} reset={vi.fn()} />);
 
     expect(mockCaptureException).toHaveBeenCalledTimes(1);
-    expect(mockCaptureException).toHaveBeenCalledWith(clientError);
+    expect(mockCaptureException).toHaveBeenCalledWith(clientError, undefined);
   });
 
   it("cattura una sola volta anche se il boundary ri-renderizza sullo stesso errore", () => {
