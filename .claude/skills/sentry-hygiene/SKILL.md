@@ -580,6 +580,29 @@ quelli che il drain ha visto abbastanza spesso (`errorClass`, `documentId`,
 ancora più fuorviante. Prima di concludere che un log non arriva, riprova con
 `tags[...]`: nel caso SCONTRINOZERO-M il `bodyExcerpt` era lì da sempre.
 
+### `[Filtered]` su un valore: lo scrubbing di Sentry guarda anche i valori
+
+`[Filtered]` è il marcatore di Sentry, non di pino (che scrive
+`[Redacted]`, `REDACT_PATHS`). Lo scrubbing lato server, attivo di default,
+censura una chiave il cui **nome** contiene `password`, `secret`, `auth`,
+`credentials`, `token`, `bearer`, `api_key`… e anche ogni **valore** che
+contiene una di quelle parole, senza distinguere maiuscole e minuscole
+([docs](https://docs.sentry.io/security-legal-pii/scrubbing/server-side-scrubbing/)).
+Quindi `details: "INVALID_CREDENTIALS"` di `ade:auth_failed` è arrivato
+`[Filtered]` in ogni evento per mesi, e così arriverebbe un `outcome:
+"auth_error"` o `"password_expired"`. Il caso reale è del 06/11/2026: un
+esercente con 7 rifiuti, il campo che li distingueva illeggibile, la
+risposta letta dallo stdout del container.
+
+Un attributo che deve restare leggibile su Sentry Logs porta un valore
+**nostro**, senza quelle parole (`detailsKind: "invalid" | "unrecognized" |
+"absent"`), e il valore grezzo resta per lo stdout. Non si aggira lo
+scrubber codificando il valore, e non lo si spegne con un "Safe Field" su
+una chiave generica: entrambe le mosse aprono la porta a un segreto vero.
+Gate: `isScrubbedBySentry` (`tests/_helpers/sentry-scrubbed-values.ts`),
+usato dal test di `ade:auth_failed` in `src/lib/ade/real-client.test.ts`;
+riusalo per ogni attributo nuovo il cui valore viene da un vocabolario.
+
 ### Un evento solo non basta: i log del container completano la storia
 
 Sentry tiene l'evento, non la **sequenza intorno**. Il 405 di SCONTRINOZERO-M
@@ -596,7 +619,9 @@ inciampi che costano dieci minuti: `SHIMAU_PROD_URL` è **senza schema**, quindi
 va prefissato `https://` a mano o il 301 di Cloudflare mangia l'header
 `Authorization`; e il flusso contiene anche dump non-JSON di `console` (le
 NOTICE Postgres del bootstrap migrazioni), quindi si filtra con
-`grep '^{"level":'` prima di passare a `jq`.
+`grep '^{"level":'` prima di passare a `jq`. Lo stdout parte dall'ultimo
+avvio del container: dopo un deploy le righe precedenti non ci sono più, e
+quello che resta è solo Sentry.
 
 ---
 
