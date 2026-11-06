@@ -347,6 +347,16 @@ salvata. Per questo `verifyAdeCredentials` alza `credentialsRejected` solo su
 credenziali non viene risalvata (`updated_at` cambia). Su `ACCOUNT_LOCKED` il
 bottone resta: una volta sbloccata l'utenza, gli stessi dati sono giusti.
 
+**Un bottone nascosto non è una guardia.** Il 06/11/2026 un esercente ha
+ripremuto "Verifica connessione" otto ore dopo il rifiuto, con gli stessi
+dati: l'onboarding (`src/app/onboarding/onboarding-form.tsx`, componente
+diverso dalle impostazioni) ignorava `credentialsRejected`, e comunque un
+reload riparte dallo step di verifica con lo stato pulito. Ora la guardia
+sta in `verifyStoredCredentials`: con `auth_error` registrato dopo l'ultimo
+salvataggio (`isOutcomeOnStoredCredentials`) risponde col rifiuto senza
+login, senza esito registrato e senza contatore. Le due UI tolgono il
+bottone; la terza superficie che chiamerà l'azione è coperta lo stesso.
+
 Lo stesso vale, moltiplicato, per i **login automatici** (emissione, annullo,
 reso, ricerca, verifica dei pending), che nessuno guarda. Fino alla issue
 #1099 un rifiuto in emissione non toccava `verified_at`, e ogni operazione
@@ -391,8 +401,8 @@ Due trappole. La re-auth su 401 traduceva ogni fallimento in
 `AdeSessionExpiredError`: un rifiuto delle credenziali deve risalire com'è,
 o non ferma nulla. E `last_verify_outcome` **non** si azzera al salvataggio,
 quindi chi lo legge per decidere un messaggio deve controllare che sia più
-recente di `updated_at` (`isPasswordExpiredOnStoredCredentials` in
-`src/lib/server-auth.ts`). Lì sta anche il motivo per cui la password scaduta
+recente di `updated_at` (`isOutcomeOnStoredCredentials` in
+`src/lib/ade/verify-outcome.ts`). Lì sta anche il motivo per cui la password scaduta
 risponde ancora `ADE_PASSWORD_EXPIRED` dopo lo stop: `409` è contratto
 pubblico di `/api/v1`, e "credenziali non verificate" sarebbe uscito come
 `422 ADE_REJECTED`.
