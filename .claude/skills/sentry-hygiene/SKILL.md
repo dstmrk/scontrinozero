@@ -334,6 +334,16 @@ fallback condiviso (`src/components/errors/app-error-fallback.tsx`) fa
 `Sentry.flush()` **prima** del reload: il reload interrompe le richieste in
 volo e senza flush l'evento appena accodato può non partire.
 
+**Come si legge su Sentry**: l'evento esce con fingerprint fisso
+`["deploy-skew"]`, livello `warning` e tag `errorClass:deploy_skew`
+(`DEPLOY_SKEW_CAPTURE_CONTEXT` nel fallback). Messaggio (con l'ID
+dell'action) e frame minificati cambiano a ogni build, e il grouping di
+default ci si appoggia: lo stesso fenomeno già gestito è finito in issue "new"
+distinte (Z, poi **SCONTRINOZERO-1C**). Ora è una issue sola: il segnale è il conteggio per
+release, non la sua comparsa. Un solo evento per sessione vuol dire che il
+reload ha guarito; due nella finestra di cooldown, che il bundle vecchio torna
+da una cache.
+
 Due lezioni di contorno, ripescabili su qualsiasi errore client:
 
 - **Un'action che rigetta dentro `startTransition` finisce al boundary**: React
