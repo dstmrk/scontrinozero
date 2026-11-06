@@ -169,6 +169,20 @@ function safePath(url: string): string {
 }
 
 /**
+ * Classe del campo `details` di un 401 di `/api/login/telematico`, una volta
+ * esclusi `PASSWORD_EXPIRED` e `ACCOUNT_LOCKED`. I valori non contengono
+ * nessuna parola che lo scrubbing lato server di Sentry censura: il valore
+ * grezzo (`INVALID_CREDENTIALS`) arriva `[Filtered]`, questo no.
+ */
+function classifyLoginRejectionDetails(
+  details: unknown,
+): "invalid" | "unrecognized" | "absent" {
+  if (details === undefined || details === null) return "absent";
+  if (details === "INVALID_CREDENTIALS") return "invalid";
+  return "unrecognized";
+}
+
+/**
  * Decodifica le entity HTML di un valore estratto da un attributo (hidden
  * input value, form action) — ciò che un browser fa da spec prima di usare
  * l'attributo. Necessario per le pagine Shibboleth dell'IdP CIE: l'encoder
@@ -670,9 +684,9 @@ export class RealAdeClient implements AdeClient {
         );
       }
 
-      let details: string | undefined;
+      let details: unknown;
       try {
-        const body = (await response.json()) as { details?: string };
+        const body = (await response.json()) as { details?: unknown };
         details = body.details;
       } catch {
         // ignore JSON parse error — fall through to generic auth error
@@ -695,9 +709,19 @@ export class RealAdeClient implements AdeClient {
       }
 
       // `details` resta nel log: è l'unico posto da cui si scopre un valore
-      // AdE che non conosciamo ancora e che meriterebbe la sua classe.
+      // AdE che non conosciamo ancora e che meriterebbe la sua classe. Su
+      // Sentry però arriva `[Filtered]`: lo scrubbing lato server censura i
+      // valori che contengono "credentials", "auth", "password"... Il valore
+      // grezzo resta leggibile solo nello stdout del container; `detailsKind`
+      // porta su Sentry Logs la distinzione che serve, con parole che lo
+      // scrubber lascia passare (skill sentry-hygiene).
       logger.warn(
-        { phase: "A", status: response.status, details },
+        {
+          phase: "A",
+          status: response.status,
+          details,
+          detailsKind: classifyLoginRejectionDetails(details),
+        },
         "ade:auth_failed",
       );
       throw new AdeAuthError("Login failed: invalid credentials");
