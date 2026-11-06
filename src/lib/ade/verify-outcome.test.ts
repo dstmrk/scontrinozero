@@ -17,6 +17,7 @@ import {
 import {
   RECORDED_VERIFY_OUTCOMES,
   classifyAdeLoginFailure,
+  isOutcomeOnStoredCredentials,
   loginRejectionOutcome,
 } from "./verify-outcome";
 
@@ -127,5 +128,71 @@ describe("RECORDED_VERIFY_OUTCOMES", () => {
     expect(RECORDED_VERIFY_OUTCOMES).toContain("success");
     expect(RECORDED_VERIFY_OUTCOMES).toContain("piva_conflict");
     expect(RECORDED_VERIFY_OUTCOMES).toContain("unknown_pre_tracking");
+  });
+});
+
+describe("isOutcomeOnStoredCredentials", () => {
+  const savedAt = new Date("2026-11-06T09:35:44.000Z");
+
+  it("vero quando l'esito è quello cercato e segue l'ultimo salvataggio", () => {
+    expect(
+      isOutcomeOnStoredCredentials(
+        {
+          lastVerifyOutcome: "auth_error",
+          lastVerifyAt: new Date("2026-11-06T09:35:50.000Z"),
+          updatedAt: savedAt,
+        },
+        "auth_error",
+      ),
+    ).toBe(true);
+  });
+
+  it("vero anche a parità di istante: l'esito non può precedere il salvataggio che descrive", () => {
+    expect(
+      isOutcomeOnStoredCredentials(
+        {
+          lastVerifyOutcome: "auth_error",
+          lastVerifyAt: savedAt,
+          updatedAt: savedAt,
+        },
+        "auth_error",
+      ),
+    ).toBe(true);
+  });
+
+  it("falso quando le credenziali sono state risalvate dopo l'esito", () => {
+    expect(
+      isOutcomeOnStoredCredentials(
+        {
+          lastVerifyOutcome: "auth_error",
+          lastVerifyAt: new Date("2026-11-06T09:30:00.000Z"),
+          updatedAt: savedAt,
+        },
+        "auth_error",
+      ),
+    ).toBe(false);
+  });
+
+  it("falso su un esito diverso o senza istante registrato", () => {
+    expect(
+      isOutcomeOnStoredCredentials(
+        {
+          lastVerifyOutcome: "account_locked",
+          lastVerifyAt: savedAt,
+          updatedAt: savedAt,
+        },
+        "auth_error",
+      ),
+    ).toBe(false);
+    expect(
+      isOutcomeOnStoredCredentials(
+        {
+          lastVerifyOutcome: "auth_error",
+          lastVerifyAt: null,
+          updatedAt: savedAt,
+        },
+        "auth_error",
+      ),
+    ).toBe(false);
   });
 });

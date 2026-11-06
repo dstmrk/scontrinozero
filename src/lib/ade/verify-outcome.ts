@@ -131,3 +131,24 @@ export function loginRejectionOutcome(
   }
   return null;
 }
+
+/**
+ * True se l'ultimo esito registrato è `outcome` **e** descrive le credenziali
+ * salvate ora. Il salvataggio non azzera `last_verify_outcome` (resta per le
+ * metriche di onboarding), quindi un esito più vecchio dell'ultimo
+ * `updated_at` parla di dati già sostituiti.
+ */
+export function isOutcomeOnStoredCredentials(
+  cred: {
+    lastVerifyOutcome: string | null;
+    lastVerifyAt: Date | null;
+    updatedAt: Date;
+  },
+  outcome: RecordedVerifyOutcome,
+): boolean {
+  return (
+    cred.lastVerifyOutcome === outcome &&
+    cred.lastVerifyAt !== null &&
+    cred.lastVerifyAt.getTime() >= cred.updatedAt.getTime()
+  );
+}

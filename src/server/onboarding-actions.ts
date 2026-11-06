@@ -38,6 +38,7 @@ import {
 } from "@/lib/ade/error-messages";
 import {
   classifyAdeLoginFailure,
+  isOutcomeOnStoredCredentials,
   type RecordedVerifyOutcome,
 } from "@/lib/ade/verify-outcome";
 import type { AdeAdoptedSession } from "@/lib/ade/client";
@@ -1493,6 +1494,30 @@ async function verifyStoredCredentials(params: {
     // Nessuna riga su cui registrare un esito: l'uscita precede la telemetria
     // per costruzione, non per scelta.
     return { error: "Credenziali non trovate." };
+  }
+
+  // Credenziali già rifiutate dall'AdE e non risalvate: gli stessi dati danno
+  // lo stesso esito, e ogni login in più è un tentativo fallito sull'utenza,
+  // che l'AdE può bloccare (skill ade-integration). Il bottone nascosto in UI
+  // non basta: un reload dell'onboarding lo rimette al suo posto. Non è un
+  // tentativo, quindi niente esito registrato né contatore.
+  if (
+    !adoptedSpid &&
+    cred.loginMethod !== "spid" &&
+    isOutcomeOnStoredCredentials(cred, "auth_error")
+  ) {
+    logger.warn(
+      { businessId, loginMethod: cred.loginMethod },
+      "verifyAdeCredentials: credenziali già rifiutate, login non ritentato",
+    );
+    return {
+      error: getUserFacingAdeErrorMessage(
+        new AdeAuthError("Stored credentials already rejected"),
+        "Credenziali non valide.",
+        cred.loginMethod === "cie" ? "cie" : "fisconline",
+      ).message,
+      credentialsRejected: true,
+    };
   }
 
   // Snapshot fiscalCode BEFORE the transaction that sets it. fiscalCode is

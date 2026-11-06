@@ -226,6 +226,69 @@ describe("OnboardingForm — scelta utenza di lavoro (HAR.md #18)", () => {
   });
 });
 
+// Stesso contratto di AdeCredentialsSection: dopo un rifiuto delle
+// credenziali "Verifica connessione" sparisce, e l'unica strada è
+// "Modifica credenziali". Riprovare con gli stessi dati dà lo stesso esito e
+// avvicina il blocco dell'utenza.
+describe("OnboardingForm — credenziali rifiutate", () => {
+  beforeEach(() => {
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "Credenziali Fisconline non valide.",
+      credentialsRejected: true,
+    });
+  });
+
+  it("toglie il bottone di verifica e indica la modifica", async () => {
+    renderAtVerifyStep();
+
+    clickVerify();
+
+    expect(
+      await screen.findByText(/Riprovare con gli stessi dati/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Verifica connessione" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Modifica credenziali" }),
+    ).toBeInTheDocument();
+  });
+
+  it("un errore che non è un rifiuto lascia il bottone", async () => {
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "Portale AdE non raggiungibile.",
+    });
+    renderAtVerifyStep();
+
+    clickVerify();
+
+    expect(
+      await screen.findByText("Portale AdE non raggiungibile."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Verifica connessione" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Riprovare con gli stessi dati/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("tornando alle credenziali il rifiuto non resta appeso", async () => {
+    renderAtVerifyStep();
+
+    clickVerify();
+    await screen.findByText(/Riprovare con gli stessi dati/);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Modifica credenziali" }),
+    );
+
+    expect(
+      screen.queryByText(/Riprovare con gli stessi dati/),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("OnboardingForm — trial già usato (issue #1044)", () => {
   beforeEach(() => {
     mockVerifyAdeCredentials.mockResolvedValue({ trialAlreadyUsed: true });

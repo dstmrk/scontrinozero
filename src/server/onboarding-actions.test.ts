@@ -2948,6 +2948,94 @@ describe("onboarding-actions", () => {
         expect(result.credentialsRejected).toBe(true);
       });
 
+      // 06/11/2026: un esercente ha ripremuto "Verifica connessione" otto ore
+      // dopo il rifiuto, dopo un reload dell'onboarding, con gli stessi dati.
+      // Il bottone nascosto in UI non sopravvive al reload: la guardia sta
+      // qui, e ogni login risparmiato è un tentativo in meno verso il blocco
+      // dell'utenza.
+      describe("credenziali già rifiutate e non risalvate", () => {
+        const SAVED_AT = new Date("2026-11-06T09:35:44.000Z");
+        const REJECTED_AT = new Date("2026-11-06T09:35:50.000Z");
+
+        function queueStoredRow(overrides: Record<string, unknown>) {
+          mockLimit.mockResolvedValueOnce([
+            { id: FAKE_BUSINESS.id, ...OWNER_ROW },
+          ]);
+          mockLimit.mockResolvedValueOnce([
+            queuedCredRow({ updatedAt: SAVED_AT, ...overrides }),
+          ]);
+        }
+
+        it("non rifà il login e risponde col rifiuto di prima", async () => {
+          queueStoredRow({
+            loginMethod: "fisconline",
+            lastVerifyOutcome: "auth_error",
+            lastVerifyAt: REJECTED_AT,
+          });
+
+          const { verifyAdeCredentials } = await import("./onboarding-actions");
+          const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+          expect(mockLogin).not.toHaveBeenCalled();
+          expect(result.credentialsRejected).toBe(true);
+          expect(result.error).toBe(
+            "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
+          );
+          // Non è un tentativo: niente esito né contatore incrementato.
+          expect(await outcomeWasWritten()).toBe(false);
+        });
+
+        it("su CIE risponde col messaggio CIE, senza chiedere una push", async () => {
+          queueStoredRow({
+            loginMethod: "cie",
+            encryptedUsername: "enc-user",
+            lastVerifyOutcome: "auth_error",
+            lastVerifyAt: REJECTED_AT,
+          });
+
+          const { verifyAdeCredentials } = await import("./onboarding-actions");
+          const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+          expect(mockLoginCie).not.toHaveBeenCalled();
+          expect(result.credentialsRejected).toBe(true);
+          expect(result.error).toBe(
+            "Credenziali CIE ID non valide. Verifica email e password.",
+          );
+        });
+
+        it("credenziali risalvate dopo il rifiuto: il login riparte", async () => {
+          const { AdeAuthError } = await import("@/lib/ade/errors");
+          queueStoredRow({
+            lastVerifyOutcome: "auth_error",
+            lastVerifyAt: new Date("2026-11-06T09:30:00.000Z"),
+          });
+          mockLogin.mockRejectedValue(new AdeAuthError());
+
+          const { verifyAdeCredentials } = await import("./onboarding-actions");
+          await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+          expect(mockLogin).toHaveBeenCalledTimes(1);
+        });
+
+        it.each(["account_locked", "password_expired", "transient"])(
+          "un esito %s non blocca: lì riprovare può servire",
+          async (outcome) => {
+            const { AdeAuthError } = await import("@/lib/ade/errors");
+            queueStoredRow({
+              lastVerifyOutcome: outcome,
+              lastVerifyAt: REJECTED_AT,
+            });
+            mockLogin.mockRejectedValue(new AdeAuthError());
+
+            const { verifyAdeCredentials } =
+              await import("./onboarding-actions");
+            await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+            expect(mockLogin).toHaveBeenCalledTimes(1);
+          },
+        );
+      });
+
       it("utenza bloccata NON alza `credentialsRejected`: sbloccata sul portale, lo stesso dato torna buono", async () => {
         const { AdeAccountLockedError } = await import("@/lib/ade/errors");
         queueFailedLogin(new AdeAccountLockedError());

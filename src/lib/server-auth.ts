@@ -17,7 +17,10 @@ import { notifyOwnerOfAdeRejection } from "@/lib/services/ade-rejection-notice";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore, InteractiveMethod } from "@/lib/ade/types";
 import type { WithAdeSessionParams } from "@/lib/ade";
-import type { LoginRejectionOutcome } from "@/lib/ade/verify-outcome";
+import {
+  isOutcomeOnStoredCredentials,
+  type LoginRejectionOutcome,
+} from "@/lib/ade/verify-outcome";
 import {
   CREDENTIALS_NOT_FOUND_MESSAGE,
   CREDENTIALS_NOT_VERIFIED_MESSAGE,
@@ -313,25 +316,6 @@ export const checkBusinessMembership = cache(
 );
 
 /**
- * True se l'ultimo esito registrato è una password scaduta **e** descrive le
- * credenziali salvate ora. Il salvataggio non azzera `last_verify_outcome`
- * (resta per le metriche di onboarding), quindi un esito più vecchio
- * dell'ultimo `updated_at` parla di una password già sostituita: stesso
- * criterio con cui `AdeCredentialsSection` scarta un errore di verifica vecchio.
- */
-function isPasswordExpiredOnStoredCredentials(cred: {
-  lastVerifyOutcome: string | null;
-  lastVerifyAt: Date | null;
-  updatedAt: Date;
-}): boolean {
-  return (
-    cred.lastVerifyOutcome === "password_expired" &&
-    cred.lastVerifyAt !== null &&
-    cred.lastVerifyAt.getTime() >= cred.updatedAt.getTime()
-  );
-}
-
-/**
  * Fetches, validates, and decrypts AdE credentials for a business,
  * and builds the cedente/prestatore from local business data.
  * Returns an error object if any prerequisite is missing or invalid.
@@ -360,7 +344,7 @@ export async function fetchAdePrerequisites(
     // ferma lì: stesso codice del login che l'ha scoperta. È contratto
     // pubblico (`409 ADE_PASSWORD_EXPIRED`, DEVELOPER.md) e in cassa apre il
     // cambio password.
-    if (isPasswordExpiredOnStoredCredentials(row.cred)) {
+    if (isOutcomeOnStoredCredentials(row.cred, "password_expired")) {
       return {
         error: PASSWORD_EXPIRED_MESSAGE,
         code: "ADE_PASSWORD_EXPIRED",

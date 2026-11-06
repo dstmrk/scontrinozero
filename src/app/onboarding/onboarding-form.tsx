@@ -124,6 +124,10 @@ export function OnboardingForm({
   );
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyPivaConflict, setVerifyPivaConflict] = useState(false);
+  // L'AdE ha rifiutato i dati salvati: riprovare con gli stessi non serve
+  // (stesso contratto di AdeCredentialsSection), si torna a modificarli.
+  const [verifyCredentialsRejected, setVerifyCredentialsRejected] =
+    useState(false);
   // Le partite IVA fra cui scegliere quando l'accesso AdE ne serve più d'una,
   // o una sola per conto terzi (HAR.md #18). Vuoto in tutti gli altri casi.
   const [utenzaChoices, setUtenzaChoices] = useState<AdeUtenzaCandidate[]>([]);
@@ -218,6 +222,7 @@ export function OnboardingForm({
   function resetVerifyState() {
     setVerifyError(null);
     setVerifyPivaConflict(false);
+    setVerifyCredentialsRejected(false);
     setUtenzaChoices([]);
     setTrialAlreadyUsed(false);
   }
@@ -231,6 +236,7 @@ export function OnboardingForm({
       if (result.error) {
         setVerifyError(result.error);
         setVerifyPivaConflict(!!result.pivaConflict);
+        setVerifyCredentialsRejected(!!result.credentialsRejected);
         setUtenzaChoices(result.utenzaChoices ?? []);
         return;
       }
@@ -539,6 +545,14 @@ export function OnboardingForm({
                   <p className="text-destructive text-sm" role="alert">
                     {verifyError}
                   </p>
+                  {verifyCredentialsRejected && (
+                    <p className="text-muted-foreground text-xs">
+                      Tocca &quot;Modifica credenziali&quot; e reinserisci i
+                      dati aggiornati. Riprovare con gli stessi dati non cambia
+                      l&apos;esito e può far bloccare l&apos;utenza
+                      dall&apos;Agenzia delle Entrate.
+                    </p>
+                  )}
                   {verifyPivaConflict && (
                     <p className="text-muted-foreground text-xs">
                       Se questa P.IVA è tua (es. un vecchio account o un trial
@@ -590,11 +604,16 @@ export function OnboardingForm({
               ) : (
                 <>
                   <div className="flex flex-col gap-2">
-                    <Button onClick={() => handleVerify()} disabled={isPending}>
-                      {isPending
-                        ? "Verifica in corso…"
-                        : "Verifica connessione"}
-                    </Button>
+                    {!verifyCredentialsRejected && (
+                      <Button
+                        onClick={() => handleVerify()}
+                        disabled={isPending}
+                      >
+                        {isPending
+                          ? "Verifica in corso…"
+                          : "Verifica connessione"}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       onClick={handleSkipVerify}
