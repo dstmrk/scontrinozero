@@ -25,6 +25,7 @@ import {
 import { isTransientAdeError } from "./error-messages";
 import { loginRejectionOutcome } from "./verify-outcome";
 import { logger } from "@/lib/logger";
+import { isScrubbedBySentry } from "../../../tests/_helpers/sentry-scrubbed-values";
 import type { AdePayload, AdeResponse } from "./types";
 
 vi.mock("@/lib/logger", () => ({
@@ -310,10 +311,41 @@ describe("RealAdeClient", () => {
 
       await expect(client.login(mockCredentials)).rejects.toThrow(AdeAuthError);
       expect(logger.warn).toHaveBeenCalledWith(
-        { phase: "A", status: 401, details: "INVALID_CREDENTIALS" },
+        {
+          phase: "A",
+          status: 401,
+          details: "INVALID_CREDENTIALS",
+          detailsKind: "invalid",
+        },
         "ade:auth_failed",
       );
     });
+
+    // Sentry censura i VALORI che contengono "credentials", "auth", ...:
+    // `details: "INVALID_CREDENTIALS"` arrivava sempre `[Filtered]`, e su
+    // Sentry Logs non si distingueva un rifiuto noto da un valore nuovo.
+    // `detailsKind` porta la distinzione con parole che lo scrubber lascia.
+    it.each([
+      [{ details: "INVALID_CREDENTIALS" }, "invalid"],
+      [{ details: "NUOVO_CODICE_AGENZIA" }, "unrecognized"],
+      [{ details: 42 }, "unrecognized"],
+      [{}, "absent"],
+      ["<html>non json</html>", "absent"],
+    ])(
+      "Phase A: un 401 con body %j logga detailsKind %s, leggibile su Sentry",
+      async (body, expected) => {
+        fetchMock.mockResolvedValueOnce(mockResponse({ status: 401, body }));
+
+        await expect(client.login(mockCredentials)).rejects.toThrow(
+          AdeAuthError,
+        );
+        expect(logger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({ detailsKind: expected }),
+          "ade:auth_failed",
+        );
+        expect(isScrubbedBySentry(expected)).toBe(false);
+      },
+    );
 
     // Issue #1130: un guasto del portale IAM non è un rifiuto delle
     // credenziali. Classificato AdeAuthError, fermava tutti i login automatici
