@@ -14,9 +14,14 @@
  */
 import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import type { ApiKeyContext } from "@/lib/api-auth";
-import { v1Error } from "@/lib/api-v1-errors";
+import { newRequestId, v1Error } from "@/lib/api-v1-errors";
 import { canUseApi } from "@/lib/plans";
 import { logger } from "@/lib/logger";
+import {
+  annotateRequestContext,
+  getRequestContext,
+  runWithRequestContext,
+} from "@/lib/request-context";
 import { readJsonWithLimit } from "@/lib/request-utils";
 import type { RateLimiter } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
@@ -81,7 +86,88 @@ export async function requireBusinessApiAuth(
     };
   }
 
+  annotateRequestContext({
+    apiKeyId: auth.apiKey.id,
+    businessId: auth.businessId,
+  });
   return { context: auth as BusinessApiContext };
+}
+
+/**
+ * Avvolge un handler di route v1: genera il `requestId`, lo apre come contesto
+ * della richiesta (`src/lib/request-context.ts`, così ogni riga di log scritta
+ * durante la richiesta lo porta) e, a risposta pronta, scrive una riga di
+ * chiusura con status, durata, chiave, attività e, sugli errori, `code` e
+ * `documentId` dell'envelope.
+ *
+ * La riga di chiusura è ciò che rende rintracciabile **ogni** requestId, anche
+ * quello di una richiesta che non logga altro: il 10/11/2026 un replay con
+ * risposta `PENDING_IN_PROGRESS` non aveva lasciato nessuna traccia.
+ *
+ * @param route   - etichetta stabile nei log, es. `"POST /api/v1/receipts"`
+ * @param handler - riceve la richiesta, il requestId e gli argomenti della
+ *   route (`{ params }`)
+ */
+export function v1Route<Args extends unknown[]>(
+  route: string,
+  handler: (
+    request: Request,
+    requestId: string,
+    ...args: Args
+  ) => Promise<Response>,
+): (request: Request, ...args: Args) => Promise<Response> {
+  return (request, ...args) => {
+    const requestId = newRequestId();
+    return runWithRequestContext(requestId, async () => {
+      const startedAt = performance.now();
+      let response: Response | undefined;
+      try {
+        response = await handler(request, requestId, ...args);
+        return response;
+      } finally {
+        await logV1Completion(route, response, startedAt);
+      }
+    });
+  };
+}
+
+async function logV1Completion(
+  route: string,
+  response: Response | undefined,
+  startedAt: number,
+): Promise<void> {
+  const context = getRequestContext();
+  logger.info(
+    {
+      route,
+      status: response?.status ?? 500,
+      durationMs: Math.round(performance.now() - startedAt),
+      apiKeyId: context?.apiKeyId,
+      businessId: context?.businessId,
+      ...(response ? await v1ErrorFields(response) : { unhandled: true }),
+    },
+    "v1 request completed",
+  );
+}
+
+/** `code` e `documentId` dall'envelope d'errore; niente sui successi. */
+async function v1ErrorFields(
+  response: Response,
+): Promise<{ code?: string; documentId?: string }> {
+  if (response.status < 400) return {};
+  try {
+    // Clone: il corpo originale resta da leggere per il client.
+    const body: unknown = await response.clone().json();
+    if (typeof body !== "object" || body === null) return {};
+    const { code, documentId } = body as Record<string, unknown>;
+    return {
+      ...(typeof code === "string" ? { code } : {}),
+      ...(typeof documentId === "string" ? { documentId } : {}),
+    };
+  } catch {
+    // Un 5xx di Next o un corpo non JSON: basta lo status.
+    return {};
+  }
 }
 
 /**
@@ -95,7 +181,7 @@ export async function requireBusinessApiAuth(
  * @param key       - Rate limit bucket key, e.g. "api:list:<apiKeyId>"
  * @param apiKeyId  - Used in the warning log only
  * @param logMsg    - Log message distinguishing the operation (emit vs void, etc.)
- * @param requestId - UUID della richiesta corrente (envelope + log)
+ * @param requestId - UUID della richiesta corrente (envelope; nei log lo mette il mixin)
  */
 export function checkRateLimitApi(
   limiter: Pick<RateLimiter, "check">,
@@ -106,7 +192,7 @@ export function checkRateLimitApi(
 ): Response | null {
   const result = limiter.check(key);
   if (!result.success) {
-    logger.warn({ apiKeyId, requestId }, logMsg);
+    logger.warn({ apiKeyId }, logMsg);
     const retryAfterSeconds = Math.max(
       1,
       Math.ceil((result.resetAt - Date.now()) / 1000),

@@ -37,6 +37,7 @@ import {
   serviceErrorResponse,
   ADE_REAUTH_REQUIRED_MESSAGE,
   V1_DEFAULT_LIST_KINDS,
+  v1Route,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
@@ -86,12 +87,10 @@ export function OPTIONS(): Response {
   return v1NoContent("GET, POST, OPTIONS", newRequestId());
 }
 
-export async function POST(request: Request): Promise<Response> {
-  // `requestId` nasce qui e accompagna ogni risposta (header X-Request-Id) e
-  // ogni riga di log della richiesta: è il filo di correlazione fra una
-  // segnalazione dell'utente API e i nostri log/Sentry (PR #780).
-  const requestId = newRequestId();
-
+async function handlePost(
+  request: Request,
+  requestId: string,
+): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
@@ -195,9 +194,15 @@ export async function POST(request: Request): Promise<Response> {
   );
 }
 
-export async function GET(request: Request): Promise<Response> {
-  const requestId = newRequestId();
+// `requestId` nasce in `v1Route` e accompagna ogni risposta (header
+// X-Request-Id) e ogni riga di log della richiesta: è il filo di correlazione
+// fra una segnalazione dell'utente API e i nostri log/Sentry (PR #780).
+export const POST = v1Route("POST /api/v1/receipts", handlePost);
 
+async function handleGet(
+  request: Request,
+  requestId: string,
+): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
@@ -364,7 +369,7 @@ export async function GET(request: Request): Promise<Response> {
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
-        { err, path: LIST_ROUTE, statusCode: 503, requestId },
+        { err, path: LIST_ROUTE, statusCode: 503 },
         "DB statement timeout",
       );
       return v1Error("DB_TIMEOUT", DB_TIMEOUT_MESSAGE, requestId);
@@ -433,3 +438,5 @@ export async function GET(request: Request): Promise<Response> {
     requestId,
   );
 }
+
+export const GET = v1Route("GET /api/v1/receipts", handleGet);
