@@ -426,12 +426,12 @@ UPDATE commercial_documents cd
 **Riaprire:** al primo rollback reale dopo il tag v1.10.0. A quel punto la
 riparazione entra in una migrazione nuova, così il deploy la applica da sé.
 
-## Il webhook Stripe live è fissato a `2025-08-27.basil`, l'SDK a `2026-09-30.endive`
+## Il webhook Stripe live è fissato a `2025-08-27.basil`, l'SDK a `2026-10-28.endive`
 
 Misurato sull'account live il 2026-10-29: l'endpoint
 `we_1TCNwVH3rQpBbLw2sy8A6yrb` (`/api/stripe/webhook`) è stato creato con
 l'API `2025-08-27.basil`, mentre `src/lib/stripe.ts` costruisce il client con
-`2026-09-30.endive`. Il payload degli eventi segue la versione
+`2026-10-28.endive`. Il payload degli eventi segue la versione
 dell'**endpoint**, non quella dell'SDK, quindi il webhook riceve oggi la forma
 `basil`.
 

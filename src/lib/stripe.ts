@@ -5,7 +5,7 @@ import type {
   SubscriptionPlan,
 } from "@/lib/subscription-change";
 
-const STRIPE_API_VERSION = "2026-09-30.endive" as const;
+const STRIPE_API_VERSION = "2026-10-28.endive" as const;
 
 /**
  * Per-request options da applicare alle chiamate Stripe nel webhook handler.

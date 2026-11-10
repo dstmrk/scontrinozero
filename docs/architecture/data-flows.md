@@ -356,7 +356,7 @@ scarto è la finestra del fallimento DB, non la soglia stale.
 2. Webhook firmato → `src/app/api/stripe`; gli eventi processati aggiornano il
    piano su `src/db/schema/profiles.ts` (idempotenza via
    `src/db/schema/stripe-webhook-events.ts`).
-3. API version `2026-09-30.endive` e gli 8 eventi obbligatori → skill
+3. API version `2026-10-28.endive` e gli 8 eventi obbligatori → skill
    `stripe-webhooks` + `CLAUDE.md`.
 4. Dopo il commit, senza attendere: la mail all'operatore e, quando il cambio
    porta via Team (`leavesTeam` in `src/lib/subscription-change.ts`), l'email
