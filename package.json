@@ -25,7 +25,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@hookform/resolvers": "^6.0.0",
+    "@hookform/resolvers": "^7.0.1",
     "@marsidev/react-turnstile": "^1.6.3",
     "@point-of-sale/receipt-printer-encoder": "^4.0.1",
     "@point-of-sale/webbluetooth-receipt-printer": "^2.1.0",
