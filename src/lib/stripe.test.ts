@@ -49,7 +49,7 @@ describe("getStripe", () => {
     const instance = getStripe();
     expect(instance).toBeDefined();
     expect(mockStripeConstructor).toHaveBeenCalledWith("sk_test_abc", {
-      apiVersion: "2026-09-30.endive",
+      apiVersion: "2026-10-28.endive",
     });
   });
 

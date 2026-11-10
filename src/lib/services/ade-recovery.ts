@@ -12,6 +12,10 @@ import type { AdeDocumentSummary } from "@/lib/ade/types";
  * (PR #707). Da NON usare sui transient (esito ignoto → la riga deve
  * restare PENDING per la stale-recovery).
  *
+ * `notTransmittedReason` è il codice dell'errore quando il chiamante sa anche
+ * che nessun tentativo precedente sulla riga è arrivato all'AdE (migrazione
+ * 0048); altrimenti resta NULL e la riga segue la soglia stale.
+ *
  * L'errore dell'UPDATE è swallowed (solo `logger.warn`): è già un percorso di
  * degrado e non deve propagare. Condiviso fra receipt-service e void-service
  * per evitare drift e non gonfiare la cognitive complexity dei due catch (S3776).
@@ -20,11 +24,17 @@ export async function markDocumentErrorBestEffort(
   documentId: string,
   warnContext: Record<string, unknown>,
   warnMessage: string,
+  notTransmittedReason: string | null = null,
 ): Promise<void> {
   try {
     await getDb()
       .update(commercialDocuments)
-      .set({ status: "ERROR" })
+      // La chiave solo con un motivo: annullo e reso non lo usano mai, e su
+      // una vendita il claim della recovery l'ha già azzerato.
+      .set({
+        status: "ERROR",
+        ...(notTransmittedReason ? { notTransmittedReason } : {}),
+      })
       .where(eq(commercialDocuments.id, documentId));
   } catch (updateErr) {
     logger.warn({ ...warnContext, err: updateErr }, warnMessage);
@@ -211,6 +221,10 @@ export async function claimStaleDocument(
     .update(commercialDocuments)
     .set({
       updatedAt: new Date(),
+      // Chi legge la riga dopo questo claim non deve trovarci il motivo di
+      // mancata trasmissione: salterebbe la soglia stale e vincerebbe un
+      // secondo claim mentre questo ritrasmette (migrazione 0048).
+      notTransmittedReason: null,
       ...(options.reopen ? { status: "PENDING" as const } : {}),
     })
     .where(

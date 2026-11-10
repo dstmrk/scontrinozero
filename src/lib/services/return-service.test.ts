@@ -852,6 +852,7 @@ describe("returnReceiptForBusiness — idempotenza sulla stessa key", () => {
 
     expect(updateSets()[0]).toEqual({
       updatedAt: expect.any(Date),
+      notTransmittedReason: null,
       status: "PENDING",
     });
     expect(mockSubmitReturn).toHaveBeenCalledTimes(1);

@@ -49,7 +49,7 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: mockLoggerWarn, error: vi.fn() },
+  logger: { warn: mockLoggerWarn, error: vi.fn(), info: vi.fn() },
 }));
 
 vi.mock("@/db/schema", () => ({

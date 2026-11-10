@@ -345,6 +345,24 @@ e controllare che ogni copia passi da `processSingleton`.
 Costo accettato: in `next dev` l'istanza sopravvive all'HMR, quindi una
 modifica alla classe si vede solo dopo il riavvio del dev server.
 
+**Il singleton condiviso porta con sé le classi del layer che l'ha creato.**
+Condividere l'istanza non basta: gli oggetti che produce (un client AdE, un
+errore che lancia) sono costruiti con le classi della copia del modulo che ha
+fatto la prima richiesta, e arrivano agli `instanceof` dell'altro layer, che
+falliscono. Produzione, 10/11/2026: la cache di sessione AdE creata dal layer
+action lanciava un `AdeAuthError` che `receipt-service.ts` (layer `rsc`, route
+`/api/v1/receipts`) non riconosceva. Esito `ade_failure` su Sentry
+(SCONTRINOZERO-M), "Riprova più tardi" al client invece del messaggio sulle
+credenziali, e un transient sarebbe finito ERROR invece di PENDING. Cura per
+gli errori AdE: `AdeError` definisce `Symbol.hasInstance` su un marchio
+`Symbol.for` con il `code` statico della classe (`src/lib/ade/errors.ts`),
+quindi ogni `instanceof` esistente regge le copie. Non confrontare
+`constructor.name`: in produzione i nomi delle classi sono minificati
+(`class d`). Gate: il test che costruisce l'errore da una copia fresca di
+`errors.ts` (`vi.resetModules()`) e lo classifica con l'altra. Una classe
+nuova il cui valore attraversa un `processSingleton` va trattata allo stesso
+modo, o confrontata per un campo dato, mai per identità di classe.
+
 ## `key_version` è per RIGA: chi riscrive un campo cifrato riscrive tutta la riga
 
 `ade_credentials.key_version` è **una colonna per riga**, non per campo: dice

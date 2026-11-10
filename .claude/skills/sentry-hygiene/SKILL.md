@@ -529,7 +529,7 @@ fingerprint = perdi la continuità storica del group.
 
 ## Lookup puntuale via Sentry MCP
 
-Tre query canoniche, già supportate dai tag che il repo emette:
+Query canoniche, già supportate dai tag che il repo emette:
 
 **Sentry Logs (dataset `logs`)** — degrado userside o transient:
 
@@ -546,6 +546,23 @@ errorClass:sentinel sentinelId:<id>   # validazione drain (R21)
 errorClass:ade_failure environment:production
 errorClass:ade_failure flow:onboarding-verify  # group per flow (R23)
 ```
+
+**Ticket di un integratore API (`requestId`)** — il client riceve il
+`requestId` nell'envelope e in `X-Request-Id`. Ogni riga pino scritta
+durante una richiesta v1 lo porta (mixin `requestContextMixin` in
+`src/lib/logger.ts`, contesto aperto da `v1Route` in
+`src/lib/api-v1-helpers.ts`), e ogni richiesta chiude con una riga
+`v1 request completed` (route, status, durata, `apiKeyId`, `businessId`,
+`code` e `documentId` sugli errori). Sugli eventi Sentry è un tag:
+
+```
+requestId:<id>                                    # Logs e Issues
+message:"v1 request completed" businessId:<uuid>  # tutte le chiamate di un esercente
+```
+
+Sui log del container (shimau) basta `grep <requestId>`. Il
+10/11/2026 due requestId girati da un esercente non portavano da
+nessuna parte: prima di questa cura nessuna riga li conteneva.
 
 Per validare un singolo trace user-session:
 

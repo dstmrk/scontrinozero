@@ -18,6 +18,7 @@ import { logger } from "@/lib/logger";
 import {
   requireBusinessApiAuth,
   V1_DOCUMENT_KINDS,
+  v1Route,
 } from "@/lib/api-v1-helpers";
 import { calcDocTotal } from "@/lib/receipts/document-lines";
 import { fetchReturnedByLine } from "@/lib/receipts/returned-quantities";
@@ -31,12 +32,11 @@ export function OPTIONS(): Response {
   return v1NoContent("GET, OPTIONS", newRequestId());
 }
 
-export async function GET(
+async function handleGet(
   request: Request,
+  requestId: string,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const requestId = newRequestId();
-
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
@@ -96,7 +96,7 @@ export async function GET(
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
-        { err, path: ROUTE, statusCode: 503, requestId },
+        { err, path: ROUTE, statusCode: 503 },
         "DB statement timeout",
       );
       return v1Error(
@@ -175,3 +175,5 @@ export async function GET(
     requestId,
   );
 }
+
+export const GET = v1Route("GET /api/v1/receipts/[id]", handleGet);
