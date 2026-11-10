@@ -38,6 +38,11 @@ const faqItems: readonly FaqItem[] = [
       "Ricevi un errore 503 ADE_UNAVAILABLE e lo scontrino resta in sospeso: l'esito della trasmissione è ignoto. Ripeti la richiesta con la stessa idempotencyKey — prima di ritrasmettere verifichiamo sull'Agenzia delle Entrate se il documento è già registrato, così non ne emetti due. L'errore porta il campo documentId per seguire lo scontrino con GET /v1/receipts/{id}, e GET /v1/receipts?status=PENDING elenca tutti quelli rimasti in sospeso.",
   },
   {
+    question: "Posso mandare lo scontrino al cliente via WhatsApp o email?",
+    answer:
+      "Sì, dal tuo gestionale. Ogni scontrino registrato ha una ricevuta digitale pubblica all'indirizzo https://app.scontrinozero.it/r/{id}, con il PDF su /r/{id}/pdf, dove id è il documentId restituito dall'emissione. Il link si apre dal telefono senza account e non scade. ScontrinoZero non invia la ricevuta al posto tuo: il canale (WhatsApp, email, SMS) lo scegli tu.",
+  },
+  {
     question: "Dove trovo la sezione API key nella dashboard?",
     answer:
       "In Impostazioni \u2192 Altre impostazioni \u2192 API key: la sezione \u00e8 chiusa di default, aprila con il pulsante \u201cAltre impostazioni\u201d. La card \u00e8 visibile su tutti i piani; se il tuo piano non include le API mostra l'upgrade invece dell'elenco delle chiavi.",
@@ -1231,6 +1236,63 @@ const idempotencyKey = crypto.randomUUID();`}</code>
             "Quando all'Agenzia delle Entrate risultano più documenti compatibili — stesso importo, emessi a pochi minuti di distanza da quello in sospeso — nessun automatismo sa quale sia il tuo, e lo scontrino resta in sospeso: sceglie l'esercente dall'app web ScontrinoZero, dove il banner in dashboard mostra i candidati e chiede quale riconosce."
           }
         </p>
+
+        {/* ─── Ricevuta digitale per il cliente ─── */}
+        <h2 id="ricevuta-cliente" className="mt-12 text-xl font-semibold">
+          Inviare lo scontrino al cliente
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {
+            "Ogni scontrino registrato ha una ricevuta digitale pubblica, la stessa del QR stampato sullo scontrino: il cliente la apre dal telefono senza account e può scaricarne il PDF. L'API non la restituisce come campo: componi l'indirizzo con l'id del documento e giralo dal tuo gestionale su WhatsApp, email o SMS."
+          }
+        </p>
+        <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>{String.raw`https://app.scontrinozero.it/r/{id}       # ricevuta (pagina mobile)
+https://app.scontrinozero.it/r/{id}/pdf   # PDF da scaricare`}</code>
+        </pre>
+        <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            {"L'id è il "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              documentId
+            </code>
+            {" dell'emissione, il "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              voidDocumentId
+            </code>
+            {" dell'annullo o il "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              returnDocumentId
+            </code>
+            {" del reso: ognuno ha la sua ricevuta."}
+          </li>
+          <li>
+            {
+              "Il link risponde solo quando l'Agenzia delle Entrate ha registrato il documento: uno scontrino in sospeso o rifiutato dà 404. Anche una vendita annullata dà 404: da quel momento manda al cliente la ricevuta dell'annullo."
+            }
+          </li>
+          <li>
+            {
+              "Il link non scade e non richiede login: chi lo riceve può inoltrarlo."
+            }
+          </li>
+          <li>
+            {
+              "Pagina e PDF accettano ciascuno 60 richieste l'ora per indirizzo IP: bastano per il cliente che apre il link, non per scaricare i PDF in serie dal tuo server."
+            }
+          </li>
+          <li>
+            {"Nel sandbox l'host è "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              sandbox.scontrinozero.it
+            </code>
+            {" al posto di "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              app.scontrinozero.it
+            </code>
+            {"."}
+          </li>
+        </ul>
 
         {/* ─── FAQ (mirror di faqItems: tenere allineati) ─── */}
         <h2 className="mt-12 text-xl font-semibold">Domande frequenti</h2>

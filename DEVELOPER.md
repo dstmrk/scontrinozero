@@ -135,7 +135,43 @@ Base URL: `https://api.scontrinozero.it/v1` (stesso container, Cloudflare Tunnel
 | `POST` | `/v1/receipts/{id}/return` | Reso merce: rende uno o più pezzi di un SALE                                       |
 | `GET`  | `/v1/receipts/{id}`        | Stato/dettaglio scontrino / idempotency check                                      |
 
-Post-MVP: `GET /v1/receipts/{id}/pdf`
+#### Ricevuta digitale per il cliente finale
+
+Ogni documento registrato ha una ricevuta digitale pubblica, la stessa che la
+cassa condivide e che il QR stampa sullo scontrino. L'API non la restituisce
+come campo: l'URL si compone dall'`id` del documento, e il formato è parte del
+contratto v1 quanto i path della tabella sopra.
+
+| Risorsa        | Produzione                                | Sandbox                                       |
+| -------------- | ----------------------------------------- | --------------------------------------------- |
+| Pagina mobile  | `https://app.scontrinozero.it/r/{id}`     | `https://sandbox.scontrinozero.it/r/{id}`     |
+| PDF (download) | `https://app.scontrinozero.it/r/{id}/pdf` | `https://sandbox.scontrinozero.it/r/{id}/pdf` |
+
+- **Quale `id`.** `documentId` della risposta di `POST /v1/receipts`,
+  `voidDocumentId` di `/void`, `returnDocumentId` di `/return`: la vendita,
+  l'annullo e il reso hanno ciascuno la propria ricevuta.
+- **Quando risponde.** Solo a documento registrato dall'AdE: SALE `ACCEPTED`,
+  VOID `VOID_ACCEPTED`, RETURN `ACCEPTED` (`isPrintableDocument` in
+  `src/lib/receipts/printable-document.ts`). Un documento `PENDING`, `REJECTED`
+  o `ERROR` dà 404, e lo dà anche una vendita **annullata**: da quel momento il
+  cliente va mandato sulla ricevuta dell'annullo. Un reso parziale non spegne
+  la ricevuta della vendita.
+- **Niente autenticazione, niente scadenza.** L'UUID fa da token (122 bit) e il
+  link non si revoca: chi lo riceve può inoltrarlo. Rischio accettato in
+  `docs/architecture/accepted-risks.md` ("Link pubblici scontrini senza
+  TTL/revoca").
+- **Rate limit per IP del chiamante.** 60 richieste/ora sulla pagina e 60/ora
+  sul PDF, contate separatamente. Pensati per il cliente che apre il link dal
+  suo telefono, non per un backend che scarica i PDF in serie da un IP solo.
+- **L'invio resta all'integratore.** ScontrinoZero non manda la ricevuta al
+  cliente né via email né via SMS: il gestionale gira il link sul canale che
+  preferisce (WhatsApp, email, SMS propri).
+
+`GET /v1/receipts/{id}/pdf` autenticato da API key **non esiste**, per scelta:
+il link pubblico copre il caso d'uso. Si riapre quando un integratore deve
+allegare il PDF dal proprio backend e il limite per IP qui sopra lo blocca —
+l'endpoint riuserebbe `generatePdfResponse`
+(`src/lib/receipts/generate-pdf-response.ts`) con un limiter per chiave.
 
 **Fuori dalla v1, deliberatamente: l'archivio AdE.** Dalla v1.8.0 lo storico
 dell'app sa cercare anche i documenti commerciali emessi fuori da
