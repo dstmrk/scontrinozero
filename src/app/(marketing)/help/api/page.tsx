@@ -1247,7 +1247,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
           }
         </p>
         <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
-          <code>{String.raw`https://app.scontrinozero.it/r/{id}       # ricevuta (pagina mobile)
+          <code>{`https://app.scontrinozero.it/r/{id}       # ricevuta (pagina mobile)
 https://app.scontrinozero.it/r/{id}/pdf   # PDF da scaricare`}</code>
         </pre>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
