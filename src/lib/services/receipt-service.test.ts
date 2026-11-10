@@ -1741,4 +1741,194 @@ describe("emitReceiptForBusiness", () => {
     expect(result.documentId).toBe("doc-stuck");
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
+
+  /**
+   * Produzione, 10/11/2026: un login AdE rifiutato via Developer API lascia la
+   * riga in ERROR, e il retry con la stessa idempotencyKey riceveva
+   * PENDING_IN_PROGRESS per 30 minuti. Un rifiuto al login avviene prima di
+   * qualunque trasmissione: la riga lo registra in `notTransmittedReason`, e il
+   * replay riparte subito invece di aspettare la soglia stale.
+   */
+  describe("motivo di mancata trasmissione", () => {
+    const FRESH = () => new Date(Date.now() - 10_000);
+    const STALE = () => new Date(Date.now() - 35 * 60 * 1000);
+
+    beforeEach(() => {
+      // I test sopra lasciano UPDATE e claim in stato "reject" (clearAllMocks
+      // non ripristina le implementazioni): torniamo ai default di modulo.
+      mockUpdateWhere.mockReturnValue({
+        returning: mockClaimReturning,
+        then: (onFulfilled: (value: undefined) => unknown) =>
+          onFulfilled(undefined),
+      });
+      mockClaimReturning.mockResolvedValue([
+        {
+          id: "doc-claimed",
+          adeRegisteredAt: new Date("2026-08-18T17:05:10.000Z"),
+        },
+      ]);
+    });
+
+    function errorSets(): Array<Record<string, unknown>> {
+      return mockUpdateSet.mock.calls
+        .map((c) => c[0] as Record<string, unknown>)
+        .filter((set) => set.status === "ERROR");
+    }
+
+    function existingRow(fields: Record<string, unknown>): void {
+      mockDocumentReturning.mockResolvedValue([]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          id: "doc-789",
+          status: "ERROR",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: FRESH(),
+          updatedAt: FRESH(),
+          notTransmittedReason: null,
+          ...fields,
+        },
+      ]);
+    }
+
+    it.each([
+      ["credenziali rifiutate", "AdeAuthError", "ADE_AUTH_FAILED"],
+      ["password scaduta", "AdePasswordExpiredError", "ADE_PASSWORD_EXPIRED"],
+      ["utenza bloccata", "AdeAccountLockedError", "ADE_ACCOUNT_LOCKED"],
+    ])(
+      "primo tentativo, %s al login: ERROR con il codice dell'errore",
+      async (_label, className, code) => {
+        const errors = await import("@/lib/ade/errors");
+        const ErrorClass = errors[className as keyof typeof errors] as new (
+          message?: string,
+        ) => Error;
+        mockLogin.mockRejectedValue(new ErrorClass());
+
+        const { emitReceiptForBusiness } = await import("./receipt-service");
+        await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+        expect(mockSubmitSale).not.toHaveBeenCalled();
+        expect(errorSets()).toEqual([
+          expect.objectContaining({ notTransmittedReason: code }),
+        ]);
+      },
+    );
+
+    it("primo tentativo, riautenticazione CIE in volo: ERROR con ADE_REAUTH_REQUIRED", async () => {
+      mockFetchAdePrerequisites.mockResolvedValue({
+        method: "cie",
+        cedentePrestatore: { built: true },
+      });
+      mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("cie"));
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(errorSets()).toEqual([
+        expect.objectContaining({
+          notTransmittedReason: "ADE_REAUTH_REQUIRED",
+        }),
+      ]);
+    });
+
+    it("un errore che non è un rifiuto al login non dà certezze: motivo NULL", async () => {
+      mockSubmitSale.mockRejectedValue(new Error("documento non valido"));
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(errorSets()).toEqual([
+        expect.objectContaining({ notTransmittedReason: null }),
+      ]);
+    });
+
+    it("replay su ERROR fresco con motivo: recovery subito, claim che azzera il motivo, lookup e riemissione", async () => {
+      existingRow({ notTransmittedReason: "ADE_AUTH_FAILED" });
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(result.error).toBeUndefined();
+      expect(result.documentId).toBe("doc-789");
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updatedAt: expect.any(Date),
+          notTransmittedReason: null,
+        }),
+      );
+      // Il lookup AdE prima di ritrasmettere resta: è la stessa recovery.
+      expect(mockSearchDocuments).toHaveBeenCalled();
+      expect(mockSubmitSale).toHaveBeenCalledOnce();
+    });
+
+    it("replay con motivo che fallisce di nuovo al login: il motivo torna sulla riga", async () => {
+      existingRow({ notTransmittedReason: "ADE_AUTH_FAILED" });
+      const { AdeAuthError } = await import("@/lib/ade/errors");
+      mockLogin.mockRejectedValue(new AdeAuthError());
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(result.code).not.toBe("PENDING_IN_PROGRESS");
+      expect(result.error).toBeTruthy();
+      expect(mockSubmitSale).not.toHaveBeenCalled();
+      expect(errorSets()).toEqual([
+        expect.objectContaining({ notTransmittedReason: "ADE_AUTH_FAILED" }),
+      ]);
+    });
+
+    it("replay con motivo che perde il claim: PENDING_IN_PROGRESS, niente riemissione", async () => {
+      existingRow({ notTransmittedReason: "ADE_AUTH_FAILED" });
+      mockClaimReturning.mockResolvedValueOnce([]);
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(result.code).toBe("PENDING_IN_PROGRESS");
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockSubmitSale).not.toHaveBeenCalled();
+    });
+
+    it("replay su ERROR fresco senza motivo (riga storica o esito ignoto): PENDING_IN_PROGRESS come prima", async () => {
+      existingRow({ notTransmittedReason: null });
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(result.code).toBe("PENDING_IN_PROGRESS");
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("un motivo su una riga PENDING non apre la recovery: vale solo su ERROR", async () => {
+      existingRow({
+        status: "PENDING",
+        notTransmittedReason: "ADE_AUTH_FAILED",
+      });
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      const result = await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(result.code).toBe("PENDING_IN_PROGRESS");
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("recovery stale di una riga senza motivo che fallisce al login: il motivo resta NULL", async () => {
+      // La riga poteva avere un primo tentativo trasmesso: un login rifiutato
+      // adesso non dice niente su quello, quindi niente scorciatoia al replay.
+      existingRow({
+        notTransmittedReason: null,
+        createdAt: STALE(),
+        updatedAt: STALE(),
+      });
+      const { AdeAuthError } = await import("@/lib/ade/errors");
+      mockLogin.mockRejectedValue(new AdeAuthError());
+
+      const { emitReceiptForBusiness } = await import("./receipt-service");
+      await emitReceiptForBusiness(VALID_INPUT, UI_ORIGIN);
+
+      expect(errorSets()).toEqual([
+        expect.objectContaining({ notTransmittedReason: null }),
+      ]);
+    });
+  });
 });

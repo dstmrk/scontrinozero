@@ -18,6 +18,7 @@ import {
   getUserFacingAdeErrorMessage,
   isExpectedUserAdeError,
   isTransientAdeError,
+  notTransmittedReason,
 } from "./error-messages";
 
 const FALLBACK = "Operazione fallita. Riprova.";
@@ -465,5 +466,46 @@ describe("classificazione di errori costruiti da un'altra copia di errors.ts", (
     expect(isTransientAdeError(new other.AdePortalError(400, "bad"))).toBe(
       false,
     );
+  });
+});
+
+/**
+ * Il codice che `commercial_documents.not_transmitted_reason` registra quando
+ * un'emissione si ferma prima di qualunque trasmissione (migrazione 0048).
+ */
+describe("notTransmittedReason", () => {
+  it.each([
+    [new AdeAuthError(), "ADE_AUTH_FAILED"],
+    [new AdePasswordExpiredError(), "ADE_PASSWORD_EXPIRED"],
+    [new AdeAccountLockedError(), "ADE_ACCOUNT_LOCKED"],
+    [new AdeNoPartitaIvaError("wizardTemplate"), "ADE_NO_PARTITA_IVA"],
+    [new AdeUtenzaSelectionRequiredError([]), "ADE_UTENZA_SELECTION_REQUIRED"],
+    [new AdeUtenzaNotAvailableError("12345678901"), "ADE_UTENZA_NOT_AVAILABLE"],
+  ])("un rifiuto al login o sull'utenza (%o) dà il suo codice", (err, code) => {
+    expect(notTransmittedReason(err)).toBe(code);
+  });
+
+  it("anche la riautenticazione CIE/SPID: un 401 non registra niente", async () => {
+    const { AdeReauthRequiredError } = await import("./errors");
+    expect(notTransmittedReason(new AdeReauthRequiredError("cie"))).toBe(
+      "ADE_REAUTH_REQUIRED",
+    );
+  });
+
+  it.each([
+    ["rete", new AdeNetworkError(new Error("ECONNRESET"))],
+    ["5xx", new AdePortalError(503, "down")],
+    ["4xx del portale", new AdePortalError(400, "bad")],
+    ["esito ignoto", new AdeUnknownOutcomeError(200, "text/html")],
+    ["sessione scaduta Fisconline", new AdeSessionExpiredError()],
+    ["errore generico", new Error("documento non valido")],
+    ["AdeError grezzo", new AdeError("ADE_CHANGE_PW_SAME", "x")],
+  ])("%s: nessuna certezza, null", (_label, err) => {
+    expect(notTransmittedReason(err)).toBeNull();
+  });
+
+  it("valori che non sono errori: null", () => {
+    expect(notTransmittedReason("oops")).toBeNull();
+    expect(notTransmittedReason(undefined)).toBeNull();
   });
 });

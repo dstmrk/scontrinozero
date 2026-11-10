@@ -440,6 +440,10 @@ quindi leggibili anche da un client browser cross-origin.
    (stessa `idempotencyKey`), con un tetto di tentativi.
 2. `409` `ADE_REAUTH_REQUIRED` / `ADE_PASSWORD_EXPIRED` → non ritentare:
    avvisa l'esercente che deve entrare nell'app web ScontrinoZero.
+   Quando un'emissione si ferma al login AdE (anche un `422` `ADE_REJECTED`
+   per credenziali non valide), il documento non è stato trasmesso: dopo che
+   l'esercente ha sistemato l'accesso puoi ripetere la richiesta con la
+   **stessa** `idempotencyKey`, che riparte subito senza attese.
 3. Tutto il resto → è un errore permanente: logga `code` + `requestId` e
    correggi la richiesta.
 
