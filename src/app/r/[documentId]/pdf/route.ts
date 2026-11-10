@@ -8,7 +8,8 @@ import { isValidUuid } from "@/lib/uuid";
 /**
  * Public PDF download — no auth required.
  * The document UUID acts as a public token (122 bits of randomness).
- * Only ACCEPTED SALE documents are served.
+ * Serves every printable document (sale, void, return) once AdE has
+ * registered it — the rule lives in `fetchPublicReceipt`.
  */
 
 // Rate limit: 60 requests per hour per IP
