@@ -97,6 +97,8 @@ function makeGetRequest(query: string) {
 // --- Tests ---
 
 import { GET, POST } from "./route";
+import { logger } from "@/lib/logger";
+import { getRequestContext } from "@/lib/request-context";
 
 describe("POST /api/v1/receipts", () => {
   beforeEach(() => {
@@ -142,6 +144,36 @@ describe("POST /api/v1/receipts", () => {
     const res = await POST(makeRequest());
     const body = await res.json();
     expect(body.requestId).toBe(res.headers.get("X-Request-Id"));
+  });
+
+  it("il service gira dentro il contesto della richiesta, con il requestId della risposta", async () => {
+    // Il 10/11/2026 un esercente ci ha girato due requestId che non
+    // comparivano in nessun log: le righe del service ora lo portano.
+    let seen: ReturnType<typeof getRequestContext>;
+    mockEmitReceiptForBusiness.mockImplementation(() => {
+      const context = getRequestContext();
+      seen = context ? { ...context } : undefined;
+      return Promise.resolve({
+        error: "Login AdE rifiutato.",
+        code: "PENDING_IN_PROGRESS",
+      });
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(seen).toEqual({
+      requestId: res.headers.get("X-Request-Id"),
+      apiKeyId: "key-uuid-123",
+      businessId: "biz-uuid",
+    });
+    expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "POST /api/v1/receipts",
+        status: 409,
+        code: "PENDING_IN_PROGRESS",
+      }),
+      "v1 request completed",
+    );
   });
 
   it("passa businessId dalla API key (non dal body) al service", async () => {

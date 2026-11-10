@@ -2,14 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 import { hostname } from "node:os";
 import pino from "pino";
 import { getAppRelease } from "./version";
-
-export type LogContext = {
-  requestId?: string;
-  path?: string;
-  method?: string;
-  userId?: string;
-  [key: string]: unknown;
-};
+import { getRequestContext } from "./request-context";
 
 /**
  * Pino redaction paths. Censored during serialisation (`asJson`), so they are
@@ -146,17 +139,31 @@ function doCapture(obj: unknown, msg?: string): void {
 
 function captureToSentry(obj: unknown, msg?: string): void {
   const fingerprint = extractFingerprint(obj);
-  if (fingerprint) {
-    // Wrap the capture in a scope so the fingerprint only routes THIS event
-    // and doesn't leak into subsequent unrelated captures within the same
-    // async context. Regola 23 di CLAUDE.md (SCONTRINOZERO-9/-A grouping).
-    Sentry.withScope((scope) => {
-      scope.setFingerprint(fingerprint);
-      doCapture(obj, msg);
-    });
+  const requestId = getRequestContext()?.requestId;
+  if (!fingerprint && !requestId) {
+    doCapture(obj, msg);
     return;
   }
-  doCapture(obj, msg);
+  // Wrap the capture in a scope so fingerprint and tag only route THIS event
+  // and don't leak into subsequent unrelated captures within the same async
+  // context. Fingerprint: regola 23 di CLAUDE.md (SCONTRINOZERO-9/-A
+  // grouping). Tag: il requestId v1 che l'integratore ci gira in un ticket.
+  Sentry.withScope((scope) => {
+    if (fingerprint) scope.setFingerprint(fingerprint);
+    if (requestId) scope.setTag("requestId", requestId);
+    doCapture(obj, msg);
+  });
+}
+
+/**
+ * Aggiunge il `requestId` della richiesta in corso (`src/lib/request-context.ts`)
+ * a ogni riga di log scritta durante la richiesta, a qualunque profondità.
+ * Solo il requestId: chiave e attività le portano già le righe che ne hanno
+ * bisogno, e la riga di chiusura della richiesta v1 le riporta tutte.
+ */
+export function requestContextMixin(): { requestId?: string } {
+  const requestId = getRequestContext()?.requestId;
+  return requestId ? { requestId } : {};
 }
 
 export const logger = pino({
@@ -172,6 +179,7 @@ export const logger = pino({
     censor: "[REDACTED]",
   },
   timestamp: pino.stdTimeFunctions.isoTime,
+  mixin: requestContextMixin,
   transport:
     process.env.NODE_ENV === "production"
       ? undefined
@@ -188,11 +196,3 @@ export const logger = pino({
     },
   },
 });
-
-/**
- * Create a child logger with request-scoped context.
- * Use in API routes and server actions.
- */
-export function createRequestLogger(context: LogContext): pino.Logger {
-  return logger.child(context);
-}
