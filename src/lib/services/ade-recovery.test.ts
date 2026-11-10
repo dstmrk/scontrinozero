@@ -118,6 +118,19 @@ describe("claimStaleDocument", () => {
     );
   });
 
+  it("azzera il motivo di mancata trasmissione: chi arriva dopo il claim aspetta", async () => {
+    // Un retry concorrente che legge la riga dopo questo claim non deve
+    // trovarci il motivo, o salterebbe la soglia stale e farebbe un secondo
+    // claim valido mentre questo sta ritrasmettendo (doppia emissione).
+    mockReturning.mockResolvedValue([{ id: "doc-1" }]);
+
+    await claimStaleDocument(getDb(), "doc-1", new Date());
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ notTransmittedReason: null }),
+    );
+  });
+
   it("ritorna false quando il CAS matcha 0 righe (claim perso da un retry concorrente)", async () => {
     mockReturning.mockResolvedValue([]);
 
@@ -141,6 +154,7 @@ describe("claimStaleDocument", () => {
 
     expect(mockSet).toHaveBeenCalledWith({
       updatedAt: expect.any(Date),
+      notTransmittedReason: null,
       status: "PENDING",
     });
   });
@@ -517,6 +531,20 @@ describe("markDocumentErrorBestEffort", () => {
 
     expect(getDb().update).toHaveBeenCalledWith("commercial-documents-table");
     expect(mockSet).toHaveBeenCalledWith({ status: "ERROR" });
+  });
+
+  it("registra il motivo di mancata trasmissione quando il chiamante lo conosce", async () => {
+    await markDocumentErrorBestEffort(
+      "doc-123",
+      { documentId: "doc-123" },
+      "should not warn",
+      "ADE_REAUTH_REQUIRED",
+    );
+
+    expect(mockSet).toHaveBeenCalledWith({
+      status: "ERROR",
+      notTransmittedReason: "ADE_REAUTH_REQUIRED",
+    });
   });
 
   it("swallows l'errore dell'UPDATE loggando warn (best-effort, non propaga)", async () => {

@@ -333,6 +333,12 @@ documento con la fonte di verità via
 finalize-only (nessun duplicato fiscale), altrimenti re-submit; lookup
 ambiguo o fallito → resta pending (fail-safe).
 
+Un'emissione fermata prima di qualunque trasmissione (login AdE rifiutato,
+utenza inutilizzabile, riautenticazione CIE/SPID) lascia la riga `ERROR` con
+`not_transmitted_reason` (migrazione 0048): il retry con la stessa
+idempotencyKey entra nel recovery subito, senza la soglia stale, e il claim
+azzera il motivo. Il lookup AdE prima di ritrasmettere resta.
+
 Su annullo e reso il claim della riga stale la riporta anche a `PENDING`
 (`claimStaleDocument(..., { reopen: true })`): gli indici che serializzano le
 correzioni di una vendita (0012 per i VOID, 0042 per annullo e reso)
