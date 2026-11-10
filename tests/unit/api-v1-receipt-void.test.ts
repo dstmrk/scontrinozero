@@ -39,7 +39,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: vi.fn(), error: vi.fn() },
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
 // --- Helpers ---

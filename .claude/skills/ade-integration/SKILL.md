@@ -82,6 +82,10 @@ sono `processSingleton`, non costanti di modulo: Turbopack duplica il modulo
 tra server action e route handler, e con una costante la cassa e la Developer
 API avevano code, sessioni e `invalidate()` separati. Un nuovo store di
 sessione va costruito allo stesso modo (skill `security-patterns`).
+Gli errori lanciati dentro la cache arrivano quindi con le classi dell'altro
+layer: le classi di `src/lib/ade/errors.ts` reggono l'`instanceof` fra copie
+grazie a `Symbol.hasInstance`, e ogni sottoclasse nuova **deve** dichiarare
+`static override readonly code` (gate in `errors.test.ts`).
 
 **Regole quando tocchi il ramo CIE:**
 
@@ -779,6 +783,16 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    per evitare drift. Il claim del documento è un CAS ottimistico su
    `updated_at` (`claimStaleDocument`): serializza retry concorrenti senza
    tenere lock DB durante la HTTP AdE (2-5s).
+   **Eccezione (solo emissione, migrazione 0048):** una riga `ERROR` con
+   `not_transmitted_reason` valorizzato salta il gate. Il motivo lo scrive
+   `notTransmittedReason(err)` (`src/lib/ade/error-messages.ts`) solo quando
+   l'emissione si è fermata al login o sull'utenza **e** nessun tentativo
+   precedente sulla riga può essere arrivato all'AdE (`noPriorTransmission`:
+   primo tentativo, o recovery di una riga che aveva già il motivo). Il claim
+   lo azzera nello stesso UPDATE: senza, un secondo retry concorrente
+   vedrebbe ancora il motivo e vincerebbe un secondo claim mentre il primo
+   ritrasmette. Una riga `ERROR` senza motivo (storica, o esito ignoto) resta
+   sul gate dei 30 minuti.
 2. **Riconciliazione pre-retry** — prima di ri-sottomettere, il recovery
    interroga AdE via `searchDocuments` (HAR: `ricerca.har`) e riconcilia con
    `reconcileSaleDocument`/`reconcileVoidDocument`: se AdE aveva già accettato

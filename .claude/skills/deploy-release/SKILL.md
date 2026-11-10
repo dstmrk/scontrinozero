@@ -76,7 +76,11 @@ empty-safe (`pickHostnameEnv`, `parseTrustedHostnameEnv`), mai `??`.
 
 E `next.config.ts` **non** può importare moduli con alias `@/`: la
 transpilation del config non li risolve e `next build` fallisce _prima_ di
-generare le route — usare import relativi (PR #536).
+generare le route — usare import relativi (PR #536). Vale per tutto ciò che
+il config carica **anche indirettamente**: `hostname-env.ts` porta dentro
+`logger.ts` e da lì `request-context.ts`, che con un `@/` ha rotto la build
+il 10/11/2026. Gate: `tests/unit/next-config-imports.test.ts` segue il grafo
+degli import relativi dal config e fallisce sul primo `@/` raggiunto.
 
 ## Validazione fail-fast al boot (regola 24)
 

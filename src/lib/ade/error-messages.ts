@@ -1,10 +1,12 @@
 import {
   AdeAccountLockedError,
   AdeAuthError,
+  AdeError,
   AdeNetworkError,
   AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
+  AdeReauthRequiredError,
   AdeSpidTimeoutError,
   AdeUnknownOutcomeError,
   AdeUtenzaNotAvailableError,
@@ -225,4 +227,26 @@ export function isExpectedUserAdeError(err: unknown): boolean {
   if (err instanceof AdeUtenzaSelectionRequiredError) return true;
   if (err instanceof AdeUtenzaNotAvailableError) return true;
   return false;
+}
+
+/**
+ * Codice dell'errore se l'operazione si è fermata **prima** di qualunque
+ * trasmissione all'AdE, `null` se non c'è questa certezza.
+ *
+ * Sono gli errori utente di `isExpectedUserAdeError` (login rifiutato, password
+ * scaduta, utenza bloccata o senza P.IVA, utenza di lavoro da scegliere o non
+ * più offerta), che nascono dal login o dalla scelta dell'utenza, e la
+ * riautenticazione CIE/SPID, che è un 401 dell'AdE: in entrambi i casi nessun
+ * documento è stato registrato. Dopo `submitSale` nel flusso di emissione
+ * partono solo scritture sul nostro DB, quindi nessuno di questi può arrivare
+ * a documento già trasmesso.
+ *
+ * Lo legge l'emissione per `commercial_documents.not_transmitted_reason`
+ * (migrazione 0048): un retry sulla stessa idempotencyKey di una riga così
+ * riparte subito invece di aspettare la soglia stale.
+ */
+export function notTransmittedReason(err: unknown): string | null {
+  if (err instanceof AdeReauthRequiredError) return err.code;
+  if (isExpectedUserAdeError(err) && err instanceof AdeError) return err.code;
+  return null;
 }
