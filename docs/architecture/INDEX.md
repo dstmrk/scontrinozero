@@ -49,7 +49,7 @@ src/
                   pwa, dashboard, admin, announcement, errors) + ui/ (shadcn) +
                   providers.tsx
   db/             Drizzle: connessione (index.ts) + schema/ (una tabella per file)
-  emails/         template React Email (Resend)
+  emails/         template React Email (Resend); involucro comune in layout.tsx
   hooks/          React hooks condivisi
   lib/            utility e logica condivisa client+server (vedi sotto)
   server/         Server Actions ("use server"): *-actions.ts
