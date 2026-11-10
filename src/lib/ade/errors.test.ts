@@ -245,8 +245,8 @@ describe("instanceof fra copie diverse del modulo", () => {
     expect(lookalike).not.toBeInstanceOf(b.AdeAuthError);
     expect(lookalike).not.toBeInstanceOf(b.AdeError);
     for (const value of [null, undefined, "AdeAuthError", 42, {}]) {
-      expect(value instanceof b.AdeError).toBe(false);
-      expect(value instanceof b.AdeAuthError).toBe(false);
+      expect(value).not.toBeInstanceOf(b.AdeError);
+      expect(value).not.toBeInstanceOf(b.AdeAuthError);
     }
   });
 });
