@@ -9,6 +9,11 @@
  * (limiter, cache di sessione AdE) l'istanza si appende a `globalThis` sotto
  * un `Symbol.for`, che è unico per processo qualunque cosa faccia il bundler.
  *
+ * L'istanza resta però costruita con le classi della copia che l'ha creata:
+ * ciò che produce (client, errori) arriva all'altro layer con classi diverse
+ * dalle sue, e un `instanceof` nativo fallisce. Gli errori AdE lo reggono con
+ * `Symbol.hasInstance` (`src/lib/ade/errors.ts`).
+ *
  * @param key     - nome stabile, prefissato con `scontrinozero.`
  * @param factory - costruisce l'istanza alla prima richiesta
  */

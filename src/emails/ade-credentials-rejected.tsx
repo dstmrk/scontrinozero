@@ -1,16 +1,6 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Button, Heading, Text } from "@react-email/components";
 import { emailStyles } from "./styles";
+import { EmailLayout } from "./layout";
 import { CONTACT_EMAIL } from "@/lib/contact";
 import type { LoginRejectionOutcome } from "@/lib/ade/verify-outcome";
 
@@ -47,48 +37,36 @@ export function AdeCredentialsRejectedEmail({
 }: AdeCredentialsRejectedEmailProps) {
   const subject = adeCredentialsRejectedSubject(outcome, businessName);
   return (
-    <Html lang="it">
-      <Head />
-      <Preview>{subject}</Preview>
-      <Body style={emailStyles.body}>
-        <Container style={emailStyles.container}>
-          <Section style={emailStyles.content}>
-            <Heading as="h2" style={emailStyles.subheading}>
-              {subject}
-            </Heading>
-            <Text style={emailStyles.text}>
-              {outcome === "password_expired" &&
-                "L'Agenzia delle Entrate ha rifiutato la password Fisconline salvata in ScontrinoZero perché è scaduta."}
-              {outcome === "account_locked" &&
-                "L'Agenzia delle Entrate ha bloccato l'utenza Fisconline salvata in ScontrinoZero. Non dipende dai dati salvati, che sono corretti."}
-              {outcome === "auth_error" &&
-                "L'Agenzia delle Entrate non accetta più le credenziali Fisconline salvate in ScontrinoZero. Succede di solito quando la password è stata cambiata sul portale e non nell'app."}
-            </Text>
-            <Text style={emailStyles.text}>
-              Finché non le sistemi, né tu né i collaboratori potete emettere,
-              annullare o fare resi da ScontrinoZero.
-            </Text>
-            <Text style={emailStyles.text}>
-              {outcome === "password_expired" &&
-                "Puoi cambiarla dalle impostazioni, nella card Credenziali AdE: l'app la aggiorna anche sul portale."}
-              {outcome === "account_locked" &&
-                "Per sbloccarla entra nel portale dell'Agenzia delle Entrate, poi verifica la connessione dalle impostazioni."}
-              {outcome === "auth_error" &&
-                "Aggiorna le credenziali dalle impostazioni, nella card Credenziali AdE, e verifica la connessione."}
-            </Text>
-            <Button style={emailStyles.button} href={settingsUrl}>
-              Apri le impostazioni
-            </Button>
-            <Text style={emailStyles.text}>
-              Per dubbi scrivici a <strong>{CONTACT_EMAIL}</strong>.
-            </Text>
-          </Section>
-          <Hr style={emailStyles.hr} />
-          <Text style={emailStyles.footer}>
-            ScontrinoZero · scontrinozero.it
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout preview={subject} header="none">
+      <Heading as="h2" style={emailStyles.subheading}>
+        {subject}
+      </Heading>
+      <Text style={emailStyles.text}>
+        {outcome === "password_expired" &&
+          "L'Agenzia delle Entrate ha rifiutato la password Fisconline salvata in ScontrinoZero perché è scaduta."}
+        {outcome === "account_locked" &&
+          "L'Agenzia delle Entrate ha bloccato l'utenza Fisconline salvata in ScontrinoZero. Non dipende dai dati salvati, che sono corretti."}
+        {outcome === "auth_error" &&
+          "L'Agenzia delle Entrate non accetta più le credenziali Fisconline salvate in ScontrinoZero. Succede di solito quando la password è stata cambiata sul portale e non nell'app."}
+      </Text>
+      <Text style={emailStyles.text}>
+        Finché non le sistemi, né tu né i collaboratori potete emettere,
+        annullare o fare resi da ScontrinoZero.
+      </Text>
+      <Text style={emailStyles.text}>
+        {outcome === "password_expired" &&
+          "Puoi cambiarla dalle impostazioni, nella card Credenziali AdE: l'app la aggiorna anche sul portale."}
+        {outcome === "account_locked" &&
+          "Per sbloccarla entra nel portale dell'Agenzia delle Entrate, poi verifica la connessione dalle impostazioni."}
+        {outcome === "auth_error" &&
+          "Aggiorna le credenziali dalle impostazioni, nella card Credenziali AdE, e verifica la connessione."}
+      </Text>
+      <Button style={emailStyles.button} href={settingsUrl}>
+        Apri le impostazioni
+      </Button>
+      <Text style={emailStyles.text}>
+        Per dubbi scrivici a <strong>{CONTACT_EMAIL}</strong>.
+      </Text>
+    </EmailLayout>
   );
 }

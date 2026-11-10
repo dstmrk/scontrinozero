@@ -57,6 +57,13 @@ export const emailStyles = {
     display: "inline-block",
     margin: "20px 0 8px",
   },
+  /** Nota in piccolo sotto il pulsante ("se non sei stato tu, ignora…"). */
+  hint: {
+    fontSize: "13px",
+    lineHeight: "20px",
+    color: "#6b7280",
+    margin: "16px 0 0",
+  },
   footer: {
     fontSize: "12px",
     color: "#9ca3af",

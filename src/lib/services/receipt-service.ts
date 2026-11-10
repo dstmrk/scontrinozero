@@ -22,6 +22,7 @@ import type { AdeClient } from "@/lib/ade/client";
 import {
   getUserFacingAdeErrorMessage,
   isTransientAdeError,
+  notTransmittedReason,
 } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
@@ -311,7 +312,9 @@ export async function emitReceiptForBusiness(
     lotteryCode,
     prerequisites,
     apiKeyId,
-    { recovery: false },
+    // Riga appena inserita: nessun tentativo precedente può essere arrivato
+    // all'AdE.
+    { recovery: false, noPriorTransmission: true },
   );
 }
 
@@ -346,6 +349,7 @@ async function handleExistingReceipt(args: {
       adeRegisteredAt: commercialDocuments.adeRegisteredAt,
       updatedAt: commercialDocuments.updatedAt,
       requestHash: commercialDocuments.requestHash,
+      notTransmittedReason: commercialDocuments.notTransmittedReason,
     })
     .from(commercialDocuments)
     .where(
@@ -451,7 +455,13 @@ async function handleExistingReceipt(args: {
     ? new Date(existing.createdAt).getTime()
     : Number.NaN;
   const isStale = isStaleUpdatedAt(existing.updatedAt);
-  if (isStale) {
+  // Migrazione 0048: un ERROR fermato prima di qualunque trasmissione (login
+  // rifiutato, riautenticazione) non ha niente da far assestare sull'AdE, quindi
+  // il retry riparte subito. Il claim della recovery azzera il motivo, così un
+  // secondo retry concorrente torna su PENDING_IN_PROGRESS.
+  const knownNotTransmitted =
+    existing.status === "ERROR" && existing.notTransmittedReason != null;
+  if (isStale || knownNotTransmitted) {
     return recoverStaleReceipt({
       existing,
       input,
@@ -459,6 +469,7 @@ async function handleExistingReceipt(args: {
       prerequisites,
       apiKeyId,
       createdAtMs,
+      knownNotTransmitted,
     });
   }
   return pendingInProgress(existing.id);
@@ -479,9 +490,18 @@ async function recoverStaleReceipt(args: {
   prerequisites: AdePrerequisites;
   apiKeyId: string | null | undefined;
   createdAtMs: number;
+  /** La riga aveva un motivo di mancata trasmissione (migrazione 0048). */
+  knownNotTransmitted: boolean;
 }): Promise<SubmitReceiptResult> {
-  const { existing, input, lotteryCode, prerequisites, apiKeyId, createdAtMs } =
-    args;
+  const {
+    existing,
+    input,
+    lotteryCode,
+    prerequisites,
+    apiKeyId,
+    createdAtMs,
+    knownNotTransmitted,
+  } = args;
   logger.warn(
     {
       documentId: existing.id,
@@ -489,6 +509,7 @@ async function recoverStaleReceipt(args: {
       status: existing.status,
       hasAdeTransaction: existing.adeTransactionId != null,
       ageMs: Date.now() - createdAtMs,
+      knownNotTransmitted,
     },
     "Recovering stale PENDING/ERROR receipt",
   );
@@ -530,6 +551,7 @@ async function recoverStaleReceipt(args: {
     apiKeyId,
     {
       recovery: true,
+      noPriorTransmission: knownNotTransmitted,
       // Senza un createdAt valido non possiamo costruire la finestra di ricerca:
       // saltiamo il lookup (caso patologico) e ricadiamo sul comportamento legacy.
       reconcile: Number.isFinite(createdAtMs)
@@ -824,7 +846,17 @@ async function submitSaleToAde(
   lotteryCode: string | null,
   prerequisites: AdePrerequisites,
   apiKeyId: string | null | undefined,
-  options: { recovery: boolean; reconcile?: { createdAt: Date } },
+  options: {
+    recovery: boolean;
+    /**
+     * Nessun tentativo precedente su questa riga è arrivato all'AdE: solo
+     * allora un rifiuto al login di questo tentativo rende la riga "mai
+     * trasmessa" (migrazione 0048). Falso per una recovery di una riga con
+     * esito ignoto, il cui primo tentativo può essere stato registrato.
+     */
+    noPriorTransmission: boolean;
+    reconcile?: { createdAt: Date };
+  },
 ): Promise<SubmitReceiptResult> {
   const db = getDb();
   const { cedentePrestatore } = prerequisites;
@@ -917,11 +949,15 @@ async function submitSaleToAde(
     // perpetuo nello storico — la cassa genera una idempotencyKey nuova a ogni
     // retry, quindi la riga orfana non verrebbe mai più toccata. Non è un failure
     // nostro: niente logAdeFailure/Sentry (regola 20).
+    const reason = options.noPriorTransmission
+      ? notTransmittedReason(err)
+      : null;
     if (err instanceof AdeReauthRequiredError) {
       await markDocumentErrorBestEffort(
         documentId,
         { documentId },
         "Failed to mark document as ERROR after CIE reauth-required",
+        reason,
       );
       return { reauthRequired: err.method };
     }
@@ -952,7 +988,7 @@ async function submitSaleToAde(
       try {
         await db
           .update(commercialDocuments)
-          .set({ status: "ERROR" })
+          .set({ status: "ERROR", notTransmittedReason: reason })
           .where(eq(commercialDocuments.id, documentId));
       } catch (updateErr) {
         logger.warn(

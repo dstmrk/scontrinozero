@@ -57,6 +57,15 @@ export const commercialDocuments = pgTable(
      * VOID (che usano il confronto diretto di voidedDocumentId).
      */
     requestHash: text("request_hash"),
+    /**
+     * Codice dell'errore AdE (es. `ADE_AUTH_FAILED`) che ha fermato
+     * un'emissione **prima** di qualunque trasmissione: login rifiutato,
+     * utenza inutilizzabile, riautenticazione CIE/SPID. Solo su righe ERROR.
+     * NULL = nessuna certezza (righe storiche, esiti ignoti): il retry aspetta
+     * la soglia stale. Valorizzato, il retry con la stessa idempotencyKey
+     * riparte subito (migrazione 0048).
+     */
+    notTransmittedReason: text("not_transmitted_reason"),
     /** Risposta raw dell'AdE */
     adeResponse: jsonb("ade_response").$type<AdeResponse>(),
     /** idtrx AdE — identificativo transazione */

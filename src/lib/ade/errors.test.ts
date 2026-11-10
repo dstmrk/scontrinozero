@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   AdeAuthError,
   AdeError,
@@ -169,5 +169,112 @@ describe("AdeUtenzaNotAvailableError", () => {
     // Il messaggio finisce nei log: niente identificativi fiscali dentro.
     expect(err.message).not.toContain("12345678901");
     expect(err).toBeInstanceOf(AdeError);
+  });
+});
+
+/**
+ * Turbopack compila le server action nel layer `action-browser` e le route nel
+ * layer `rsc`: `errors.ts` diventa due moduli, quindi due copie di ogni classe
+ * nello stesso processo (`src/lib/process-singleton.ts`). La cache di sessione
+ * AdE è condivisa fra i due layer, quindi un errore costruito con le classi di
+ * un layer arriva agli `instanceof` dell'altro. In produzione (10/11/2026) un
+ * `AdeAuthError` sulla Developer API è stato classificato `ade_failure`:
+ * messaggio "Riprova più tardi" al client e issue Sentry (SCONTRINOZERO-M).
+ *
+ * `vi.resetModules()` + import dinamico riproduce le due copie.
+ */
+describe("instanceof fra copie diverse del modulo", () => {
+  type ErrorsModule = typeof import("./errors");
+
+  async function freshCopy(): Promise<ErrorsModule> {
+    vi.resetModules();
+    return import("./errors");
+  }
+
+  it("le due copie sono davvero classi distinte (il test misura qualcosa)", async () => {
+    const a = await freshCopy();
+    const b = await freshCopy();
+    expect(a.AdeAuthError).not.toBe(b.AdeAuthError);
+    expect(
+      Function.prototype[Symbol.hasInstance].call(
+        b.AdeAuthError,
+        new a.AdeAuthError(),
+      ),
+    ).toBe(false);
+  });
+
+  it("un errore dell'altra copia è instanceof della propria classe e di AdeError", async () => {
+    const a = await freshCopy();
+    const b = await freshCopy();
+    const err = new a.AdeAuthError("Login failed: invalid credentials");
+    expect(err).toBeInstanceOf(b.AdeAuthError);
+    expect(err).toBeInstanceOf(b.AdeError);
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("non è instanceof di un'altra sottoclasse dell'altra copia", async () => {
+    const a = await freshCopy();
+    const b = await freshCopy();
+    expect(new a.AdeAuthError()).not.toBeInstanceOf(b.AdePasswordExpiredError);
+    expect(new a.AdeNoPartitaIvaError("x")).not.toBeInstanceOf(
+      b.AdePortalError,
+    );
+  });
+
+  it("un AdeError grezzo dell'altra copia è AdeError ma nessuna sottoclasse, anche con un codice di sottoclasse", async () => {
+    const a = await freshCopy();
+    const b = await freshCopy();
+    const raw = new a.AdeError("ADE_AUTH_FAILED", "costruito a mano");
+    expect(raw).toBeInstanceOf(b.AdeError);
+    expect(raw).not.toBeInstanceOf(b.AdeAuthError);
+  });
+
+  it("i campi propri della sottoclasse restano leggibili dopo il narrowing", async () => {
+    const a = await freshCopy();
+    const b = await freshCopy();
+    const err: unknown = new a.AdePortalError(503, "down");
+    expect(err instanceof b.AdePortalError && err.statusCode).toBe(503);
+  });
+
+  it("valori che non sono errori AdE non passano", async () => {
+    const b = await freshCopy();
+    const lookalike = Object.assign(new Error("x"), {
+      name: "AdeAuthError",
+      code: "ADE_AUTH_FAILED",
+    });
+    expect(lookalike).not.toBeInstanceOf(b.AdeAuthError);
+    expect(lookalike).not.toBeInstanceOf(b.AdeError);
+    for (const value of [null, undefined, "AdeAuthError", 42, {}]) {
+      expect(value).not.toBeInstanceOf(b.AdeError);
+      expect(value).not.toBeInstanceOf(b.AdeAuthError);
+    }
+  });
+});
+
+describe("identità delle classi d'errore", () => {
+  it("ogni sottoclasse dichiara un proprio codice statico, unico, uguale a quello delle istanze", async () => {
+    const mod = await import("./errors");
+    const subclasses = Object.values(mod).filter(
+      (v): v is typeof mod.AdeError =>
+        typeof v === "function" &&
+        v !== mod.AdeError &&
+        v.prototype instanceof mod.AdeError,
+    );
+    expect(subclasses.length).toBeGreaterThanOrEqual(12);
+
+    const codes = subclasses.map((cls) => {
+      // Senza codice proprio una sottoclasse erediterebbe `undefined` dalla
+      // base e, fra copie, accetterebbe qualunque errore AdE.
+      expect(Object.hasOwn(cls, "code"), cls.name).toBe(true);
+      expect(typeof cls.code, cls.name).toBe("string");
+      return cls.code;
+    });
+    expect(new Set(codes).size).toBe(codes.length);
+
+    expect(new mod.AdeAuthError().code).toBe(mod.AdeAuthError.code);
+    expect(new mod.AdePasswordExpiredError().code).toBe(
+      mod.AdePasswordExpiredError.code,
+    );
+    expect(new mod.AdePortalError(500, "x").code).toBe(mod.AdePortalError.code);
   });
 });
