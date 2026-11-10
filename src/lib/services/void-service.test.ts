@@ -1008,6 +1008,7 @@ describe("voidReceiptForBusiness", () => {
 
     expect(mockUpdateSet.mock.calls[0]![0]).toEqual({
       updatedAt: expect.any(Date),
+      notTransmittedReason: null,
       status: "PENDING",
     });
     expect(mockSubmitVoid).toHaveBeenCalledTimes(1);

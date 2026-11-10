@@ -8,9 +8,15 @@ import pino from "pino";
 const mockCaptureException = vi.fn();
 const mockCaptureMessage = vi.fn();
 const mockSetFingerprint = vi.fn();
+const mockSetTag = vi.fn();
 const mockWithScope = vi.fn(
-  (cb: (scope: { setFingerprint: typeof mockSetFingerprint }) => void) => {
-    cb({ setFingerprint: mockSetFingerprint });
+  (
+    cb: (scope: {
+      setFingerprint: typeof mockSetFingerprint;
+      setTag: typeof mockSetTag;
+    }) => void,
+  ) => {
+    cb({ setFingerprint: mockSetFingerprint, setTag: mockSetTag });
   },
 );
 
@@ -59,11 +65,6 @@ describe("logger module", () => {
     expect(typeof logger.warn).toBe("function");
     expect(typeof logger.error).toBe("function");
     expect(typeof logger.debug).toBe("function");
-  });
-
-  it("exports createRequestLogger function", async () => {
-    const { createRequestLogger } = await import("./logger");
-    expect(typeof createRequestLogger).toBe("function");
   });
 
   it("redacts 'password' field in log output", () => {
@@ -186,21 +187,6 @@ describe("logger module", () => {
     const parsed = JSON.parse(output);
     expect(parsed.user.credentials).toBe("[REDACTED]");
     expect(output).not.toContain("abc-secret");
-  });
-
-  it("createRequestLogger returns a child logger with context fields", () => {
-    const { logger, getOutput } = createTestLogger({
-      level: "info",
-    });
-
-    // Simulate createRequestLogger by creating a child
-    const child = logger.child({ requestId: "req-123", path: "/api/test" });
-    child.info("handling request");
-
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.requestId).toBe("req-123");
-    expect(parsed.path).toBe("/api/test");
   });
 
   it("outputs valid JSON with expected structure", () => {
@@ -431,20 +417,6 @@ describe("logger Sentry bridge", () => {
     expect(out.ipHash).toBe("h-1");
     expect(out.userId).toBe("u-x");
   });
-
-  it("child logger (createRequestLogger) inherits Sentry bridge", async () => {
-    const { createRequestLogger } = await import("./logger");
-    const childLogger = createRequestLogger({
-      requestId: "req-abc",
-      userId: "u-1",
-    });
-    const err = new Error("child error");
-    childLogger.error({ err }, "error in child context");
-    expect(mockCaptureException).toHaveBeenCalledOnce();
-    expect(mockCaptureException).toHaveBeenCalledWith(err, {
-      extra: { err: { name: "Error", message: "child error" } },
-    });
-  });
 });
 
 // The Sentry pino integration (Sentry.pinoIntegration) forwards the *serialised*
@@ -517,5 +489,93 @@ describe("logger REDACT_PATHS — Sentry Logs (pino integration) safety", () => 
     const output = getOutput();
     expect(output).not.toContain("RESET-SECRET");
     expect(output).not.toContain("NESTED-SECRET");
+  });
+});
+
+/**
+ * Il `requestId` della Developer API su ogni riga di log della richiesta e su
+ * ogni evento Sentry: è il filo fra la segnalazione di un integratore e i
+ * nostri log. Il 10/11/2026 due requestId girati da un esercente non
+ * comparivano da nessuna parte.
+ */
+describe("logger e contesto della richiesta", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockCaptureException.mockReset();
+    mockSetFingerprint.mockReset();
+    mockSetTag.mockReset();
+    mockWithScope.mockClear();
+  });
+
+  it("il mixin aggiunge il requestId dentro una richiesta e niente fuori", async () => {
+    const { requestContextMixin } = await import("./logger");
+    const { runWithRequestContext } = await import("./request-context");
+    const { logger, getOutput } = createTestLogger({
+      mixin: requestContextMixin,
+    });
+
+    logger.info({ documentId: "doc-1" }, "fuori");
+    runWithRequestContext("req-1", () => {
+      logger.info({ documentId: "doc-1" }, "dentro");
+    });
+
+    const [outside, inside] = getOutput()
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(outside).not.toHaveProperty("requestId");
+    expect(inside).toMatchObject({ requestId: "req-1", documentId: "doc-1" });
+  });
+
+  it("il mixin non duplica chiave e attività, che le righe portano già dove servono", async () => {
+    const { requestContextMixin } = await import("./logger");
+    const { annotateRequestContext, runWithRequestContext } =
+      await import("./request-context");
+    runWithRequestContext("req-1", () => {
+      annotateRequestContext({ apiKeyId: "key-1", businessId: "biz-1" });
+      expect(requestContextMixin()).toEqual({ requestId: "req-1" });
+    });
+  });
+
+  it("il logger dell'app usa il mixin", async () => {
+    const { logger, requestContextMixin } = await import("./logger");
+    const mixin = (logger as unknown as Record<symbol, unknown>)[
+      pino.symbols.mixinSym
+    ];
+    expect(mixin).toBeTypeOf("function");
+    expect(mixin).toBe(requestContextMixin);
+  });
+
+  it("un errore dentro una richiesta porta il requestId come tag Sentry", async () => {
+    const { logger } = await import("./logger");
+    const { runWithRequestContext } = await import("./request-context");
+    const err = new Error("boom");
+    runWithRequestContext("req-1", () => {
+      logger.error({ err }, "failed");
+    });
+    expect(mockWithScope).toHaveBeenCalledOnce();
+    expect(mockSetTag).toHaveBeenCalledWith("requestId", "req-1");
+    expect(mockSetFingerprint).not.toHaveBeenCalled();
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+  });
+
+  it("requestId e fingerprint convivono nello stesso scope", async () => {
+    const { logger } = await import("./logger");
+    const { runWithRequestContext } = await import("./request-context");
+    runWithRequestContext("req-1", () => {
+      logger.error(
+        {
+          err: new Error("boom"),
+          sentryFingerprint: ["emit-receipt", "ade_failure"],
+        },
+        "emitReceiptForBusiness failed",
+      );
+    });
+    expect(mockWithScope).toHaveBeenCalledOnce();
+    expect(mockSetTag).toHaveBeenCalledWith("requestId", "req-1");
+    expect(mockSetFingerprint).toHaveBeenCalledWith([
+      "emit-receipt",
+      "ade_failure",
+    ]);
   });
 });
