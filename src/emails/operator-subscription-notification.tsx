@@ -1,15 +1,6 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Heading, Text } from "@react-email/components";
 import { emailStyles } from "./styles";
+import { EmailLayout } from "./layout";
 
 type OperatorSubscriptionNotificationEmailProps = Readonly<{
   firstName: string;
@@ -36,47 +27,29 @@ export function OperatorSubscriptionNotificationEmail({
 }: OperatorSubscriptionNotificationEmailProps) {
   const fullName = `${firstName} ${lastName}`.trim();
   return (
-    <Html lang="it">
-      <Head />
-      <Preview>
-        {title}: {planLabel}
-      </Preview>
-      <Body style={emailStyles.body}>
-        <Container style={emailStyles.container}>
-          <Section style={emailStyles.header}>
-            <Text style={emailStyles.headerTitle}>ScontrinoZero</Text>
-            <Text style={emailStyles.headerSubtitle}>Notifica interna</Text>
-          </Section>
-          <Section style={emailStyles.content}>
-            <Heading as="h2" style={emailStyles.subheading}>
-              {title}
-            </Heading>
-            <Text style={emailStyles.text}>
-              <strong>Nome:</strong> {fullName || "(non fornito)"}
-            </Text>
-            <Text style={emailStyles.text}>
-              <strong>Email:</strong> {email}
-            </Text>
-            <Text style={emailStyles.text}>
-              <strong>Piano:</strong> {planLabel}
-            </Text>
-            {previousPlanLabel ? (
-              <Text style={emailStyles.text}>
-                <strong>Piano precedente:</strong> {previousPlanLabel}
-              </Text>
-            ) : null}
-            {endsAtLabel ? (
-              <Text style={emailStyles.text}>
-                <strong>Attivo fino al:</strong> {endsAtLabel}
-              </Text>
-            ) : null}
-          </Section>
-          <Hr style={emailStyles.hr} />
-          <Text style={emailStyles.footer}>
-            ScontrinoZero · notifica automatica
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout preview={`${title}: ${planLabel}`} header="internal">
+      <Heading as="h2" style={emailStyles.subheading}>
+        {title}
+      </Heading>
+      <Text style={emailStyles.text}>
+        <strong>Nome:</strong> {fullName || "(non fornito)"}
+      </Text>
+      <Text style={emailStyles.text}>
+        <strong>Email:</strong> {email}
+      </Text>
+      <Text style={emailStyles.text}>
+        <strong>Piano:</strong> {planLabel}
+      </Text>
+      {previousPlanLabel ? (
+        <Text style={emailStyles.text}>
+          <strong>Piano precedente:</strong> {previousPlanLabel}
+        </Text>
+      ) : null}
+      {endsAtLabel ? (
+        <Text style={emailStyles.text}>
+          <strong>Attivo fino al:</strong> {endsAtLabel}
+        </Text>
+      ) : null}
+    </EmailLayout>
   );
 }

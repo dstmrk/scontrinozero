@@ -1,14 +1,6 @@
-import {
-  Body,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Text } from "@react-email/components";
 import { emailStyles } from "./styles";
+import { EmailLayout } from "./layout";
 import { CONTACT_EMAIL } from "@/lib/contact";
 
 /** Perché un collaboratore ha perso l'accesso (issue #1099). */
@@ -47,50 +39,39 @@ export function CollaboratorAccessEndedEmail({
 }: CollaboratorAccessEndedEmailProps) {
   const business = businessName ?? "l'attività";
   return (
-    <Html lang="it">
-      <Head />
-      <Preview>{collaboratorAccessEndedSubject(reason, businessName)}</Preview>
-      <Body style={emailStyles.body}>
-        <Container style={emailStyles.container}>
-          <Section style={emailStyles.content}>
-            <Text style={emailStyles.text}>
-              {reason === "removed" && (
-                <>
-                  <strong>{business}</strong> ha rimosso il tuo accesso da
-                  collaboratore, e il tuo account ScontrinoZero è stato
-                  eliminato.
-                </>
-              )}
-              {reason === "left" && (
-                <>
-                  Come hai chiesto, il tuo account da collaboratore di{" "}
-                  <strong>{business}</strong> è stato eliminato.
-                </>
-              )}
-              {reason === "owner-deleted" && (
-                <>
-                  Il titolare di <strong>{business}</strong> ha eliminato
-                  l&apos;account dell&apos;attività su ScontrinoZero, e con esso
-                  il tuo accesso da collaboratore.
-                </>
-              )}
-            </Text>
-            {reason !== "owner-deleted" && (
-              <Text style={emailStyles.text}>
-                I documenti commerciali che hai emesso restano
-                all&apos;attività.
-              </Text>
-            )}
-            <Text style={emailStyles.text}>
-              Per dubbi contattaci a <strong>{CONTACT_EMAIL}</strong>.
-            </Text>
-          </Section>
-          <Hr style={emailStyles.hr} />
-          <Text style={emailStyles.footer}>
-            ScontrinoZero · scontrinozero.it
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout
+      preview={collaboratorAccessEndedSubject(reason, businessName)}
+      header="none"
+    >
+      <Text style={emailStyles.text}>
+        {reason === "removed" && (
+          <>
+            <strong>{business}</strong> ha rimosso il tuo accesso da
+            collaboratore, e il tuo account ScontrinoZero è stato eliminato.
+          </>
+        )}
+        {reason === "left" && (
+          <>
+            Come hai chiesto, il tuo account da collaboratore di{" "}
+            <strong>{business}</strong> è stato eliminato.
+          </>
+        )}
+        {reason === "owner-deleted" && (
+          <>
+            Il titolare di <strong>{business}</strong> ha eliminato
+            l&apos;account dell&apos;attività su ScontrinoZero, e con esso il
+            tuo accesso da collaboratore.
+          </>
+        )}
+      </Text>
+      {reason !== "owner-deleted" && (
+        <Text style={emailStyles.text}>
+          I documenti commerciali che hai emesso restano all&apos;attività.
+        </Text>
+      )}
+      <Text style={emailStyles.text}>
+        Per dubbi contattaci a <strong>{CONTACT_EMAIL}</strong>.
+      </Text>
+    </EmailLayout>
   );
 }

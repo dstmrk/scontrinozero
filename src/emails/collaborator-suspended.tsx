@@ -1,14 +1,6 @@
-import {
-  Body,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Text } from "@react-email/components";
 import { emailStyles } from "./styles";
+import { EmailLayout } from "./layout";
 import { CONTACT_EMAIL } from "@/lib/contact";
 
 type CollaboratorSuspendedEmailProps = Readonly<{
@@ -33,34 +25,25 @@ export function CollaboratorSuspendedEmail({
   businessName,
 }: CollaboratorSuspendedEmailProps) {
   return (
-    <Html lang="it">
-      <Head />
-      <Preview>{collaboratorSuspendedSubject(businessName)}</Preview>
-      <Body style={emailStyles.body}>
-        <Container style={emailStyles.container}>
-          <Section style={emailStyles.content}>
-            <Text style={emailStyles.text}>
-              Il piano ScontrinoZero di{" "}
-              <strong>{businessName ?? "l'attività"}</strong> non include più i
-              collaboratori, quindi per ora non puoi emettere scontrini,
-              annullarli o fare resi.
-            </Text>
-            <Text style={emailStyles.text}>
-              Il tuo account resta: puoi consultare i tuoi scontrini e
-              scaricarne i PDF. Se l&apos;attività torna al piano Team riprendi
-              a emettere come prima.
-            </Text>
-            <Text style={emailStyles.text}>
-              Per sapere quando, chiedi al titolare. Per dubbi sul servizio
-              scrivici a <strong>{CONTACT_EMAIL}</strong>.
-            </Text>
-          </Section>
-          <Hr style={emailStyles.hr} />
-          <Text style={emailStyles.footer}>
-            ScontrinoZero · scontrinozero.it
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout
+      preview={collaboratorSuspendedSubject(businessName)}
+      header="none"
+    >
+      <Text style={emailStyles.text}>
+        Il piano ScontrinoZero di{" "}
+        <strong>{businessName ?? "l'attività"}</strong> non include più i
+        collaboratori, quindi per ora non puoi emettere scontrini, annullarli o
+        fare resi.
+      </Text>
+      <Text style={emailStyles.text}>
+        Il tuo account resta: puoi consultare i tuoi scontrini e scaricarne i
+        PDF. Se l&apos;attività torna al piano Team riprendi a emettere come
+        prima.
+      </Text>
+      <Text style={emailStyles.text}>
+        Per sapere quando, chiedi al titolare. Per dubbi sul servizio scrivici a{" "}
+        <strong>{CONTACT_EMAIL}</strong>.
+      </Text>
+    </EmailLayout>
   );
 }
