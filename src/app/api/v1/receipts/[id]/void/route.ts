@@ -14,6 +14,7 @@ import {
   parseAndValidateBody,
   serviceErrorResponse,
   ADE_REAUTH_REQUIRED_MESSAGE,
+  v1Route,
 } from "@/lib/api-v1-helpers";
 
 const voidBodySchema = z.object({
@@ -30,12 +31,11 @@ export function OPTIONS(): Response {
   return v1NoContent("POST, OPTIONS", newRequestId());
 }
 
-export async function POST(
+async function handlePost(
   request: Request,
+  requestId: string,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const requestId = newRequestId();
-
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
@@ -106,3 +106,5 @@ export async function POST(
     requestId,
   );
 }
+
+export const POST = v1Route("POST /api/v1/receipts/[id]/void", handlePost);

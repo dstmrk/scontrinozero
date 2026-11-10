@@ -34,7 +34,7 @@ vi.mock("@/lib/request-utils", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: mockLoggerWarn, error: vi.fn() },
+  logger: { warn: mockLoggerWarn, error: vi.fn(), info: vi.fn() },
 }));
 
 // --- Import module under test ---
@@ -274,7 +274,7 @@ describe("checkRateLimitApi", () => {
       REQ_ID,
     );
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      { apiKeyId: "key-1", requestId: REQ_ID },
+      { apiKeyId: "key-1" },
       "rate limit exceeded",
     );
   });

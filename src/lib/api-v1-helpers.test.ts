@@ -11,11 +11,13 @@ const {
   mockIsApiKeyAuthError,
   mockCanUseApi,
   mockLoggerWarn,
+  mockLoggerInfo,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKey: vi.fn<(request: Request) => Promise<unknown>>(),
   mockIsApiKeyAuthError: vi.fn<(value: unknown) => boolean>(),
   mockCanUseApi: vi.fn<(plan: string) => boolean>(),
   mockLoggerWarn: vi.fn(),
+  mockLoggerInfo: vi.fn(),
 }));
 
 vi.mock("@/lib/api-auth", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/lib/plans", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: mockLoggerWarn },
+  logger: { warn: mockLoggerWarn, info: mockLoggerInfo },
 }));
 
 import {
@@ -41,7 +43,13 @@ import {
   parseListPagination,
   requireBusinessApiAuth,
   serviceErrorResponse,
+  v1Route,
 } from "./api-v1-helpers";
+import {
+  annotateRequestContext,
+  getRequestContext,
+  runWithRequestContext,
+} from "./request-context";
 import { REQUEST_ID_HEADER } from "./api-v1-errors";
 
 const ORIGIN_HEADER = "Access-Control-Allow-Origin";
@@ -104,6 +112,7 @@ describe("requireBusinessApiAuth", () => {
   it("forwards trialStartedAt to the plan gate", async () => {
     const trialStartedAt = new Date("2026-08-01T00:00:00Z");
     mockAuthenticateApiKey.mockResolvedValue({
+      apiKey: { id: "k1" },
       plan: "trial",
       businessId: "biz-1",
       trialStartedAt,
@@ -149,7 +158,7 @@ describe("requireBusinessApiAuth", () => {
   });
 
   it("returns the context on success", async () => {
-    const context = { plan: "pro", businessId: "biz-42", apiKeyId: "k1" };
+    const context = { plan: "pro", businessId: "biz-42", apiKey: { id: "k1" } };
     mockAuthenticateApiKey.mockResolvedValue(context);
     mockIsApiKeyAuthError.mockReturnValue(false);
     mockCanUseApi.mockReturnValue(true);
@@ -157,6 +166,224 @@ describe("requireBusinessApiAuth", () => {
     const result = await requireBusinessApiAuth(makeRequest(), REQUEST_ID);
 
     expect(result).toEqual({ context });
+  });
+
+  it("annota chiave e attività sul contesto della richiesta", async () => {
+    mockAuthenticateApiKey.mockResolvedValue({
+      plan: "pro",
+      businessId: "biz-42",
+      apiKey: { id: "key-7" },
+    });
+    mockIsApiKeyAuthError.mockReturnValue(false);
+    mockCanUseApi.mockReturnValue(true);
+
+    await runWithRequestContext(REQUEST_ID, async () => {
+      await requireBusinessApiAuth(makeRequest(), REQUEST_ID);
+      expect(getRequestContext()).toEqual({
+        requestId: REQUEST_ID,
+        apiKeyId: "key-7",
+        businessId: "biz-42",
+      });
+    });
+  });
+
+  it("su un'autenticazione fallita non annota niente", async () => {
+    mockAuthenticateApiKey.mockResolvedValue({ error: "no", status: 401 });
+    mockIsApiKeyAuthError.mockReturnValue(true);
+
+    await runWithRequestContext(REQUEST_ID, async () => {
+      await requireBusinessApiAuth(makeRequest(), REQUEST_ID);
+      expect(getRequestContext()).toEqual({ requestId: REQUEST_ID });
+    });
+  });
+});
+
+/**
+ * Il `requestId` che il client riceve deve ritrovarsi nei log: su ogni riga
+ * scritta durante la richiesta (mixin del logger) e in una riga di chiusura
+ * per ogni risposta. Il 10/11/2026 un replay con risposta PENDING_IN_PROGRESS
+ * non aveva lasciato nessuna riga: il requestId girato dall'esercente non
+ * portava da nessuna parte.
+ */
+describe("v1Route", () => {
+  const ROUTE = "POST /api/v1/receipts";
+  const UUID_RE = /^[0-9a-f-]{36}$/;
+
+  function makeRequest(): Request {
+    return new Request("https://api.example.com/v1/receipts", {
+      method: "POST",
+    });
+  }
+
+  /** La riga di chiusura, con il contesto letto nel momento in cui è loggata. */
+  function captureCompletion(): () => {
+    fields: Record<string, unknown>;
+    msg: string;
+    requestId: string | undefined;
+  } {
+    let captured:
+      | { fields: Record<string, unknown>; msg: string; requestId?: string }
+      | undefined;
+    mockLoggerInfo.mockImplementation(
+      (fields: Record<string, unknown>, msg: string) => {
+        captured = { fields, msg, requestId: getRequestContext()?.requestId };
+      },
+    );
+    return () => {
+      expect(mockLoggerInfo).toHaveBeenCalledOnce();
+      return captured as {
+        fields: Record<string, unknown>;
+        msg: string;
+        requestId: string | undefined;
+      };
+    };
+  }
+
+  it("genera un requestId, lo passa all'handler e lo apre come contesto", async () => {
+    let seenArg: string | undefined;
+    let seenContext: string | undefined;
+    const handler = v1Route(ROUTE, (_request, requestId) => {
+      seenArg = requestId;
+      seenContext = getRequestContext()?.requestId;
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+
+    await handler(makeRequest());
+
+    expect(seenArg).toMatch(UUID_RE);
+    expect(seenContext).toBe(seenArg);
+    expect(getRequestContext()).toBeUndefined();
+  });
+
+  it("due chiamate hanno requestId diversi", async () => {
+    const ids: string[] = [];
+    const handler = v1Route(ROUTE, (_request, requestId) => {
+      ids.push(requestId);
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    await handler(makeRequest());
+    await handler(makeRequest());
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("inoltra gli argomenti extra della route (params) e restituisce la risposta", async () => {
+    const response = Response.json({ ok: true }, { status: 201 });
+    const ctx = { params: Promise.resolve({ id: "doc-1" }) };
+    const inner = vi.fn(
+      (_request: Request, _requestId: string, _ctx: typeof ctx) =>
+        Promise.resolve(response),
+    );
+    const handler = v1Route(ROUTE, inner);
+
+    await expect(handler(makeRequest(), ctx)).resolves.toBe(response);
+    expect(inner).toHaveBeenCalledWith(
+      expect.any(Request),
+      expect.stringMatching(UUID_RE),
+      ctx,
+    );
+  });
+
+  it("su un successo logga una riga di chiusura dentro il contesto, con status, durata, chiave e attività", async () => {
+    const completion = captureCompletion();
+    let requestIdArg = "";
+    const handler = v1Route(ROUTE, (_request, requestId) => {
+      requestIdArg = requestId;
+      annotateRequestContext({ apiKeyId: "key-7", businessId: "biz-42" });
+      return Promise.resolve(
+        Response.json({ documentId: "doc-1" }, { status: 201 }),
+      );
+    });
+
+    await handler(makeRequest());
+
+    const { fields, msg, requestId } = completion();
+    expect(msg).toBe("v1 request completed");
+    expect(requestId).toBe(requestIdArg);
+    expect(fields).toMatchObject({
+      route: ROUTE,
+      status: 201,
+      apiKeyId: "key-7",
+      businessId: "biz-42",
+    });
+    expect(fields.durationMs).toBeTypeOf("number");
+    expect(fields).not.toHaveProperty("code");
+  });
+
+  it("su un errore v1 riporta code e documentId dell'envelope", async () => {
+    const completion = captureCompletion();
+    const handler = v1Route(ROUTE, (_request, requestId) =>
+      Promise.resolve(
+        serviceErrorResponse(
+          {
+            error: "Scontrino precedente ancora in elaborazione.",
+            code: "PENDING_IN_PROGRESS",
+            documentId: "doc-9",
+          },
+          requestId,
+        ),
+      ),
+    );
+
+    const response = await handler(makeRequest());
+
+    expect(completion().fields).toMatchObject({
+      status: 409,
+      code: "PENDING_IN_PROGRESS",
+      documentId: "doc-9",
+    });
+    // La riga di chiusura legge un clone: il corpo arriva intatto al client.
+    expect(await response.json()).toMatchObject({
+      code: "PENDING_IN_PROGRESS",
+    });
+  });
+
+  it("un corpo d'errore che non è JSON non rompe né la risposta né la riga", async () => {
+    const completion = captureCompletion();
+    const handler = v1Route(ROUTE, () =>
+      Promise.resolve(new Response("oops", { status: 500 })),
+    );
+
+    const response = await handler(makeRequest());
+
+    expect(response.status).toBe(500);
+    expect(await response.text()).toBe("oops");
+    expect(completion().fields).toMatchObject({ status: 500 });
+    expect(completion().fields).not.toHaveProperty("code");
+  });
+
+  it.each([
+    ["un JSON che non è un oggetto", "null"],
+    ["un code che non è una stringa", JSON.stringify({ code: 42 })],
+  ])("con %s la riga porta solo lo status", async (_label, body) => {
+    const completion = captureCompletion();
+    const handler = v1Route(ROUTE, () =>
+      Promise.resolve(
+        new Response(body, {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await handler(makeRequest());
+
+    const { fields } = completion();
+    expect(fields).toMatchObject({ status: 502 });
+    expect(fields).not.toHaveProperty("code");
+    expect(fields).not.toHaveProperty("documentId");
+  });
+
+  it("un handler che lancia: riga di chiusura con unhandled e l'errore si propaga", async () => {
+    const completion = captureCompletion();
+    const boom = new Error("boom");
+    const handler = v1Route(ROUTE, () => Promise.reject(boom));
+
+    await expect(handler(makeRequest())).rejects.toBe(boom);
+    expect(completion().fields).toMatchObject({
+      route: ROUTE,
+      status: 500,
+      unhandled: true,
+    });
   });
 });
 
@@ -188,12 +415,18 @@ describe("checkRateLimitApi", () => {
 
   it("returns 429 RATE_LIMIT_EXCEEDED with Retry-After and logs the requestId", async () => {
     const resetAt = Date.now() + 30_000;
-    const res = checkRateLimitApi(
-      makeLimiter({ success: false, resetAt }),
-      "api:emit:k1",
-      "k1",
-      "emit rate limited",
-      REQUEST_ID,
+    let loggedIn: string | undefined;
+    mockLoggerWarn.mockImplementation(() => {
+      loggedIn = getRequestContext()?.requestId;
+    });
+    const res = runWithRequestContext(REQUEST_ID, () =>
+      checkRateLimitApi(
+        makeLimiter({ success: false, resetAt }),
+        "api:emit:k1",
+        "k1",
+        "emit rate limited",
+        REQUEST_ID,
+      ),
     );
     expect(res).not.toBeNull();
     expect(res?.status).toBe(429);
@@ -203,11 +436,13 @@ describe("checkRateLimitApi", () => {
       code: "RATE_LIMIT_EXCEEDED",
       requestId: REQUEST_ID,
     });
-    // requestId nel log: è il filo fra la risposta all'utente e la nostra riga.
+    // requestId nel log: è il filo fra la risposta all'utente e la nostra
+    // riga. Lo aggiunge il mixin del logger dal contesto della richiesta.
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      { apiKeyId: "k1", requestId: REQUEST_ID },
+      { apiKeyId: "k1" },
       "emit rate limited",
     );
+    expect(loggedIn).toBe(REQUEST_ID);
   });
 
   it("entro il minuto il messaggio dice secondi, oltre dice ore", async () => {
