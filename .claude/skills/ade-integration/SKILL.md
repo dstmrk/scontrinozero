@@ -82,6 +82,10 @@ sono `processSingleton`, non costanti di modulo: Turbopack duplica il modulo
 tra server action e route handler, e con una costante la cassa e la Developer
 API avevano code, sessioni e `invalidate()` separati. Un nuovo store di
 sessione va costruito allo stesso modo (skill `security-patterns`).
+Gli errori lanciati dentro la cache arrivano quindi con le classi dell'altro
+layer: le classi di `src/lib/ade/errors.ts` reggono l'`instanceof` fra copie
+grazie a `Symbol.hasInstance`, e ogni sottoclasse nuova **deve** dichiarare
+`static override readonly code` (gate in `errors.test.ts`).
 
 **Regole quando tocchi il ramo CIE:**
 

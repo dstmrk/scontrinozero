@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   AdeAccountLockedError,
@@ -410,5 +410,60 @@ describe("isExpectedUserAdeError", () => {
     expect(isExpectedUserAdeError("oops")).toBe(false);
     expect(isExpectedUserAdeError(null)).toBe(false);
     expect(isExpectedUserAdeError(undefined)).toBe(false);
+  });
+});
+
+/**
+ * Produzione, 10/11/2026: sulla Developer API un `AdeAuthError` costruito
+ * dalla copia di `errors.ts` del layer delle server action (la cache di
+ * sessione AdE è condivisa fra i layer) arrivava ai classificatori della copia
+ * del layer `rsc`. Risultato: `ade_failure` su Sentry e "Riprova più tardi" al
+ * client, e un transient sarebbe stato marcato ERROR invece di PENDING.
+ */
+describe("classificazione di errori costruiti da un'altra copia di errors.ts", () => {
+  async function otherCopy(): Promise<typeof import("./errors")> {
+    vi.resetModules();
+    return import("./errors");
+  }
+
+  it("credenziali sbagliate: errore utente, non transient, stesso messaggio della copia locale", async () => {
+    const other = await otherCopy();
+    const err = new other.AdeAuthError("Login failed: invalid credentials");
+    expect(other.AdeAuthError).not.toBe(AdeAuthError);
+    expect(isExpectedUserAdeError(err)).toBe(true);
+    expect(isTransientAdeError(err)).toBe(false);
+    expect(getUserFacingAdeErrorMessage(err, FALLBACK)).toEqual(
+      getUserFacingAdeErrorMessage(new AdeAuthError(), FALLBACK),
+    );
+  });
+
+  it("password scaduta: errore utente con passwordExpired", async () => {
+    const other = await otherCopy();
+    const err = new other.AdePasswordExpiredError();
+    expect(isExpectedUserAdeError(err)).toBe(true);
+    expect(getUserFacingAdeErrorMessage(err, FALLBACK).passwordExpired).toBe(
+      true,
+    );
+  });
+
+  it("rete, timeout push, 5xx ed esito ignoto: transient (la riga resta PENDING)", async () => {
+    const other = await otherCopy();
+    expect(
+      isTransientAdeError(new other.AdeNetworkError(new Error("ECONNRESET"))),
+    ).toBe(true);
+    expect(isTransientAdeError(new other.AdeSpidTimeoutError(30))).toBe(true);
+    expect(isTransientAdeError(new other.AdePortalError(503, "down"))).toBe(
+      true,
+    );
+    expect(
+      isTransientAdeError(new other.AdeUnknownOutcomeError(200, "text/html")),
+    ).toBe(true);
+  });
+
+  it("un 4xx del portale dall'altra copia resta non transient", async () => {
+    const other = await otherCopy();
+    expect(isTransientAdeError(new other.AdePortalError(400, "bad"))).toBe(
+      false,
+    );
   });
 });

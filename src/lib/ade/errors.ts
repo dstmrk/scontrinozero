@@ -7,21 +7,72 @@ import type { AdeUtenzaCandidate, InteractiveMethod } from "./types";
  * (e.g., auth failure vs network error vs portal error).
  */
 
-/** Base class for all AdE-related errors. */
+/**
+ * Marchio d'identità degli errori AdE, unico per processo (`Symbol.for`). Il
+ * valore è il codice statico della classe che ha costruito l'errore:
+ * `undefined` per un `AdeError` grezzo.
+ */
+const ADE_ERROR_CLASS = Symbol.for("scontrinozero.ade-error-class");
+
+/**
+ * Base class for all AdE-related errors.
+ *
+ * **`instanceof` regge le copie duplicate del modulo.** Turbopack compila le
+ * server action nel layer `action-browser` e le route nel layer `rsc`: questo
+ * file diventa due moduli, quindi due copie di ogni classe nello stesso
+ * processo (`src/lib/process-singleton.ts`). La cache di sessione AdE è
+ * condivisa fra i layer, quindi un errore costruito dalle classi di un layer
+ * arriva agli `instanceof` dell'altro. Con l'`instanceof` nativo, in
+ * produzione (10/11/2026) un `AdeAuthError` sulla Developer API è stato
+ * classificato `ade_failure`: "Riprova più tardi" al client invece del
+ * messaggio sulle credenziali, e issue Sentry (SCONTRINOZERO-M). Lo stesso
+ * difetto avrebbe marcato ERROR un transient che deve restare PENDING.
+ *
+ * `Symbol.hasInstance` aggiunge al controllo nativo il confronto sul marchio:
+ * per una sottoclasse vale se il marchio è il suo `code` statico, per la base
+ * basta il marchio. L'identità è la classe che ha costruito l'errore, non il
+ * campo `code` dell'istanza: un `AdeError` grezzo con codice
+ * `ADE_AUTH_FAILED` non diventa un `AdeAuthError`.
+ *
+ * Ogni sottoclasse **deve** dichiarare `static override readonly code`: senza,
+ * erediterebbe `undefined` e fra copie accetterebbe qualunque errore AdE. Il
+ * gate è in `errors.test.ts` ("identità delle classi d'errore"). Una
+ * sottoclasse di una sottoclasse richiederebbe di rivedere il confronto: oggi
+ * la gerarchia è piatta.
+ */
 export class AdeError extends Error {
+  /** Codice della classe; `undefined` sulla base, che li accetta tutti. */
+  static readonly code: string | undefined = undefined;
+
   readonly code: string;
+
+  static [Symbol.hasInstance](value: unknown): boolean {
+    if (Function.prototype[Symbol.hasInstance].call(this, value)) return true;
+    if (typeof value !== "object" || value === null) return false;
+    if (!Object.hasOwn(value, ADE_ERROR_CLASS)) return false;
+    return (
+      this.code === undefined ||
+      (value as Record<symbol, unknown>)[ADE_ERROR_CLASS] === this.code
+    );
+  }
 
   constructor(code: string, message: string) {
     super(message);
     this.name = "AdeError";
     this.code = code;
+    // Non enumerabile: resta fuori da serializer pino, Sentry e JSON.
+    Object.defineProperty(this, ADE_ERROR_CLASS, {
+      value: (new.target as typeof AdeError).code,
+    });
   }
 }
 
 /** Authentication failed (wrong credentials or account locked). */
 export class AdeAuthError extends AdeError {
+  static override readonly code = "ADE_AUTH_FAILED";
+
   constructor(message: string = "Authentication failed") {
-    super("ADE_AUTH_FAILED", message);
+    super(AdeAuthError.code, message);
     this.name = "AdeAuthError";
   }
 }
@@ -34,8 +85,10 @@ export class AdeAuthError extends AdeError {
  * This is distinct from wrong credentials ({"details":"INVALID_CREDENTIALS"}).
  */
 export class AdePasswordExpiredError extends AdeError {
+  static override readonly code = "ADE_PASSWORD_EXPIRED";
+
   constructor() {
-    super("ADE_PASSWORD_EXPIRED", "Password Fisconline scaduta");
+    super(AdePasswordExpiredError.code, "Password Fisconline scaduta");
     this.name = "AdePasswordExpiredError";
   }
 }
@@ -59,26 +112,32 @@ export class AdePasswordExpiredError extends AdeError {
  * credenziali per qualcosa che non sono le credenziali.
  */
 export class AdeAccountLockedError extends AdeError {
+  static override readonly code = "ADE_ACCOUNT_LOCKED";
+
   constructor() {
-    super("ADE_ACCOUNT_LOCKED", "Utenza Fisconline bloccata");
+    super(AdeAccountLockedError.code, "Utenza Fisconline bloccata");
     this.name = "AdeAccountLockedError";
   }
 }
 
 /** Session expired, re-auth was attempted and also failed. */
 export class AdeSessionExpiredError extends AdeError {
+  static override readonly code = "ADE_SESSION_EXPIRED";
+
   constructor() {
-    super("ADE_SESSION_EXPIRED", "Session expired and re-auth failed");
+    super(AdeSessionExpiredError.code, "Session expired and re-auth failed");
     this.name = "AdeSessionExpiredError";
   }
 }
 
 /** The AdE portal returned a non-200 status or unexpected response. */
 export class AdePortalError extends AdeError {
+  static override readonly code = "ADE_PORTAL_ERROR";
+
   readonly statusCode: number;
 
   constructor(statusCode: number, message: string) {
-    super("ADE_PORTAL_ERROR", message);
+    super(AdePortalError.code, message);
     this.name = "AdePortalError";
     this.statusCode = statusCode;
   }
@@ -102,12 +161,14 @@ export class AdePortalError extends AdeError {
  * Mai includere il body nel messaggio: contiene dati fiscali (importi, CF).
  */
 export class AdeUnknownOutcomeError extends AdeError {
+  static override readonly code = "ADE_UNKNOWN_OUTCOME";
+
   readonly statusCode: number;
   readonly contentType: string | null;
 
   constructor(statusCode: number, contentType: string | null) {
     super(
-      "ADE_UNKNOWN_OUTCOME",
+      AdeUnknownOutcomeError.code,
       `Document submission returned status ${statusCode} with a non-JSON body (content-type: ${contentType ?? "unknown"})`,
     );
     this.name = "AdeUnknownOutcomeError";
@@ -142,11 +203,13 @@ export class AdeUnknownOutcomeError extends AdeError {
  * percorsi nei log. Mai includere CF, P.IVA o denominazione nel messaggio.
  */
 export class AdeNoPartitaIvaError extends AdeError {
+  static override readonly code = "ADE_NO_PARTITA_IVA";
+
   readonly source: string;
 
   constructor(source: string) {
     super(
-      "ADE_NO_PARTITA_IVA",
+      AdeNoPartitaIvaError.code,
       `No Partita IVA available for this AdE account (source: ${source})`,
     );
     this.name = "AdeNoPartitaIvaError";
@@ -169,11 +232,13 @@ export class AdeNoPartitaIvaError extends AdeError {
  * dovrà mostrarla: la classe è il punto di aggancio del picker.
  */
 export class AdeUtenzaSelectionRequiredError extends AdeError {
+  static override readonly code = "ADE_UTENZA_SELECTION_REQUIRED";
+
   readonly candidates: AdeUtenzaCandidate[];
 
   constructor(candidates: AdeUtenzaCandidate[]) {
     super(
-      "ADE_UTENZA_SELECTION_REQUIRED",
+      AdeUtenzaSelectionRequiredError.code,
       `AdE account can operate on ${candidates.length} VAT number(s): one must be selected`,
     );
     this.name = "AdeUtenzaSelectionRequiredError";
@@ -191,11 +256,13 @@ export class AdeUtenzaSelectionRequiredError extends AdeError {
  * nostro: `isExpectedUserAdeError` la manda a `warn`, fuori da Sentry.
  */
 export class AdeUtenzaNotAvailableError extends AdeError {
+  static override readonly code = "ADE_UTENZA_NOT_AVAILABLE";
+
   readonly piva: string;
 
   constructor(piva: string) {
     super(
-      "ADE_UTENZA_NOT_AVAILABLE",
+      AdeUtenzaNotAvailableError.code,
       "The selected working identity is no longer offered by the AdE portal",
     );
     this.name = "AdeUtenzaNotAvailableError";
@@ -205,11 +272,13 @@ export class AdeUtenzaNotAvailableError extends AdeError {
 
 /** Network-level error (DNS, timeout, connection refused). */
 export class AdeNetworkError extends AdeError {
+  static override readonly code = "ADE_NETWORK_ERROR";
+
   override readonly cause: unknown;
 
   constructor(cause: unknown) {
     const msg = cause instanceof Error ? cause.message : "Network error";
-    super("ADE_NETWORK_ERROR", msg);
+    super(AdeNetworkError.code, msg);
     this.name = "AdeNetworkError";
     this.cause = cause;
   }
@@ -224,11 +293,13 @@ export class AdeNetworkError extends AdeError {
  * è possibile e il suo fallimento è un errore vero).
  */
 export class AdeReauthRequiredError extends AdeError {
+  static override readonly code = "ADE_REAUTH_REQUIRED";
+
   readonly method: InteractiveMethod;
 
   constructor(method: InteractiveMethod) {
     super(
-      "ADE_REAUTH_REQUIRED",
+      AdeReauthRequiredError.code,
       `Interactive re-authentication required (${method})`,
     );
     this.name = "AdeReauthRequiredError";
@@ -244,9 +315,11 @@ export class AdeReauthRequiredError extends AdeError {
  * restano invariati per non toccare classificazione e log in questa slice.
  */
 export class AdeSpidTimeoutError extends AdeError {
+  static override readonly code = "ADE_SPID_TIMEOUT";
+
   constructor(maxPolls: number) {
     super(
-      "ADE_SPID_TIMEOUT",
+      AdeSpidTimeoutError.code,
       `SPID push notification not approved after ${maxPolls} polls`,
     );
     this.name = "AdeSpidTimeoutError";
