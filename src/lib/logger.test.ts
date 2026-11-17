@@ -298,6 +298,58 @@ describe("logger Sentry bridge", () => {
     expect(extra.userId).toBe("u-2");
   });
 
+  // sanitizeForTelemetry è un'allowlist: passa solo ciò che è elencato, e
+  // l'errore arriva ridotto a nome e messaggio (lo stack può contenere dati
+  // della richiesta).
+  it("sanitizeForTelemetry: un input che non è un oggetto dà {}", async () => {
+    const { sanitizeForTelemetry } = await import("./logger");
+    for (const input of [null, undefined, "stringa", 42]) {
+      expect(sanitizeForTelemetry(input)).toEqual({});
+    }
+  });
+
+  it("sanitizeForTelemetry: err ridotto a nome e messaggio, ignorato se non è un Error", async () => {
+    const { sanitizeForTelemetry } = await import("./logger");
+    const error = new Error("boom");
+    error.stack = "Error: boom\n  at secret (/app/x.ts:1:1)";
+
+    expect(sanitizeForTelemetry({ err: error })).toEqual({
+      err: { name: "Error", message: "boom" },
+    });
+    expect(
+      sanitizeForTelemetry({ err: { message: "oggetto grezzo" } }),
+    ).toEqual({});
+  });
+
+  it("sanitizeForTelemetry: da un contesto reale tiene i campi ammessi e scarta i segreti", async () => {
+    const { sanitizeForTelemetry } = await import("./logger");
+    const out = sanitizeForTelemetry({
+      userId: "u1",
+      businessId: "b1",
+      adeErrorCodes: ["GEN001"],
+      password: "segreto",
+      token: "segreto",
+      codiceFiscale: "RSSMRA80A01H501U",
+    });
+
+    expect(out).toEqual({
+      userId: "u1",
+      businessId: "b1",
+      adeErrorCodes: ["GEN001"],
+    });
+  });
+
+  // Regola 21: la validazione del drain cerca su Sentry
+  // `errorClass:sentinel sentinelId:<id>` (route sentry-sentinel). Se uno dei
+  // due campi uscisse dall'allowlist, l'issue arriverebbe senza e la
+  // sentinella risulterebbe persa anche a drain funzionante.
+  it("sanitizeForTelemetry: tiene errorClass e sentinelId della sentinella", async () => {
+    const { sanitizeForTelemetry } = await import("./logger");
+    expect(
+      sanitizeForTelemetry({ errorClass: "sentinel", sentinelId: "s-1" }),
+    ).toEqual({ errorClass: "sentinel", sentinelId: "s-1" });
+  });
+
   it("sanitizeForTelemetry: 'ip' is not in the allowlist, 'ipHash' is", async () => {
     const { sanitizeForTelemetry } = await import("./logger");
     const out = sanitizeForTelemetry({
