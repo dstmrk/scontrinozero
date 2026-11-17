@@ -251,7 +251,7 @@ qui: il harness le inietta già): `ade-integration`, `db-migrations`,
 `decision-ledger`, `deploy-release`, `marketing-content`, `money-rounding`,
 `playwright-verify`, `pwa-serwist`, `react-patterns`, `security-audit`,
 `quality-gate`, `security-patterns`, `sentry-hygiene`, `stripe-webhooks`,
-`testing-patterns`.
+`test-audit`, `testing-patterns`.
 
 Sono anche la **destinazione** delle regole non sempre-attive (regola 7): la
 prosa di dominio vive qui, non in `CLAUDE.md`.
