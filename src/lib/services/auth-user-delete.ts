@@ -43,7 +43,7 @@ export async function deleteAuthUser(authUserId: string): Promise<boolean> {
     }
     lastError = error;
     if (attempt < MAX_AUTH_DELETE_ATTEMPTS) {
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // NOSONAR — backoff tra retry, sequenziale per design
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // backoff tra retry, sequenziale per design
     }
   }
   logger.error(

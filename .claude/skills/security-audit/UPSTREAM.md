@@ -20,7 +20,7 @@ una correzione utile si apre come PR upstream, una locale va in
    `SCONTRINOZERO.md`.
 2. Non sono copiati `validate-findings.test.cjs` e
    `validate-coverage-ledger.test.cjs`: sono test dell'upstream, non nostri, e
-   ESLint/Prettier/Sonar non devono vederli. Per verificare la copia dei
+   ESLint e Prettier non devono vederli. Per verificare la copia dei
    validator, esegui `node --test` nella directory dell'upstream.
 
 `SCONTRINOZERO.md` e questo file sono nostri e non esistono upstream.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook on mcp__github__merge_pull_request — blocks the immediate
 # merge. Rationale: CLAUDE.md regola 1. The merge goes through
-# `enable_pr_auto_merge`, so GitHub (required checks on main: CI + Sonar)
+# `enable_pr_auto_merge`, so GitHub (required checks on main: CI)
 # decides when it happens, not the agent.
 
 set -euo pipefail

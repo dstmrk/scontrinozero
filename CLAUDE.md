@@ -9,7 +9,7 @@ via "Documento Commerciale Online", senza registratore telematico fisico.
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind 4 ·
 shadcn/ui · TanStack Query/Table · PWA (Serwist) · Supabase Cloud (Postgres) ·
 Drizzle ORM · Supabase Auth · Stripe (`2026-10-28.endive`) · Resend · Sentry ·
-pino · Umami · SonarCloud · Vitest. Deploy Docker self-hosted su VPS dietro
+pino · Umami · Vitest · CodeQL. Deploy Docker self-hosted su VPS dietro
 Cloudflare Tunnel.
 
 **Tre ambienti:**
@@ -71,7 +71,7 @@ possiede. La numerazione è **stabile e non si ricicla**: il codice cita
 - **1 · Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre.
   Il merge lo fa GitHub: a PR finita (titolo e corpo con il ledger, regola 32)
   abiliti `enable_pr_auto_merge` in squash e GitHub mergia solo a required
-  checks verdi (CI + Sonar). `merge_pull_request` è bloccato da hook. Il
+  checks verdi (CI). `merge_pull_request` è bloccato da hook. Il
   ledger lo ripeti anche in chat, perché il merge può avvenire prima che
   l'utente lo legga. Se un check resta rosso, la PR è tua finché non è verde;
   un errore scoperto dopo il merge si corregge con una nuova PR.
@@ -163,12 +163,12 @@ possiede, e lì si attiva da sola quando lavori in quel dominio. L'indice
 `regola N` → owner, per risolvere una citazione che trovi nel codice, è in
 `docs/architecture/rules-registry.md`.
 
-## SonarCloud quality gate
+## Quality gate
 
-Coverage on new code ≥ **80%** · duplicated lines < **3%** · **0 new issues**
-(fix sempre, anche con gate verde). Coverage per file e regole SonarJS girano
-anche in locale (`npm run test:coverage`, `npm run lint`). Regole ricorrenti (S6861, S6772, S7780,
-S5852/S5122, Gitleaks placeholder) → skill `sonar-quality-gate`.
+Tutto locale, nessun servizio esterno: coverage ≥ **80% delle righe per ogni
+file di `src/`** più una rete aggregata (`npm run test:coverage`), regole
+SonarJS (`npm run lint`), Gitleaks, CodeQL. Soglie, esclusioni, falsi
+positivi → skill `quality-gate`.
 
 Stripe API `2026-10-28.endive` (breaking changes, 8 webhook events,
 referral/trial) → skill `stripe-webhooks`.
@@ -250,7 +250,8 @@ Si auto-attivano quando il task matcha la `description` (non serve elencarle
 qui: il harness le inietta già): `ade-integration`, `db-migrations`,
 `decision-ledger`, `deploy-release`, `marketing-content`, `money-rounding`,
 `playwright-verify`, `pwa-serwist`, `react-patterns`, `security-audit`,
-`security-patterns`, `sentry-hygiene`, `sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
+`quality-gate`, `security-patterns`, `sentry-hygiene`, `stripe-webhooks`,
+`testing-patterns`.
 
 Sono anche la **destinazione** delle regole non sempre-attive (regola 7): la
 prosa di dominio vive qui, non in `CLAUDE.md`.

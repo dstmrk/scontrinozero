@@ -45,7 +45,7 @@ const EXPOSED_HEADERS = `${REQUEST_ID_HEADER}, Retry-After`;
  * CORS wildcard: la Developer API si autentica con Bearer token, non con
  * cookie, quindi nessuna credenziale ambient viene esposta da un `*`.
  */
-// NOSONAR — developer API: auth via Bearer token (not cookies), wildcard is intentional
+// developer API: auth via Bearer token (not cookies), wildcard is intentional
 const CORS_ORIGIN = "*";
 
 export function newRequestId(): string {

@@ -6,9 +6,9 @@ import prettierPlugin from "eslint-plugin-prettier";
 import vitest from "@vitest/eslint-plugin";
 import sonarjs from "eslint-plugin-sonarjs";
 
-// Le regole SonarJS che giravano su SonarCloud, ora in locale (la CI non
-// chiama più Sonar). Il perimetro ricalca quello che aveva lo scan:
-// `sonar.sources=src`, quindi `scripts/` e i file di config restano fuori.
+// Le regole SonarJS che giravano su SonarCloud, ora in locale (SonarCloud
+// non c'è più). Il perimetro ricalca quello che aveva lo scan, solo `src/`:
+// `scripts/` e i file di config restano fuori.
 // Le 18 regole `aws-*` controllano stack AWS CDK che qui non esistono, e una
 // da sola costava 7,6 s di lint.
 const SONAR_TEST_RULE =

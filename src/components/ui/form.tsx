@@ -159,7 +159,6 @@ function FormMessage({
 // ---------------------------------------------------------------------------
 // Shorthand helpers — collapse the common FormField > FormItem > FormLabel >
 // FormControl > Input|PasswordInput > FormMessage pattern into one element.
-// Lives here (src/components/ui/**) so it is excluded from SonarCloud CPD.
 // ---------------------------------------------------------------------------
 
 type FormInputFieldProps<

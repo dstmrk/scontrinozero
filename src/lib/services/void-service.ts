@@ -100,7 +100,7 @@ function voidPendingInProgress(voidDocumentId?: string): VoidReceiptResult {
 /**
  * Classifica la riga trovata per `(business_id, idempotency_key)` (Case A del
  * conflitto). Estratta da `resolveVoidConflict` per tenerne la Cognitive
- * Complexity sotto 15 (SonarCloud S3776): i branch qui sono top-level, non
+ * Complexity sotto 15 (SonarJS S3776): i branch qui sono top-level, non
  * annidati sotto `if (existingByKey)`.
  */
 function resolveExistingVoidByKey(
@@ -569,7 +569,7 @@ const dbTimeoutResult: VoidReceiptResult = {
  * prerequisites, INSERT VOID, conflict resolution.
  *
  * Estratto da `voidReceiptForBusiness` per ridurre la cognitive complexity
- * sotto 15 (SonarCloud). Ritorna `done` se il flusso può fermarsi (errore o
+ * sotto 15 (SonarJS). Ritorna `done` se il flusso può fermarsi (errore o
  * idempotency hit o finalize-only nel recovery), `ready` se tutto è pronto
  * per la submitVoid AdE.
  */

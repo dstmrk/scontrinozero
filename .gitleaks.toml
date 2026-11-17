@@ -20,7 +20,7 @@ useDefault = true
 # Perché un allowlist e non una fingerprint in `.gitleaksignore`: la
 # fingerprint è `<sha>:<file>:<regola>:<riga>` e il repo mergia in squash,
 # quindi quella aggiunta durante una PR nasce già morta. Dettagli e vincoli
-# misurati nella skill `sonar-quality-gate`.
+# misurati nella skill `quality-gate`.
 [allowlist]
 description = "Placeholder szk_live_XXXX / szk_mgmt_XXXX nei doc della Developer API"
 regexes = ['''^szk_(live|mgmt)_X+$''']

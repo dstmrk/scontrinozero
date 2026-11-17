@@ -4,15 +4,6 @@
 
 [![CI](https://github.com/dstmrk/scontrinozero/actions/workflows/ci.yml/badge.svg)](https://github.com/dstmrk/scontrinozero/actions/workflows/ci.yml)
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=bugs)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=dstmrk_scontrinozero&metric=coverage)](https://sonarcloud.io/summary/new_code?id=dstmrk_scontrinozero)
-
 ScontrinoZero è un'applicazione mobile-first che consente a esercenti e professionisti di emettere scontrini elettronici e trasmettere i corrispettivi all'Agenzia delle Entrate direttamente da smartphone, tablet o PC — senza bisogno di un registratore telematico fisico.
 
 ## Il problema
@@ -44,7 +35,7 @@ ScontrinoZero usa la procedura web "Documento Commerciale Online" dell'Agenzia d
 | Email        | Resend + React Email                                                                                                    |
 | Integrazione | HTTP dirette verso portale AdE (no headless browser)                                                                    |
 | Deploy       | Docker standalone su VPS, Cloudflare Tunnel                                                                             |
-| Qualità      | Vitest, SonarCloud, Sentry                                                                                              |
+| Qualità      | Vitest, ESLint (SonarJS), CodeQL, Sentry                                                                                |
 
 ## Conformità normativa
 

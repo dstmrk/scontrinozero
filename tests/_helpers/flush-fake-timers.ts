@@ -13,8 +13,7 @@ import { vi } from "vitest";
  * Un tick asincrono dei timer finti dentro `act()` fa lo stesso lavoro: cede il
  * controllo alla microtask queue e applica gli update risultanti. È anche l'uso
  * legittimo di `act()` — avvolge l'avanzamento dei timer, non una chiamata
- * `fireEvent`/`render` (che si auto-avvolgono già, vedi regola SonarCloud
- * "Remove this redundant act() call").
+ * `fireEvent`/`render` (che si auto-avvolgono già: skill `testing-patterns`).
  */
 export async function flushWithFakeTimers(): Promise<void> {
   await act(async () => {

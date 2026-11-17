@@ -85,15 +85,15 @@ export default defineConfig({
         "src/components/ade/change-ade-password-dialog.tsx", // UI client component — form + dialog, pure UI
         "src/app/offline/page.tsx", // static offline shell — pure UI, no logic
       ],
-      // Il gate di coverage che prima applicava SonarCloud (80% sul codice
-      // nuovo), ora locale: `npm run test:coverage` esce con codice 1.
+      // Il gate di coverage (prima lo applicava SonarCloud, 80% sul codice
+      // nuovo): `npm run test:coverage` esce con codice 1.
       // - per file, ogni sorgente di src/ copre almeno l'80% delle righe: un
       //   file nuovo senza test non passa, qualunque sia la media;
       // - in aggregato, una rete sotto i valori attuali (97,7% righe, 97,3%
       //   statement, 94,4% branch, 96,9% funzioni al 2026-11-17) contro
       //   l'erosione lenta, distribuita su file che restano sopra l'80%.
-      // scripts/ resta fuori dal per-file come restava fuori da Sonar
-      // (`sonar.sources=src`), ma conta nell'aggregato.
+      // scripts/ resta fuori dal per-file (non lo analizzava neanche Sonar),
+      // ma conta nell'aggregato.
       thresholds: {
         lines: 95,
         statements: 95,
@@ -101,10 +101,6 @@ export default defineConfig({
         functions: 95,
         "src/**": { perFile: { lines: 80 } },
       },
-    },
-    reporters: ["default", "vitest-sonar-reporter"],
-    outputFile: {
-      "vitest-sonar-reporter": "test-report.xml",
     },
     projects: [
       {

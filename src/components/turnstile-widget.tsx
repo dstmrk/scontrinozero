@@ -20,7 +20,7 @@ const DISABLED_CAPTCHA_TOKEN = "dev-captcha-disabled";
  * (nessun rendering se la key non è configurata, per non rompere ambienti
  * self-hosted o test) e il binding degli handler success/expire/error a una
  * singola callback `onToken(string | null)`. Riduce la duplicazione tra le
- * pagine auth (SonarCloud P3 — duplicated lines).
+ * pagine auth.
  *
  * Il prop `action` è la categoria stabile del flow (es. "signin", "signup",
  * "reset-password") riflessa nel token e verificata server-side da

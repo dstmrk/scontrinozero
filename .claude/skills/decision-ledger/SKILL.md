@@ -139,17 +139,8 @@ aggiorni il corpo prima che i check finiscano: l'auto-merge parte al verde e
 non aspetta il testo. Se la PR è già `clean`, lo dici in chat e il merge è
 dell'utente.
 
-**PR di sola documentazione: l'auto-merge non parte, il merge è dell'utente.**
-Sonar è un required check su `main`, ma il job `sonar` di `ci.yml` gira solo
-quando cambia codice. Su una PR che tocca solo `.md` (o altri file fuori dai
-filtri `code`) il quality gate non arriva mai e la PR resta `blocked` con
-tutti i check verdi o saltati. È voluto, deciso con l'utente il 01/11/2026:
-Sonar su un `.md` non ha niente da analizzare, e i segreti incollati per
-sbaglio li ferma già `secret-scan`. Abilita comunque l'auto-merge (regola 1),
-ma dì in chat che la PR va mergiata a mano. Non far girare Sonar per
-sbloccarla e non toccare i filtri di `ci.yml`. Lo stesso vale per uno stato
-`behind`: l'auto-merge non riallinea il branch, lo fai tu con un merge di
-`main`.
+**Branch `behind`: l'auto-merge non riallinea.** Lo fai tu con un merge di
+`main` nel branch.
 
 > ⚠️ Lo squash crea un commit **nuovo**: il branch mergiato non è un antenato di
 > `main`. Riusarlo per il lavoro successivo ripropone il diff già mergiato. Per

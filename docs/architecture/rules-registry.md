@@ -19,8 +19,8 @@
 - **11** Migrazioni DB tutte handwritten dopo `0000`; il comando di generazione
   automatica è vietato → hook `.claude/hooks/block-drizzle-generate.sh`, skill
   `db-migrations`.
-- **12** CI failure opaco (Sonar/Gitleaks non visibile nel diff): chiedi
-  file/riga, no blind fix → skill `sonar-quality-gate`.
+- **12** CI failure opaco (Gitleaks/CodeQL non visibile nel diff): chiedi
+  file/riga, no blind fix → skill `quality-gate`.
 - **13** Debug HTTP in produzione: diagnostic logging → riproduci in locale →
   conferma la root cause. Mai mergiare ipotesi → skill `ade-integration`.
 - **14** HAR: cross-reference one-by-one di **ogni** request, non solo l'ordine

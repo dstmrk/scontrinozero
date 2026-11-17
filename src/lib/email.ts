@@ -127,7 +127,7 @@ export async function sendEmailsInSequence(
 ): Promise<void> {
   for (const [index, message] of messages.entries()) {
     try {
-      await sendEmail(message); // NOSONAR — sequenziale per il rate limit di Resend
+      await sendEmail(message); // sequenziale per il rate limit di Resend
     } catch (err) {
       onError(err, index);
     }

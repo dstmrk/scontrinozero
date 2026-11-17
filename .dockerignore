@@ -14,7 +14,6 @@ tests
 **/*.test.ts
 **/*.test.tsx
 coverage
-test-report.xml
 
 # Dev & CI
 .github
@@ -40,4 +39,3 @@ docs
 .prettierignore
 eslint.config.mjs
 vitest.config.ts
-sonar-project.properties
