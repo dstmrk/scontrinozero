@@ -85,6 +85,39 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     });
   });
 
+  // Regola 9: l'id dalla URL si valida prima di chiamare il service.
+  it.each([
+    ["una stringa qualsiasi", "not-a-uuid"],
+    ["un tentativo di SQL injection", "'; DROP TABLE documents; --"],
+  ])(
+    "ritorna 400 INVALID_ID su %s, senza chiamare il service",
+    async (_label, id) => {
+      const res = await POST(makeRequest(), makeParams(id));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: "INVALID_ID" });
+      expect(mockVoidReceiptForBusiness).not.toHaveBeenCalled();
+    },
+  );
+
+  // Regola 9: il limite di 8 KB scatta prima di JSON.parse.
+  it("ritorna 413 PAYLOAD_TOO_LARGE oltre 8 KB, senza chiamare il service", async () => {
+    const req = new Request(
+      "http://localhost/api/v1/receipts/sale-doc-uuid/void",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "x".repeat(9 * 1024),
+      },
+    );
+
+    const res = await POST(req, makeParams());
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toMatchObject({ code: "PAYLOAD_TOO_LARGE" });
+    expect(mockVoidReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
   it("happy path: annulla scontrino e ritorna 200 con voidDocumentId", async () => {
     const res = await POST(makeRequest(), makeParams());
     expect(res.status).toBe(200);

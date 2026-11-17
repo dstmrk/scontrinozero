@@ -491,6 +491,11 @@ describe("serviceErrorResponse", () => {
     ["RETURN_STATE_CHANGED", 409, null],
     ["RETURN_INVALID_QUANTITIES", 422, null],
     ["RETURN_SYNC_FAILED", 500, null],
+    // Annullo: stesso principio, un annullo in volo non è un rifiuto.
+    ["VOID_PENDING_IN_PROGRESS", 409, "2"],
+    ["VOID_ALREADY_TARGETED", 409, null],
+    ["VOID_SYNC_FAILED", 500, null],
+    ["ALREADY_VOIDED", 409, null],
   ])("mappa %s a %i", async (code, status, retryAfter) => {
     const res = serviceErrorResponse({ error: "reso", code }, REQUEST_ID);
     expect(res.status).toBe(status);
