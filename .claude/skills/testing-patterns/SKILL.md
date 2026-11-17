@@ -6,7 +6,9 @@ description: Use when writing or fixing Vitest tests — every it()/test() must 
 # testing-patterns — Vitest patterns e regole CI
 
 Lezioni operative per evitare i failure più comuni dei gate di test e i bug
-silenziosi nei mock.
+silenziosi nei mock. Se la domanda è _se_ un test deve esistere (quale
+contratto, quale owner, duplicati tra `src/` e `tests/unit/`), è la skill
+`test-audit`.
 
 Indice (salta alla sezione che serve, non leggere tutto):
 
