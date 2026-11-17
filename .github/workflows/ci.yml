@@ -34,7 +34,6 @@ jobs:
       arch_docs: ${{ steps.f.outputs.arch_docs }}
       hooks: ${{ steps.f.outputs.hooks }}
       workflows: ${{ steps.f.outputs.workflows }}
-      ci_scripts: ${{ steps.f.outputs.ci_scripts }}
       mobile: ${{ steps.f.outputs.mobile }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,8 +48,8 @@ jobs:
             tests:
               - 'tests/**'
             # audit-ci.json decide cosa l'audit lascia passare: sta in
-            # `config`, non solo in `lockfile`, perché senza la pipeline
-            # completa Sonar non riporta e l'automerge resta bloccato.
+            # `config`, non solo in `lockfile`, così una sua modifica fa
+            # girare la pipeline completa.
             config:
               - 'package.json'
               - 'package-lock.json'
@@ -78,9 +77,6 @@ jobs:
               - '.claude/hooks/**'
             workflows:
               - '.github/workflows/**'
-            ci_scripts:
-              - 'scripts/ci/**'
-              - '.github/workflows/ci.yml'
             mobile:
               - 'mobile/**'
               - '.github/workflows/ci.yml'
@@ -156,20 +152,6 @@ jobs:
           bash .claude/hooks/test-block-commit-on-main.sh
           bash .claude/hooks/test-block-direct-merge.sh
           bash .claude/hooks/test-check-arch-docs-on-edit.sh
-
-  # Testa il wrapper dello scan Sonar (retry + tolleranza 403 del CDN).
-  # Gira solo quando cambia scripts/ci/** o ci.yml. Rete-di-sicurezza: una
-  # regressione che ingoiasse i fallimenti *reali* dello scan (perdita silente
-  # del quality gate) o che tornasse a fallire sul 403 deve far rosso la CI.
-  sonar-script-tests:
-    needs: changes
-    if: needs.changes.outputs.ci_scripts == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Run sonar-scan wrapper tests
-        run: bash scripts/ci/test-sonar-scan.sh
 
   # Scansione segreti — gira su tutti i push/PR (indipendente dal diff)
   secret-scan:
@@ -288,73 +270,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-deps
+      # Il gate di coverage vive qui: le soglie in vitest.config.ts (80% per
+      # file su src/, rete aggregata sotto) fanno uscire il comando con 1.
       - name: Test with coverage
         run: npm run test:coverage
-      - name: Upload coverage report
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 1
-      - name: Upload test execution report
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: test-execution-report
-          path: test-report.xml
-          retention-days: 1
 
-  # SonarQube parte non appena i test finiscono, in parallelo con build.
-  # Saltato per le PR di Dependabot (SONAR_TOKEN non disponibile per bot esterni)
-  # e quando test e' stato skippato (no artifact da scaricare).
-  sonar:
-    needs: [changes, test]
-    if: needs.changes.outputs.code == 'true' && github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      # Single source of truth per la cache key; sonar-scan.sh la legge e
-      # scarica questa stessa versione su cache miss.
-      SCANNER_VERSION: "8.0.1.6346"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Download coverage report
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: coverage-report
-          path: coverage/
-      - name: Download test execution report
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: test-execution-report
-      # Cache della scanner CLI (~50MB dal CDN flaky di Sonar) e della plugin
-      # cache dello scanner: su hit lo script salta il download — meno tempo
-      # sul percorso critico e zero esposizione ai 403 intermittenti del CDN.
-      - name: Cache SonarScanner CLI + plugin cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4.2.4
-        with:
-          path: |
-            ~/.sonar-scanner
-            ~/.sonar/cache
-          key: sonar-scanner-${{ runner.os }}-${{ env.SCANNER_VERSION }}
-      # Wrapper around the scanner CLI instead of SonarSource/sonarqube-scan-action:
-      # that action has no retry and re-downloads the CLI from binaries.sonarsource.com
-      # every run, so an intermittent HTTP 403 from Sonar's CDN sinks the job (and
-      # spams notifications on main). The wrapper retries the download and, if the
-      # CDN stays unreachable, skips with a warning instead of failing — real scan
-      # errors still turn the job red. Logic covered by scripts/ci/test-sonar-scan.sh.
-      - name: SonarQube Cloud scan (cached CLI, retry + tolerate CDN 403)
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          # Dir fissa (ripristinata dalla cache) al posto del mktemp di default.
-          WORK_DIR: /home/runner/.sonar-scanner
-        run: bash scripts/ci/sonar-scan.sh
-
-  # Build parte quando lint, type-check e test sono verdi (test puo' essere skippato
-  # su marketing-only: GitHub Actions tratta "skipped" come "success" in needs:).
+  # Build parte quando lint e type-check sono verdi, in parallelo a test: è un
+  # check, non un deploy, e dopo test chiuderebbe la catena critica. Aspetta
+  # lint e type-check (~1 min) per non spendere un build su un errore che
+  # quei due trovano prima.
   build:
-    needs: [changes, lint, type-check, test]
+    needs: [changes, lint, type-check]
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15

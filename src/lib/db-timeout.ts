@@ -90,7 +90,7 @@ export async function retryOnStatementTimeout<T>(
         { context, attempt: attempt + 1, delay },
         "DB statement timeout — retrying",
       );
-      await new Promise((resolve) => setTimeout(resolve, delay)); // NOSONAR — backoff tra retry, sequenziale per design
+      await new Promise((resolve) => setTimeout(resolve, delay)); // backoff tra retry, sequenziale per design
     }
   }
   throw lastErr;

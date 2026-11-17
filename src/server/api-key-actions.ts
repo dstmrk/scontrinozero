@@ -30,8 +30,8 @@ export type ApiKeyListItem = {
  * lanciare (sessione assente → { error }, regola 19/20), verifica l'ownership
  * del business e applica il gate di piano (Pro+). Fattorizzato per non
  * duplicare il prefisso identico tra le due azioni — la duplicazione
- * ownership+plan era pre-esistente e l'auth-guard l'aveva spinta oltre la
- * soglia CPD di SonarCloud (new_duplicated_lines, PR #699).
+ * ownership+plan era pre-esistente e l'auth-guard l'aveva raddoppiata
+ * (PR #699).
  */
 async function authorizeApiKeyBusiness(
   action: string,

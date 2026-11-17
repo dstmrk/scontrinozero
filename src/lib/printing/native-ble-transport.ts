@@ -241,7 +241,7 @@ export class NativeBleReceiptPrinter {
         characteristic: device.characteristic,
         value: toHex(data.subarray(offset, offset + NATIVE_CHUNK_SIZE)),
       };
-      await call(method, chunk); // NOSONAR — scrittura sequenziale per design
+      await call(method, chunk); // scrittura sequenziale per design
     }
   }
 

@@ -179,7 +179,7 @@ perché cambiare la durata della prova vuol dire una nuova versione dei Termini
 
 Nel JSX, un'espressione che Prettier manda a capo dopo del testo perde lo
 spazio (`invece di` + a capo + `{TRIAL_DAYS}` esce "invece di30"), e il
-`{" "}` che Prettier aggiunge per salvarlo è S6772 per Sonar. Su una frase
+`{" "}` che Prettier aggiunge per salvarlo è fragile (S6772). Su una frase
 che contiene un valore derivato si scrive il pezzo come espressione unica,
 ``{` invece di ${TRIAL_DAYS} giorni`}``, con lo spazio dentro la stringa.
 

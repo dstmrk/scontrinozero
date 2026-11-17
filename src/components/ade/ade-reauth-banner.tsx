@@ -158,7 +158,7 @@ export function AdeReauthBanner({
   if (isPending) buttonLabel = "Ricollegamento in corso…";
   else if (isError) buttonLabel = "Riprova";
 
-  // Estratto dal JSX per evitare un ternario annidato (SonarCloud S3358).
+  // Estratto dal JSX per evitare un ternario annidato (SonarJS S3358).
   let messageNode: ReactNode;
   if (isPending) {
     messageNode = (

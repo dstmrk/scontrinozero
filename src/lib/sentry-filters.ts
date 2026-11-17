@@ -328,9 +328,10 @@ export function isForeignHostEvent(event: ErrorEvent): boolean {
  * `beforeSend` del client Sentry: scarta le classi di rumore browser
  * riconosciute, lascia passare tutto il resto.
  *
- * Vive qui e non inline in `instrumentation-client.ts` perché
- * `sonar.sources=src`: la logica dei filtri resta coperta dai test e
- * analizzata, mentre il file di bootstrap in root resta pura configurazione.
+ * Vive qui e non inline in `instrumentation-client.ts` perché lint SonarJS
+ * e coverage per file valgono su `src/`: la logica dei filtri resta coperta
+ * dai test e analizzata, mentre il file di bootstrap in root resta pura
+ * configurazione.
  *
  * ⚠️ Il bootstrap client è **solo** `instrumentation-client.ts`: il legacy
  * `sentry.client.config.ts` viene iniettato unicamente dal path webpack del

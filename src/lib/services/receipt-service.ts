@@ -322,7 +322,7 @@ export async function emitReceiptForBusiness(
  * Risolve il branch "documento già esistente" dell'emit (idempotency).
  *
  * Estratto da `emitReceiptForBusiness` per ridurre la cognitive complexity
- * sotto 15 (SonarCloud). Branch:
+ * sotto 15 (SonarJS). Branch:
  *  - ACCEPTED → return idempotente OK.
  *  - REJECTED → return ALREADY_REJECTED.
  *  - PENDING/ERROR fresh → return PENDING_IN_PROGRESS.
@@ -476,7 +476,7 @@ async function handleExistingReceipt(args: {
 }
 
 /** Recovery path for stale PENDING/ERROR receipts. Extracted to keep
- *  `emitReceiptForBusiness` cognitive complexity below 15 (SonarCloud). */
+ *  `emitReceiptForBusiness` cognitive complexity below 15 (SonarJS). */
 async function recoverStaleReceipt(args: {
   existing: {
     id: string;

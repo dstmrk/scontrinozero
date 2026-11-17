@@ -441,7 +441,8 @@ ordini di grandezza, il colpevole è lo strumento.
 **Dove va il filtro, e perché non in `beforeSend`.** `beforeSend` vede solo gli
 ErrorEvent; uno span si scarta con **`ignoreSpans`** nello stesso
 `Sentry.init`. Il pattern sta in `src/lib/sentry-filters.ts` come tutti gli
-altri predicati (`sonar.sources=src`: in root resta configurazione pura).
+altri predicati (lint SonarJS e coverage per file valgono su `src/`: in root
+resta configurazione pura).
 
 ```typescript
 ignoreSpans: [NEXT_CLIENT_COMPONENT_LOADING_SPAN], // /^NextNodeServer\.clientComponentLoading$/

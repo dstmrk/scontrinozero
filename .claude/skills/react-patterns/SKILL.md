@@ -185,7 +185,8 @@ come `<a>`/`<Link>`/`<button>`:
 
 Le props dei componenti React devono essere `Readonly<…>` o avere proprietà
 `readonly`. La codebase ha già esempi — se aggiungi un componente, copia il
-pattern (vedi `sonar-quality-gate`).
+pattern. Nessun gate lo controlla più (il plugin SonarJS non ha S6861, skill
+`quality-gate`): è convenzione.
 
 ```tsx
 function ReceiptRow({ receipt, onVoid }: Readonly<{ receipt: Receipt; onVoid: () => void }>) { … }
@@ -495,7 +496,7 @@ non ha un `<input>` a cui un `<label>` possa passare il focus. Due trappole:
 - **Il display va dentro il contenitore focusabile**, non accanto: il clic sul
   display diventa un clic dentro la toolbar e l'anello `focus-within` racchiude
   l'intero campo. Un `onClick` su uno `span` accanto sarebbe un elemento
-  statico interattivo (jsx-a11y / Sonar S6847).
+  statico interattivo (jsx-a11y).
 - **Safari macOS non dà il focus ai `<button>` al clic.** Contare sul focus
   nativo del bottone vuol dire che, in Safari, la cifra cliccata entra ma la
   tastiera fisica continua a scrivere nel campo di prima. Il contenitore porta

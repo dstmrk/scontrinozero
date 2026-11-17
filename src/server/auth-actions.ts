@@ -352,7 +352,7 @@ async function compensatingDeleteAuthUser(authUserId: string): Promise<void> {
         return;
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // NOSONAR — backoff tra retry, sequenziale per design
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // backoff tra retry, sequenziale per design
   }
 }
 
@@ -556,7 +556,7 @@ async function enforcePartnerReferral(
 /**
  * Risolve il codice referral grezzo dal form in un referrer DB row, oppure
  * in un errore utente. Estratto da `signUp` per tenerne sotto controllo la
- * complessità cognitiva (SonarCloud S3776).
+ * complessità cognitiva (SonarJS S3776).
  */
 async function resolveReferrer(
   rawReferralCode: string,

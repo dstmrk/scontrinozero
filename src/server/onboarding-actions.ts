@@ -196,7 +196,7 @@ type SaveBusinessInput = {
 
 /**
  * Validates the `saveBusiness` payload. Extracted from `saveBusiness` to keep
- * its Cognitive Complexity under SonarCloud's S3776 threshold.
+ * its Cognitive Complexity under SonarJS's S3776 threshold.
  */
 function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
   if (!input.firstName) return "Il nome è obbligatorio.";
@@ -665,7 +665,7 @@ async function readBusinessIdentity(
  * Applica la scelta dell'utenza di lavoro AdE (HAR.md #18) prima del login.
  *
  * Estratta da `verifyAdeCredentials` per tenerne la Cognitive Complexity sotto
- * la soglia SonarCloud, come gia' fatto per `checkAdeIdentityGuard` e
+ * la soglia SonarJS, come gia' fatto per `checkAdeIdentityGuard` e
  * `finalizeAdeVerification`.
  *
  * La scelta si persiste **prima** del login perche' e' un input della
@@ -1014,7 +1014,7 @@ type VerifyFlow = {
  * `VerifyStep` — la risposta pronta per il client, più l'esito da registrare
  * sulla riga. Ritorna `null` quando il login ha successo. Estratto da
  * verifyAdeCredentials per tenerne sotto controllo la Cognitive Complexity
- * (SonarCloud).
+ * (SonarJS).
  */
 async function attemptAdeLoginForVerification(
   doLogin: () => Promise<unknown>,
@@ -1178,7 +1178,7 @@ function buildVerificationLogin(
  * Reclama in modo atomico e idempotente i flag welcome_email_sent_at /
  * operator_notified_at (migration 0023) e invia le rispettive notifiche
  * fire-and-forget. Estratto da verifyAdeCredentials per tenerne sotto controllo
- * la Cognitive Complexity (SonarCloud). I due flag sono INDIPENDENTI: chi vince
+ * la Cognitive Complexity (SonarJS). I due flag sono INDIPENDENTI: chi vince
  * il claim (UPDATE ... WHERE ... IS NULL RETURNING) invia — race-safe (due
  * verify simultanei → un solo invio per flag) e a prova di reset manuale di
  * fiscalCode / re-run. Il claim si imposta PRIMA dell'invio (semantica "tentato
@@ -1234,7 +1234,7 @@ async function claimAndSendOnboardingNotifications(
  * Dati fiscali dopo il login di verifica, best-effort: la verifica riesce
  * anche se l'AdE non li restituisce, e P.IVA/CF si completano a un giro
  * successivo. Estratto da verifyAdeCredentials per contenerne la Cognitive
- * Complexity (SonarCloud).
+ * Complexity (SonarJS).
  */
 async function fetchFiscalData(
   adeClient: ReturnType<typeof createAdeClient>,
@@ -1693,7 +1693,7 @@ async function runAdeVerification(params: {
 /**
  * Dopo un login (o un'adozione) riuscito: identity guard, finalizzazione
  * atomica, notifiche di onboarding. Estratta da `runAdeVerification` per
- * tenerne la Cognitive Complexity sotto la soglia SonarCloud, e perché chi la
+ * tenerne la Cognitive Complexity sotto la soglia SonarJS, e perché chi la
  * chiama decide della sessione in base all'esito.
  */
 async function finalizeVerifiedIdentity(params: {

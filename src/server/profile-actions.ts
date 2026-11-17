@@ -88,7 +88,7 @@ type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
  * Returns an empty patch (and skips the audit log) when the field is absent
  * from the submission, so the existing value is preserved.
  *
- * Extracted as a helper to keep `updateBusiness` under SonarCloud's Cognitive
+ * Extracted as a helper to keep `updateBusiness` under SonarJS's Cognitive
  * Complexity threshold (S3776).
  */
 async function preparePreferredVatCodeUpdate(opts: {
@@ -697,6 +697,6 @@ async function revokeOtherSessionsWithRetry(
       );
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // NOSONAR — backoff tra retry, sequenziale per design
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500)); // backoff tra retry, sequenziale per design
   }
 }

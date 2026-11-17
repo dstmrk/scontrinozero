@@ -316,13 +316,10 @@ versione registrata sull'account, nessun flag da toccare.
    in `page.test.ts`, che controlla anche che la pagina esista
 3. `sitemap.ts`: la versione nuova e `/privacy` prendono una data propria, la
    vecchia tiene la sua; `sitemap.test.ts` conta le voci
-4. Aggiungi la pagina a `sonar.coverage.exclusions`. La duplicazione non serve:
-   le directory dei quattro testi legali sono già in `sonar.cpd.exclusions`,
-   perché ogni versione ripete gli articoli che non cambiano
-5. Le durate scritte a mano nel testo vanno legate al codice con un test,
+4. Le durate scritte a mano nel testo vanno legate al codice con un test,
    come `privacy/v02/retention.contract.test.ts` (inviti, soglie di
    inattività)
-6. Notifica agli utenti ≥15 giorni prima dell'entrata in vigore (§14 della
+5. Notifica agli utenti ≥15 giorni prima dell'entrata in vigore (§14 della
    v02), da fare a mano prima del tag: non c'è un invio di massa nel codice
 
 Prima di scrivere una versione nuova confronta la precedente con lo schema

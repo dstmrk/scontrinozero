@@ -1431,7 +1431,7 @@ export class RealAdeClient implements AdeClient {
         throw new AdeSpidTimeoutError(maxPolls);
       }
       if (intervalMs > 0) {
-        await new Promise<void>((resolve) => setTimeout(resolve, intervalMs)); // NOSONAR — polling: l'intervallo tra due check è il punto
+        await new Promise<void>((resolve) => setTimeout(resolve, intervalMs)); // polling: l'intervallo tra due check è il punto
       }
     }
 

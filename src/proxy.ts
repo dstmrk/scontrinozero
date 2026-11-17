@@ -402,6 +402,6 @@ export const config = {
      *   pagare un getUser())
      * - Static assets (svg, png, jpg, etc.)
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|api/health|api/v1|v1|monitoring|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)", // NOSONAR — String.raw breaks Next.js static analysis of matcher config
+    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|api/health|api/v1|v1|monitoring|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)", // String.raw breaks Next.js static analysis of matcher config
   ],
 };

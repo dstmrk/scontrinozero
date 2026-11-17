@@ -167,7 +167,7 @@ export const BUSINESS_PROFILE_LIMITS = {
  *
  * Estratto e condiviso tra `saveBusiness` (onboarding) e `updateBusiness`
  * (settings) per evitare drift e tenere la Cognitive Complexity dei due
- * caller sotto la soglia SonarCloud S3776 (15).
+ * caller sotto la soglia SonarJS S3776 (15).
  */
 export function validateBusinessOptionalFields(fields: {
   businessName: string | null;

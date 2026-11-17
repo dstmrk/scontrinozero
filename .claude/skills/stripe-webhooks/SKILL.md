@@ -14,8 +14,7 @@ SDK: `stripe` npm v23.x.
 - `Subscription.current_period_end` **spostato** a livello item →
   `subscription.items.data[0]?.current_period_end`
 - Non usare `!` (non-null assertion) su `process.env.STRIPE_WEBHOOK_SECRET` —
-  aggiungere guard esplicito (`if (!secret) return 500`) per evitare SonarCloud
-  code smell
+  aggiungere guard esplicito (`if (!secret) return 500`)
 
 ### Bump della SDK → la versione pinnata va aggiornata nello stesso PR
 

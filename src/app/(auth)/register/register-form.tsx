@@ -57,7 +57,7 @@ type RegisterData = z.infer<typeof registerSchema>;
 /**
  * Campo referral del form di registrazione. Tre rami mutuamente esclusivi
  * (partner-locked / opzionale aperto / toggle chiuso), estratti in un componente
- * con early-return per evitare un ternario annidato (SonarCloud S3358).
+ * con early-return per evitare un ternario annidato (SonarJS S3358).
  */
 function ReferralField({
   control,

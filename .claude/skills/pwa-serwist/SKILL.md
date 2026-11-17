@@ -161,8 +161,8 @@ le richieste `/api/*`. Conseguenze:
 > dopo `...defaultCache` non intercetterebbe nulla. Il test `src/sw.test.ts`
 > pinna posizione, matcher e la presenza di `defaultCache` dopo l'override.
 >
-> `src/sw.ts` resta escluso da `sonar.exclusions` ma **non** dalla coverage
-> (`vitest.config.ts`). Per testarlo: `vi.stubGlobal("self", { __SW_MANIFEST })`
+> `src/sw.ts` **non** è escluso dalla coverage (`vitest.config.ts`). Per
+> testarlo: `vi.stubGlobal("self", { __SW_MANIFEST })`
 > prima dell'import (in environment node `self` non esiste), e le classi mockate
 > (`Serwist`, `NetworkOnly`) vanno definite dentro `vi.hoisted`, non nel factory
 > di `vi.mock` — il factory viene ri-valutato e una classe definita lì dentro

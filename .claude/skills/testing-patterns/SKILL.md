@@ -1,12 +1,12 @@
 ---
 name: testing-patterns
-description: Use when writing or fixing Vitest tests — avoiding SonarCloud S6661 Blocker (every it()/test() must have at least one expect()), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture, removing redundant act() calls around fireEvent (SonarCloud "already flushes its own updates") and flushing async updates under vi.useFakeTimers() where waitFor/findBy hang. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
+description: Use when writing or fixing Vitest tests — every it()/test() must have at least one expect() (vitest/expect-expect lint gate), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture, removing redundant act() calls around fireEvent, never putting side effects (fireEvent) inside a waitFor callback and flushing async updates under vi.useFakeTimers() where waitFor/findBy hang. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
 ---
 
 # testing-patterns — Vitest patterns e regole CI
 
-Lezioni operative per evitare i failure più comuni di SonarCloud e i bug silenziosi
-nei mock.
+Lezioni operative per evitare i failure più comuni dei gate di test e i bug
+silenziosi nei mock.
 
 Indice (salta alla sezione che serve, non leggere tutto):
 
@@ -24,6 +24,7 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - `last_used_at` condizionale (anti write-amplification)
 - Browser ostile (storage bloccato, webview, cookies off)
 - Mock di `Sentry.withScope` + `setFingerprint` (R23)
+- Dentro `waitFor` solo asserzioni
 - `act()` ridondante intorno a `fireEvent` + trap dei fake timer
 
 ---
@@ -34,8 +35,8 @@ Indice (salta alla sezione che serve, non leggere tutto):
 **error** in `eslint.config.mjs` sui file di test: `npm run lint` fallisce
 prima della push. Era l'unica delle tre trappole di questa skill a non avere
 un gate locale — Vitest conta verde un `it()` senza assertion, e la bocciatura
-arrivava da SonarCloud (**S6661, Blocker**) solo dopo (PR #904,
-misurato: zero violazioni su 317 file al momento dell'accensione).
+arrivava da SonarCloud (S6661) solo dopo il push (PR #904, misurato: zero
+violazioni su 317 file al momento dell'accensione).
 
 Resta la parte che il lint non può insegnarti: **quale** assertion scrivere.
 Anche un test che verifica "non lancia" o "chiama redirect" ne vuole una su un
@@ -607,10 +608,21 @@ Esempio canonico: `src/lib/logger.test.ts:223`.
 
 ---
 
+## Dentro `waitFor` solo asserzioni
+
+Un `fireEvent.click` dentro la callback di `waitFor` viene ripetuto a ogni
+retry: il clic parte due, tre volte, e il test verifica uno stato che l'utente
+non produrrebbe mai (era S8985 di SonarCloud, PR #1015; oggi nessun gate lo
+controlla). Se il clic deve aspettare uno stato asincrono, aspetta lo stato
+(un testo, un `toHaveBeenCalled`) o svuota il microtask con
+`await act(async () => { await Promise.resolve(); })`, poi clicca fuori.
+
+---
+
 ## `act()` ridondante intorno a `fireEvent` (e il trap dei fake timer)
 
-SonarCloud segnala _"Remove this redundant `act()` call; the wrapped call
-already flushes its own updates"_ su ogni `await act(async () => { … })` il cui
+Un `act()` è ridondante (lo segnalava SonarCloud: _"the wrapped call already
+flushes its own updates"_; ora nessun gate lo controlla) su ogni `await act(async () => { … })` il cui
 corpo contiene **solo** chiamate RTL (`render`, `fireEvent.*`, `userEvent.*`):
 si auto-avvolgono già in `act()` via l'`eventWrapper` di RTL.
 

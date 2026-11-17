@@ -340,7 +340,7 @@ function resolvePaging(
 /**
  * Le condizioni dei filtri «Stato» ed «Emesso da», o l'errore con cui
  * rifiutarli. Fuori da `buildStoricoConditions` per restare sotto la soglia
- * di Cognitive Complexity di SonarCloud.
+ * di Cognitive Complexity di SonarJS.
  */
 function resolveFilterConditions(
   params: Pick<SearchReceiptsParams, "status" | "issuer">,
@@ -380,7 +380,7 @@ function buildStoricoConditions(
   | { error: string } {
   // Paginazione e filtri si validano insieme, nello stesso punto: i chiamanti
   // hanno un solo ramo `{ error }` da gestire (e restano sotto la soglia di
-  // Cognitive Complexity di SonarCloud).
+  // Cognitive Complexity di SonarJS).
   const paging = resolvePaging(params);
   if ("error" in paging) return paging;
 
