@@ -1,4 +1,7 @@
 // @vitest-environment node
+// changeAdePassword (limite, lunghezza massima, credenziali assenti, messaggi
+// per errore AdE) e il flag passwordExpired di verifyAdeCredentials. Il resto
+// di onboarding-actions, con i mock di onboarding-actions.test.ts, sta lì.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Hoisted mocks ---
@@ -200,28 +203,6 @@ describe("changeAdePassword", () => {
     expect(result.error).toMatch(/Password non valida/);
   });
 
-  it("rifiuta quando nuova != conferma", async () => {
-    const { changeAdePassword } = await import("@/server/onboarding-actions");
-    const result = await changeAdePassword(
-      BIZ_ID,
-      "OldPass1",
-      "NewPass12",
-      "NewPass99",
-    );
-    expect(result.error).toMatch(/non coincidono/);
-  });
-
-  it("rifiuta quando nuova == attuale", async () => {
-    const { changeAdePassword } = await import("@/server/onboarding-actions");
-    const result = await changeAdePassword(
-      BIZ_ID,
-      "SamePass1",
-      "SamePass1",
-      "SamePass1",
-    );
-    expect(result.error).toMatch(/diversa da quella attuale/);
-  });
-
   it("rifiuta se il rate limit è superato", async () => {
     mockRateLimiterCheck.mockReturnValue({ success: false, remaining: 0 });
     const { changeAdePassword } = await import("@/server/onboarding-actions");
@@ -284,46 +265,6 @@ describe("changeAdePassword", () => {
       "NewPass12",
     );
     expect(result.error).toMatch(/Riprova più tardi/);
-  });
-
-  it("restituisce messaggio dedicato 'portale AdE down' quando AdE risponde 5xx", async () => {
-    const { AdePortalError } = await import("@/lib/ade/errors");
-    mockAdeChangePassword.mockRejectedValue(
-      new AdePortalError(500, "changePassword failed with status 500"),
-    );
-    const { changeAdePassword } = await import("@/server/onboarding-actions");
-    const result = await changeAdePassword(
-      BIZ_ID,
-      "OldPass1",
-      "NewPass12",
-      "NewPass12",
-    );
-    expect(result.error).toContain(
-      "portale Agenzia delle Entrate Fatture e Corrispettivi",
-    );
-    expect(result.error).toContain("non risponde al momento");
-  });
-
-  it("aggiorna la password cifrata e verifiedAt in caso di successo", async () => {
-    const { changeAdePassword } = await import("@/server/onboarding-actions");
-    const result = await changeAdePassword(
-      BIZ_ID,
-      "OldPass1",
-      "NewPass12",
-      "NewPass12",
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.businessId).toBe(BIZ_ID);
-    // Versione corrente della chiave, non quella memorizzata sulla riga
-    // (PR #782): qui coincidono, il caso divergente è testato in
-    // src/server/onboarding-actions.test.ts.
-    expect(mockEncrypt).toHaveBeenCalledWith("NewPass12", FAKE_KEY, 1);
-    expect(mockSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        encryptedPassword: "new-enc-pw",
-        keyVersion: 1,
-      }),
-    );
   });
 });
 
