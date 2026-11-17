@@ -528,7 +528,12 @@ log. È l'**opposto** del path-eccezioni: `sanitizeForTelemetry` (`src/lib/logge
 Conseguenza pratica: qualsiasi PII loggata anche solo a `info`/`warn` (es. `ip`
 raw in `profile-actions.ts` changePassword rate-limit e in `csp-report/route.ts`)
 **deve** stare nei `REDACT_PATHS`, altrimenti finisce in chiaro su un terzo
-(GDPR). `ip` + `*.ip` sono in `REDACT_PATHS` proprio per questo.
+(GDPR). `ip` + `*.ip` sono in `REDACT_PATHS` proprio per questo. Ogni chiave
+entra in due forme, primo livello e `*.chiave` (un livello di annidamento):
+fino al 17/11/2026 `authorization` e `cookie` avevano solo la prima, e un
+`{ headers: { cookie } }` usciva in chiaro. Gate: la tabella `SECRET_KEYS`
+in `src/lib/logger.test.ts`, scritta a mano e non derivata da
+`REDACT_PATHS`, gira sulla config reale nelle due forme.
 
 Perché funziona — verificato sul sorgente di `@sentry/node-core` e `pino`:
 l'integrazione si sottoscrive al diagnostics channel `pino_asJson` e legge

@@ -36,6 +36,8 @@ export const REDACT_PATHS = [
   "*.credentials",
   "*.token",
   "*.secret",
+  "*.authorization",
+  "*.cookie",
   "*.ip",
   "*.codiceFiscale",
   "*.encryptedCodiceFiscale",
