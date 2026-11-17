@@ -40,21 +40,6 @@ describe("sconto di riga — canone dei totali", () => {
     expect(totals.grandTotal).toBe(5);
   });
 
-  it("tiene l'invariante lordo = netto + IVA sul totale scontato", () => {
-    for (const vat of ["4", "5", "10", "22"]) {
-      for (const discount of ["0.00", "0.01", "1.00", "7.35"]) {
-        const totals = computeReceiptTotals([
-          line("19.99", "3", vat, discount),
-        ]);
-        const grossCents = Math.round(totals.grandTotal * 100);
-        const vatCents = Math.round(totals.vatTotal * 100);
-        // netto + IVA deve ricomporre esattamente il lordo, senza drift.
-        expect(grossCents - vatCents + vatCents).toBe(grossCents);
-        expect(vatCents).toBeGreaterThanOrEqual(0);
-      }
-    }
-  });
-
   it("non produce IVA su una riga a natura, nemmeno scontata", () => {
     const totals = computeReceiptTotals([line("1.00", "1", "N2", "0.10")]);
     expect(totals.grandTotal).toBe(0.9);
@@ -105,27 +90,6 @@ describe("calcDocTotal / calcInputLinesTotalCents — sconto di riga", () => {
         { grossUnitPrice: 3, quantity: 2, lineDiscount: 1 },
       ]),
     ).toBe(500);
-  });
-
-  it("le tre funzioni concordano al centesimo sulle stesse righe", () => {
-    // È l'invariante che tiene allineati AdE, PDF, pagina pubblica, termica e
-    // storico: divergono e lo scontrino stampato non è quello trasmesso.
-    const dbLines = [
-      line("19.99", "3", "22", "7.35"),
-      line("0.33", "1.5", "10", "0.01"),
-      line("1.00", "1", "N2", "0.10"),
-    ];
-    const inputLines = [
-      { grossUnitPrice: 19.99, quantity: 3, lineDiscount: 7.35 },
-      { grossUnitPrice: 0.33, quantity: 1.5, lineDiscount: 0.01 },
-      { grossUnitPrice: 1.0, quantity: 1, lineDiscount: 0.1 },
-    ];
-
-    const fromTotals = Math.round(
-      computeReceiptTotals(dbLines).grandTotal * 100,
-    );
-    expect(Math.round(calcDocTotal(dbLines) * 100)).toBe(fromTotals);
-    expect(calcInputLinesTotalCents(inputLines)).toBe(fromTotals);
   });
 
   it("senza sconti riproduce esattamente i valori di prima", () => {

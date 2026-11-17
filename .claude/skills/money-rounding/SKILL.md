@@ -115,6 +115,13 @@ due numeri attesi scritti a mano. Quando lo sconto di riga è entrato in
 tutti su una vista sola. Il test che l'ha inchiodata somma il breakdown e lo
 confronta con `calcDocTotal` sulle stesse righe.
 
+⚠️ **Le invarianti del canone hanno un property test**:
+`src/lib/receipts/receipt-totals.property.test.ts` (concordanza delle quattro
+funzioni pubbliche, additività fra scontrini, quadratura di riga, IVA come
+scorporo entro mezzo centesimo). Un cambio a `receipt-totals.ts` che lo manda
+in rosso ha rotto il canone, non il test. Come scriverne altri: skill
+`testing-patterns`.
+
 ## Ordini deterministici prima di slice/topN
 
 Ogni `sort` che precede uno `slice`/topN deve avere una **chiave secondaria
