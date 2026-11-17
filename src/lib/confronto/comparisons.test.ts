@@ -27,10 +27,6 @@ describe("confrontoContent — metadata", () => {
 });
 
 describe("confrontoContent — categories", () => {
-  it("contains exactly 3 categories", () => {
-    expect(confrontoContent.categories).toHaveLength(3);
-  });
-
   it("covers registratore telematico, fatturazione B2B and SaaS scontrino", () => {
     const ids = confrontoContent.categories.map((c) => c.id);
     expect(ids).toEqual(

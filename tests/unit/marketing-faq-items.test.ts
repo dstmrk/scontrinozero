@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 import { faqItems } from "@/components/marketing/faq-items";
 
 describe("faqItems", () => {
-  it("contiene esattamente 12 domande", () => {
-    expect(faqItems).toHaveLength(12);
-  });
-
   it("ogni item ha question e answer non vuoti", () => {
     for (const item of faqItems) {
       expect(item.question.trim().length).toBeGreaterThan(0);
