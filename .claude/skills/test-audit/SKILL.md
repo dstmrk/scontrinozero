@@ -102,8 +102,9 @@ Ognuno con un esempio trovato nel repo, perché si riconosce meglio così.
   non dal nome.
 - **Shape-check che il type-check già fa.** `typeof logger.info ===
 "function"`: `npm run type-check` fallisce prima.
-- **Duplicati tra livelli.** Lo stesso contratto in `src/lib/uuid.test.ts`
-  e `tests/unit/lib-uuid.test.ts`. Ogni modifica al modulo paga due suite,
+- **Duplicati tra livelli.** Lo stesso contratto in una suite colocata e
+  in una di `tests/unit/` (com'era `isValidUuid`, in `src/lib/uuid.test.ts`
+  e in una gemella eliminata a novembre 2026). Ogni modifica al modulo paga due suite,
   ognuna con i suoi mock (`testing-patterns`, sezione rate limit: "mockare
   il limiter in tutti").
 - **Seam solo per i test.** Export di produzione senza chiamanti di
