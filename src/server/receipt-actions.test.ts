@@ -357,19 +357,23 @@ describe("receipt-actions", () => {
       expect(mockCheckEmitRateLimit).not.toHaveBeenCalled();
     });
 
-    it("non tocca il contatore su input non valido", async () => {
+    // Input non valido: si ferma alla validazione, prima di appartenenza,
+    // contatore e insert. Il messaggio è quello di zod, quindi la prova
+    // del guard giusto è che l'appartenenza non venga mai chiesta.
+    it("non tocca il contatore né il DB su righe vuote", async () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt({ ...VALID_INPUT, lines: [] });
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBeTruthy();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
       expect(mockCheckEmitRateLimit).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
 
     it("returns error when businessId is missing", async () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt({ ...VALID_INPUT, businessId: "" });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toContain("Business ID");
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -383,14 +387,6 @@ describe("receipt-actions", () => {
 
       expect(result.error).toContain("Business ID");
       expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
-      expect(mockInsert).not.toHaveBeenCalled();
-    });
-
-    it("returns error when lines are empty", async () => {
-      const { emitReceipt } = await import("./receipt-actions");
-      const result = await emitReceipt({ ...VALID_INPUT, lines: [] });
-
-      expect(result.error).toBeDefined();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -414,7 +410,6 @@ describe("receipt-actions", () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
       expect(result.error).toContain("Credenziali");
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -428,7 +423,7 @@ describe("receipt-actions", () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("non verificate");
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -440,7 +435,6 @@ describe("receipt-actions", () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
       expect(result.error).toContain("business");
       expect(mockLogin).not.toHaveBeenCalled();
     });
@@ -480,7 +474,7 @@ describe("receipt-actions", () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("ancora in elaborazione");
       expect(mockLogin).not.toHaveBeenCalled();
       expect(mockSubmitSale).not.toHaveBeenCalled();
     });
@@ -491,7 +485,7 @@ describe("receipt-actions", () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("Errore durante l'emissione");
       expect(mockUpdate).toHaveBeenCalled();
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("ERROR");
@@ -503,7 +497,7 @@ describe("receipt-actions", () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("Errore durante l'emissione");
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("ERROR");
     });
@@ -646,7 +640,7 @@ describe("receipt-actions", () => {
         ],
       });
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("La somma dei pagamenti");
       expect(mockDocumentInsertValues).not.toHaveBeenCalled();
     });
 
@@ -664,7 +658,9 @@ describe("receipt-actions", () => {
         lotteryCode: "YYWLR30G",
       });
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain(
+        "Il codice lotteria richiede un pagamento",
+      );
       expect(mockDocumentInsertValues).not.toHaveBeenCalled();
     });
 
@@ -676,7 +672,6 @@ describe("receipt-actions", () => {
         lotteryCode: "TOOLONG99",
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/lotteria/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -722,7 +717,6 @@ describe("receipt-actions", () => {
         ],
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/importo minimo/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
