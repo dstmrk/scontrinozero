@@ -45,6 +45,7 @@ const mockCanEmit = vi.fn();
 vi.mock("@/lib/plans", () => ({
   getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
   canEmit: (...args: unknown[]) => mockCanEmit(...args),
+  TRIAL_EXPIRED_MESSAGE: "trial-expired",
 }));
 
 // DB mock — ogni select() restituisce un builder riconfigurabile
@@ -355,6 +356,26 @@ describe("void-actions", () => {
 
       expect(result.error).toBeDefined();
       expect(result.error).toMatch(/Troppi/i);
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    // Il limite degli annulli è per utente, non per attività né globale.
+    it("conta l'annullo sul limite dell'utente", async () => {
+      const { voidReceipt } = await import("./void-actions");
+      await voidReceipt(VALID_VOID_INPUT);
+
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(`void:${FAKE_USER.id}`);
+    });
+
+    // Annullare segue la stessa regola del piano dell'emissione.
+    it("a prova scaduta rifiuta l'annullo senza toccare il DB né l'AdE", async () => {
+      mockCanEmit.mockReturnValue(false);
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toBe("trial-expired");
       expect(mockInsert).not.toHaveBeenCalled();
       expect(mockLogin).not.toHaveBeenCalled();
     });
