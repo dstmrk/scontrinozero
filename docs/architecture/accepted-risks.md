@@ -141,6 +141,33 @@ passano a `glob` ≥ 14.0.2 e `minimatch` ≥ 11.0.1 → aggiornare il
 lockfile e togliere le due voci. Subito, se uno dei due pacchetti
 compare in `.next/standalone/node_modules` o in un import di `src/`.
 
+## audit-ci: advisory `picomatch` solo build-time, senza fix
+
+`audit-ci.json` allowlista `GHSA-fc5q-39xc-vjpf` (moderate, ReDoS con
+extglob a ramo singolo ripetuti), segnalata dall'audit dal 2026-11-17
+su `picomatch` `<=4.0.7`. La 4.0.7 è l'ultima versione pubblicata:
+non esiste un fix da adottare. Abbiamo la 4.0.4 (override in
+`package.json`) e la 2.3.2.
+
+Arriva da strumenti di sviluppo (`lint-staged`, `typescript-eslint`,
+`shadcn` → `ts-morph`, `tinyglobby`) e, fra le dipendenze di
+produzione, solo da `@sentry/nextjs` → `@rollup/plugin-commonjs` e
+`vite`: plugin di bundler che girano in build. Verificato sulla build
+di produzione: `.next/standalone/node_modules` non contiene il
+pacchetto `picomatch`, e `src/` e `scripts/` non lo importano.
+
+Il container contiene la copia che Next.js compila dentro di sé
+(`next/dist/compiled/picomatch`). A runtime Next la usa solo per
+`images.remotePatterns` e `images.localPatterns`, compilando pattern
+che vengono dalla config: `next.config.ts` non ne definisce, quindi
+non c'è nessun pattern da compilare. Superficie ≈ 0.
+
+**Riaprire:** quando esce `picomatch` > 4.0.7 → aggiornare l'override
+e il lockfile, togliere la voce. Subito, se `next.config.ts` definisce
+`images.remotePatterns` o `localPatterns` con extglob (`+(`, `*(`,
+`@(`, `!(`, `?(`), o se `picomatch` compare in
+`.next/standalone/node_modules` o in un import di `src/`.
+
 ## audit-ci: advisory `esbuild` dev-only
 
 `audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (dev-server SSRF).
