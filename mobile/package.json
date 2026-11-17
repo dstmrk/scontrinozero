@@ -20,12 +20,12 @@
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.6.0",
-    "@capgo/capacitor-inappbrowser": "^8.27.1"
+    "@capgo/capacitor-inappbrowser": "^8.27.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
     "@types/node": "^26",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
