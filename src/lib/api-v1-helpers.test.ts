@@ -495,6 +495,7 @@ describe("serviceErrorResponse", () => {
     ["VOID_PENDING_IN_PROGRESS", 409, "2"],
     ["VOID_ALREADY_TARGETED", 409, null],
     ["VOID_SYNC_FAILED", 500, null],
+    ["ALREADY_VOIDED", 409, null],
   ])("mappa %s a %i", async (code, status, retryAfter) => {
     const res = serviceErrorResponse({ error: "reso", code }, REQUEST_ID);
     expect(res.status).toBe(status);
