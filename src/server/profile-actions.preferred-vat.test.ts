@@ -1,4 +1,7 @@
 // @vitest-environment node
+// updateBusiness: aliquota IVA preferita (validazione, audit log, lock di riga)
+// e rate limit prima dell'ownership. Il resto di profile-actions, con i mock
+// di profile-actions.test.ts, sta lì.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Mocks ---
@@ -9,9 +12,6 @@ const {
   mockNextHeaders,
   mockGetClientIp,
   mockCheck,
-  mockSignInWithPassword,
-  mockUpdateUser,
-  mockSignOut,
   mockCreateServerSupabaseClient,
   mockIsStrongPassword,
   mockIsValidItalianZipCode,
@@ -33,9 +33,6 @@ const {
   mockNextHeaders: vi.fn(),
   mockGetClientIp: vi.fn(),
   mockCheck: vi.fn(),
-  mockSignInWithPassword: vi.fn(),
-  mockUpdateUser: vi.fn(),
-  mockSignOut: vi.fn(),
   mockCreateServerSupabaseClient: vi.fn(),
   mockIsStrongPassword: vi.fn(),
   mockIsValidItalianZipCode: vi.fn(),
@@ -138,166 +135,15 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
-import { changePassword, updateBusiness } from "@/server/profile-actions";
+import { updateBusiness } from "@/server/profile-actions";
 import { logger } from "@/lib/logger";
 
 // --- Helpers ---
 
 const USER_ID = "user-abc";
 const USER_EMAIL = "test@example.com";
-const FAKE_IP = "192.168.1.1";
-
-function makeFormData(overrides: Record<string, string> = {}): FormData {
-  const fd = new FormData();
-  fd.append("currentPassword", overrides.currentPassword ?? "OldPass@123");
-  fd.append("newPassword", overrides.newPassword ?? "NewPass@456");
-  fd.append("confirmPassword", overrides.confirmPassword ?? "NewPass@456");
-  return fd;
-}
 
 // --- Tests ---
-
-describe("changePassword server action", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockGetAuthenticatedUser.mockResolvedValue({
-      id: USER_ID,
-      email: USER_EMAIL,
-    });
-    mockNextHeaders.mockResolvedValue({ get: vi.fn().mockReturnValue(null) });
-    mockGetClientIp.mockReturnValue(FAKE_IP);
-    mockCheck.mockReturnValue({ success: true }); // not rate-limited by default
-    mockIsStrongPassword.mockReturnValue(true); // valid password by default
-    mockSignInWithPassword.mockResolvedValue({ error: null });
-    mockUpdateUser.mockResolvedValue({ error: null });
-    mockSignOut.mockResolvedValue({ error: null });
-    mockCreateServerSupabaseClient.mockResolvedValue({
-      auth: {
-        signInWithPassword: mockSignInWithPassword,
-        updateUser: mockUpdateUser,
-        signOut: mockSignOut,
-      },
-    });
-  });
-
-  afterEach(() => {
-    vi.resetModules();
-  });
-
-  // ── Rate limit key must be per user.id, not per IP ───────────────────────
-
-  describe("rate limit key isolation", () => {
-    it("uses user.id as the rate limit key (not IP)", async () => {
-      await changePassword(makeFormData());
-
-      // Key must contain user.id
-      expect(mockCheck).toHaveBeenCalledWith(`changePassword:${USER_ID}`);
-      // Key must NOT be the IP-based key
-      expect(mockCheck).not.toHaveBeenCalledWith(`changePassword:${FAKE_IP}`);
-    });
-
-    it("two users with the same IP are rate-limited independently", async () => {
-      const USER_A = "user-aaa";
-      const USER_B = "user-bbb";
-
-      // User A is rate-limited; User B is not
-      mockCheck.mockImplementation(function (key: string) {
-        return { success: !key.includes(USER_A) };
-      });
-
-      // User A → rate-limited
-      mockGetAuthenticatedUser.mockResolvedValue({
-        id: USER_A,
-        email: "a@example.com",
-      });
-      const responseA = await changePassword(makeFormData());
-      expect(responseA.error).toBeDefined();
-
-      // User B (same IP) → NOT rate-limited
-      mockGetAuthenticatedUser.mockResolvedValue({
-        id: USER_B,
-        email: "b@example.com",
-      });
-      const responseB = await changePassword(makeFormData());
-      expect(responseB.error).toBeUndefined();
-    });
-
-    it("logs both userId and ip when rate limit is exceeded", async () => {
-      mockCheck.mockReturnValue({ success: false });
-
-      await changePassword(makeFormData());
-
-      expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: USER_ID, ip: FAKE_IP }),
-        expect.stringContaining("rate limit"),
-      );
-    });
-  });
-
-  // ── Success and error paths ────────────────────────────────────────────────
-
-  describe("success and error paths", () => {
-    it("returns empty object on successful password change", async () => {
-      const result = await changePassword(makeFormData());
-
-      expect(result.error).toBeUndefined();
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        password: "NewPass@456",
-      });
-    });
-
-    it("returns error when current password is incorrect", async () => {
-      mockSignInWithPassword.mockResolvedValue({
-        error: new Error("Invalid credentials"),
-      });
-
-      const result = await changePassword(makeFormData());
-
-      expect(result.error).toBe("Password attuale non corretta.");
-      expect(mockUpdateUser).not.toHaveBeenCalled();
-    });
-
-    it("returns error when new password is weak", async () => {
-      mockIsStrongPassword.mockReturnValue(false);
-
-      const result = await changePassword(
-        makeFormData({ newPassword: "weak" }),
-      );
-
-      expect(result.error).toContain("password");
-      expect(mockSignInWithPassword).not.toHaveBeenCalled();
-    });
-
-    it("returns error when currentPassword is empty", async () => {
-      const result = await changePassword(
-        makeFormData({ currentPassword: "" }),
-      );
-
-      expect(result.error).toBe("Inserisci la password attuale.");
-    });
-
-    it("returns error when new and confirm passwords do not match", async () => {
-      mockIsStrongPassword.mockReturnValue(true);
-      const result = await changePassword(
-        makeFormData({ confirmPassword: "DifferentPass@999" }),
-      );
-
-      expect(result.error).toBe("Le password non coincidono.");
-    });
-
-    it("returns rate-limit error and does not call signIn", async () => {
-      mockCheck.mockReturnValue({ success: false });
-
-      const result = await changePassword(makeFormData());
-
-      expect(result.error).toContain("Troppi tentativi");
-      expect(mockSignInWithPassword).not.toHaveBeenCalled();
-    });
-  });
-});
-
-// ─── updateBusiness ───────────────────────────────────────────────────────────
 
 const BIZ_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -424,17 +270,6 @@ describe("updateBusiness server action", () => {
     expect(logger.info as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 
-  it("returns a rate-limit error and does not update the DB", async () => {
-    mockCheck.mockReturnValue({ success: false });
-
-    const result = await updateBusiness(
-      makeBusinessFormData({ preferredVatCode: "22" }),
-    );
-
-    expect(result.error).toContain("Troppi tentativi");
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
   it("rate-limit blocca PRIMA della ownership query (CLAUDE.md regola 29)", async () => {
     // Un attaccante autenticato che martella con businessId arbitrari NON
     // deve raggiungere checkBusinessMembership: il rate-limit deve scattare
@@ -444,19 +279,6 @@ describe("updateBusiness server action", () => {
     await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
 
     expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
-  it("blocks the update when ownership check fails", async () => {
-    mockCheckBusinessMembership.mockResolvedValue({
-      error: "Non autorizzato.",
-    });
-
-    const result = await updateBusiness(
-      makeBusinessFormData({ preferredVatCode: "22" }),
-    );
-
-    expect(result.error).toBe("Non autorizzato.");
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
