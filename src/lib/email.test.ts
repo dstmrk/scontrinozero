@@ -9,18 +9,24 @@ vi.mock("resend", () => ({
   Resend: mockResendConstructor,
 }));
 
-// Must import after vi.mock
-const { sendEmail, sendEmailsInSequence, _resetResendForTest } =
-  await import("./email");
+type EmailModule = typeof import("./email");
+let sendEmail: EmailModule["sendEmail"];
+let sendEmailsInSequence: EmailModule["sendEmailsInSequence"];
+
+// Il client Resend è un singleton di modulo: ricaricare il modulo lo azzera.
+async function loadFreshEmailModule(): Promise<void> {
+  vi.resetModules();
+  ({ sendEmail, sendEmailsInSequence } = await import("./email"));
+}
 
 const fakeReact = { type: "div", props: {} } as unknown as Parameters<
-  typeof sendEmail
+  EmailModule["sendEmail"]
 >[0]["react"];
 
 describe("sendEmail", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    _resetResendForTest();
+    await loadFreshEmailModule();
     process.env.FROM_EMAIL = "Test <test@mail.example.com>";
   });
 
@@ -130,9 +136,9 @@ describe("sendEmail", () => {
 });
 
 describe("sendEmail reply-to", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    _resetResendForTest();
+    await loadFreshEmailModule();
     process.env.FROM_EMAIL = "Test <test@mail.example.com>";
     mockResendSend.mockResolvedValue({ data: { id: "abc" }, error: null });
   });
@@ -194,9 +200,9 @@ describe("sendEmail reply-to", () => {
 });
 
 describe("sendEmailsInSequence", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    _resetResendForTest();
+    await loadFreshEmailModule();
     process.env.FROM_EMAIL = "Test <test@mail.example.com>";
   });
 
