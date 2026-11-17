@@ -254,6 +254,85 @@ describe("billing-actions", () => {
   // e getEffectivePlan accetta uno userId arbitrario senza autenticazione. È
   // stata spostata in "@/lib/plans" come helper server-only. I test funzionali
   // vivono ora in src/lib/plans.test.ts.
+  // Fra il pagamento e il webhook che aggiorna profiles.plan, il profilo
+  // dice ancora "trial": se l'abbonamento è già active, si mostra il piano
+  // del prezzo. In ogni altro stato (o con un prezzo che non conosciamo)
+  // resta quello del profilo.
+  describe("getProfilePlan — piano mostrato durante la finestra del webhook", () => {
+    const TRIAL_INFO = { ...FAKE_PLAN_INFO, plan: "trial" as const };
+
+    it.each([
+      { status: "active", price: "price_pro", fromPrice: "pro", shown: "pro" },
+      { status: "active", price: "price_x", fromPrice: null, shown: "trial" },
+      { status: "active", price: null, fromPrice: "pro", shown: "trial" },
+      {
+        status: "incomplete",
+        price: "price_pro",
+        fromPrice: "pro",
+        shown: "trial",
+      },
+      {
+        status: "past_due",
+        price: "price_pro",
+        fromPrice: "pro",
+        shown: "trial",
+      },
+      {
+        status: "pending",
+        price: "price_pro",
+        fromPrice: "pro",
+        shown: "trial",
+      },
+      {
+        status: "canceled",
+        price: "price_pro",
+        fromPrice: "pro",
+        shown: "trial",
+      },
+    ])(
+      "profilo trial, abbonamento $status con prezzo $price → $shown",
+      async ({ status, price, fromPrice, shown }) => {
+        mockGetPlanSafe.mockResolvedValue({ ok: true, info: TRIAL_INFO });
+        mockPlanFromPriceId.mockReturnValue(fromPrice);
+        mockSelectLimit.mockResolvedValue([
+          {
+            id: "sub-1",
+            status,
+            interval: "month",
+            stripePriceId: price,
+            cancelAtPeriodEnd: false,
+          },
+        ]);
+
+        const { getProfilePlan } = await import("./billing-actions");
+        const result = await getProfilePlan();
+
+        expect(result).toMatchObject({ plan: shown });
+      },
+    );
+
+    it("un profilo già pagante non viene riletto dal prezzo", async () => {
+      mockPlanFromPriceId.mockReturnValue("pro");
+      mockSelectLimit.mockResolvedValue([
+        {
+          id: "sub-1",
+          status: "active",
+          interval: "year",
+          stripePriceId: "price_pro",
+          cancelAtPeriodEnd: false,
+        },
+      ]);
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect(result).toMatchObject({
+        plan: "starter",
+        planExpiresAt: FAKE_PLAN_INFO.planExpiresAt,
+      });
+    });
+  });
+
   describe("getEffectivePlan (hardening PR #749)", () => {
     it("non è più esportata dal modulo 'use server' billing-actions", async () => {
       const mod = await import("./billing-actions");
