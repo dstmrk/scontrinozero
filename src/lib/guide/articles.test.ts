@@ -9,11 +9,9 @@ import {
 } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 18 slugs", () => {
-    expect(guideSlugs).toHaveLength(18);
-  });
-
-  it("contains the expected slugs", () => {
+  // Gli slug sono URL pubblicati: toglierne uno rompe i link in entrata.
+  // Aggiungerne uno nuovo non deve toccare questo test.
+  it("keeps every published slug", () => {
     expect(guideSlugs).toEqual(
       expect.arrayContaining([
         "scontrino-senza-registratore-di-cassa",
@@ -33,6 +31,7 @@ describe("guideSlugs", () => {
         "registratore-di-cassa-prezzi",
         "sanzioni-mancato-scontrino",
         "registratore-telematico-vs-documento-commerciale-online",
+        "sconto-scontrino-iva-sconto-a-pagare",
       ]),
     );
   });

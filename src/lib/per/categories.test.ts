@@ -8,11 +8,9 @@ import {
 } from "./categories";
 
 describe("categorySlugs", () => {
-  it("contains exactly 22 slugs", () => {
-    expect(categorySlugs).toHaveLength(22);
-  });
-
-  it("contains the expected slugs", () => {
+  // Gli slug sono URL pubblicati: toglierne uno rompe i link in entrata.
+  // Aggiungerne uno nuovo non deve toccare questo test.
+  it("keeps every published slug", () => {
     expect(categorySlugs).toEqual(
       expect.arrayContaining([
         "ambulanti",

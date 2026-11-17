@@ -57,14 +57,6 @@ export function getStripe(): Stripe {
 }
 
 /**
- * Resets the cached Stripe singleton. For use in tests only.
- * @internal
- */
-export function _resetStripeForTest(): void {
-  _stripe = null;
-}
-
-/**
  * I prezzi in vendita, uno per piano e intervallo, con la variabile d'ambiente
  * che porta il Price ID. L'ordine conta: le risoluzioni sotto si fermano al
  * primo prezzo che corrisponde, quindi un prezzo Starter o Pro non legge mai

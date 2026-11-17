@@ -99,18 +99,36 @@ describe("GET /api/stripe/portal", () => {
     expect(res.status).toBe(401);
   });
 
-  it("restituisce 429 se rate limit superato", async () => {
+  // Il limite è per utente, non globale: un utente non esaurisce quello
+  // degli altri. Superato il limite, Stripe non viene chiamato.
+  it("restituisce 429 se rate limit superato, senza chiamare Stripe", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
     mockRateLimiterCheck.mockReturnValue({ success: false });
     const res = await GET(fakeRequest);
     expect(res.status).toBe(429);
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith("portal:user-1");
+    expect(mockSessionCreate).not.toHaveBeenCalled();
   });
 
-  it("restituisce 400 se nessun abbonamento trovato", async () => {
+  it.each([
+    ["nessuna riga di abbonamento", []],
+    ["riga senza stripeCustomerId", [{ stripeCustomerId: null }]],
+  ])("restituisce 400 con %s", async (_label, rows) => {
     mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
-    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockSelect.mockReturnValue(makeSelectBuilder(rows));
     const res = await GET(fakeRequest);
     expect(res.status).toBe(400);
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("restituisce 503 se Stripe fallisce la creazione della sessione", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([{ stripeCustomerId: "cus_123" }]),
+    );
+    mockSessionCreate.mockRejectedValue(new Error("Stripe timeout"));
+    const res = await GET(fakeRequest);
+    expect(res.status).toBe(503);
   });
 
   it("redirige all'URL del portale Stripe", async () => {
@@ -152,12 +170,10 @@ describe("GET /api/stripe/portal", () => {
       url: "https://billing.stripe.com/session",
     });
     await GET(fakeRequest);
-    expect(mockSessionCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        customer: "cus_123",
-        return_url: expect.stringContaining("/dashboard/settings"),
-      }),
-    );
+    expect(mockSessionCreate).toHaveBeenCalledWith({
+      customer: "cus_123",
+      return_url: "https://app.scontrinozero.it/dashboard/settings",
+    });
   });
 });
 

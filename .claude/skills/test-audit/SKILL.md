@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: Use when deciding whether a test earns its place — before adding or changing a test (authoring gate - which observable contract, which credible regression, why existing proof misses it), when reviewing a PR that adds tests, when a test breaks on a behavior-preserving refactor, when pruning or consolidating a suite, or when auditing the test surface of a module or of the whole repo (the parallel `tests/unit/` layer that duplicates colocated `src/**/X.test.ts` suites, copied inventories like `toHaveLength(92)` on the sitemap, tests that configure the library themselves instead of using the production config, weak negatives `expect(result.error).toBeDefined()`, test-only production seams like `_resetStripeForTest`). Covers the retention bar (AdE protocol, money, migrations, RLS, security, public `/api/v1`, `*.contract.test.ts` source inspection), the R/F/C/D ledger, the mutation check, and how deletions interact with the per-file 80% coverage gate. NOT about Vitest mechanics (mocks, fake timers, waitFor) — that is testing-patterns.
+description: Use when deciding whether a test earns its place — before adding or changing a test (authoring gate - which observable contract, which credible regression, why existing proof misses it), when reviewing a PR that adds tests, when a test breaks on a behavior-preserving refactor, when pruning or consolidating a suite, or when auditing the test surface of a module or of the whole repo (the parallel `tests/unit/` layer that duplicates colocated `src/**/X.test.ts` suites, copied inventories like `toHaveLength(92)` on the sitemap, tests that configure the library themselves instead of using the production config, weak negatives `expect(result.error).toBeDefined()`, test-only production seams such as an exported reset of a module singleton). Covers the retention bar (AdE protocol, money, migrations, RLS, security, public `/api/v1`, `*.contract.test.ts` source inspection), the R/F/C/D ledger, the mutation check, and how deletions interact with the per-file 80% coverage gate. NOT about Vitest mechanics (mocks, fake timers, waitFor) — that is testing-patterns.
 ---
 
 # test-audit — un test deve proteggere un contratto, non una riga
@@ -33,9 +33,16 @@ manca, il test non entra.
    status HTTP, envelope d'errore). Se il caso è una variante, estendi la
    tabella o il fixture esistente invece di aprire un `it` nuovo.
 4. **Serve un export, un flag o un parametro che esiste solo per il test?**
-   Allora sposta la prova al confine reale. Per i singleton di modulo,
-   `vi.resetModules()` + `await import()` (già lo standard nel repo) rende
-   superfluo un `resetXForTests()` esportato.
+   Allora sposta la prova al confine reale. Per un singleton di modulo il
+   cui stato sta **tutto** in variabili del modulo (`_stripe`, `_resend`,
+   un timestamp di throttle), `vi.resetModules()` + `await import()` (già
+   lo standard nel repo) rende superfluo un `resetXForTests()` esportato.
+   Non vale quando il reset stacca qualcosa da un oggetto che sopravvive al
+   reload: `resetInstallPromptStoreForTests` toglie il listener
+   `beforeinstallprompt` da `window`, `resetPrinterStoreForTests` svuota i
+   subscriber agganciati ai componenti. jsdom tiene lo stesso `window` per
+   tutto il file, quindi ogni reload aggiungerebbe un listener senza
+   togliere il vecchio. Lì il reset esportato è un contratto, non un seam.
 
 Due corollari:
 
@@ -92,8 +99,11 @@ Ognuno con un esempio trovato nel repo, perché si riconosce meglio così.
   e `tests/unit/lib-uuid.test.ts`. Ogni modifica al modulo paga due suite,
   ognuna con i suoi mock (`testing-patterns`, sezione rate limit: "mockare
   il limiter in tutti").
-- **Seam solo per i test.** `_resetStripeForTest`, `_resetResendForTest`,
-  `resetXForTests`: export di produzione senza chiamanti di produzione.
+- **Seam solo per i test.** Export di produzione senza chiamanti di
+  produzione, che azzerano solo variabili del modulo. Così erano
+  `_resetStripeForTest` e `_resetResendForTest`, tolti a novembre 2026
+  in favore del reload del modulo (vedi il punto 4 del gate per
+  l'eccezione).
 - **Fixture che fabbricano ciò che l'owner dovrebbe produrre**: un
   `documentId` o un ordine di eventi che nel flusso reale viene dal service,
   o una persistenza asserita su una tabella che il codice non scrive.
