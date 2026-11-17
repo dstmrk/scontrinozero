@@ -286,7 +286,7 @@ describe("catalog-actions", () => {
       const { addCatalogItem } = await import("./catalog-actions");
       const result = await addCatalogItem(VALID_ADD_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("non autorizzato");
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -308,7 +308,6 @@ describe("catalog-actions", () => {
         description: "",
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/descrizione/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -320,7 +319,7 @@ describe("catalog-actions", () => {
         description: "   ",
       });
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("La descrizione è obbligatoria.");
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -352,7 +351,6 @@ describe("catalog-actions", () => {
         defaultPrice: "-1.00",
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/prezzo/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -364,7 +362,7 @@ describe("catalog-actions", () => {
         defaultPrice: "abc",
       });
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("Il prezzo deve essere un numero");
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -437,7 +435,6 @@ describe("catalog-actions", () => {
         defaultVatCode: "99" as never,
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/IVA/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -513,7 +510,6 @@ describe("catalog-actions", () => {
       const { addCatalogItem } = await import("./catalog-actions");
       const result = await addCatalogItem(VALID_ADD_INPUT);
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/Starter/i);
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -761,7 +757,7 @@ describe("catalog-actions", () => {
       const { deleteCatalogItem } = await import("./catalog-actions");
       const result = await deleteCatalogItem(FAKE_ITEM_ID, FAKE_BUSINESS_ID);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("non autorizzato");
       expect(mockDelete).not.toHaveBeenCalled();
     });
 
@@ -782,7 +778,6 @@ describe("catalog-actions", () => {
       const { deleteCatalogItem } = await import("./catalog-actions");
       const result = await deleteCatalogItem(FAKE_ITEM_ID, FAKE_BUSINESS_ID);
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/non trovato/i);
       expect(mockDelete).not.toHaveBeenCalled();
     });
@@ -848,7 +843,7 @@ describe("catalog-actions", () => {
       const { updateCatalogItem } = await import("./catalog-actions");
       const result = await updateCatalogItem(VALID_UPDATE_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("non autorizzato");
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 
@@ -894,7 +889,6 @@ describe("catalog-actions", () => {
         description: "",
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/descrizione/i);
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -906,7 +900,6 @@ describe("catalog-actions", () => {
         defaultPrice: "-5.00",
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/prezzo/i);
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -947,7 +940,6 @@ describe("catalog-actions", () => {
         defaultVatCode: "99" as never,
       });
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/IVA/i);
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -958,7 +950,6 @@ describe("catalog-actions", () => {
       const { updateCatalogItem } = await import("./catalog-actions");
       const result = await updateCatalogItem(VALID_UPDATE_INPUT);
 
-      expect(result.error).toBeDefined();
       expect(result.error).toMatch(/non trovato/i);
       expect(mockUpdate).not.toHaveBeenCalled();
     });

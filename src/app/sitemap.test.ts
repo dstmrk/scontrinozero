@@ -1,12 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import { categorySlugs } from "@/lib/per/categories";
+import { guideSlugs } from "@/lib/guide/articles";
 import { helpSlugs } from "@/lib/help/articles";
+import { toolSlugs } from "@/lib/strumenti/tools";
 
 describe("sitemap", () => {
   it("returns all pages with correct structure", async () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(92);
+    // Nessun URL ripetuto: un contenuto in due registry finirebbe due volte.
+    const allUrls = result.map((e) => e.url);
+    expect(new Set(allUrls).size).toBe(allUrls.length);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -28,31 +33,10 @@ describe("sitemap", () => {
     });
 
     // Category landing pages
-    const allUrls = result.map((e) => e.url);
-    const expectedCategoryUrls = [
-      "https://scontrinozero.it/per/ambulanti",
-      "https://scontrinozero.it/per/parrucchieri-estetisti",
-      "https://scontrinozero.it/per/artigiani",
-      "https://scontrinozero.it/per/b-and-b",
-      "https://scontrinozero.it/per/regime-forfettario",
-      "https://scontrinozero.it/per/professionisti",
-      "https://scontrinozero.it/per/officine-meccanici",
-      "https://scontrinozero.it/per/eventi-mercatini-hobbisti",
-      "https://scontrinozero.it/per/palestre-personal-trainer",
-      "https://scontrinozero.it/per/food-truck",
-      "https://scontrinozero.it/per/ncc-taxi",
-      "https://scontrinozero.it/per/tatuatori-piercer",
-      "https://scontrinozero.it/per/ristoranti-bar-asporto",
-      "https://scontrinozero.it/per/negozi",
-      "https://scontrinozero.it/per/pasticcerie-gelaterie-panifici",
-      "https://scontrinozero.it/per/fioristi",
-      "https://scontrinozero.it/per/lavanderie",
-      "https://scontrinozero.it/per/agriturismi-cantine",
-      "https://scontrinozero.it/per/fotografi",
-      "https://scontrinozero.it/per/toelettatura",
-      "https://scontrinozero.it/per/noleggio",
-    ];
-    for (const url of expectedCategoryUrls) {
+    // Ogni categoria del registry ha la sua landing in sitemap.
+    for (const url of categorySlugs.map(
+      (slug) => `https://scontrinozero.it/per/${slug}`,
+    )) {
       expect(allUrls).toContain(url);
       const entry = result.find((e) => e.url === url);
       expect(entry).toMatchObject({
@@ -93,13 +77,9 @@ describe("sitemap", () => {
     });
 
     // Tool pages
-    const expectedToolUrls = [
-      "https://scontrinozero.it/strumenti/scorporo-iva",
-      "https://scontrinozero.it/strumenti/verifica-codice-lotteria",
-      "https://scontrinozero.it/strumenti/calcolatore-risparmio-rt",
-      "https://scontrinozero.it/strumenti/dicitura-regime-forfettario",
-    ];
-    for (const url of expectedToolUrls) {
+    for (const url of toolSlugs.map(
+      (slug) => `https://scontrinozero.it/strumenti/${slug}`,
+    )) {
       expect(allUrls).toContain(url);
       const entry = result.find((e) => e.url === url);
       expect(entry).toMatchObject({
@@ -110,20 +90,9 @@ describe("sitemap", () => {
 
     // Guide hub + articles
     expect(allUrls).toContain("https://scontrinozero.it/guide");
-    const expectedGuideUrls = [
-      "https://scontrinozero.it/guide/scontrino-senza-registratore-di-cassa",
-      "https://scontrinozero.it/guide/differenza-scontrino-ricevuta-fattura",
-      "https://scontrinozero.it/guide/pos-rt-obbligo-2026",
-      "https://scontrinozero.it/guide/scontrino-regime-forfettario",
-      "https://scontrinozero.it/guide/migrare-da-registratore-telematico-a-software",
-      "https://scontrinozero.it/guide/chiusura-giornaliera-corrispettivi",
-      "https://scontrinozero.it/guide/annullare-scontrino-elettronico",
-      "https://scontrinozero.it/guide/lotteria-scontrini-commerciante",
-      "https://scontrinozero.it/guide/scegliere-software-scontrini-elettronici",
-      "https://scontrinozero.it/guide/codici-natura-iva",
-      "https://scontrinozero.it/guide/stampante-termica-wifi-scontrini",
-    ];
-    for (const url of expectedGuideUrls) {
+    for (const url of guideSlugs.map(
+      (slug) => `https://scontrinozero.it/guide/${slug}`,
+    )) {
       expect(allUrls).toContain(url);
       const entry = result.find((e) => e.url === url);
       expect(entry).toMatchObject({
