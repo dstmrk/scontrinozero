@@ -46,6 +46,8 @@ export default defineConfig({
         "src/app/**/layout.tsx", // layout shells — pure presentation, no testable logic
         "src/app/**/loading.tsx", // loading skeletons — pure UI, no logic
         "src/app/**/opengraph-image.tsx", // OG route files — thin next/og wrappers, render covered via og-image-template
+        "src/app/twitter-image.tsx", // thin next/og wrapper, come gli opengraph-image
+        "src/app/global-error.tsx", // fallback di ultima istanza di Next: render statico + Sentry.captureException
         // Wizard di onboarding: l'orchestrazione della verifica AdE È testata
         // (onboarding-form.test.tsx), i tre submit di step 0/1 no. L'esclusione
         // resta finché non lo sono; la motivazione storica "nessuna logica
@@ -69,6 +71,7 @@ export default defineConfig({
         // non sono raggiungibili in jsdom senza mockare l'intero recharts.
         "src/components/analytics/revenue-sparkline.tsx",
         "src/components/analytics/payment-breakdown.tsx",
+        "src/components/analytics/product-breakdown.tsx",
         "src/components/providers.tsx",
         "src/components/marketing/**", // marketing UI components — tested via E2E
         "src/components/billing/checkout-button.tsx", // UI client component — pure fetch + redirect
@@ -82,6 +85,22 @@ export default defineConfig({
         "src/components/ade/change-ade-password-dialog.tsx", // UI client component — form + dialog, pure UI
         "src/app/offline/page.tsx", // static offline shell — pure UI, no logic
       ],
+      // Il gate di coverage che prima applicava SonarCloud (80% sul codice
+      // nuovo), ora locale: `npm run test:coverage` esce con codice 1.
+      // - per file, ogni sorgente di src/ copre almeno l'80% delle righe: un
+      //   file nuovo senza test non passa, qualunque sia la media;
+      // - in aggregato, una rete sotto i valori attuali (97,7% righe, 97,3%
+      //   statement, 94,4% branch, 96,9% funzioni al 2026-11-17) contro
+      //   l'erosione lenta, distribuita su file che restano sopra l'80%.
+      // scripts/ resta fuori dal per-file come restava fuori da Sonar
+      // (`sonar.sources=src`), ma conta nell'aggregato.
+      thresholds: {
+        lines: 95,
+        statements: 95,
+        branches: 92,
+        functions: 95,
+        "src/**": { perFile: { lines: 80 } },
+      },
     },
     reporters: ["default", "vitest-sonar-reporter"],
     outputFile: {

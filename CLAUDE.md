@@ -166,7 +166,8 @@ possiede, e lì si attiva da sola quando lavori in quel dominio. L'indice
 ## SonarCloud quality gate
 
 Coverage on new code ≥ **80%** · duplicated lines < **3%** · **0 new issues**
-(fix sempre, anche con gate verde). Regole ricorrenti (S6861, S6772, S7780,
+(fix sempre, anche con gate verde). Coverage per file e regole SonarJS girano
+anche in locale (`npm run test:coverage`, `npm run lint`). Regole ricorrenti (S6861, S6772, S7780,
 S5852/S5122, Gitleaks placeholder) → skill `sonar-quality-gate`.
 
 Stripe API `2026-10-28.endive` (breaking changes, 8 webhook events,
