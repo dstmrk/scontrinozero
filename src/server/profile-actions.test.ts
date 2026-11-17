@@ -713,6 +713,22 @@ describe("profile-actions", () => {
       const { changePassword } = await import("./profile-actions");
       const result = await changePassword(formData(VALID));
       expect(result.error).toMatch(/troppi/i);
+      // Al limite si logga chi e da dove, e non si prova la password.
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: FAKE_USER.id, ip: "1.2.3.4" }),
+        expect.stringContaining("rate limit"),
+      );
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    });
+
+    // Il limite è per utente, non per IP: due utenti dietro lo stesso NAT
+    // (un negozio, una rete mobile) non si bloccano a vicenda.
+    it("conta i tentativi per utente, non per IP", async () => {
+      const { changePassword } = await import("./profile-actions");
+      await changePassword(formData(VALID));
+
+      expect(mockCheck).toHaveBeenCalledWith(`changePassword:${FAKE_USER.id}`);
+      expect(mockCheck).not.toHaveBeenCalledWith("changePassword:1.2.3.4");
     });
 
     it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
