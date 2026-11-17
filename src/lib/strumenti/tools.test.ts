@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import { getTool, isToolSlug, tools, toolSlugs } from "./tools";
 
 describe("toolSlugs", () => {
-  it("contains exactly 4 slugs", () => {
-    expect(toolSlugs).toHaveLength(4);
-  });
-
-  it("contains the expected slugs", () => {
+  // Gli slug sono URL pubblicati: toglierne uno rompe i link in entrata.
+  // Aggiungerne uno nuovo non deve toccare questo test.
+  it("keeps every published slug", () => {
     expect(toolSlugs).toEqual(
       expect.arrayContaining([
         "scorporo-iva",
