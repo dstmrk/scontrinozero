@@ -1,6 +1,8 @@
 // @vitest-environment node
+// emitReceiptForBusiness: password Fisconline scaduta → passwordExpired e
+// codice dedicato. Il resto di receipt-service sta in receipt-service.test.ts.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TEST_BUSINESS_ID } from "../_helpers/fixtures";
+import { TEST_BUSINESS_ID } from "../../../tests/_helpers/fixtures";
 
 // --- Hoisted mocks ---
 
