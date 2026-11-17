@@ -17,6 +17,22 @@ Quality gate ricorrente e regole che si attivano spesso.
   Quality Gate passa. Issues lasciati aperti accumulano debt e bloccheranno
   future PR.
 
+### Gli stessi due gate, in locale
+
+Coverage e regole SonarJS girano anche prima del push, e bocciano da sole:
+
+- **Coverage:** `coverage.thresholds` in `vitest.config.ts`. Ogni file di
+  `src/` deve coprire l'80% delle righe (`does not meet per-file threshold`),
+  più una rete aggregata sotto i valori attuali. `npm run test:coverage` esce
+  con 1. Un file senza logica testabile va nell'`exclude` di coverage, come
+  sempre.
+- **Regole:** `eslint-plugin-sonarjs` in `eslint.config.mjs`, raccomandate su
+  `src/` (senza le `aws-*`), solo quelle per i test sui `*.test.*`. Le gira
+  `npm run lint` e, sui file in stage, lint-staged al commit.
+
+Non coprono le regole che Sonar prende da altri motori (S6861, S6772, S7780,
+S7503, S9382): quelle restano sotto.
+
 ---
 
 ## Quick fixes ricorrenti
