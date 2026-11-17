@@ -1,4 +1,7 @@
 // @vitest-environment node
+// voidReceiptForBusiness: dati AdE mancanti, annullo precedente rifiutato con
+// la stessa chiave, recovery di un PENDING stale che ha già la transazione AdE.
+// Il resto di void-service, con i mock di void-service.test.ts, sta lì.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Hoisted mocks ---
@@ -220,80 +223,27 @@ describe("voidReceiptForBusiness", () => {
   });
 
   describe("input validation (SALE document checks)", () => {
-    it("returns error when SALE document is not found", async () => {
-      setupHappyPathDb();
-      mockLimit.mockResolvedValue([]); // no SALE found
+    // Senza transazione E progressivo AdE l'annullo non si può inviare:
+    // basta che manchi uno dei due.
+    it.each([
+      ["entrambi", { adeTransactionId: null, adeProgressive: null }],
+      ["solo il progressivo", { adeProgressive: null }],
+      ["solo la transazione", { adeTransactionId: null }],
+    ])(
+      "rifiuta se mancano i dati AdE della vendita (%s)",
+      async (_label, missing) => {
+        setupHappyPathDb();
+        mockLimit.mockResolvedValue([{ ...FAKE_SALE, ...missing }]);
 
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toEqual({
-        error: "Scontrino non trovato.",
-        code: "NOT_FOUND",
-      });
-    });
-
-    it("returns error when document kind is not SALE", async () => {
-      setupHappyPathDb();
-      mockLimit.mockResolvedValue([{ ...FAKE_SALE, kind: "VOID" }]);
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toEqual({
-        error: "Solo i documenti di vendita possono essere annullati.",
-      });
-    });
-
-    it("returns error when SALE status is not ACCEPTED", async () => {
-      setupHappyPathDb();
-      mockLimit.mockResolvedValue([{ ...FAKE_SALE, status: "VOID_ACCEPTED" }]);
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect((result as { error: string }).error).toMatch(/annullabile/i);
-    });
-
-    it("returns error when AdE transaction data is missing", async () => {
-      setupHappyPathDb();
-      mockLimit.mockResolvedValue([
-        { ...FAKE_SALE, adeTransactionId: null, adeProgressive: null },
-      ]);
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toEqual({ error: "Dati AdE mancanti per l'annullo." });
-    });
+        const { voidReceiptForBusiness } =
+          await import("@/lib/services/void-service");
+        const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
+        expect(result).toEqual({ error: "Dati AdE mancanti per l'annullo." });
+      },
+    );
   });
 
   describe("idempotency (Case A) — same idempotencyKey conflict", () => {
-    it("returns existing VOID_ACCEPTED data when same key is retried", async () => {
-      setupHappyPathDb();
-      mockReturning.mockResolvedValue([]); // INSERT conflict → no voidDoc
-
-      // idempotencyKey lookup finds VOID_ACCEPTED
-      const existingVoid = {
-        id: VOID_ID,
-        status: "VOID_ACCEPTED",
-        adeTransactionId: "void-tx-1",
-        adeProgressive: "2",
-      };
-      mockLimit
-        .mockResolvedValueOnce([FAKE_SALE]) // first SELECT (fetch SALE)
-        .mockResolvedValueOnce([existingVoid]); // second SELECT (idempotency lookup)
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toEqual({
-        voidDocumentId: VOID_ID,
-        adeTransactionId: "void-tx-1",
-        adeProgressive: "2",
-      });
-    });
-
     it("returns rejection error when existing VOID is REJECTED (same key)", async () => {
       setupHappyPathDb();
       mockReturning.mockResolvedValue([]); // INSERT conflict
@@ -315,178 +265,9 @@ describe("voidReceiptForBusiness", () => {
       // Non viene chiamato AdE
       expect(mockAdeSubmitVoid).not.toHaveBeenCalled();
     });
-
-    it("returns VOID_PENDING_IN_PROGRESS when existing VOID is fresh PENDING", async () => {
-      setupHappyPathDb();
-      mockReturning.mockResolvedValue([]); // INSERT conflict
-
-      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([
-        {
-          id: VOID_ID,
-          status: "PENDING",
-          adeTransactionId: null,
-          adeProgressive: null,
-          createdAt: new Date(Date.now() - 10_000),
-          updatedAt: new Date(Date.now() - 10_000),
-        },
-      ]);
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toHaveProperty("error");
-      expect((result as { code?: string }).code).toBe(
-        "VOID_PENDING_IN_PROGRESS",
-      );
-    });
-  });
-
-  describe("race condition guard (Case B) — different key, same SALE", () => {
-    it("returns error when another VOID already exists for the same SALE (voidedDocumentId conflict)", async () => {
-      setupHappyPathDb();
-      // INSERT skipped (conflict on voidedDocumentId with a different idempotencyKey)
-      mockReturning.mockResolvedValue([]);
-
-      // idempotencyKey lookup returns nothing (different key was used by first request)
-      mockLimit
-        .mockResolvedValueOnce([FAKE_SALE]) // first SELECT (fetch SALE)
-        .mockResolvedValueOnce([]) // second SELECT (idempotency lookup — no match)
-        .mockResolvedValueOnce([]); // third SELECT (nessun reso in volo, migr. 0042)
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toHaveProperty("error");
-      expect((result as { error: string }).error).toMatch(/annullato|annullo/i);
-    });
-  });
-
-  describe("happy path", () => {
-    it("returns voidDocumentId and AdE data on success", async () => {
-      setupHappyPathDb();
-      setupAdeClient();
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toEqual({
-        voidDocumentId: VOID_ID,
-        adeTransactionId: "void-tx-1",
-        adeProgressive: "2",
-      });
-    });
-  });
-
-  describe("retry after failed void attempt (new idempotencyKey)", () => {
-    // These tests document the behaviour enabled by the partial unique index fix
-    // (migration 0012): REJECTED/ERROR voids no longer block a retry with a NEW key.
-    // At DB level the new index predicate is: WHERE voided_document_id IS NOT NULL
-    // AND status IN ('PENDING', 'VOID_ACCEPTED').
-
-    it("allows a new void attempt after the previous VOID was REJECTED", async () => {
-      setupHappyPathDb();
-      setupAdeClient();
-      // INSERT succeeds: the REJECTED row is not covered by the updated index
-      mockReturning.mockResolvedValue([{ id: VOID_ID }]);
-
-      const NEW_KEY = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(
-        makeInput({ idempotencyKey: NEW_KEY }),
-        UI_ORIGIN,
-      );
-      expect(result).toEqual({
-        voidDocumentId: VOID_ID,
-        adeTransactionId: "void-tx-1",
-        adeProgressive: "2",
-      });
-    });
-
-    it("allows a new void attempt after the previous VOID ended in ERROR", async () => {
-      setupHappyPathDb();
-      setupAdeClient();
-      // INSERT succeeds: the ERROR row is not covered by the updated index
-      mockReturning.mockResolvedValue([{ id: VOID_ID }]);
-
-      const NEW_KEY = "ffffffff-ffff-ffff-ffff-ffffffffffff";
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(
-        makeInput({ idempotencyKey: NEW_KEY }),
-        UI_ORIGIN,
-      );
-      expect(result).toEqual({
-        voidDocumentId: VOID_ID,
-        adeTransactionId: "void-tx-1",
-        adeProgressive: "2",
-      });
-    });
-
-    it("still blocks concurrent void when an active PENDING VOID exists (different key)", async () => {
-      setupHappyPathDb();
-      // INSERT skipped: PENDING is still covered by the updated index
-      mockReturning.mockResolvedValue([]);
-      // idempotencyKey lookup returns nothing (different key used by concurrent request)
-      mockLimit
-        .mockResolvedValueOnce([FAKE_SALE])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]); // nessun reso in volo
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toHaveProperty("error");
-      expect((result as { error: string }).error).toMatch(/annullato|annullo/i);
-    });
-
-    it("still blocks re-void when VOID_ACCEPTED already exists (different key)", async () => {
-      setupHappyPathDb();
-      // INSERT skipped: VOID_ACCEPTED is still covered by the updated index
-      mockReturning.mockResolvedValue([]);
-      // idempotencyKey lookup returns nothing (different key was used)
-      mockLimit
-        .mockResolvedValueOnce([FAKE_SALE])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]); // nessun reso in volo
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-      expect(result).toHaveProperty("error");
-    });
   });
 
   describe("stale PENDING recovery", () => {
-    it("stale PENDING without AdE transaction → re-submits void to AdE", async () => {
-      setupHappyPathDb();
-      setupAdeClient();
-      // INSERT conflict: existing VOID PENDING > threshold
-      mockReturning.mockResolvedValue([]);
-      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([
-        {
-          id: VOID_ID,
-          status: "PENDING",
-          adeTransactionId: null,
-          adeProgressive: null,
-          createdAt: new Date(Date.now() - 35 * 60 * 1000),
-          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
-        },
-      ]);
-
-      const { voidReceiptForBusiness } =
-        await import("@/lib/services/void-service");
-      const result = await voidReceiptForBusiness(makeInput(), UI_ORIGIN);
-
-      // Recovery completata via submitVoid + finalizzazione
-      expect(mockAdeSubmitVoid).toHaveBeenCalled();
-      expect(result).toMatchObject({
-        voidDocumentId: VOID_ID,
-        adeTransactionId: "void-tx-1",
-        adeProgressive: "2",
-      });
-    });
-
     it("stale PENDING WITH AdE transaction → finalizes only, skips submitVoid", async () => {
       setupHappyPathDb();
       setupAdeClient();
