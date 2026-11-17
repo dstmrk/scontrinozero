@@ -161,6 +161,21 @@ describe("GET /api/v1/receipts/[id]", () => {
     setupLinesMock([FAKE_LINE]);
   });
 
+  // Regola 9: un id che non è un UUID si rifiuta prima di toccare il DB,
+  // con il codice del contratto pubblico.
+  it.each([
+    ["una stringa qualsiasi", "not-a-uuid"],
+    ["un tentativo di SQL injection", "'; DROP TABLE documents; --"],
+    ["una stringa vuota", ""],
+  ])("ritorna 400 INVALID_ID su %s, senza query", async (_label, id) => {
+    const res = await GET(makeRequest(), makeParams(id));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "INVALID_ID" });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
   it("ritorna 200 con i dati del documento", async () => {
     const res = await GET(makeRequest(), makeParams());
     expect(res.status).toBe(200);
