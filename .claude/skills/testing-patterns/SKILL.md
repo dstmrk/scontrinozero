@@ -1,6 +1,6 @@
 ---
 name: testing-patterns
-description: Use when writing or fixing Vitest tests — every it()/test() must have at least one expect() (vitest/expect-expect lint gate), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture, removing redundant act() calls around fireEvent, never putting side effects (fireEvent) inside a waitFor callback and flushing async updates under vi.useFakeTimers() where waitFor/findBy hang. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
+description: Use when writing or fixing Vitest tests — every it()/test() must have at least one expect() (vitest/expect-expect lint gate), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture, removing redundant act() calls around fireEvent, never putting side effects (fireEvent) inside a waitFor callback and flushing async updates under vi.useFakeTimers() where waitFor/findBy hang, writing property tests with fast-check (invariants over generated inputs instead of hand-picked examples), and what to do with a flaky test (root cause or delete with the reason recorded — never skip, sleep or retry). Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
 ---
 
 # testing-patterns — Vitest patterns e regole CI
@@ -15,6 +15,8 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - Ogni test ha almeno un `expect()` — gate ESLint (S6661)
 - Mock di classi: `function`/`class`, mai arrow — gate: il test run
 - Mock tipati: niente spread in `vi.fn()` a zero argomenti (TS2556)
+- Property test con `fast-check`: quando, come generare, come riprodurre
+- Test instabile: causa o cancellazione, mai skip/sleep/retry
 - Rate limiting su server actions (**soglie consolidate — fonte canonica**)
 - Aggiornare i mock dopo un refactor in JOIN
 - `NODE_ENV` con `vi.stubEnv`
@@ -148,6 +150,72 @@ vi.mock("next/navigation", () => ({
 ```
 
 Ricorrente: PR #553 (`notFound`), #572 (`redirect`), commit f227f81 e 4b2cfca.
+
+---
+
+## Property test con `fast-check`
+
+Un esempio scritto a mano prova i casi a cui chi ha scritto il codice ha già
+pensato: se l'autore è un agente, test e codice condividono gli stessi punti
+ciechi. Un property test enuncia un'invariante e lascia a `fast-check` il
+compito di smentirla su input generati. Lo standard è
+`src/lib/receipts/receipt-totals.property.test.ts`, nato dall'articolo del
+team Claude Code sulla verifica (novembre 2026).
+
+Quando conviene, e quando no:
+
+- **Sì** dove esiste un'invariante enunciabile senza ripetere la formula di
+  produzione: concordanza fra funzioni che devono dare lo stesso numero,
+  additività, round-trip (serializza → deserializza), idempotenza
+  (`normalizeEmail` due volte), un oracolo indipendente (l'IVA esatta è
+  `T·r/(100+r)`, qualunque sia il modo in cui la produzione la arrotonda).
+- **No** se l'unico modo di scrivere l'atteso è ricalcolarlo con la stessa
+  formula: è una tautologia che passa anche con la formula sbagliata. E no
+  al posto degli oracoli HAR: quelli sono il contratto AdE, la proprietà è la
+  rete intorno.
+
+Tre regole che il primo file ha imparato:
+
+- **Genera in unità intere, converti dopo.** Centesimi e millesimi interi,
+  poi `/ 100` e `.toFixed(2)` per la forma DB. Così il test conosce il valore
+  esatto e lo spazio generato coincide con ciò che lo schema Zod accetta: un
+  generatore più largo dello schema produce controesempi che in produzione
+  non arrivano mai.
+- **Il seed resta casuale.** Una proprietà vera per costruzione non è
+  flaky: un rosso è un bug, e `fast-check` stampa seed, path e controesempio
+  minimo. Si riproduce con `fc.assert(prop, { seed, path })`. Non fissare un
+  seed per "stabilizzare": spegne l'esplorazione che è il motivo del test.
+- **Fai la mutation check prima di committare.** Rompi a mano la produzione
+  nei modi che la proprietà dichiara di prendere (nel file canonico:
+  arrotondamento per documento, IVA sul lordo non scontato, sconto per unità)
+  e guarda il rosso. Se non arriva, la proprietà è decorativa.
+
+Un controesempio che smentisce una proprietà che **credevi** vera è un
+finding, non un test da ammorbidire: diventa un'issue (regola 33), e la
+proprietà si restringe solo se l'invariante era sbagliata davvero.
+
+---
+
+## Test instabile: causa o cancellazione
+
+Un test che a volte passa insegna a rilanciare invece che a correggere, e
+dopo la terza volta nessuno legge più quel rosso. Davanti a un flake le
+mosse ammesse sono due:
+
+1. **Trovare la causa** e correggerla nel test o nel codice. Le cause già
+   viste in questo repo stanno nelle sezioni su `waitFor`, fake timer e
+   action mai risolte qui sotto.
+2. **Se la causa non si trova, cancellare il test** e scrivere nel corpo
+   della PR quale contratto proteggeva e perché non è stato possibile
+   renderlo deterministico. Se la cancellazione fa scendere il file sotto
+   l'80%, vale la regola di `test-audit` (prova al confine giusto o codice
+   morto), mai l'`exclude`.
+
+Non sono mosse: `it.skip`/`describe.skip` (li boccia già
+`sonarjs/no-skipped-tests`), un `setTimeout`/`sleep` per "dare tempo", un
+`{ timeout }` per-asserzione, `retry` in `vitest.config.ts` o `--retry` sulla
+riga di comando. Nascondono il problema senza toglierlo, e il retry lo
+nasconde a tutta la suite.
 
 ---
 
