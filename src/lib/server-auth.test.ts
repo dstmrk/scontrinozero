@@ -7,10 +7,20 @@ import { UnauthenticatedError } from "./auth-errors";
 // `getAuthenticatedUser` è wrappata in React `cache()` (dedup del round-trip
 // Supabase Auth nel render RSC, PR #606). Fuori dal render `cache()` è
 // passthrough; mockarlo esplicitamente come tale rende i test deterministici e
-// indipendenti dagli internals di React.
+// indipendenti dagli internals di React. Il mock registra ogni funzione che
+// passa da `cache()`: è così che il test sotto vede se l'export è wrappato.
+const { mockCachedFns } = vi.hoisted(() => ({
+  mockCachedFns: new WeakSet<object>(),
+}));
 vi.mock("react", async (importActual) => {
   const actual = await importActual<typeof import("react")>();
-  return { ...actual, cache: <T>(fn: T): T => fn };
+  return {
+    ...actual,
+    cache: <T extends object>(fn: T): T => {
+      mockCachedFns.add(fn);
+      return fn;
+    },
+  };
 });
 
 const mockGetUser = vi.fn();
@@ -273,10 +283,11 @@ describe("server-auth", () => {
     it("is wrapped in React cache() to dedupe the auth round-trip (PR #606)", async () => {
       // La dedup per-render evita 3 chiamate a supabase.auth.getUser() nel
       // render di /dashboard (page + getOnboardingStatus + getCatalogItems).
-      // `cache` è mockato come passthrough sopra, quindi qui verifichiamo solo
-      // che l'export sia una funzione invocabile (il wrap non rompe l'API).
-      const { getAuthenticatedUser } = await import("./server-auth");
-      expect(typeof getAuthenticatedUser).toBe("function");
+      // Togliere il wrap `cache()` dall'export manda rosso questo test.
+      const { getAuthenticatedUser, checkBusinessMembership } =
+        await import("./server-auth");
+      expect(mockCachedFns.has(getAuthenticatedUser)).toBe(true);
+      expect(mockCachedFns.has(checkBusinessMembership)).toBe(true);
     });
   });
 

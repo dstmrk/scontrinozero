@@ -48,161 +48,59 @@ function createTestLogger(options: pino.LoggerOptions = {}): {
   return { logger, getOutput: () => output };
 }
 
-describe("logger module", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    mockCaptureException.mockReset();
-    mockCaptureMessage.mockReset();
+// Le credenziali che non devono mai uscire in chiaro da docker logs né da
+// Sentry Logs (che inoltra ogni campo non censurato). La lista è scritta
+// qui a mano, non derivata da REDACT_PATHS: è il contratto che la config
+// deve soddisfare, e togliere una voce dalla produzione deve far fallire
+// questo test.
+const SECRET_KEYS = [
+  "password",
+  "pin",
+  "credentials",
+  "token",
+  "secret",
+  "codiceFiscale",
+  "encryptedCodiceFiscale",
+  "encryptedPassword",
+  "encryptedPin",
+  "keyHash",
+  "apiKeyRaw",
+  "actionLink",
+  "resetLink",
+] as const;
+
+// Gli header HTTP si censurano solo al primo livello.
+const TOP_LEVEL_ONLY_KEYS = ["authorization", "cookie"] as const;
+
+async function loggerWithRealRedaction() {
+  const { REDACT_PATHS } = await import("./logger");
+  return createTestLogger({
+    redact: { paths: [...REDACT_PATHS], censor: "[REDACTED]" },
   });
+}
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+describe("logger REDACT_PATHS — credenziali censurate", () => {
+  it.each([...SECRET_KEYS, ...TOP_LEVEL_ONLY_KEYS])(
+    "censura '%s' al primo livello",
+    async (key) => {
+      const { logger, getOutput } = await loggerWithRealRedaction();
 
-  it("exports a pino logger instance with expected methods", async () => {
-    const { logger } = await import("./logger");
-    expect(typeof logger.info).toBe("function");
-    expect(typeof logger.warn).toBe("function");
-    expect(typeof logger.error).toBe("function");
-    expect(typeof logger.debug).toBe("function");
-  });
+      logger.warn({ userId: "u1", [key]: "LEAKED-VALUE" }, "msg");
 
-  it("redacts 'password' field in log output", () => {
-    const { logger, getOutput } = createTestLogger({
-      redact: {
-        paths: [
-          "password",
-          "pin",
-          "credentials",
-          "token",
-          "secret",
-          "authorization",
-          "cookie",
-          "*.password",
-          "*.pin",
-          "*.credentials",
-          "*.token",
-          "*.secret",
-        ],
-        censor: "[REDACTED]",
-      },
-    });
+      const parsed = JSON.parse(getOutput());
+      expect(parsed[key]).toBe("[REDACTED]");
+      expect(parsed.userId).toBe("u1");
+      expect(getOutput()).not.toContain("LEAKED-VALUE");
+    },
+  );
 
-    logger.info({ password: "supersecret123" }, "login attempt");
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.password).toBe("[REDACTED]");
-    expect(output).not.toContain("supersecret123");
-  });
+  it.each(SECRET_KEYS)("censura '%s' annidato un livello", async (key) => {
+    const { logger, getOutput } = await loggerWithRealRedaction();
 
-  it("redacts 'pin' field in log output", () => {
-    const { logger, getOutput } = createTestLogger({
-      redact: {
-        paths: [
-          "password",
-          "pin",
-          "credentials",
-          "token",
-          "secret",
-          "authorization",
-          "cookie",
-          "*.password",
-          "*.pin",
-          "*.credentials",
-          "*.token",
-          "*.secret",
-        ],
-        censor: "[REDACTED]",
-      },
-    });
+    logger.warn({ ctx: { [key]: "LEAKED-NESTED" } }, "msg");
 
-    logger.info({ pin: "12345678" }, "pin check");
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.pin).toBe("[REDACTED]");
-    expect(output).not.toContain("12345678");
-  });
-
-  it("redacts 'actionLink' field in log output", () => {
-    const { logger, getOutput } = createTestLogger({
-      redact: {
-        paths: ["actionLink", "resetLink", "*.actionLink", "*.resetLink"],
-        censor: "[REDACTED]",
-      },
-    });
-
-    logger.error(
-      {
-        actionLink: "https://app.scontrinozero.it/auth/v1/verify?token=SECRET",
-      },
-      "hostname mismatch",
-    );
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.actionLink).toBe("[REDACTED]");
-    expect(output).not.toContain("SECRET");
-  });
-
-  it("redacts 'resetLink' field in log output", () => {
-    const { logger, getOutput } = createTestLogger({
-      redact: {
-        paths: ["actionLink", "resetLink", "*.actionLink", "*.resetLink"],
-        censor: "[REDACTED]",
-      },
-    });
-
-    logger.error(
-      { resetLink: "https://example.com/reset?token=TOPSECRET" },
-      "msg",
-    );
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.resetLink).toBe("[REDACTED]");
-    expect(output).not.toContain("TOPSECRET");
-  });
-
-  it("redacts nested sensitive fields (*.credentials)", () => {
-    const { logger, getOutput } = createTestLogger({
-      redact: {
-        paths: [
-          "password",
-          "pin",
-          "credentials",
-          "token",
-          "secret",
-          "authorization",
-          "cookie",
-          "*.password",
-          "*.pin",
-          "*.credentials",
-          "*.token",
-          "*.secret",
-        ],
-        censor: "[REDACTED]",
-      },
-    });
-
-    logger.info({ user: { credentials: "abc-secret" } }, "user data");
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.user.credentials).toBe("[REDACTED]");
-    expect(output).not.toContain("abc-secret");
-  });
-
-  it("outputs valid JSON with expected structure", () => {
-    const { logger, getOutput } = createTestLogger({
-      level: "info",
-      timestamp: pino.stdTimeFunctions.isoTime,
-    });
-
-    logger.info({ action: "test" }, "test message");
-
-    const output = getOutput();
-    const parsed = JSON.parse(output);
-    expect(parsed.level).toBe(30); // pino info level
-    expect(parsed.msg).toBe("test message");
-    expect(parsed.action).toBe("test");
-    expect(parsed.time).toBeDefined();
+    expect(JSON.parse(getOutput()).ctx[key]).toBe("[REDACTED]");
+    expect(getOutput()).not.toContain("LEAKED-NESTED");
   });
 });
 
