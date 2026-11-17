@@ -1,4 +1,6 @@
 // @vitest-environment node
+// signUp: normalizzazione dell'email e attribuzione signup_source da ?ref=.
+// Il resto di signUp sta in auth-actions.test.ts.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Hoisted mocks ---
@@ -163,53 +165,6 @@ describe("signUp — email normalisation and uniqueness", () => {
     expect(mockInsertValues).toHaveBeenCalledWith(
       expect.objectContaining({ email: "user@example.com" }),
     );
-  });
-
-  it("anti-enumeration: redirects to /verify-email when pre-check finds existing email", async () => {
-    setupCaptchaOk();
-    setupDbNoExistingEmail();
-    // Override: existing profile found
-    mockSelectLimit.mockResolvedValue([{ id: "existing-uuid" }]);
-
-    const { signUp } = await import("@/server/auth-actions");
-    await expect(signUp(makeFormData())).rejects.toMatchObject({
-      message: "NEXT_REDIRECT",
-      url: "/verify-email",
-    });
-    expect(mockSupabaseSignUp).not.toHaveBeenCalled();
-  });
-
-  it("compensating delete + redirect when profile insert violates unique email constraint (race)", async () => {
-    setupCaptchaOk();
-    setupDbNoExistingEmail();
-    mockInsertValues.mockReturnValue({
-      returning: vi
-        .fn()
-        .mockRejectedValue(
-          Object.assign(new Error("duplicate key value"), { code: "23505" }),
-        ),
-    });
-
-    const { signUp } = await import("@/server/auth-actions");
-    await expect(signUp(makeFormData())).rejects.toMatchObject({
-      message: "NEXT_REDIRECT",
-      url: "/verify-email",
-    });
-    // The orphan auth user MUST be cleaned up (CLAUDE.md regola #17).
-    expect(mockDeleteUser).toHaveBeenCalledWith("user-uuid-1");
-  });
-
-  it("performs compensating delete and returns generic error for non-unique DB failures", async () => {
-    setupCaptchaOk();
-    setupDbNoExistingEmail();
-    // Simulate a generic DB error (not unique violation)
-    mockInsertValues.mockRejectedValue(new Error("DB connection lost"));
-
-    const { signUp } = await import("@/server/auth-actions");
-    const result = await signUp(makeFormData());
-
-    expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
-    expect(mockDeleteUser).toHaveBeenCalled();
   });
 });
 

@@ -1,4 +1,7 @@
 // @vitest-environment node
+// Reset password: il link (resetPassword) e il clic che consuma il token
+// (confirmPasswordReset). Il resto di resetPassword, con i mock di
+// auth-actions.test.ts, sta lì.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Hoisted mocks ---
@@ -135,62 +138,6 @@ describe("resetPassword — reset link", () => {
     setupRedirectThrows();
   });
 
-  it("generates a recovery link for the normalized email", async () => {
-    mockSuccessfulGenerateLink();
-
-    const { resetPassword } = await import("@/server/auth-actions");
-    await expect(
-      resetPassword(makeFormData("  User@Example.com ")),
-    ).rejects.toThrow("NEXT_REDIRECT");
-
-    expect(mockGenerateLink).toHaveBeenCalledWith({
-      type: "recovery",
-      email: VALID_EMAIL,
-    });
-  });
-
-  it("emails a link to the confirm page carrying only the token_hash", async () => {
-    // Issue #1159: il link non punta più a /callback, che consumava il token
-    // alla prima GET (anche quella di uno scanner aziendale). La pagina di
-    // conferma non chiama Supabase: il token lo consuma il clic dell'utente.
-    mockSuccessfulGenerateLink();
-
-    const { resetPassword } = await import("@/server/auth-actions");
-    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-
-    expect(mockSendEmail).toHaveBeenCalledOnce();
-    const link = sentResetLink();
-    expect(link.protocol).toBe("https:");
-    expect(link.host).toBe(APP_HOSTNAME);
-    expect(link.pathname).toBe("/reset-password/confirm");
-    expect([...link.searchParams.keys()]).toEqual(["token_hash"]);
-    expect(link.searchParams.get("token_hash")).toBe(HASHED_TOKEN);
-    expect(mockRedirect).toHaveBeenCalledWith("/verify-email");
-  });
-
-  it("uses the runtime APP_HOSTNAME override for the link host", async () => {
-    process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
-    // verifyCaptcha confronta l'hostname Turnstile con l'host dell'app.
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        hostname: "sandbox.scontrinozero.it",
-        action: "reset-password",
-      }),
-    });
-    mockSuccessfulGenerateLink();
-
-    const { resetPassword } = await import("@/server/auth-actions");
-    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-
-    expect(sentResetLink().host).toBe("sandbox.scontrinozero.it");
-  });
-
   it("URL-encodes a token_hash with reserved characters", async () => {
     mockSuccessfulGenerateLink("a+b/c=&d");
 
@@ -220,39 +167,6 @@ describe("resetPassword — reset link", () => {
       "Reset password generateLink failed",
     );
     expect(mockLoggerError).not.toHaveBeenCalled();
-  });
-
-  it("does not email a link when generateLink returns no hashed_token", async () => {
-    mockGenerateLink.mockResolvedValue({
-      data: { properties: { hashed_token: "" } },
-      error: null,
-    });
-
-    const { resetPassword } = await import("@/server/auth-actions");
-    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-
-    expect(mockSendEmail).not.toHaveBeenCalled();
-    expect(mockRedirect).toHaveBeenCalledWith("/verify-email");
-  });
-
-  it("returns a neutral error and does not redirect when sendEmail fails", async () => {
-    mockSuccessfulGenerateLink();
-    mockSendEmail.mockRejectedValue(new Error("Resend timeout"));
-
-    const { resetPassword } = await import("@/server/auth-actions");
-    const result = await resetPassword(makeFormData(VALID_EMAIL));
-
-    expect(result).toEqual({
-      error:
-        "Non siamo riusciti a inviare l'email. Riprova tra qualche minuto.",
-    });
-    expect(mockRedirect).not.toHaveBeenCalled();
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      "Password reset email failed",
-    );
   });
 });
 
