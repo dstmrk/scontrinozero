@@ -68,15 +68,20 @@ function inflateStreams(pdf: Buffer): string[] {
 export function extractPdfTextRuns(pdf: Buffer): string[] {
   const runs: string[] = [];
   for (const content of inflateStreams(pdf)) {
+    // Ogni iterazione dell'array TJ comincia con `<` e il kerning, se c'è, ha
+    // almeno una cifra: nessun carattere può appartenere a due iterazioni,
+    // quindi niente backtracking esponenziale (CodeQL js/redos).
     const showRe =
-      /\[((?:\s*<[0-9a-fA-F]*>\s*-?[\d.]*)*)\s*\]\s*TJ|<([0-9a-fA-F]*)>\s*Tj/g;
+      /\[\s*((?:<[0-9a-fA-F]*>\s*(?:-?[\d.]+\s*)?)*)\]\s*TJ|<([0-9a-fA-F]*)>\s*Tj/g;
     let match = showRe.exec(content);
     while (match !== null) {
-      const hex = (match[1] ?? match[2] ?? "")
-        .split(/[^0-9a-fA-F<>]+/)
-        .filter((chunk) => chunk.startsWith("<"))
-        .map((chunk) => chunk.replace(/[<>]/g, ""))
-        .join("");
+      const hex =
+        match[1] === undefined
+          ? match[2]
+          : Array.from(
+              match[1].matchAll(/<([0-9a-fA-F]*)>/g),
+              (m) => m[1],
+            ).join("");
       const text = decodeWinAnsi(hex);
       if (text.length > 0) runs.push(text);
       match = showRe.exec(content);
