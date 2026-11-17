@@ -743,6 +743,37 @@ describe("storico-actions", () => {
         },
       );
 
+      // I confini di giorno italiani li prova date-utils.test.ts; qui il
+      // ramo d'errore dell'azione: filtro rifiutato, nessuna query.
+      it.each([
+        [{ dateFrom: "abc" }, "Filtro data 'dateFrom' non valido."],
+        [{ dateFrom: "2026-02-31" }, "Filtro data 'dateFrom' non valido."],
+        [{ dateTo: "not-a-date" }, "Filtro data 'dateTo' non valido."],
+        [{ dateTo: "2026-04-31" }, "Filtro data 'dateTo' non valido."],
+      ])(
+        "data %j non valida → { error } senza toccare il DB",
+        async (params, error) => {
+          const { searchReceipts } = await import("./storico-actions");
+          const result = await searchReceipts(BIZ, params);
+
+          expect(result.error).toBe(error);
+          expect(mockSelect).not.toHaveBeenCalled();
+        },
+      );
+
+      it("dateFrom dopo dateTo → { error } vuoto senza toccare il DB", async () => {
+        const { searchReceipts } = await import("./storico-actions");
+        const result = await searchReceipts(BIZ, {
+          dateFrom: "2026-03-10",
+          dateTo: "2026-03-01",
+        });
+
+        expect(result.error).toBeTruthy();
+        expect(result.items).toEqual([]);
+        expect(result.total).toBe(0);
+        expect(mockSelect).not.toHaveBeenCalled();
+      });
+
       it("page 0, negativa e pageSize fuori scala restano un clamp, non un errore", async () => {
         // Comportamento già in uso (client e test): non si rompe.
         const docsBuilder = makeDocsBuilder([]);
