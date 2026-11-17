@@ -4,7 +4,7 @@
 # Node pinnato alla patch release 26.12.1 (LTS dal 2026-10-28, supporto fino
 # ad aprile 2029). Il tag mobile 26-alpine poteva restare sulla patch vecchia
 # nella layer cache: l'aggiornamento è esplicito.
-FROM node:26.12.1-alpine AS deps
+FROM node:26.13.0-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --prefer-offlin
 # =============================================================================
 # Stage 2: Build
 # =============================================================================
-FROM node:26.12.1-alpine AS builder
+FROM node:26.13.0-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -103,7 +103,7 @@ RUN npx esbuild scripts/migrate.ts \
 # =============================================================================
 # Stage 3: Production
 # =============================================================================
-FROM node:26.12.1-alpine AS runner
+FROM node:26.13.0-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
