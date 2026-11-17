@@ -40,6 +40,7 @@ const mockCanEmit = vi.fn();
 vi.mock("@/lib/plans", () => ({
   getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
   canEmit: (...args: unknown[]) => mockCanEmit(...args),
+  TRIAL_EXPIRED_MESSAGE: "trial-expired",
 }));
 
 const mockLimit = vi.fn();
@@ -221,6 +222,45 @@ describe("receipt-actions", () => {
   });
 
   describe("emitReceipt", () => {
+    // Il gate del piano viene prima di tutto: a prova scaduta non si
+    // valida, non si conta il limite, non si tocca il DB.
+    it("a prova scaduta rifiuta senza emettere", async () => {
+      mockCanEmit.mockReturnValue(false);
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBe("trial-expired");
+      expect(mockCheckEmitRateLimit).not.toHaveBeenCalled();
+      expect(mockDocumentInsertValues).not.toHaveBeenCalled();
+    });
+
+    // Lo schema della server action aggiunge i suoi limiti a quello delle
+    // righe: un client manomesso non li aggira.
+    it.each([
+      [
+        "più di 100 righe",
+        {
+          ...VALID_INPUT,
+          lines: Array.from({ length: 101 }, (_, i) => ({
+            ...VALID_INPUT.lines[0],
+            id: `l${i}`,
+          })),
+        },
+      ],
+      [
+        "un idempotencyKey che non è un UUID",
+        { ...VALID_INPUT, idempotencyKey: "not-a-uuid" },
+      ],
+    ])("rifiuta %s senza emettere", async (_label, input) => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(input);
+
+      expect(result.error).toBeTruthy();
+      expect(mockCheckBusinessMembership).not.toHaveBeenCalled();
+      expect(mockDocumentInsertValues).not.toHaveBeenCalled();
+    });
+
     it("happy path: emits receipt and returns documentId and adeTransactionId", async () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
