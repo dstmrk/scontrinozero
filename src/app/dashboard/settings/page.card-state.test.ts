@@ -1,4 +1,7 @@
 // @vitest-environment node
+// SettingsPage: stato della card piano nel browser (trial, attivo, past_due,
+// piano scaduto). Il resto della pagina, compreso il guscio nativo, sta in
+// page.test.tsx.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Hoisted mocks ---
