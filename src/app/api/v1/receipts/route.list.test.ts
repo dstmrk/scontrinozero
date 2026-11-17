@@ -1,6 +1,10 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TEST_BUSINESS_ID } from "../_helpers/fixtures";
+
+// Suite della lista (GET). L'emissione (POST) e il preflight stanno in
+// route.test.ts: le due suite mockano livelli diversi (qui la catena di query
+// su getDb, lì withStatementTimeout intero) e non convivono in un file.
+import { TEST_BUSINESS_ID } from "../../../../../tests/_helpers/fixtures";
 
 // --- Mocks ---
 
@@ -720,5 +724,66 @@ describe("GET /api/v1/receipts (list)", () => {
         GET(makeRequest({ from: VALID_FROM, to: VALID_TO })),
       ).rejects.toMatchObject({ code: "23505" });
     });
+  });
+});
+
+describe("GET /api/v1/receipts (list) — limiti e parametri di paginazione", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockIsApiKeyAuthError.mockReturnValue(false);
+    mockAuthenticateApiKey.mockResolvedValue({
+      plan: "pro",
+      businessId: BIZ_ID,
+      apiKey: { id: API_KEY_ID },
+    });
+    mockCanUseApi.mockReturnValue(true);
+    mockRateLimiterCheck.mockReturnValue({ success: true });
+  });
+
+  it("conta la lista per chiave API", async () => {
+    setupDbMocksEmpty();
+    const { GET } = await import("@/app/api/v1/receipts/route");
+
+    await GET(makeRequest({ from: VALID_FROM, to: VALID_TO }));
+
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith(`api:list:${API_KEY_ID}`);
+  });
+
+  // Paginazione malformata: 400 esplicito, niente clamp silenzioso, e
+  // nessuna query.
+  it.each([
+    ["page", "abc"],
+    ["page", "-100"],
+    ["page", "0"],
+    ["limit", "-1"],
+    ["limit", "abc"],
+    ["kind", "FOO"],
+    ["status", "FOO"],
+  ])("ritorna 400 su %s=%s senza toccare il DB", async (param, value) => {
+    const { GET } = await import("@/app/api/v1/receipts/route");
+
+    const res = await GET(
+      makeRequest({ from: VALID_FROM, to: VALID_TO, [param]: value }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockGetDb).not.toHaveBeenCalled();
+  });
+
+  // Ultimo del file: ricarica il modulo per leggere la configurazione del
+  // limiter, che si costruisce all'import.
+  it("configura la lista a 20 al minuto e 120 all'ora", async () => {
+    vi.resetModules();
+    const { MultiWindowRateLimiter } = await import("@/lib/rate-limit");
+    vi.mocked(MultiWindowRateLimiter).mockImplementation(function () {
+      return { check: mockRateLimiterCheck };
+    } as never);
+
+    await import("@/app/api/v1/receipts/route");
+
+    expect(MultiWindowRateLimiter).toHaveBeenCalledWith([
+      { maxRequests: 20, windowMs: 60 * 1000 },
+      { maxRequests: 120, windowMs: 60 * 60 * 1000 },
+    ]);
   });
 });
