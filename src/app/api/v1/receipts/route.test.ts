@@ -96,7 +96,7 @@ function makeGetRequest(query: string) {
 
 // --- Tests ---
 
-import { GET, POST } from "./route";
+import { GET, OPTIONS, POST } from "./route";
 import { logger } from "@/lib/logger";
 import { getRequestContext } from "@/lib/request-context";
 
@@ -296,11 +296,35 @@ describe("POST /api/v1/receipts", () => {
     expect(body).not.toHaveProperty("error");
   });
 
-  it("ritorna 400 se idempotencyKey non è un UUID valido", async () => {
+  it("ritorna 400 se idempotencyKey non è un UUID valido, senza emettere", async () => {
     const res = await POST(
       makeRequest({ ...VALID_BODY, idempotencyKey: "not-a-uuid" }),
     );
     expect(res.status).toBe(400);
+    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  // Regola 9: il limite di 32 KB scatta prima di JSON.parse.
+  it("ritorna 413 PAYLOAD_TOO_LARGE oltre 32 KB, senza emettere", async () => {
+    const req = new Request("http://localhost/api/v1/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "x".repeat(33 * 1024),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toMatchObject({ code: "PAYLOAD_TOO_LARGE" });
+    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  it("il preflight dichiara i metodi della collezione: GET e POST", () => {
+    const res = OPTIONS();
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Methods")).toBe(
+      "GET, POST, OPTIONS",
+    );
   });
 
   it("ritorna 400 se una line manca di campi obbligatori", async () => {
