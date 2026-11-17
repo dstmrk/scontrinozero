@@ -178,10 +178,11 @@ verifica. Senza evidenza, niente cancellazione.
 ### 4. Piano per livello
 
 Il ledger è input, non lista di edit. Un secondo passaggio cerca il
-**livello** ridondante (tipicamente un'intera suite come
-`tests/unit/server-receipt-actions.test.ts` sopra
-`src/server/receipt-actions.test.ts`) e nomina il keeper per ogni
-contratto.
+**livello** ridondante (tipicamente un'intera suite di `tests/unit/`
+sopra la suite colocata dello stesso modulo) e nomina il keeper per
+ogni contratto. Il keeper non è per forza la suite colocata: per la
+lista v1 era quella di `tests/unit/`, l'unica che simulava le query
+vere, e si è spostata accanto alla route.
 
 ### 5. Cutover
 
