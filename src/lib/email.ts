@@ -26,14 +26,6 @@ function getResendClient(): Resend {
 }
 
 /**
- * Resets the cached Resend singleton. For use in tests only.
- * @internal
- */
-export function _resetResendForTest(): void {
-  _resend = null;
-}
-
-/**
  * Hard ceiling on a single Resend HTTP call. Resend's SDK already retries
  * transient errors internally, but a degraded provider can keep a request open
  * for tens of seconds without erroring — long enough to block the calling

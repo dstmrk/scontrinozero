@@ -53,13 +53,14 @@ describe("getStripe", () => {
     });
   });
 
-  it("calls Stripe constructor with the provided key", () => {
-    process.env.STRIPE_SECRET_KEY = "sk_test_xyz";
-    getStripe();
-    expect(mockStripeConstructor).toHaveBeenCalledWith(
-      "sk_test_xyz",
-      expect.any(Object),
-    );
+  it("riusa la stessa istanza su più chiamate (singleton di processo)", () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_abc";
+
+    const first = getStripe();
+    const second = getStripe();
+
+    expect(second).toBe(first);
+    expect(mockStripeConstructor).toHaveBeenCalledTimes(1);
   });
 
   it("non applica timeout/maxNetworkRetries globalmente (write checkout/portal restano col default SDK)", () => {
