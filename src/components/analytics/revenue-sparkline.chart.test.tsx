@@ -1,3 +1,5 @@
+// Dati e colori passati a recharts (mockato). Empty state e accessibilità,
+// con recharts reale, stanno in revenue-sparkline.test.tsx.
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -22,16 +24,6 @@ vi.mock("recharts", () => ({
 import { RevenueSparkline } from "@/components/analytics/revenue-sparkline";
 
 describe("RevenueSparkline", () => {
-  it("shows empty-state placeholder when data is empty", () => {
-    render(<RevenueSparkline data={[]} />);
-
-    expect(
-      screen.getByText("Nessuno scontrino nel periodo selezionato."),
-    ).toBeDefined();
-    // Il chart non deve essere renderizzato sull'empty state.
-    expect(screen.queryByTestId("line-chart")).toBeNull();
-  });
-
   it("renders the chart when data has at least one point", () => {
     render(
       <RevenueSparkline

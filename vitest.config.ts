@@ -67,7 +67,7 @@ export default defineConfig({
         "src/components/storico/void-receipt-dialog.tsx",
         "src/components/analytics/analytics-client.tsx", // UI orchestrator — pure render + setState
         // Recharts wrappers: il mapping label testabile e' coperto in
-        // tests/unit/payment-breakdown.test.tsx, ma i Tooltip/Axis formatter
+        // src/components/analytics/*.chart.test.tsx, ma i Tooltip/Axis formatter
         // non sono raggiungibili in jsdom senza mockare l'intero recharts.
         "src/components/analytics/revenue-sparkline.tsx",
         "src/components/analytics/payment-breakdown.tsx",
