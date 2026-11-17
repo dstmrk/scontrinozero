@@ -1,3 +1,6 @@
+// PwaInstallPrompt: flusso Android/Chrome (beforeinstallprompt) e PWA già
+// installata (standalone). Il banner iOS e il resto stanno in
+// install-prompt.test.tsx.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   render,
@@ -79,18 +82,6 @@ describe("PwaInstallPrompt", () => {
       const { container } = render(<PwaInstallPrompt />);
       expect(container.firstChild).toBeNull();
     });
-
-    it("does not show iOS banner when already dismissed", () => {
-      localStorage.setItem(DISMISSED_KEY, "1");
-      stubUserAgent(
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-      );
-      stubStandalone(false);
-      render(<PwaInstallPrompt />);
-      expect(
-        screen.queryByText(/aggiungi a schermata home per usarla/i),
-      ).not.toBeInTheDocument();
-    });
   });
 
   describe("Android / Chrome install prompt", () => {
@@ -168,26 +159,10 @@ describe("PwaInstallPrompt", () => {
       stubStandalone(false);
     });
 
-    it("shows iOS instructions banner on iPhone not in standalone", () => {
-      render(<PwaInstallPrompt />);
-      expect(
-        screen.getByText(/mettila sulla schermata home/i),
-      ).toBeInTheDocument();
-    });
-
     it("does not show iOS banner when already in standalone mode", () => {
       stubStandalone(true);
       const { container } = render(<PwaInstallPrompt />);
       expect(container.firstChild).toBeNull();
-    });
-
-    it("hides iOS banner and sets localStorage when dismiss is clicked", () => {
-      render(<PwaInstallPrompt />);
-      fireEvent.click(screen.getByRole("button", { name: /non ora/i }));
-      expect(
-        screen.queryByText(/aggiungi a schermata home per usarla/i),
-      ).not.toBeInTheDocument();
-      expect(localStorage.getItem(DISMISSED_KEY)).toBe("1");
     });
   });
 });
