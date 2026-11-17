@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1383,6 +1383,224 @@ describe("POST /api/stripe/webhook — notifica all'operatore sugli eventi di ab
         to: { plan: "pro", interval: "month" },
       },
       expect.any(Date),
+    );
+  });
+});
+
+describe("POST /api/stripe/webhook — consegna, claim e guardie d'ingresso", () => {
+  const deleteWhere = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
+    deleteWhere.mockResolvedValue(undefined);
+    mockDelete.mockReturnValue({ where: deleteWhere });
+    mockUpdate.mockReturnValue(makeUpdateBuilder());
+    mockPlanFromPriceId.mockReturnValue("starter");
+    mockIntervalFromPriceId.mockReturnValue("month");
+    setupTransactionPassthrough();
+  });
+
+  afterEach(() => {
+    delete process.env.STRIPE_EXPECT_LIVEMODE;
+  });
+
+  function subscriptionUpdated(livemode = false) {
+    return {
+      id: "evt_transport",
+      type: "customer.subscription.updated",
+      created: 1_700_000_000,
+      livemode,
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          status: "active",
+          cancel_at_period_end: false,
+          items: {
+            data: [
+              {
+                price: { id: "price_starter_monthly" },
+                current_period_end: 9999,
+              },
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  // Un evento di test che arriva in produzione (o viceversa) non deve
+  // toccare il DB: lo si conferma a Stripe e lo si scarta.
+  it.each([
+    { expected: "true", livemode: false, processed: false },
+    { expected: "false", livemode: true, processed: false },
+    { expected: "false", livemode: false, processed: true },
+    { expected: undefined, livemode: true, processed: true },
+  ])(
+    "STRIPE_EXPECT_LIVEMODE=$expected, livemode=$livemode → processato: $processed",
+    async ({ expected, livemode, processed }) => {
+      if (expected !== undefined) process.env.STRIPE_EXPECT_LIVEMODE = expected;
+      mockConstructEvent.mockReturnValue(subscriptionUpdated(livemode));
+
+      const res = await POST(makeRequest());
+
+      expect(res.status).toBe(200);
+      if (processed) {
+        expect(mockUpdate).toHaveBeenCalled();
+      } else {
+        expect(mockUpdate).not.toHaveBeenCalled();
+        expect(mockLoggerWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ livemode, expected: expected === "true" }),
+          expect.any(String),
+        );
+      }
+    },
+  );
+
+  // Il body si rifiuta prima di leggerlo: un container solo non regge
+  // payload arbitrari.
+  it("restituisce 413 oltre i 256 KB, senza verificare la firma", async () => {
+    const req = new Request("http://localhost/api/stripe/webhook", {
+      method: "POST",
+      headers: {
+        "stripe-signature": "sig_test",
+        "content-length": String(256 * 1024 + 1),
+      },
+      body: "{}",
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(413);
+    expect(mockConstructEvent).not.toHaveBeenCalled();
+  });
+
+  // La firma Stripe è calcolata sui byte ricevuti: un body ri-serializzato
+  // non la passerebbe.
+  it("passa a constructEvent il body grezzo, la firma e il segreto", async () => {
+    const rawBody = '{"type":"test",  "spazi":true}';
+    mockConstructEvent.mockReturnValue({
+      id: "evt_raw",
+      type: "some.unknown.event",
+      data: { object: {} },
+    });
+
+    await POST(makeRequest(rawBody, "sig_123"));
+
+    expect(mockConstructEvent).toHaveBeenCalledWith(
+      rawBody,
+      "sig_123",
+      "whsec_test",
+    );
+  });
+
+  it("su successo il claim resta (dedup permanente) e prende completedAt", async () => {
+    const insert = makeInsertBuilder([{ eventId: "evt_ok" }]);
+    mockInsert.mockReturnValue(insert);
+    const update = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(update);
+    mockConstructEvent.mockReturnValue({
+      id: "evt_ok",
+      type: "some.unknown.event",
+      data: { object: {} },
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(insert.values).toHaveBeenCalledWith(
+      expect.objectContaining({ eventId: "evt_ok" }),
+    );
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(update.set).toHaveBeenCalledWith(
+      expect.objectContaining({ completedAt: expect.any(Date) }),
+    );
+  });
+
+  // Un prezzo che non conosciamo non deve declassare né promuovere nessuno:
+  // 500 e claim rilasciato, così Stripe riprova dopo il deploy del prezzo.
+  it("su priceId sconosciuto restituisce 500, rilascia il claim e non scrive il piano", async () => {
+    mockPlanFromPriceId.mockReturnValue(null);
+    mockIntervalFromPriceId.mockReturnValue(null);
+    const update = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(update);
+    mockConstructEvent.mockReturnValue(subscriptionUpdated());
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(500);
+    expect(deleteWhere).toHaveBeenCalled();
+    expect(update.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ plan: expect.anything() }),
+    );
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceId: "price_starter_monthly",
+        unknownPriceId: true,
+      }),
+      expect.any(String),
+    );
+  });
+
+  // Una riga che manca non si ripara riprovando: 200 per non innescare
+  // retry infiniti, ma un warn che renda visibile l'anomalia.
+  it.each([
+    {
+      type: "invoice.payment_action_required",
+      object: {
+        parent: { subscription_details: { subscription: "sub_missing" } },
+      },
+      field: { stripeSubscriptionId: "sub_missing" },
+    },
+    {
+      type: "invoice.payment_failed",
+      object: {
+        parent: { subscription_details: { subscription: "sub_missing" } },
+      },
+      field: { stripeSubscriptionId: "sub_missing" },
+    },
+    {
+      type: "checkout.session.expired",
+      object: { customer: "cus_missing" },
+      field: { stripeCustomerId: "cus_missing" },
+    },
+  ])(
+    "$type su UPDATE da 0 righe: 200 e warn",
+    async ({ type, object, field }) => {
+      mockUpdate.mockReturnValue(makeUpdateBuilder([]));
+      mockConstructEvent.mockReturnValue({
+        id: `evt_${type}`,
+        type,
+        data: { object },
+      });
+
+      const res = await POST(makeRequest());
+
+      expect(res.status).toBe(200);
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining(field),
+        expect.stringContaining(type),
+      );
+    },
+  );
+
+  it("invoice.payment_failed senza subscription non scrive past_due", async () => {
+    const update = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(update);
+    mockConstructEvent.mockReturnValue({
+      id: "evt_pf_nosub",
+      type: "invoice.payment_failed",
+      data: { object: {} },
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(update.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "past_due" }),
     );
   });
 });
