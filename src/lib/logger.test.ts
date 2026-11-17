@@ -67,10 +67,9 @@ const SECRET_KEYS = [
   "apiKeyRaw",
   "actionLink",
   "resetLink",
+  "authorization",
+  "cookie",
 ] as const;
-
-// Gli header HTTP si censurano solo al primo livello.
-const TOP_LEVEL_ONLY_KEYS = ["authorization", "cookie"] as const;
 
 async function loggerWithRealRedaction() {
   const { REDACT_PATHS } = await import("./logger");
@@ -80,19 +79,16 @@ async function loggerWithRealRedaction() {
 }
 
 describe("logger REDACT_PATHS — credenziali censurate", () => {
-  it.each([...SECRET_KEYS, ...TOP_LEVEL_ONLY_KEYS])(
-    "censura '%s' al primo livello",
-    async (key) => {
-      const { logger, getOutput } = await loggerWithRealRedaction();
+  it.each(SECRET_KEYS)("censura '%s' al primo livello", async (key) => {
+    const { logger, getOutput } = await loggerWithRealRedaction();
 
-      logger.warn({ userId: "u1", [key]: "LEAKED-VALUE" }, "msg");
+    logger.warn({ userId: "u1", [key]: "LEAKED-VALUE" }, "msg");
 
-      const parsed = JSON.parse(getOutput());
-      expect(parsed[key]).toBe("[REDACTED]");
-      expect(parsed.userId).toBe("u1");
-      expect(getOutput()).not.toContain("LEAKED-VALUE");
-    },
-  );
+    const parsed = JSON.parse(getOutput());
+    expect(parsed[key]).toBe("[REDACTED]");
+    expect(parsed.userId).toBe("u1");
+    expect(getOutput()).not.toContain("LEAKED-VALUE");
+  });
 
   it.each(SECRET_KEYS)("censura '%s' annidato un livello", async (key) => {
     const { logger, getOutput } = await loggerWithRealRedaction();
