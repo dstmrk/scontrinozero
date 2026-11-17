@@ -32,6 +32,13 @@ manca, il test non entra.
    vita distinto (es. la route `/api/v1` sopra il service: auth Bearer,
    status HTTP, envelope d'errore). Se il caso è una variante, estendi la
    tabella o il fixture esistente invece di aprire un `it` nuovo.
+   Un modulo può avere più suite colocate (`X.test.ts`, `X.<parte>.test.ts`)
+   quando le parti richiedono mock incompatibili: è il caso della lista v1
+   (`route.list.test.ts`, catena di query su `getDb`, contro la transazione
+   mockata di `route.test.ts`) e del reset password
+   (`auth-actions.reset-confirm.test.ts`). Il vincolo resta uno: ogni
+   contratto in una suite sola, e un commento in testa che dica dove sta il
+   resto.
 4. **Serve un export, un flag o un parametro che esiste solo per il test?**
    Allora sposta la prova al confine reale. Per un singleton di modulo il
    cui stato sta **tutto** in variabili del modulo (`_stripe`, `_resend`,

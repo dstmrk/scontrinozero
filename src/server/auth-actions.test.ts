@@ -1983,6 +1983,18 @@ describe("auth-actions", () => {
 
       expect(mockSignOut).toHaveBeenCalled();
     });
+
+    // Un errore di Supabase al logout non deve lasciare l'utente bloccato
+    // nella sessione: si va comunque a /login.
+    it("reindirizza a /login anche se signOut ritorna un errore", async () => {
+      mockSignOut.mockResolvedValue({ error: { message: "network" } });
+
+      const { signOut } = await import("./auth-actions");
+
+      await expect(signOut()).rejects.toSatisfy(
+        (err: unknown) => isRedirectError(err) && err.url === "/login",
+      );
+    });
   });
 
   describe("resetPassword", () => {
