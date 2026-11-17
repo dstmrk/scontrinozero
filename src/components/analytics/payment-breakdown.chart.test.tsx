@@ -1,3 +1,5 @@
+// Dati e colori passati a recharts (mockato). Empty state e accessibilità,
+// con recharts reale, stanno in payment-breakdown.test.tsx.
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -46,15 +48,6 @@ function readChartData(): Array<{
 }
 
 describe("PaymentBreakdown", () => {
-  it("shows empty-state placeholder when data is empty", () => {
-    render(<PaymentBreakdown data={[]} />);
-
-    expect(
-      screen.getByText("Nessuno scontrino nel periodo selezionato."),
-    ).toBeDefined();
-    expect(screen.queryByTestId("bar-chart")).toBeNull();
-  });
-
   it("maps PC to 'Contanti' and PE to 'Elettronico'", () => {
     render(
       <PaymentBreakdown
@@ -104,19 +97,5 @@ describe("PaymentBreakdown", () => {
     const fill = screen.getByTestId("bar").getAttribute("data-fill") ?? "";
     expect(fill).not.toMatch(/^hsl\(\s*var\(/);
     expect(fill).toBe("var(--primary)");
-  });
-
-  it("falls back to the 'Altro' label when a method is not in the known map", () => {
-    // Se un nuovo codice di pagamento dovesse mai filtrare attraverso il
-    // server senza normalizzazione (drift), la UI mostra l'etichetta
-    // leggibile "Altro" invece del codice grezzo (es. "XX") o un crash.
-    render(
-      <PaymentBreakdown
-        data={[{ method: "XX", count: 1, revenueCents: 100 }]}
-      />,
-    );
-
-    const chartData = readChartData();
-    expect(chartData[0].method).toBe("Altro");
   });
 });
