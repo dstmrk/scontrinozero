@@ -14,6 +14,7 @@ const {
   mockCustomerCreate,
   mockSessionCreate,
   mockIsValidPriceId,
+  mockIntervalFromPriceId,
   mockIsCollaborator,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
@@ -24,6 +25,7 @@ const {
   mockCustomerCreate: vi.fn(),
   mockSessionCreate: vi.fn(),
   mockIsValidPriceId: vi.fn(),
+  mockIntervalFromPriceId: vi.fn(),
   mockIsCollaborator: vi.fn(),
 }));
 
@@ -62,7 +64,7 @@ vi.mock("@/lib/stripe", () => ({
     checkout: { sessions: { create: mockSessionCreate } },
   }),
   isValidPriceId: mockIsValidPriceId,
-  intervalFromPriceId: vi.fn().mockReturnValue("month"),
+  intervalFromPriceId: mockIntervalFromPriceId,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -147,6 +149,7 @@ describe("POST /api/stripe/checkout", () => {
     vi.clearAllMocks();
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockIsValidPriceId.mockReturnValue(true);
+    mockIntervalFromPriceId.mockReturnValue("month");
     mockIsCollaborator.mockResolvedValue(false);
     mockSessionCreate.mockResolvedValue({
       url: "https://checkout.stripe.com/session",
@@ -168,6 +171,20 @@ describe("POST /api/stripe/checkout", () => {
     mockRateLimiterCheck.mockReturnValue({ success: false });
     const res = await POST(makeRequest({ priceId: "price_123" }));
     expect(res.status).toBe(429);
+    // Limite per utente; superato, Stripe non viene toccato.
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith("checkout:user-1");
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("restituisce 400 se priceId manca", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    const res = await POST(makeRequest({}));
+    expect(res.status).toBe(400);
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("restituisce 400 se body non è JSON valido", async () => {
@@ -307,14 +324,32 @@ describe("POST /api/stripe/checkout", () => {
     });
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockCustomerCreate.mockResolvedValue({ id: "cus_new" });
-    mockInsert.mockReturnValue(makeInsertBuilder([{ id: "sub-row-1" }]));
-    mockUpdate.mockReturnValue(makeUpdateBuilder());
+    const insert = makeInsertBuilder([{ id: "sub-row-1" }]);
+    mockInsert.mockReturnValue(insert);
+    const update = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(update);
+    mockIntervalFromPriceId.mockReturnValue("year");
 
     const res = await POST(makeRequest({ priceId: "price_pro" }));
     expect(res.status).toBe(200);
+    // Prima si reclama la riga, poi si crea il customer: chi perde la
+    // race non crea un secondo cliente Stripe.
+    expect(insert.values).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", status: "pending" }),
+    );
+    expect(insert.values.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCustomerCreate.mock.invocationCallOrder[0],
+    );
     expect(mockCustomerCreate).toHaveBeenCalledWith(
       { email: "a@b.it" },
-      expect.anything(),
+      { idempotencyKey: expect.any(String) },
+    );
+    expect(update.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeCustomerId: "cus_new",
+        stripePriceId: "price_pro",
+        interval: "year",
+      }),
     );
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ customer: "cus_new" }),
@@ -416,5 +451,90 @@ describe("POST /api/stripe/checkout", () => {
       }),
       expect.anything(),
     );
+  });
+
+  it("registra interval 'month' quando il prezzo non ne dichiara uno", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockCustomerCreate.mockResolvedValue({ id: "cus_new" });
+    mockInsert.mockReturnValue(makeInsertBuilder([{ id: "sub-row-1" }]));
+    const update = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(update);
+    mockIntervalFromPriceId.mockReturnValue(null);
+
+    await POST(makeRequest({ priceId: "price_pro" }));
+
+    expect(update.set).toHaveBeenCalledWith(
+      expect.objectContaining({ interval: "month" }),
+    );
+  });
+
+  it("restituisce 503 se un'altra richiesta ha già reclamato la riga (customer ancora null)", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([{ stripeCustomerId: null, status: "pending" }]),
+    );
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(503);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("crea la sessione in modalità subscription, col prezzo scelto e una chiave di idempotenza", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
+    );
+
+    await POST(makeRequest({ priceId: "price_pro_yearly" }));
+    expect(mockSessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "subscription",
+        line_items: [{ price: "price_pro_yearly", quantity: 1 }],
+      }),
+      { idempotencyKey: expect.any(String) },
+    );
+  });
+
+  it("restituisce 503 e non apre la sessione se Stripe fallisce la creazione del customer", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockInsert.mockReturnValue(makeInsertBuilder([{ id: "sub-row-1" }]));
+    mockCustomerCreate.mockRejectedValue(new Error("Stripe network error"));
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(503);
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("restituisce 503 se Stripe fallisce la creazione della sessione", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
+    );
+    mockSessionCreate.mockRejectedValue(new Error("Stripe timeout"));
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(503);
   });
 });
