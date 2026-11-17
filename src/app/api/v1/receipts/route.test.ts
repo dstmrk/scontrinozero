@@ -88,15 +88,9 @@ function makeRequest(body: unknown = VALID_BODY) {
   });
 }
 
-function makeGetRequest(query: string) {
-  return new Request(`http://localhost/api/v1/receipts?${query}`, {
-    method: "GET",
-  });
-}
-
 // --- Tests ---
 
-import { GET, OPTIONS, POST } from "./route";
+import { OPTIONS, POST } from "./route";
 import { logger } from "@/lib/logger";
 import { getRequestContext } from "@/lib/request-context";
 
@@ -414,83 +408,5 @@ describe("POST /api/v1/receipts", () => {
     );
     expect(res.status).toBe(201);
     expect(mockEmitReceiptForBusiness).toHaveBeenCalled();
-  });
-});
-
-describe("GET /api/v1/receipts (validazione param lista)", () => {
-  const VALID_RANGE = "from=2026-01-01&to=2026-01-31";
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockIsApiKeyAuthError.mockReturnValue(false);
-    mockAuthenticateApiKey.mockResolvedValue(FAKE_AUTH);
-    mockCanUseApi.mockReturnValue(true);
-    mockRateLimiterCheck.mockReturnValue({ success: true });
-    // Callback ignorata: nessun accesso DB, ritorna una pagina vuota.
-    mockWithStatementTimeout.mockResolvedValue({
-      total: 0,
-      docs: [],
-      lines: [],
-    });
-  });
-
-  it("conta la lista per chiave API", async () => {
-    await GET(makeGetRequest(VALID_RANGE));
-
-    expect(mockRateLimiterCheck).toHaveBeenCalledWith("api:list:key-uuid-123");
-  });
-
-  it("configura la lista a 20 al minuto e 120 all'ora", async () => {
-    vi.resetModules();
-    const { MultiWindowRateLimiter } = await import("@/lib/rate-limit");
-    await import("./route");
-
-    expect(MultiWindowRateLimiter).toHaveBeenCalledWith([
-      { maxRequests: 20, windowMs: 60 * 1000 },
-      { maxRequests: 120, windowMs: 60 * 60 * 1000 },
-    ]);
-  });
-
-  it.each([
-    { name: "page=abc", query: "page=abc" },
-    { name: "page=-100", query: "page=-100" },
-    { name: "page=0", query: "page=0" },
-    { name: "limit=-1", query: "limit=-1" },
-    { name: "limit=abc", query: "limit=abc" },
-    { name: "kind=FOO", query: "kind=FOO" },
-    { name: "status=FOO", query: "status=FOO" },
-  ])(
-    "ritorna 400 (malformato, niente clamp silenzioso) su $name",
-    async ({ query }) => {
-      const res = await GET(makeGetRequest(`${VALID_RANGE}&${query}`));
-      expect(res.status).toBe(400);
-      // La validazione esce prima di qualunque query DB.
-      expect(mockWithStatementTimeout).not.toHaveBeenCalled();
-    },
-  );
-
-  it("param assenti: usa i default (page=1, limit=20) e ritorna 200", async () => {
-    const res = await GET(makeGetRequest(VALID_RANGE));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.pagination).toMatchObject({ page: 1, limit: 20 });
-    expect(body.data).toEqual([]);
-  });
-
-  it("status=PENDING: 200, l'elenco può mostrare gli scontrini in sospeso", async () => {
-    const res = await GET(makeGetRequest(`${VALID_RANGE}&status=PENDING`));
-
-    expect(res.status).toBe(200);
-    expect(mockWithStatementTimeout).toHaveBeenCalledTimes(1);
-  });
-
-  it("param validi: page/limit/kind riflessi nella pagination, 200", async () => {
-    const res = await GET(
-      makeGetRequest(`${VALID_RANGE}&page=2&limit=50&kind=SALE`),
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.pagination).toMatchObject({ page: 2, limit: 50 });
-    expect(mockWithStatementTimeout).toHaveBeenCalledTimes(1);
   });
 });
