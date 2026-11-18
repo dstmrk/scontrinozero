@@ -63,24 +63,42 @@ function submit() {
 }
 
 describe("ChangeAdePasswordDialog", () => {
-  it("nuova password fuori dal set di caratteri ammessi → errore di validazione, nessuna submit", async () => {
+  // Fisconline accetta 8–15 caratteri non accentati: i limiti vanno mostrati
+  // sul campo, non scoperti all'invio quando il server rifiuta.
+  it.each([
+    ["con una lettera accentata", "café123!"],
+    ["sotto la lunghezza minima", "Short1!"],
+    ["oltre la lunghezza massima (16)", "NewPassword1234!"],
+  ])(
+    "nuova password %s → errore di validazione, nessuna submit",
+    async (_label, password) => {
+      renderDialog();
+
+      fillForm({ next: password, confirm: password });
+      submit();
+
+      expect(await screen.findByText(/8–15 caratteri/)).toBeInTheDocument();
+      expect(mockChangeAdePassword).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["8 caratteri (minimo)", "NewPas1!"],
+    ["15 caratteri (massimo)", "NewPassword123!"],
+  ])("nuova password di %s → accettata", async (_label, password) => {
     renderDialog();
 
-    fillForm({ next: "café123!", confirm: "café123!" }); // "é" accentata non ammessa
+    fillForm({ next: password, confirm: password });
     submit();
 
-    expect(await screen.findByText(/8–15 caratteri/)).toBeInTheDocument();
-    expect(mockChangeAdePassword).not.toHaveBeenCalled();
-  });
-
-  it("nuova password sotto la lunghezza minima → errore di validazione", async () => {
-    renderDialog();
-
-    fillForm({ next: "Short1!", confirm: "Short1!" });
-    submit();
-
-    expect(await screen.findByText(/8–15 caratteri/)).toBeInTheDocument();
-    expect(mockChangeAdePassword).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockChangeAdePassword).toHaveBeenCalledWith(
+        "biz-1",
+        "OldPass1!",
+        password,
+        password,
+      ),
+    );
   });
 
   it("nuova password e conferma diverse → 'Le password non coincidono.'", async () => {
