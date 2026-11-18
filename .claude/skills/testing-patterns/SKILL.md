@@ -314,13 +314,13 @@ Note che non si deducono dai numeri:
 > `beforeEach`. `vi.clearAllMocks()` **non** svuota la coda di
 > `mockResolvedValueOnce` → l'item non consumato **leakka nel test successivo**,
 > sfasando l'ordine delle SELECT (sintomo tipico: un id sbagliato — il `profileId`
-> al posto del `businessId`). Stesso modulo, **più file di test** (`src/server/
-X.test.ts` **e** `tests/unit/server-X.test.ts`): mockare il limiter in tutti.
+> al posto del `businessId`). Stesso modulo, **più file di test** (`X.test.ts` **e**
+> `X.<parte>.test.ts`, vedi skill `test-audit`): mockare il limiter in tutti.
 > E con `vi.resetAllMocks()` per-`describe`, **re-impostare** il default
 > `mockRateLimiterCheck.mockReturnValue({ success: true })` nel `beforeEach`,
 > altrimenti `check()` ritorna `undefined` → crash su `.success`. Eseguire
 > sempre la **suite intera** (`npm run test:coverage`), non il singolo file:
-> un modulo può avere suite parallele in `tests/unit/`.
+> un modulo può avere più suite colocate.
 
 ---
 
@@ -340,10 +340,12 @@ Fix: allineare il mock chain alla query nuova (`innerJoin` sì o no, quante
 tabella che la funzione reale ora legge. In alternativa: mockare sempre
 `@/lib/server-auth` nei test delle server actions che usano il controllo.
 
-**Cerca in `src/` e in `tests/`.** I test non stanno tutti accanto al codice:
-`tests/unit/` ha file con mock propri di `@/lib/server-auth` e `@/db/schema`.
-Quando `checkBusinessOwnership` è diventato `checkBusinessMembership` (issue
-#1099) un grep limitato a `src/` ne ha lasciati indietro sei, emersi solo al
+**Cerca in tutte le suite del modulo, non in un file solo.** Un modulo può
+avere più suite colocate (`X.test.ts`, `X.<parte>.test.ts`), ognuna con mock
+propri di `@/lib/server-auth` e `@/db/schema`. Quando `checkBusinessOwnership`
+è diventato `checkBusinessMembership` (issue #1099) un grep limitato a `src/`
+ne ha lasciati indietro sei, che allora stavano in `tests/unit/` (consolidata
+a novembre 2026), emersi solo al
 giro completo della suite. Un mock senza default (`vi.fn()`) che rispondeva
 `undefined`, trattato come "autorizzato" dal vecchio `if (error)`, con un
 controllo che restituisce un oggetto va invece sostituito con un default
