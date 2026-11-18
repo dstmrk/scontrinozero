@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: Use when deciding whether a test earns its place — before adding or changing a test (authoring gate - which observable contract, which credible regression, why existing proof misses it), when reviewing a PR that adds tests, when a test breaks on a behavior-preserving refactor, when pruning or consolidating a suite, or when auditing the test surface of a module or of the whole repo (the parallel `tests/unit/` layer that duplicates colocated `src/**/X.test.ts` suites, copied inventories like `toHaveLength(92)` on the sitemap, tests that configure the library themselves instead of using the production config, weak negatives `expect(result.error).toBeDefined()`, test-only production seams such as an exported reset of a module singleton). Covers the retention bar (AdE protocol, money, migrations, RLS, security, public `/api/v1`, `*.contract.test.ts` source inspection), the R/F/C/D ledger, the mutation check, and how deletions interact with the per-file 80% coverage gate. NOT about Vitest mechanics (mocks, fake timers, waitFor) — that is testing-patterns.
+description: Use when deciding whether a test earns its place — before adding or changing a test (authoring gate - which observable contract, which credible regression, why existing proof misses it), when reviewing a PR that adds tests, when a test breaks on a behavior-preserving refactor, when pruning or consolidating a suite, or when auditing the test surface of a module or of the whole repo (a suite in `tests/unit/` or a second colocated suite that duplicates the module's own, copied inventories like `toHaveLength(92)` on the sitemap, tests that configure the library themselves instead of using the production config, weak negatives `expect(result.error).toBeDefined()`, test-only production seams such as an exported reset of a module singleton). Covers the retention bar (AdE protocol, money, migrations, RLS, security, public `/api/v1`, `*.contract.test.ts` source inspection), the R/F/C/D ledger, the mutation check, and how deletions interact with the per-file 80% coverage gate. NOT about Vitest mechanics (mocks, fake timers, waitFor) — that is testing-patterns.
 ---
 
 # test-audit — un test deve proteggere un contratto, non una riga
@@ -32,6 +32,10 @@ manca, il test non entra.
    vita distinto (es. la route `/api/v1` sopra il service: auth Bearer,
    status HTTP, envelope d'errore). Se il caso è una variante, estendi la
    tabella o il fixture esistente invece di aprire un `it` nuovo.
+   `tests/unit/` tiene solo i gate di repo: gli script di `scripts/`, i file
+   di config alla radice (Next, Sentry) e l'infrastruttura di test
+   (`tests/setup.ts`, `tests/_helpers/`). Un test che importa un modulo di
+   `src/` per provarne il comportamento sta accanto a quel modulo.
    Un modulo può avere più suite colocate (`X.test.ts`, `X.<parte>.test.ts`)
    quando le parti richiedono mock incompatibili: è il caso della lista v1
    (`route.list.test.ts`, catena di query su `getDb`, contro la transazione
@@ -124,7 +128,7 @@ Statico o lento non è un motivo per cancellare. Restano:
   (`src/lib/ade/real-client.test.ts`, `mapper.test.ts`).
 - Importi e arrotondamenti (skill `money-rounding`): ogni caso limite.
 - Migrazioni, schema, RLS (`src/db/rls-coverage.test.ts`,
-  `tests/unit/db-schema-*.test.ts`, `scripts-migrate.test.ts`).
+  `src/db/schema/*.test.ts`, `scripts-migrate.test.ts`).
 - Sicurezza: CSP, redazione log, limiti di body, rate limit, IDOR, cifratura.
 - Contratto pubblico `/api/v1` (consumer esterni, regola 28b).
 - Default e soglie in `docs/architecture/config-manifest.md`.
