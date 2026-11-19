@@ -736,9 +736,11 @@ export function CassaClient({
 
 /**
  * Totale + azioni del carrello. `sticky` (cassa con catalogo) li fissa sopra
- * la bottom nav: carrello lungo o no, il totale da dire al cliente e
- * «Importo libero» restano sotto il pollice. Senza catalogo la resa è quella
- * di sempre. `total` è `null` a carrello vuoto: niente totale né «Continua».
+ * la bottom nav e porta il totale dentro «Continua», al posto della riga
+ * «Totale»: carrello lungo o no, il totale da dire al cliente e «Importo
+ * libero» restano sotto il pollice, e l'altezza della riga torna al carrello.
+ * Senza catalogo la resa è quella di sempre. `total` è `null` a carrello
+ * vuoto: niente totale né «Continua».
  */
 function CartFooter({
   sticky,
@@ -755,14 +757,12 @@ function CartFooter({
     <div
       className={
         sticky
-          ? "bg-background sticky bottom-[calc(4rem_+_env(safe-area-inset-bottom))] -mx-4 space-y-3 border-t px-4 py-3 md:bottom-0 md:mx-0 md:px-0"
+          ? "bg-background sticky bottom-[calc(4rem_+_env(safe-area-inset-bottom))] -mx-4 border-t px-4 py-3 md:bottom-0 md:mx-0 md:px-0"
           : "space-y-4"
       }
     >
-      {total !== null && (
-        <div
-          className={`bg-muted flex items-center justify-between rounded-xl px-4 ${sticky ? "py-2" : "py-3"}`}
-        >
+      {total !== null && !sticky && (
+        <div className="bg-muted flex items-center justify-between rounded-xl px-4 py-3">
           <span className="font-medium">Totale</span>
           <span className="text-xl font-bold tabular-nums">
             {formatCurrency(total)}
@@ -789,7 +789,13 @@ function CartFooter({
             className="flex-1"
             onClick={onContinue}
           >
-            Continua
+            {sticky ? (
+              <span className="tabular-nums">
+                Continua · {formatCurrency(total)}
+              </span>
+            ) : (
+              "Continua"
+            )}
           </Button>
         )}
       </div>

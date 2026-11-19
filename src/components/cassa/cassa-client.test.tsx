@@ -707,7 +707,11 @@ describe("CassaClient — catalogo in cassa", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(`2 × ${euro(1.2)}`)).toBeInTheDocument();
     expect(screen.getByText(`1 × ${euro(4.5)}`)).toBeInTheDocument();
-    expect(screen.getByText(euro(6.9))).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: `Continua · ${formatCurrency(6.9)}`,
+      }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: `Caffè, ${formatCurrency(1.2)}, 2 nel carrello`,
@@ -747,7 +751,7 @@ describe("CassaClient — catalogo in cassa", () => {
     );
   });
 
-  it("totale, «Importo libero» e «Continua» stanno nella stessa barra fissa", () => {
+  it("con il catalogo il totale sta nel bottone «Continua» della barra fissa", () => {
     render(<CassaClient {...defaultProps} catalogItems={CATALOG} />);
     tapProduct("Caffè");
 
@@ -755,9 +759,22 @@ describe("CassaClient — catalogo in cassa", () => {
       .parentElement!.parentElement!;
     expect(bar.className).toContain("sticky");
     expect(
-      within(bar).getByRole("button", { name: "Continua" }),
+      within(bar).getByRole("button", {
+        name: `Continua · ${formatCurrency(1.2)}`,
+      }),
     ).toBeInTheDocument();
-    expect(within(bar).getByText("Totale")).toBeInTheDocument();
+    // Niente riga «Totale» separata: è lo spazio restituito al carrello.
+    expect(screen.queryByText("Totale")).not.toBeInTheDocument();
+  });
+
+  it("senza catalogo la riga «Totale» e «Continua» restano come prima", () => {
+    render(<CassaClient {...defaultProps} />);
+    addLine("120");
+
+    expect(screen.getByText("Totale")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continua" }),
+    ).toBeInTheDocument();
   });
 
   it("tornando dal tastierino riporta la griglia in vista", () => {

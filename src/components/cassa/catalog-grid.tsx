@@ -40,8 +40,10 @@ interface CatalogGridProps {
 
 /**
  * Prodotti del catalogo come tile nella cassa: un tap aggiunge senza lasciare
- * la schermata di vendita. Con catalogo vuoto non occupa spazio, così chi
- * vende solo a importo libero vede la cassa di sempre.
+ * la schermata di vendita. Tile compatte su una riga (descrizione troncata,
+ * per intero nel `title` e nell'etichetta accessibile): lo spazio verticale
+ * serve al carrello, che sta sotto la griglia. Con catalogo vuoto non occupa
+ * spazio, così chi vende solo a importo libero vede la cassa di sempre.
  */
 export function CatalogGrid({ items, lines, onSelect }: CatalogGridProps) {
   if (items.length === 0) return null;
@@ -50,33 +52,33 @@ export function CatalogGrid({ items, lines, onSelect }: CatalogGridProps) {
     <ul className="grid grid-cols-2 gap-2" aria-label="Prodotti del catalogo">
       {items.map((item) => {
         const qty = cartQuantityFor(item, lines);
-        const priceLabel =
-          item.defaultPrice === null
-            ? "Prezzo libero"
-            : formatCurrency(item.defaultPrice);
+        const price =
+          item.defaultPrice === null ? null : formatCurrency(item.defaultPrice);
+        const spokenPrice = price ?? "Prezzo libero";
         const label =
           qty > 0
-            ? `${item.description}, ${priceLabel}, ${qty} nel carrello`
-            : `${item.description}, ${priceLabel}`;
+            ? `${item.description}, ${spokenPrice}, ${qty} nel carrello`
+            : `${item.description}, ${spokenPrice}`;
         return (
           <li key={item.id}>
             <button
               type="button"
               aria-label={label}
+              title={item.description}
               onClick={() => onSelect(item)}
-              className={`bg-card hover:bg-muted relative flex h-full min-h-16 w-full flex-col justify-between gap-1 rounded-lg border p-3 text-left transition-[transform,colors] active:scale-[0.97] ${qty > 0 ? "border-primary" : ""}`}
+              className={`bg-card hover:bg-muted relative flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-left transition-[transform,colors] active:scale-[0.97] ${qty > 0 ? "border-primary" : ""}`}
             >
-              <span className="line-clamp-2 pr-6 text-sm leading-tight font-medium">
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {item.description}
               </span>
-              <span className="text-muted-foreground text-sm tabular-nums">
-                {priceLabel}
+              <span className="text-muted-foreground shrink-0 text-sm tabular-nums">
+                {price ?? "libero"}
               </span>
               {qty > 0 && (
                 <span
                   data-testid="catalog-qty-badge"
                   aria-hidden="true"
-                  className="bg-primary text-primary-foreground absolute top-2 right-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums"
+                  className="bg-primary text-primary-foreground absolute -top-2 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums"
                 >
                   {qty}
                 </span>

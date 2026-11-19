@@ -89,7 +89,24 @@ describe("CatalogGrid", () => {
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.getByText("Prezzo libero")).toBeInTheDocument();
+    // Sulla tile compatta basta «libero»; lo screen reader sente la forma
+    // estesa.
+    const tile = screen.getByRole("button", { name: "Caffè, Prezzo libero" });
+    expect(within(tile).getByText("libero")).toBeInTheDocument();
+  });
+
+  it("la descrizione troncata resta leggibile per intero al passaggio del mouse", () => {
+    render(
+      <CatalogGrid
+        items={[item({ description: "Spremuta d'arancia rossa di Sicilia" })]}
+        lines={[]}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Spremuta/ })).toHaveAttribute(
+      "title",
+      "Spremuta d'arancia rossa di Sicilia",
+    );
   });
 
   it("il tap passa il prodotto a onSelect", () => {
