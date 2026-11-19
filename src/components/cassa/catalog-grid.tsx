@@ -44,6 +44,8 @@ interface CatalogGridProps {
  * per intero nel `title` e nell'etichetta accessibile): lo spazio verticale
  * serve al carrello, che sta sotto la griglia. Con catalogo vuoto non occupa
  * spazio, così chi vende solo a importo libero vede la cassa di sempre.
+ * `touch-action: manipulation` come sui tasti del tastierino: "due caffè" è
+ * un doppio tap rapido, e iOS Safari potrebbe leggerlo come zoom.
  */
 export function CatalogGrid({ items, lines, onSelect }: CatalogGridProps) {
   if (items.length === 0) return null;
@@ -66,7 +68,7 @@ export function CatalogGrid({ items, lines, onSelect }: CatalogGridProps) {
               aria-label={label}
               title={item.description}
               onClick={() => onSelect(item)}
-              className={`bg-card hover:bg-muted relative flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-left transition-[transform,colors] active:scale-[0.97] ${qty > 0 ? "border-primary" : ""}`}
+              className={`bg-card hover:bg-muted relative flex h-11 w-full [touch-action:manipulation] items-center gap-2 rounded-lg border px-3 text-left transition-[transform,colors] active:scale-[0.97] ${qty > 0 ? "border-primary" : ""}`}
             >
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {item.description}
