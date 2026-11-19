@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 const { mockMutate, mockReset } = vi.hoisted(() => ({
@@ -630,5 +630,151 @@ describe("CassaClient — tastiera fisica nel riepilogo", () => {
     // €5,00 incassati: €2,00 in contanti, €3,00 il resto elettronico.
     expect(screen.getAllByText(euro(2)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(euro(3)).length).toBeGreaterThan(0);
+  });
+});
+
+// --- Catalogo in cassa: tap che aggiunge senza lasciare la schermata ---
+
+const CATALOG = [
+  {
+    id: "c1",
+    businessId: defaultProps.businessId,
+    description: "Caffè",
+    defaultPrice: "1.20",
+    defaultVatCode: "10" as const,
+    createdAt: new Date("2026-01-01"),
+  },
+  {
+    id: "c2",
+    businessId: defaultProps.businessId,
+    description: "Panino",
+    defaultPrice: "4.50",
+    defaultVatCode: "10" as const,
+    createdAt: new Date("2026-01-01"),
+  },
+  {
+    id: "c3",
+    businessId: defaultProps.businessId,
+    description: "Riparazione",
+    defaultPrice: null,
+    defaultVatCode: "22" as const,
+    createdAt: new Date("2026-01-01"),
+  },
+];
+
+function tapProduct(name: string): void {
+  fireEvent.click(
+    screen.getByRole("button", { name: new RegExp(`^${name},`) }),
+  );
+}
+
+describe("CassaClient — catalogo in cassa", () => {
+  // jsdom non implementa lo scroll: lo stub tiene pulito l'output e fa da
+  // spia per i test che lo verificano.
+  let scrollTo: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  });
+
+  afterEach(() => {});
+
+  it("senza catalogo la cassa resta quella di sempre", () => {
+    render(<CassaClient {...defaultProps} catalogItems={[]} />);
+
+    expect(
+      screen.queryByRole("list", { name: "Prodotti del catalogo" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Aggiungi" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Importo libero" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("tre tap su due prodotti danno due righe con le quantità giuste, senza cambiare schermata", () => {
+    render(<CassaClient {...defaultProps} catalogItems={CATALOG} />);
+
+    tapProduct("Caffè");
+    tapProduct("Caffè");
+    tapProduct("Panino");
+
+    // Resta nello step carrello: la griglia è ancora lì.
+    expect(
+      screen.getByRole("list", { name: "Prodotti del catalogo" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(`2 × ${euro(1.2)}`)).toBeInTheDocument();
+    expect(screen.getByText(`1 × ${euro(4.5)}`)).toBeInTheDocument();
+    expect(screen.getByText(euro(6.9))).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: `Caffè, ${formatCurrency(1.2)}, 2 nel carrello`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("un prodotto senza prezzo apre il tastierino con descrizione e IVA già impostate", () => {
+    render(<CassaClient {...defaultProps} catalogItems={CATALOG} />);
+
+    tapProduct("Riparazione");
+
+    expect(screen.getByPlaceholderText("Descrizione (opzionale)")).toHaveValue(
+      "Riparazione",
+    );
+    for (const digit of "2500") {
+      fireEvent.click(screen.getByRole("button", { name: digit }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Aggiungi" }));
+
+    expect(screen.getByText(`1 × ${euro(25)}`)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Riparazione, Prezzo libero, 1 nel carrello",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("con il catalogo il tastierino libero si apre da «Importo libero»", () => {
+    render(<CassaClient {...defaultProps} catalogItems={CATALOG} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Importo libero" }));
+
+    expect(screen.getByText("Aggiungi articolo")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Descrizione (opzionale)")).toHaveValue(
+      "",
+    );
+  });
+
+  it("totale, «Importo libero» e «Continua» stanno nella stessa barra fissa", () => {
+    render(<CassaClient {...defaultProps} catalogItems={CATALOG} />);
+    tapProduct("Caffè");
+
+    const bar = screen.getByRole("button", { name: "Importo libero" })
+      .parentElement!.parentElement!;
+    expect(bar.className).toContain("sticky");
+    expect(
+      within(bar).getByRole("button", { name: "Continua" }),
+    ).toBeInTheDocument();
+    expect(within(bar).getByText("Totale")).toBeInTheDocument();
+  });
+
+  it("tornando dal tastierino riporta la griglia in vista", () => {
+    render(<CassaClient {...defaultProps} catalogItems={CATALOG} />);
+    tapProduct("Riparazione");
+    scrollTo.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Annulla" }));
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+  });
+
+  it("senza catalogo non tocca lo scroll", () => {
+    render(<CassaClient {...defaultProps} />);
+    openAddItem();
+    fireEvent.click(screen.getByRole("button", { name: "Annulla" }));
+
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });

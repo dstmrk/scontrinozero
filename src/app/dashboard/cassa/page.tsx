@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
+import { getCatalogItems } from "@/server/catalog-actions";
 import { getDb } from "@/db";
 import { businesses } from "@/db/schema";
 import { VAT_CODES, type VatCode } from "@/types/cassa";
@@ -40,14 +41,17 @@ export default async function CassaPage() {
   const db = getDb();
   // Intestazione e messaggio di cortesia per la stampa termica si leggono QUI,
   // non dopo l'emissione: un round-trip in più sulla schermata di successo si
-  // vedrebbe, e l'auto-stampa deve partire senza attese (principio #1).
-  const [[business], printProfile] = await Promise.all([
+  // vedrebbe, e l'auto-stampa deve partire senza attese (principio #1). Il
+  // catalogo serve alla griglia prodotti della cassa: `getCatalogItems`
+  // degrada già a lista vuota, e lista vuota vuol dire cassa senza griglia.
+  const [[business], printProfile, catalogItems] = await Promise.all([
     db
       .select({ preferredVatCode: businesses.preferredVatCode })
       .from(businesses)
       .where(eq(businesses.id, status.businessId))
       .limit(1),
     fetchReceiptPrintProfile(status.businessId),
+    getCatalogItems(status.businessId),
   ]);
 
   const preferredVatCode =
@@ -62,6 +66,7 @@ export default async function CassaPage() {
         businessId={status.businessId}
         preferredVatCode={preferredVatCode}
         printProfile={printProfile}
+        catalogItems={catalogItems}
         discountsUnlocked={canUsePro(
           planResult.info.plan,
           planResult.info.planExpiresAt,
