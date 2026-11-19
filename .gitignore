@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+# rigenerato da `next dev` quando rileva un agente AI
+/AGENTS.md
 
 # production
 /build
