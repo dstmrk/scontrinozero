@@ -534,7 +534,8 @@ describe("RealAdeClient.loginCie", () => {
 // la SAMLRequest o la SAMLResponse verso un host arbitrario.
 // ---------------------------------------------------------------------------
 describe("RealAdeClient.loginCie — form action allowlist (anti-SSRF)", () => {
-  const ATTACKER = "https://attacker.example.com";
+  const ATTACKER_HOST = "attacker.example.com";
+  const ATTACKER = `https://${ATTACKER_HOST}`;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -560,8 +561,8 @@ describe("RealAdeClient.loginCie — form action allowlist (anti-SSRF)", () => {
 
     // La SAMLRequest non deve essere POSTata: solo la GET iniziale è partita.
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const postedToAttacker = fetchMock.mock.calls.some(([url]) =>
-      String(url).startsWith(ATTACKER),
+    const postedToAttacker = fetchMock.mock.calls.some(
+      ([url]) => new URL(String(url)).hostname === ATTACKER_HOST,
     );
     expect(postedToAttacker).toBe(false);
   });
@@ -582,8 +583,8 @@ describe("RealAdeClient.loginCie — form action allowlist (anti-SSRF)", () => {
     // Il POST della SAMLResponse (#14) non deve partire: la validazione scatta
     // nel parsing della form (#13). Nessuna chiamata verso l'attacker.
     expect(fetchMock).toHaveBeenCalledTimes(13);
-    const postedToAttacker = fetchMock.mock.calls.some(([url]) =>
-      String(url).startsWith(ATTACKER),
+    const postedToAttacker = fetchMock.mock.calls.some(
+      ([url]) => new URL(String(url)).hostname === ATTACKER_HOST,
     );
     expect(postedToAttacker).toBe(false);
   });
