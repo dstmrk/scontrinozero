@@ -9,6 +9,8 @@ const {
   mockGetAuthenticatedUser,
   mockGetPlanSafe,
   mockFetchReceiptPrintProfile,
+  mockGetCatalogItems,
+  mockCassaClient,
   mockLimit,
   mockRedirect,
 } = vi.hoisted(() => ({
@@ -16,6 +18,8 @@ const {
   mockGetAuthenticatedUser: vi.fn(),
   mockGetPlanSafe: vi.fn(),
   mockFetchReceiptPrintProfile: vi.fn(),
+  mockGetCatalogItems: vi.fn(),
+  mockCassaClient: vi.fn(),
   mockLimit: vi.fn(),
   // `redirect()` di Next funziona LANCIANDO NEXT_REDIRECT: il mock replica il
   // throw, così un eventuale catch largo nella pagina si vedrebbe subito come
@@ -36,6 +40,10 @@ vi.mock("@/server/onboarding-actions", () => ({
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: (...args: unknown[]) =>
     mockGetAuthenticatedUser(...args),
+}));
+
+vi.mock("@/server/catalog-actions", () => ({
+  getCatalogItems: (...args: unknown[]) => mockGetCatalogItems(...args),
 }));
 
 vi.mock("@/lib/receipts/print-profile", () => ({
@@ -66,7 +74,10 @@ vi.mock("@/lib/plans", async () => {
 });
 
 vi.mock("@/components/cassa/cassa-client", () => ({
-  CassaClient: () => <div data-testid="cassa-client" />,
+  CassaClient: (props: unknown) => {
+    mockCassaClient(props);
+    return <div data-testid="cassa-client" />;
+  },
 }));
 
 import CassaPage from "./page";
@@ -81,6 +92,7 @@ beforeEach(() => {
   mockGetOnboardingStatus.mockResolvedValue({ businessId: "biz-1" });
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
   mockFetchReceiptPrintProfile.mockResolvedValue({});
+  mockGetCatalogItems.mockResolvedValue([]);
   mockLimit.mockResolvedValue([{ preferredVatCode: "22" }]);
 });
 
@@ -92,6 +104,19 @@ describe("CassaPage — percorso nominale", () => {
 
     expect(screen.getByTestId("cassa-client")).toBeInTheDocument();
     expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("passa alla cassa il catalogo dell'attività", async () => {
+    mockGetPlanSafe.mockResolvedValue(PLAN_OK);
+    const items = [{ id: "c1", description: "Caffè" }];
+    mockGetCatalogItems.mockResolvedValue(items);
+
+    render(await CassaPage());
+
+    expect(mockGetCatalogItems).toHaveBeenCalledWith("biz-1");
+    expect(mockCassaClient).toHaveBeenCalledWith(
+      expect.objectContaining({ catalogItems: items }),
+    );
   });
 });
 
@@ -119,6 +144,7 @@ describe("CassaPage — degrado della lettura del piano (PR #806)", () => {
     render(await CassaPage());
 
     expect(mockFetchReceiptPrintProfile).not.toHaveBeenCalled();
+    expect(mockGetCatalogItems).not.toHaveBeenCalled();
     expect(mockLimit).not.toHaveBeenCalled();
   });
 });

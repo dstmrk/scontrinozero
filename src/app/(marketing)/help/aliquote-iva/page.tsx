@@ -221,8 +221,8 @@ export default function AliquoteIvaPage() {
           che vendi più spesso, ScontrinoZero include un{" "}
           <strong>catalogo</strong> in cui salvare i tuoi articoli con prezzo e
           aliquota IVA predefiniti. Quando emetti uno scontrino basta toccare il
-          prodotto nel catalogo: la riga viene aggiunta con prezzo e aliquota
-          già impostati.
+          prodotto nella Cassa: la riga viene aggiunta con prezzo e aliquota già
+          impostati.
         </p>
         <h3 className="mt-5 text-base font-semibold">
           Come aggiungere un prodotto al catalogo
@@ -242,9 +242,9 @@ export default function AliquoteIvaPage() {
           </li>
           <li>
             Tocca <strong>Aggiungi</strong> per salvarlo. Da quel momento il
-            prodotto compare nel Catalogo: quando lo tocchi si apre la Cassa con
-            la riga già aggiunta allo scontrino (se il prodotto non ha prezzo,
-            con il tastierino pronto per digitare l&apos;importo).
+            prodotto compare nel Catalogo e nella Cassa, sopra il carrello: ogni
+            tocco aggiunge la riga allo scontrino (se il prodotto non ha prezzo,
+            si apre il tastierino per digitare l&apos;importo).
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">

@@ -9,6 +9,7 @@ import { useCartIdempotencyKey } from "@/hooks/use-cart-idempotency-key";
 import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
+import type { CatalogItem } from "@/types/catalogo";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import {
   splitCashElectronic,
@@ -22,6 +23,7 @@ import {
 } from "@/components/cassa/numeric-keypad";
 import { VatSelector } from "@/components/cassa/vat-selector";
 import { CartLineItem } from "@/components/cassa/cart-line-item";
+import { CatalogGrid } from "@/components/cassa/catalog-grid";
 import { ReceiptSummary } from "@/components/cassa/receipt-summary";
 import { ReceiptSuccess } from "@/components/cassa/receipt-success";
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,40 @@ type Step = "cart" | "add-item" | "summary" | "success";
 
 const FALLBACK_VAT: VatCode = "22";
 
+type CatalogSelection = Pick<
+  CatalogItem,
+  "description" | "defaultPrice" | "defaultVatCode"
+>;
+
+/**
+ * Il prodotto che la pagina Catalogo passa in query string, o `null` se i
+ * parametri mancano o l'IVA non è un codice noto. `description`+`price`
+ * vince su `prefillDescription` (prodotto senza prezzo).
+ */
+function catalogItemFromParams(params: {
+  get(name: string): string | null;
+}): CatalogSelection | null {
+  const isVat = (v: string | null): v is VatCode =>
+    v !== null && VAT_CODES.includes(v as VatCode);
+
+  const description = params.get("description");
+  const price = params.get("price");
+  const vatCode = params.get("vatCode");
+  if (description && price && isVat(vatCode)) {
+    return { description, defaultPrice: price, defaultVatCode: vatCode };
+  }
+  const prefillDescription = params.get("prefillDescription");
+  const prefillVatCode = params.get("prefillVatCode");
+  if (prefillDescription && isVat(prefillVatCode)) {
+    return {
+      description: prefillDescription,
+      defaultPrice: null,
+      defaultVatCode: prefillVatCode,
+    };
+  }
+  return null;
+}
+
 interface CassaClientProps {
   readonly businessId: string;
   readonly preferredVatCode?: VatCode;
@@ -53,13 +89,21 @@ interface CassaClientProps {
    * `discountGateError` nella server action.
    */
   readonly discountsUnlocked?: boolean;
+  /**
+   * Prodotti del catalogo mostrati come tile nello step carrello. Vuoto o
+   * assente = la griglia non compare e la cassa resta quella a importo libero.
+   */
+  readonly catalogItems?: readonly CatalogItem[];
 }
+
+const NO_CATALOG: readonly CatalogItem[] = [];
 
 export function CassaClient({
   businessId,
   preferredVatCode,
   printProfile,
   discountsUnlocked = false,
+  catalogItems = NO_CATALOG,
 }: CassaClientProps) {
   const defaultVat = preferredVatCode ?? FALLBACK_VAT;
   const router = useRouter();
@@ -128,56 +172,6 @@ export function CassaClient({
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
   const amountKeypadRef = useRef<NumericKeypadHandle>(null);
-
-  // Pre-popola il carrello se navigato dal catalogo
-  //   ?description=...&price=...&vatCode=...  → aggiunge direttamente al carrello
-  //   ?prefillDescription=...&prefillVatCode=... → apre il tastierino pre-compilato
-  useEffect(() => {
-    if (catalogParamConsumed.current) return;
-
-    const description = searchParams.get("description");
-    const price = searchParams.get("price");
-    const vatCode = searchParams.get("vatCode");
-
-    if (
-      description &&
-      price &&
-      vatCode &&
-      VAT_CODES.includes(vatCode as VatCode)
-    ) {
-      const parsedPrice = Number.parseFloat(price);
-      if (!Number.isNaN(parsedPrice) && parsedPrice >= 0) {
-        catalogParamConsumed.current = true;
-        addLine({
-          description,
-          quantity: 1,
-          grossUnitPrice: parsedPrice,
-          vatCode: vatCode as VatCode,
-        });
-        router.replace("/dashboard/cassa");
-      }
-      return;
-    }
-
-    const prefillDescription = searchParams.get("prefillDescription");
-    const prefillVatCode = searchParams.get("prefillVatCode");
-
-    if (
-      prefillDescription &&
-      prefillVatCode &&
-      VAT_CODES.includes(prefillVatCode as VatCode)
-    ) {
-      catalogParamConsumed.current = true;
-      // Init-from-URL al mount: caso d'uso che React docs "You Might Not Need an Effect" elenca tra le eccezioni.
-      /* eslint-disable react-hooks/set-state-in-effect */
-      setDescription(prefillDescription);
-      setVatCode(prefillVatCode as VatCode);
-      setStep("add-item");
-      /* eslint-enable react-hooks/set-state-in-effect */
-      router.replace("/dashboard/cassa");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const parsedAmount = amountCents / 100;
   const canAdd = amountCents > 0;
@@ -266,6 +260,57 @@ export function CassaClient({
     resetLineForm();
     setStep("cart");
   };
+
+  /**
+   * Un prodotto del catalogo entra nel carrello: con un prezzo valido come
+   * riga diretta (quantità 1, fusa con una riga identica da `addLine`), senza
+   * prezzo aprendo il tastierino con descrizione e IVA già impostate. Unico
+   * ingresso sia per il tap sulla griglia della cassa sia per l'arrivo dalla
+   * pagina Catalogo via query string.
+   */
+  const handleCatalogSelect = (item: CatalogSelection) => {
+    const price =
+      item.defaultPrice === null
+        ? Number.NaN
+        : Number.parseFloat(item.defaultPrice);
+    if (Number.isFinite(price) && price >= 0) {
+      addLine({
+        description: item.description,
+        quantity: 1,
+        grossUnitPrice: price,
+        vatCode: item.defaultVatCode,
+      });
+      return;
+    }
+    setDescription(item.description);
+    setVatCode(item.defaultVatCode);
+    setStep("add-item");
+  };
+
+  // Arrivo dalla pagina Catalogo:
+  //   ?description=...&price=...&vatCode=...  → aggiunge direttamente al carrello
+  //   ?prefillDescription=...&prefillVatCode=... → apre il tastierino pre-compilato
+  useEffect(() => {
+    if (catalogParamConsumed.current) return;
+
+    const fromCatalog = catalogItemFromParams(searchParams);
+    if (!fromCatalog) return;
+
+    catalogParamConsumed.current = true;
+    // Init-from-URL al mount: caso d'uso che React docs "You Might Not Need an Effect" elenca tra le eccezioni.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    handleCatalogSelect(fromCatalog);
+    router.replace("/dashboard/cassa");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Con il catalogo, tornare al carrello vuol dire tornare alla griglia: dal
+  // tastierino (più alto dello schermo) si rientrerebbe scrollati in basso,
+  // con i prodotti fuori vista. Senza catalogo lo scroll resta com'è.
+  const hasCatalog = catalogItems.length > 0;
+  useEffect(() => {
+    if (step === "cart" && hasCatalog) window.scrollTo({ top: 0 });
+  }, [step, hasCatalog]);
 
   // Auto-svuota il codice lotteria se il totale scende sotto €1 (es. dopo clearCart o
   // emissione di un nuovo scontrino): senza questo reset, il codice del cliente
@@ -608,6 +653,8 @@ export function CassaClient({
   }
 
   // ---- STEP: carrello (default) ----
+  // Con il catalogo la cassa diventa griglia + carrello, con totale e azioni
+  // in una barra fissa. Senza catalogo nulla cambia.
   return (
     <div className="mx-auto max-w-sm space-y-4">
       {/* Header */}
@@ -625,8 +672,19 @@ export function CassaClient({
         )}
       </div>
 
+      <CatalogGrid
+        items={catalogItems}
+        lines={lines}
+        onSelect={handleCatalogSelect}
+      />
+
       {/* Lista articoli o stato vuoto */}
-      {lines.length === 0 ? (
+      {lines.length === 0 && hasCatalog && (
+        <p className="text-muted-foreground rounded-xl border-2 border-dashed py-4 text-center text-sm">
+          Tocca un prodotto o «Importo libero».
+        </p>
+      )}
+      {lines.length === 0 && !hasCatalog && (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-12 text-center">
           <ShoppingCart
             className="text-muted-foreground h-10 w-10"
@@ -638,7 +696,8 @@ export function CassaClient({
             Premi il bottone + per iniziare.
           </p>
         </div>
-      ) : (
+      )}
+      {lines.length > 0 && (
         <div className="flex flex-col gap-2">
           {lines.map((line) => (
             <CartLineItem
@@ -665,8 +724,44 @@ export function CassaClient({
         </div>
       )}
 
-      {/* Totale */}
-      {lines.length > 0 && (
+      <CartFooter
+        sticky={hasCatalog}
+        total={lines.length > 0 ? total : null}
+        onAdd={() => setStep("add-item")}
+        onContinue={() => setStep("summary")}
+      />
+    </div>
+  );
+}
+
+/**
+ * Totale + azioni del carrello. `sticky` (cassa con catalogo) li fissa sopra
+ * la bottom nav e porta il totale dentro «Continua», al posto della riga
+ * «Totale»: carrello lungo o no, il totale da dire al cliente e «Importo
+ * libero» restano sotto il pollice, e l'altezza della riga torna al carrello.
+ * Senza catalogo la resa è quella di sempre. `total` è `null` a carrello
+ * vuoto: niente totale né «Continua».
+ */
+function CartFooter({
+  sticky,
+  total,
+  onAdd,
+  onContinue,
+}: Readonly<{
+  sticky: boolean;
+  total: number | null;
+  onAdd: () => void;
+  onContinue: () => void;
+}>) {
+  return (
+    <div
+      className={
+        sticky
+          ? "bg-background sticky bottom-[calc(4rem_+_env(safe-area-inset-bottom))] -mx-4 border-t px-4 py-3 md:bottom-0 md:mx-0 md:px-0"
+          : "space-y-4"
+      }
+    >
+      {total !== null && !sticky && (
         <div className="bg-muted flex items-center justify-between rounded-xl px-4 py-3">
           <span className="font-medium">Totale</span>
           <span className="text-xl font-bold tabular-nums">
@@ -675,27 +770,32 @@ export function CassaClient({
         </div>
       )}
 
-      {/* Azioni */}
       <div className="flex gap-3">
         <Button
           type="button"
-          variant={lines.length === 0 ? "default" : "outline"}
+          variant={total === null ? "default" : "outline"}
           size="lg"
           className="flex-1"
-          onClick={() => setStep("add-item")}
+          onClick={onAdd}
         >
           <Plus className="mr-2 h-5 w-5" />
-          Aggiungi
+          {sticky ? "Importo libero" : "Aggiungi"}
         </Button>
 
-        {lines.length > 0 && (
+        {total !== null && (
           <Button
             type="button"
             size="lg"
             className="flex-1"
-            onClick={() => setStep("summary")}
+            onClick={onContinue}
           >
-            Continua
+            {sticky ? (
+              <span className="tabular-nums">
+                Continua · {formatCurrency(total)}
+              </span>
+            ) : (
+              "Continua"
+            )}
           </Button>
         )}
       </div>

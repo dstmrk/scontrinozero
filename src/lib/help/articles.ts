@@ -24,7 +24,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-10-15",
+    dateModified: "2026-11-19",
     title: "Aliquote IVA e catalogo prodotti",
     metaTitle: "Come gestire le aliquote IVA e il catalogo prodotti",
     description:
@@ -305,7 +305,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "primo-scontrino": {
     slug: "primo-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-11-03",
+    dateModified: "2026-11-19",
     title: "Come emettere il primo scontrino elettronico",
     metaTitle: "Come emettere il primo scontrino elettronico",
     description:
