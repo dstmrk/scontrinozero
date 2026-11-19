@@ -90,7 +90,20 @@ class Cli:
     def tool(self, name, args):
         return self.post({"jsonrpc":"2.0","id":1,"method":"tools/call",
                           "params":{"name":name,"arguments":args}})
+    def close(self):  # sempre, anche su errore: vedi Gotcha 12
+        if not self.sid: return
+        subprocess.run(["curl", "-sS", "--noproxy", "*", "--max-time", "10",
+                        "-o", "/dev/null", "-X", "DELETE", EP,
+                        "-H", "CF-Access-Client-Id: " + CID,
+                        "-H", "CF-Access-Client-Secret: " + CSEC,
+                        "-H", "mcp-session-id: " + self.sid])
 ```
+
+Avvolgi ogni sessione in `try: ... finally: cli.close()`.
+
+L'output di `tools/call` **ripete il codice eseguito**, header del service
+token compresi: prima di stamparlo tieni solo le sezioni `### Result`,
+`### Error` e `### Page`, o maschera `CID`/`CSEC`.
 
 ## Tool principali (tutti `browser_*`)
 
@@ -289,6 +302,37 @@ defined`), quindi **niente `fs`**: non puoi scrivere un file sul server MCP
     cattura 795×1720 (~140 KB di base64) torna senza problemi se la sessione è
     giovane. Se invece hai già speso il budget di Gotcha 1, la stessa call
     muore — e sembra un problema di payload quando è un problema di età.
+
+12. **Una sessione non chiusa tiene occupato il Chromium.** Il server usa un
+    profilo persistente: se una sessione resta aperta, ogni `init` successivo
+    risponde `Browser is already in use for …/ms-playwright-mcp/…` (con
+    l'invito a usare `--isolated`), anche le chiamate a `browser_close`. Il 2026-11-19 il blocco è durato oltre 15
+    minuti senza scadere: l'ha sciolto solo un `docker restart` del container
+    sul Pi, fatto dall'utente. Da qui non c'è rimedio, quindi la prevenzione è
+    chiudere **ogni** sessione con `DELETE /mcp` (`close()` dell'helper).
+    Dopo averlo adottato il blocco non si è ripresentato su ~30 sessioni.
+    `--isolated` lato server eviterebbe il problema, ma azzera i cookie di
+    login a ogni sessione: con il budget di Gotcha 1 non conviene.
+
+13. **Dopo un riavvio del container il login non c'è più.** I cookie vivono
+    nel profilo del browser, che il riavvio azzera. Il primo sintomo è un
+    `waitForSelector('h1')` che va in timeout perché `/dashboard` rimanda a
+    `/login?redirect=…`: leggi `page.url()` prima di dare la colpa al Pi
+    freddo. Il login da rifare: `fill` di email e password dopo un
+    `waitForTimeout(600)` di idratazione, poi click DOM sul `submit`. Il
+    redirect a `/dashboard` arriva **dopo** ~2s, quindi la call può tornare
+    ancora su `/login` senza errori: conferma con una navigazione nella
+    sessione successiva. La sessione di login può anche scadere a metà
+    lavoro (succede se l'utente fa login altrove con lo stesso account):
+    stesso sintomo, stesso rimedio.
+
+14. **L'eliminazione dal catalogo è ottimistica: la riga sparisce prima della
+    scrittura.** Aspettare che il bottone `Elimina <nome>` esca dal DOM non
+    conferma niente. Chiudendo la sessione subito dopo, due eliminazioni su
+    sei non sono arrivate al server. Ricetta: modalità «Modifica», per ogni
+    riga click DOM sul cestino (`button[aria-label^="Elimina "]`) e poi sul
+    bottone di conferma `Elimina`; quindi **rileggi la lista da una sessione
+    nuova** e ripeti finché mostra «Nessun prodotto nel catalogo».
 
 ## Recipe: scrittura via form-dialog + Server Action (es. add catalogo)
 
