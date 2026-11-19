@@ -1,6 +1,6 @@
 ---
 name: quality-gate
-description: Use when a local quality gate fails or before writing code that could trip one — `npm run test:coverage` failing with "does not meet per-file threshold (80%)" or an aggregate coverage threshold, deciding whether a file belongs in the coverage `exclude` of vitest.config.ts, `npm run lint` failing on an `sonarjs/*` rule (cognitive-complexity > 15, no-nested-conditional, slow-regex, cors, no-skipped-tests, prefer-specific-assertions…) configured in eslint.config.mjs, or Gitleaks findings — curl-auth-header / generic-api-key false positives on API-key placeholders in docs (closed by a secret-shape allowlist in .gitleaks.toml, NOT by .gitleaksignore fingerprints, which die at every squash merge). Also covers why SonarCloud was removed (2026-11) and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
+description: Use when a local quality gate fails or before writing code that could trip one — `npm run test:coverage` failing with "does not meet per-file threshold (80%)" or an aggregate coverage threshold, deciding whether a file belongs in the coverage `exclude` of vitest.config.ts, `npm run lint` failing on an `sonarjs/*` rule (cognitive-complexity > 15, no-nested-conditional, slow-regex, cors, no-skipped-tests, prefer-specific-assertions…) configured in eslint.config.mjs, or Gitleaks findings — curl-auth-header / generic-api-key false positives on API-key placeholders in docs (closed by a secret-shape allowlist in .gitleaks.toml, NOT by .gitleaksignore fingerprints, which die at every squash merge). Also covers why Swift is deliberately left out of the CodeQL default setup (Capacitor SPM paths into mobile/node_modules break autobuild) and when to reopen it, why SonarCloud was removed (2026-11) and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
 ---
 
 # quality-gate — i gate di qualità, tutti locali
@@ -149,6 +149,35 @@ tar xzf gl.tar.gz gitleaks
 Due asserzioni, non una: il falso positivo sparisce **e** un segreto dalla
 forma reale, incollato nello stesso file, viene ancora trovato. La seconda è
 quella che distingue un allowlist da una regola spenta.
+
+---
+
+## CodeQL: Swift escluso dal default setup
+
+Il default setup scansiona `actions`, `java-kotlin` e
+`javascript-typescript`. Swift è rilevato (`mobile/ios/`) ma **non è
+spuntato, ed è voluto**: non va riattivato come se fosse una svista.
+
+- **Perché fallisce.** Il `Package.swift` di
+  `mobile/ios/App/CapApp-SPM`, generato da Capacitor, punta ai plugin
+  con path locali verso `mobile/node_modules/`. L'autobuild non esegue
+  `npm install` in `mobile/`, quindi `xcodebuild` (e poi il fallback
+  `swift build`) si ferma su «the package at
+  '.../node_modules/@capacitor-community/bluetooth-le' cannot be
+  accessed». Dopo il primo run fallito (2026-11-17) GitHub ha tolto
+  Swift dalla configurazione da solo, con il job «Adjust
+  Configuration» in coda al run.
+- **Perché va bene così.** Lo Swift del repo è template Capacitor
+  (`AppDelegate.swift`, `SceneDelegate.swift`, circa 70 righe): non c'è
+  taint da analizzare, e il build costava ~13 minuti di runner macOS a
+  ogni push.
+- **Il banner residuo** («Code Scanning has never received a successful
+  scan for this configuration», categoria `/language:swift`) è lo stato
+  di quella configurazione orfana, non degli altri linguaggi.
+- **Quando riaprire.** Se in `mobile/ios/App` entra Swift scritto da noi
+  (un plugin nativo nostro, logica nell'`AppDelegate`): advanced setup
+  con un `.github/workflows/codeql.yml` che fa `npm ci` in `mobile/`
+  prima di un build manuale `xcodebuild`, al posto dell'autobuild.
 
 ---
 
