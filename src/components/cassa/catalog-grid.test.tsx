@@ -117,6 +117,15 @@ describe("CatalogGrid", () => {
     expect(onSelect).toHaveBeenCalledWith(caffe);
   });
 
+  it("due tap rapidi sulla tile restano due tap, non uno zoom (touch-action)", () => {
+    // Senza `touch-action: manipulation` iOS Safari può leggere il secondo tap
+    // ravvicinato come gesto di zoom e perdere il pezzo: "due caffè" diventa uno.
+    render(<CatalogGrid items={[item()]} lines={[]} onSelect={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Caffè/ })).toHaveClass(
+      "[touch-action:manipulation]",
+    );
+  });
+
   it("il badge mostra quante unità del prodotto sono nel carrello", () => {
     render(
       <CatalogGrid
