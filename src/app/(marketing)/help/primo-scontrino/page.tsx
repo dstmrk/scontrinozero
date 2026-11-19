@@ -97,17 +97,22 @@ export default function PrimoScontrinoPage() {
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Riga manuale rapida</strong> — premi il pulsante{" "}
-            <strong>+</strong> nel carrello, inserisci il prezzo con il
-            tastierino numerico, scegli quantità e aliquota IVA, quindi premi{" "}
-            <strong>Aggiungi</strong>. La descrizione è facoltativa: se la lasci
-            vuota la riga comparirà come &quot;Vendita&quot;.
+            <strong>Riga manuale rapida</strong> — premi{" "}
+            <strong>Aggiungi</strong> nel carrello (se hai prodotti in catalogo
+            il pulsante si chiama <strong>Importo libero</strong>), inserisci il
+            prezzo con il tastierino numerico, scegli quantità e aliquota IVA,
+            quindi premi <strong>Aggiungi</strong>. La descrizione è
+            facoltativa: se la lasci vuota la riga comparirà come
+            &quot;Vendita&quot;.
           </li>
           <li>
-            <strong>Prodotti dal catalogo</strong> — tocca un prodotto salvato
-            in precedenza nel Catalogo per inserirlo nel carrello con prezzo e
-            IVA già compilati (piano Starter: fino a 5 prodotti nel catalogo;
-            piano Pro: illimitati).
+            <strong>Prodotti dal catalogo</strong> — i prodotti salvati nel
+            Catalogo compaiono in Cassa sopra il carrello. Ogni tocco aggiunge
+            un pezzo con prezzo e IVA già compilati, senza cambiare schermata:
+            tocca tre volte lo stesso prodotto e la riga avrà quantità 3. Se il
+            prodotto non ha un prezzo si apre il tastierino per digitare
+            l&apos;importo (piano Starter: fino a 5 prodotti nel catalogo; piano
+            Pro: illimitati).
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">

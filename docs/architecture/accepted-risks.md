@@ -279,6 +279,37 @@ consegnare, `robots: noindex`. Fix (tabella + migration + route + UI) sproporzio
 per un hobby project. **Riaprire:** se lo scontrino includerà dati anagrafici del
 cliente, o se servirà audit/revoca degli accessi.
 
+## API key e token d'invito salvati come SHA-256, non con un hash lento (CodeQL alert #2, #3)
+
+CodeQL `js/insufficient-password-hash` segnala `hashApiKey()` in
+`src/lib/api-keys.ts` perché legge il valore di `generateApiKey()` come una
+password. Non lo è: il body è `randomBytes(36)`, 288 bit da CSPRNG. Un hash
+lento (bcrypt, scrypt, Argon2) rende cara ogni ipotesi contro un segreto a
+bassa entropia scelto da una persona; contro 2^288 combinazioni un leak di
+`key_hash` resta inattaccabile anche a 10^12 SHA-256 al secondo. È la scelta di
+GitHub e Stripe per i token generati.
+
+Un hash lento costerebbe due cose senza guadagno: il salt casuale rompe il
+lookup per uguaglianza su `idx_api_keys_key_hash` (`authenticateApiKey()` in
+`src/lib/api-auth.ts` fa `eq(apiKeys.keyHash, hash)`), e ogni richiesta
+`/api/v1` pagherebbe 50-100 ms di CPU. Scartato anche l'HMAC con pepper: un
+segreto in più da gestire, e ruotarlo invalida tutte le chiavi emesse.
+L'alert è chiuso come *false positive* nella UI di code scanning e tornerà se
+il codice di hashing cambia.
+
+L'alert #3 è lo stesso caso su `hashInviteToken()` in
+`src/lib/collaborator-invites.ts`: il token è `randomBytes(32)`, 256 bit da
+CSPRNG, e il lookup in `joinBusinessOrRollback()` (`src/server/auth-actions.ts`)
+filtra per uguaglianza su `token_hash`. CodeQL lo collega a `password` e
+`confirmPassword` perché arrivano nello stesso `FormData` di
+`acceptCollaboratorInvite()`, e il modello di `FormData.get()` non distingue
+la chiave letta. Il valore hashato resta il token, mai la password, che va a
+Supabase Auth. Chiuso anch'esso come *false positive*.
+
+**Riaprire:** se le chiavi o i token diventano scelti dall'utente o scendono sotto
+128 bit di entropia (allora hash lento o HMAC con pepper), o se il threat model
+deve coprire il furto del solo DB con chiavi ancora valide (allora pepper).
+
 ## Referral bonus: limiti dopo lo split trial-vs-Stripe (PR #670)
 
 `src/lib/plans.ts` (`fetchPlan`), `src/server/onboarding-actions.ts`
