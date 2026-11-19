@@ -279,7 +279,7 @@ consegnare, `robots: noindex`. Fix (tabella + migration + route + UI) sproporzio
 per un hobby project. **Riaprire:** se lo scontrino includerà dati anagrafici del
 cliente, o se servirà audit/revoca degli accessi.
 
-## API key salvate come SHA-256, non con un hash lento (CodeQL alert #2)
+## API key e token d'invito salvati come SHA-256, non con un hash lento (CodeQL alert #2, #3)
 
 CodeQL `js/insufficient-password-hash` segnala `hashApiKey()` in
 `src/lib/api-keys.ts` perché legge il valore di `generateApiKey()` come una
@@ -297,7 +297,16 @@ segreto in più da gestire, e ruotarlo invalida tutte le chiavi emesse.
 L'alert è chiuso come *false positive* nella UI di code scanning e tornerà se
 il codice di hashing cambia.
 
-**Riaprire:** se le chiavi diventano scelte dall'utente o il body scende sotto
+L'alert #3 è lo stesso caso su `hashInviteToken()` in
+`src/lib/collaborator-invites.ts`: il token è `randomBytes(32)`, 256 bit da
+CSPRNG, e il lookup in `joinBusinessOrRollback()` (`src/server/auth-actions.ts`)
+filtra per uguaglianza su `token_hash`. CodeQL lo collega a `password` e
+`confirmPassword` perché arrivano nello stesso `FormData` di
+`acceptCollaboratorInvite()`, e il modello di `FormData.get()` non distingue
+la chiave letta. Il valore hashato resta il token, mai la password, che va a
+Supabase Auth. Chiuso anch'esso come *false positive*.
+
+**Riaprire:** se le chiavi o i token diventano scelti dall'utente o scendono sotto
 128 bit di entropia (allora hash lento o HMAC con pepper), o se il threat model
 deve coprire il furto del solo DB con chiavi ancora valide (allora pepper).
 
