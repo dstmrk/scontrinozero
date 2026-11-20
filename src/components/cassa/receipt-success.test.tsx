@@ -29,6 +29,11 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  // `navigator` è il globale di Node e con `isolate: false` sopravvive al
+  // file: share e clipboard definiti qui non devono arrivare al successivo.
+  const nav = navigator as { share?: unknown; clipboard?: unknown };
+  delete nav.share;
+  delete nav.clipboard;
 });
 
 describe("ReceiptSuccess", () => {

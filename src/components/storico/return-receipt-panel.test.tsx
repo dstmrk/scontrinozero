@@ -105,7 +105,6 @@ const onClose = vi.fn();
 const onReturned = vi.fn();
 
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   mockPrinter.current = {
     status: "connected",

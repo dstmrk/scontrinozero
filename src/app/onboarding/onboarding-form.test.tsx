@@ -265,8 +265,11 @@ describe("OnboardingForm — credenziali rifiutate", () => {
     expect(
       await screen.findByText("Portale AdE non raggiungibile."),
     ).toBeInTheDocument();
+    // findBy, non getBy: il messaggio e la fine del pending ("Verifica in
+    // corso…") possono arrivare in due commit distinti, e sotto carico il
+    // secondo cadeva dopo l'asserzione sincrona.
     expect(
-      screen.getByRole("button", { name: "Verifica connessione" }),
+      await screen.findByRole("button", { name: "Verifica connessione" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/Riprovare con gli stessi dati/),

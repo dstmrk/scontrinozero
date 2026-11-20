@@ -152,6 +152,31 @@ function setupTransactionPassthrough() {
 import { isNull, lte, or } from "drizzle-orm";
 import { POST } from "./route";
 
+// vi.clearAllMocks() nei beforeEach dei describe azzera le chiamate, non i
+// mockReturnValue: un describe che non configurava un mock (es. mockUpdate
+// per chiudere il claim dell'evento) passava solo se un describe precedente
+// l'aveva lasciato pronto, e falliva quando l'ordine casuale lo eseguiva per
+// primo. Qui ogni mock riparte vuoto: ogni describe dichiara ciò che usa.
+beforeEach(() => {
+  for (const mock of [
+    mockConstructEvent,
+    mockSubscriptionsRetrieve,
+    mockInsert,
+    mockUpdate,
+    mockSelect,
+    mockDelete,
+    mockTransaction,
+    mockPlanFromPriceId,
+    mockIntervalFromPriceId,
+    mockLoggerError,
+    mockLoggerWarn,
+    mockNotifyOperator,
+    mockNotifyCollaboratorsOfSuspension,
+  ]) {
+    mock.mockReset();
+  }
+});
+
 describe("POST /api/stripe/webhook — request validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -500,6 +525,8 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    // L'UPDATE che chiude il claim dell'evento (completedAt) a fine handler.
+    mockUpdate.mockReturnValue(makeUpdateBuilder());
   });
 
   it("ignora la sessione se subscription non è una stringa", async () => {
@@ -714,6 +741,8 @@ describe("POST /api/stripe/webhook — charge.dispute.created", () => {
     mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    // L'UPDATE che chiude il claim dell'evento (completedAt) a fine handler.
+    mockUpdate.mockReturnValue(makeUpdateBuilder());
   });
 
   it("loga l'errore con critical: true e i dettagli della disputa", async () => {

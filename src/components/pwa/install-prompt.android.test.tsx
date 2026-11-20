@@ -68,6 +68,10 @@ beforeEach(() => {
 
 afterEach(() => {
   stubUserAgent(originalUserAgent);
+  // `navigator` è il globale di Node (jsdom non lo sostituisce) e con
+  // `isolate: false` sopravvive al file: uno `standalone` lasciato qui faceva
+  // credere a install-prompt.test.tsx di girare già come PWA installata.
+  delete (navigator as Navigator & { standalone?: boolean }).standalone;
   vi.clearAllMocks();
 });
 

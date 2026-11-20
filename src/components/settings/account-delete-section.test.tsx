@@ -11,9 +11,7 @@ vi.mock("@/server/account-actions", () => ({
   deleteAccount: (fd: FormData) => mockDeleteAccount(fd),
 }));
 
-// scrollIntoView richiesto da Radix UI Dialog
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   mockDeleteAccount.mockResolvedValue({});
 });

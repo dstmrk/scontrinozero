@@ -322,17 +322,32 @@ Note che non si deducono dai numeri:
 > sempre la **suite intera** (`npm run test:coverage`), non il singolo file:
 > un modulo può avere più suite colocate.
 
-### Ordine casuale (`sequence.shuffle`)
+### Ordine casuale e `isolate: false`
 
-`vitest.config.ts` esegue file e test in **ordine casuale** a ogni run: è il
-gate per tutti i leak descritti sopra. Un rosso che compare "a caso" in CI non
-si riprova, si riproduce: copia il seed dalla testa dell'output (`Running tests
-with seed "…"`) e lancia `npx vitest run <file> --sequence.seed=<seed>`. I
-quattro leak trovati all'attivazione avevano tre forme:
+`vitest.config.ts` gira con `pool: "threads"`, `isolate: false` e i **test
+dentro ogni file in ordine casuale** (`sequence.shuffle.tests`). I file di un
+worker condividono registry dei moduli, `globalThis`, prototype di jsdom e i
+moduli di `node_modules` (React, Testing Library, l'SDK Sentry: non li ricarica
+nessun reset). `tests/reset-between-files.ts` azzera a fine file quello che si
+può azzerare (mock, `process.env` com'era all'avvio del worker, globali
+stubbati, timer, moduli, `processSingleton`),
+con il contratto in `tests/unit/reset-between-files.test.ts`.
+
+Un rosso che compare "a caso" in CI non si riprova, si riproduce. Il seed è in
+testa all'output (`Running tests with seed "…"`): prima
+`npx vitest run <file> --sequence.seed=<seed>`. Se da solo passa, è un leak fra
+file: `npx vitest doctor` prova la suite con l'ordine dei file mescolato, e per
+la coppia colpevole serve l'ordine esatto del worker (logga
+`threadId` + `expect.getState().testPath` in un `beforeAll` del setup, poi
+rigioca la catena con `--no-file-parallelism`).
+
+Le forme trovate finora:
 
 - **Default ereditato da un `describe` vicino.** Un blocco non imposta un mock
-  (es. `mockGetPlan`) e funziona perché il blocco precedente l'ha lasciato
-  configurato. Fix: ogni `beforeEach` imposta tutto ciò che il suo codice legge.
+  (`mockGetPlan`, l'UPDATE che chiude il claim del webhook Stripe) e funziona
+  perché il blocco precedente l'ha lasciato pronto. Fix: un `beforeEach` in
+  testa al file che fa `mockReset()` dei mock, poi ogni `describe` dichiara ciò
+  che il suo codice legge.
 - **Override che sopravvive.** `vi.clearAllMocks()` azzera le chiamate, non le
   implementazioni né le code `*Once`. Fix: default di modulo passati a
   `vi.fn(impl)` (non `vi.fn().mockReturnValue(x)`) e `vi.resetAllMocks()` nel
@@ -340,12 +355,27 @@ quattro leak trovati all'attivazione avevano tre forme:
   `(_set: Record<string, unknown>) => …`), altrimenti `mock.calls[0][0]` non
   compila. Mai compensare a valle con un "un test precedente lascia X":
   è il sintomo, non il fix.
-- **Stato di processo, non di modulo.** Un modulo letto all'import (env) va
-  re-importato dopo `vi.resetModules()` in **ogni** test, e `vi.unstubAllEnvs()`
-  va in `afterEach`, non in fondo al corpo del test. Un side effect di libreria
-  che vive per processo (`Sentry.init` crea un suo `setInterval` una volta sola)
-  falsa i conteggi esatti del primo test che lo attraversa: mocka il modulo che
-  lo innesca.
+- **Env e moduli letti all'import.** Re-import dopo `vi.resetModules()` in
+  **ogni** test, e `vi.unstubAllEnvs()` in `afterEach`, non in fondo al corpo.
+  Fra file l'env lo ripristina il reset anche se assegnato a mano; dentro un
+  file no: preferisci `vi.stubEnv` a `process.env.X = …`. Un env lasciato da
+  un altro file non fa fallire i test, cambia il ramo preso: la coverage dei
+  branch che varia col seed è il sintomo da inseguire.
+- **Prototype assegnato a mano.** `HTMLElement.prototype.scrollIntoView =
+vi.fn()` non lo ripristina nessun reset e oscura lo spy di un altro file. I
+  polyfill d'ambiente vanno in `tests/setup.ts`, l'osservazione con
+  `vi.spyOn(Proto, "metodo")`. Gate:
+  `tests/unit/no-prototype-assignment.contract.test.ts`.
+- **SDK vero con stato di processo.** Un `Sentry.init` reale aggancia
+  l'instrumentation HTTP (OpenTelemetry) al suo client per tutto il thread, e
+  crea un `setInterval` suo una volta sola. Un test che attraversa
+  `registerNode()` mocka `../sentry.server.config`. Un test che ha davvero
+  bisogno dell'SDK vero va in `REAL_SDK_TESTS` (`vitest.config.ts`), che gira
+  nel progetto `node-isolated` con un worker suo.
+- **`navigator` è il globale di Node.** jsdom non lo sostituisce, quindi una
+  proprietà definita con `Object.defineProperty(navigator, …)` sopravvive al
+  file. Chi la definisce la cancella in `afterEach` (`standalone`, `share`), o
+  usa `vi.stubGlobal("navigator", …)`, che il reset fra file ripristina.
 
 ---
 

@@ -47,9 +47,7 @@ vi.mock("@/server/onboarding-actions", () => ({
 
 let openSpy: ReturnType<typeof vi.fn>;
 
-// scrollIntoView richiesto da Radix UI Dialog
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   mockPrinter.current = printerState();
   openSpy = vi.fn();

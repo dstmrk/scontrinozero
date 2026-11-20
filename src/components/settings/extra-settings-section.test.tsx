@@ -5,14 +5,11 @@ import { ExtraSettingsSection } from "./extra-settings-section";
 // --- Helpers ---
 
 /**
- * `scrollIntoView` non è implementata in jsdom: senza lo stub il test che
- * verifica lo scroll fallirebbe con "not a function" invece di dire se la
- * sezione si è aperta.
+ * `scrollIntoView` è il no-op di `tests/setup.ts` (jsdom non lo implementa):
+ * lo spy lo osserva senza sostituirlo per sempre.
  */
-function stubScrollIntoView(): ReturnType<typeof vi.fn> {
-  const spy = vi.fn();
-  Element.prototype.scrollIntoView = spy;
-  return spy;
+function stubScrollIntoView() {
+  return vi.spyOn(Element.prototype, "scrollIntoView");
 }
 
 afterEach(() => {

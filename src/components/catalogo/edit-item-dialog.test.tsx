@@ -26,9 +26,7 @@ const UPDATED_ITEM: CatalogItem = {
   description: "Pizza marinara",
 };
 
-// scrollIntoView richiesto da Radix UI Select e Dialog
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   mockUpdateCatalogItem.mockResolvedValue({ item: UPDATED_ITEM });
 });

@@ -19,16 +19,33 @@ const JSDOM_TS_TESTS = [
   "src/hooks/use-printer.test.ts",
 ];
 
+// I test che inizializzano un SDK vero con stato di thread: `Sentry.init`
+// aggancia l'instrumentation HTTP (OpenTelemetry) al suo client per tutto il
+// thread, e nessun reset fra file la sgancia. Con `isolate: false` un init
+// precedente nello stesso worker rubava gli eventi a questo file (5 test
+// rossi, 2 run su 20), e il suo init restava attivo per i file dopo. Qui
+// girano in un worker loro.
+const REAL_SDK_TESTS = ["tests/unit/sentry-data-collection.test.ts"];
+
 export default defineConfig({
   plugins: [react()],
   test: {
     testTimeout: 15000,
-    // Ordine casuale di file e test a ogni run: un test che dipende dallo
-    // stato lasciato da un altro (code mockReturnValueOnce non consumate, env,
-    // moduli in cache) fallisce qui invece di restare verde per caso. Il seed
-    // è in testa all'output ("Running tests with seed ..."): si riproduce con
-    // `npx vitest run --sequence.seed=<seed>`. Skill `testing-patterns`.
-    sequence: { shuffle: true },
+    // Ordine casuale dei test dentro ogni file, a ogni run: un test che
+    // dipende dallo stato lasciato da un altro (code mockReturnValueOnce non
+    // consumate, mock configurati da un describe vicino) fallisce qui invece
+    // di restare verde per caso. Il seed è in testa all'output ("Running
+    // tests with seed ..."): si riproduce con `--sequence.seed=<seed>`.
+    // I file restano nell'ordine per durata di Vitest: mescolarli costava
+    // ~60s contro ~26s (i file lunghi finivano in coda), e i leak fra file
+    // emergono comunque, perché l'assegnazione dei file ai worker cambia a
+    // ogni run. Skill `testing-patterns`.
+    sequence: { shuffle: { files: false, tests: true } },
+    // Un solo contesto per worker invece di uno per file: setup di modulo,
+    // jsdom e import pesanti si pagano una volta. Lo stato che un file
+    // lascia al successivo lo azzera tests/reset-between-files.ts.
+    pool: "threads",
+    isolate: false,
     // Node ≥ 25 espone localStorage/sessionStorage su globalThis di default,
     // e populateGlobal di vitest salta le chiavi già presenti sul global: lo
     // Storage di jsdom non verrebbe mai installato e i test vedrebbero lo
@@ -117,7 +134,21 @@ export default defineConfig({
           include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
           // L'override di `exclude` scarta i default di Vitest (node_modules,
           // dist, ...): vanno re-inclusi esplicitamente.
-          exclude: [...configDefaults.exclude, ...JSDOM_TS_TESTS],
+          exclude: [
+            ...configDefaults.exclude,
+            ...JSDOM_TS_TESTS,
+            ...REAL_SDK_TESTS,
+          ],
+          setupFiles: ["./tests/reset-between-files.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "node-isolated",
+          environment: "node",
+          include: REAL_SDK_TESTS,
+          isolate: true,
         },
       },
       {
@@ -125,7 +156,7 @@ export default defineConfig({
         test: {
           name: "jsdom",
           environment: "jsdom",
-          setupFiles: ["./tests/setup.ts"],
+          setupFiles: ["./tests/reset-between-files.ts", "./tests/setup.ts"],
           include: [
             "src/**/*.test.tsx",
             "tests/**/*.test.tsx",
