@@ -31,21 +31,21 @@ const mockLimit = vi.fn();
 // `.where()` serve due chiamanti: i lookup doc usano `.limit()`, mentre
 // findClaimedTransactionIds (PR #653) awaita direttamente `.where()`.
 // Il thenable risolve [] (nessun idtrx già rivendicato → il match regge).
-const mockWhere = vi.fn().mockReturnValue({
+const mockWhere = vi.fn((..._args: unknown[]) => ({
   limit: mockLimit,
   then: (onFulfilled: (rows: unknown[]) => unknown) => onFulfilled([]),
-});
-const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+}));
+const mockFrom = vi.fn((..._args: unknown[]) => ({ where: mockWhere }));
+const mockSelect = vi.fn((..._args: unknown[]) => ({ from: mockFrom }));
 
 const mockDocumentReturning = vi.fn();
-const mockOnConflictDoNothing = vi
-  .fn()
-  .mockReturnValue({ returning: mockDocumentReturning });
-const mockDocumentInsertValues = vi
-  .fn()
-  .mockReturnValue({ onConflictDoNothing: mockOnConflictDoNothing });
-const mockLinesInsertValues = vi.fn().mockResolvedValue(undefined);
+const mockOnConflictDoNothing = vi.fn(() => ({
+  returning: mockDocumentReturning,
+}));
+const mockDocumentInsertValues = vi.fn((_values: Record<string, unknown>) => ({
+  onConflictDoNothing: mockOnConflictDoNothing,
+}));
+const mockLinesInsertValues = vi.fn(async (_values: unknown) => undefined);
 
 const mockInsert = vi.fn();
 
@@ -55,7 +55,7 @@ const mockInsert = vi.fn();
 // L'UPDATE ad ACCEPTED e quella di finalize-recovery leggono da qui il
 // timestamp fiscale con cui rispondono al client (migrazione 0031): la riga
 // restituita deve portarlo, come lo porterebbe il DB.
-const mockClaimReturning = vi.fn().mockResolvedValue([
+const mockClaimReturning = vi.fn(async (..._args: unknown[]) => [
   {
     id: "doc-claimed",
     adeRegisteredAt: new Date("2026-08-18T17:05:10.000Z"),
@@ -63,27 +63,29 @@ const mockClaimReturning = vi.fn().mockResolvedValue([
 ]);
 // `.where()` è terminale per gli UPDATE post-AdE (awaited direttamente → undefined)
 // ma il claim CAS vi concatena `.returning()`. Il thenable soddisfa entrambi.
-const mockUpdateWhere = vi.fn().mockReturnValue({
+const mockUpdateWhere = vi.fn((..._args: unknown[]) => ({
   returning: mockClaimReturning,
   then: (onFulfilled: (value: undefined) => unknown) => onFulfilled(undefined),
-});
-const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
-const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
+}));
+const mockUpdateSet = vi.fn((_set: Record<string, unknown>) => ({
+  where: mockUpdateWhere,
+}));
+const mockUpdate = vi.fn((..._args: unknown[]) => ({ set: mockUpdateSet }));
 
-const mockTransaction = vi
-  .fn()
-  .mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+const mockTransaction = vi.fn(
+  async (callback: (tx: unknown) => Promise<unknown>) => {
     const tx = { select: mockSelect, insert: mockInsert, update: mockUpdate };
     return callback(tx);
-  });
+  },
+);
 
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({
+  getDb: vi.fn(() => ({
     select: mockSelect,
     insert: mockInsert,
     update: mockUpdate,
     transaction: mockTransaction,
-  }),
+  })),
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -96,9 +98,10 @@ const mockLogout = vi.fn();
 const mockSubmitSale = vi.fn();
 // Lookup AdE pre-retry (PR #653): default "nessun match" → il recovery
 // procede col re-submit come prima. Override per-test per match/ambiguous/throw.
-const mockSearchDocuments = vi
-  .fn()
-  .mockResolvedValue({ totalCount: 0, elencoRisultati: [] });
+const mockSearchDocuments = vi.fn(async (..._args: unknown[]) => ({
+  totalCount: 0,
+  elencoRisultati: [] as unknown[],
+}));
 const mockAdeClient = {
   login: mockLogin,
   logout: mockLogout,
@@ -108,7 +111,7 @@ const mockAdeClient = {
 // withAdeSession (PR #624) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitSale restano valide.
-const mockIsInteractiveSessionMissing = vi.fn().mockReturnValue(false);
+const mockIsInteractiveSessionMissing = vi.fn((..._args: unknown[]) => false);
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   isInteractiveSessionMissing: (...args: unknown[]) =>
@@ -130,13 +133,13 @@ vi.mock("@/lib/ade", () => ({
 // invariante #57 in runSubmitSale legge documentoCommerciale.ammontareComplessivo
 // e vendita[].importo, che devono riconciliare al cent. Override per-test con
 // mockReturnValueOnce per simulare un payload incoerente.
-const mockMapSaleToAdePayload = vi.fn().mockReturnValue({
+const mockMapSaleToAdePayload = vi.fn((..._args: unknown[]) => ({
   mapped: true,
   documentoCommerciale: {
     ammontareComplessivo: "20.00000000",
     vendita: [{ tipo: "PC", importo: "20.00" }],
   },
-});
+}));
 vi.mock("@/lib/ade/mapper", () => ({
   mapSaleToAdePayload: (...args: unknown[]) => mockMapSaleToAdePayload(...args),
 }));
@@ -187,7 +190,12 @@ const UI_ORIGIN = { memberId: "member-owner" };
 
 describe("emitReceiptForBusiness", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // resetAllMocks, non clearAllMocks: svuota anche le code *Once e gli
+    // override (mockRejectedValue sugli UPDATE, sul claim...) lasciati dal
+    // test precedente, e riporta ogni mock all'implementazione passata a
+    // vi.fn(impl) qui sopra. Con clearAllMocks la suite passava solo
+    // nell'ordine di dichiarazione (sequence.shuffle).
+    vi.resetAllMocks();
     process.env.ADE_MODE = "mock";
 
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
@@ -251,7 +259,7 @@ describe("emitReceiptForBusiness", () => {
       .map((c) => c[0])
       .find((set) => set.status === "ACCEPTED");
 
-    expect(acceptedSet.adeRegisteredAt).toEqual(
+    expect(acceptedSet?.adeRegisteredAt).toEqual(
       new Date("2026-08-18T17:05:10.000Z"),
     );
   });
@@ -1720,15 +1728,8 @@ describe("emitReceiptForBusiness", () => {
         updatedAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
-    // Un test precedente lascia mockUpdateWhere in stato "reject" (clearAllMocks
-    // non ripristina le implementazioni): finalizeSaleOnly ora concatena
-    // `.returning()`, quindi ripristiniamo il default e facciamo fallire il
-    // ramo `.returning()` (mockClaimReturning) in timeout.
-    mockUpdateWhere.mockReturnValue({
-      returning: mockClaimReturning,
-      then: (onFulfilled: (value: undefined) => unknown) =>
-        onFulfilled(undefined),
-    });
+    // finalizeSaleOnly concatena `.returning()`: è quel ramo
+    // (mockClaimReturning) a fallire in timeout.
     const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
     mockClaimReturning.mockRejectedValue(timeoutErr);
 
@@ -1752,22 +1753,6 @@ describe("emitReceiptForBusiness", () => {
   describe("motivo di mancata trasmissione", () => {
     const FRESH = () => new Date(Date.now() - 10_000);
     const STALE = () => new Date(Date.now() - 35 * 60 * 1000);
-
-    beforeEach(() => {
-      // I test sopra lasciano UPDATE e claim in stato "reject" (clearAllMocks
-      // non ripristina le implementazioni): torniamo ai default di modulo.
-      mockUpdateWhere.mockReturnValue({
-        returning: mockClaimReturning,
-        then: (onFulfilled: (value: undefined) => unknown) =>
-          onFulfilled(undefined),
-      });
-      mockClaimReturning.mockResolvedValue([
-        {
-          id: "doc-claimed",
-          adeRegisteredAt: new Date("2026-08-18T17:05:10.000Z"),
-        },
-      ]);
-    });
 
     function errorSets(): Array<Record<string, unknown>> {
       return mockUpdateSet.mock.calls

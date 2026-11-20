@@ -322,6 +322,31 @@ Note che non si deducono dai numeri:
 > sempre la **suite intera** (`npm run test:coverage`), non il singolo file:
 > un modulo può avere più suite colocate.
 
+### Ordine casuale (`sequence.shuffle`)
+
+`vitest.config.ts` esegue file e test in **ordine casuale** a ogni run: è il
+gate per tutti i leak descritti sopra. Un rosso che compare "a caso" in CI non
+si riprova, si riproduce: copia il seed dalla testa dell'output (`Running tests
+with seed "…"`) e lancia `npx vitest run <file> --sequence.seed=<seed>`. I
+quattro leak trovati all'attivazione avevano tre forme:
+
+- **Default ereditato da un `describe` vicino.** Un blocco non imposta un mock
+  (es. `mockGetPlan`) e funziona perché il blocco precedente l'ha lasciato
+  configurato. Fix: ogni `beforeEach` imposta tutto ciò che il suo codice legge.
+- **Override che sopravvive.** `vi.clearAllMocks()` azzera le chiamate, non le
+  implementazioni né le code `*Once`. Fix: default di modulo passati a
+  `vi.fn(impl)` (non `vi.fn().mockReturnValue(x)`) e `vi.resetAllMocks()` nel
+  `beforeEach`: il reset torna a `impl`. Tipa i parametri di `impl` (es.
+  `(_set: Record<string, unknown>) => …`), altrimenti `mock.calls[0][0]` non
+  compila. Mai compensare a valle con un "un test precedente lascia X":
+  è il sintomo, non il fix.
+- **Stato di processo, non di modulo.** Un modulo letto all'import (env) va
+  re-importato dopo `vi.resetModules()` in **ogni** test, e `vi.unstubAllEnvs()`
+  va in `afterEach`, non in fondo al corpo del test. Un side effect di libreria
+  che vive per processo (`Sentry.init` crea un suo `setInterval` una volta sola)
+  falsa i conteggi esatti del primo test che lo attraversa: mocka il modulo che
+  lo innesca.
+
 ---
 
 ## Aggiornare mock quando si introducono JOIN

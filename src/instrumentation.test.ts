@@ -26,6 +26,13 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminSupabaseClient: vi.fn(),
 }));
 
+// registerNode() importa sentry.server.config, e Sentry.init vero crea un
+// setInterval suo (flush dei client report) una sola volta per processo: lo
+// vedeva soltanto il primo test che attraversa il ramo nodejs, e i conteggi
+// esatti di setInterval dipendevano dall'ordine (sequence.shuffle). La config
+// Sentry ha la sua suite (tests/unit/sentry-configs.test.ts).
+vi.mock("../sentry.server.config", () => ({}));
+
 describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
 

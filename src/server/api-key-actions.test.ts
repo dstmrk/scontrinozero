@@ -166,6 +166,30 @@ const COLLABORATOR_MEMBERSHIP = {
   role: "collaborator",
 } as const;
 
+// vi.clearAllMocks() nei beforeEach dei describe azzera le chiamate ma NON le
+// code mockReturnValueOnce né i mockReturnValue: un test che esce prima di
+// consumare la sua sequenza di SELECT la lasciava al test successivo, e la
+// suite passava solo nell'ordine di dichiarazione (sequence.shuffle). Qui si
+// azzerano anche le implementazioni dei mock che ogni describe riconfigura.
+beforeEach(() => {
+  for (const mock of [
+    mockGetAuthenticatedUser,
+    mockCheckBusinessMembership,
+    mockGetEffectivePlan,
+    mockGetPlan,
+    mockCanUseApi,
+    mockGetApiKeyLimit,
+    mockGenerateApiKey,
+    mockIsNull,
+    mockSelect,
+    mockInsert,
+    mockUpdate,
+    mockTransaction,
+  ]) {
+    mock.mockReset();
+  }
+});
+
 describe("listApiKeys", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -452,6 +476,11 @@ describe("createApiKey — limite per piano", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessMembership.mockResolvedValue(OWNER_MEMBERSHIP);
     mockGetEffectivePlan.mockResolvedValue("pro");
+    mockGetPlan.mockResolvedValue({
+      plan: "pro",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
     mockCanUseApi.mockReturnValue(true);
     mockGenerateApiKey.mockReturnValue({
       raw: "szk_live_TESTKEY48CHARSLONGBODYXXXXXXXXXXXXXXXXXXXXXXXX",
