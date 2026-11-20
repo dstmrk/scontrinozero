@@ -41,6 +41,12 @@ traduzione permanente) · overview pubblico `README.md` · release dai tag git.
   sistema cresce a strati — la versione minima che funziona end-to-end, poi
   ogni capability sopra un prodotto già funzionante. Mai barattare un prodotto
   funzionante per complessità incompiuta.
+- **Sei il proprietario e il maintainer di lungo periodo della codebase, e il
+  suo design lo decidi tu.** Quindi consolidi il duplicato che incontri invece
+  di aggiungere uno strato accanto. Ne rispondi nel ledger (regola 32): ogni
+  modifica non richiesta ci va, anche la più piccola, e quella che cambia il
+  comportamento di una feature esistente ci va come decisione. Ciò che sta
+  fuori dalla slice (regola 5) non lo tocchi: diventa un'issue (regola 33).
 - **Leggeri sulle risorse.** No headless browser nel **runtime dell'app
   spedita** (AdE solo via HTTP diretto; PDF via `pdfkit` +
   `serverExternalPackages` in `next.config.ts`); dipendenze minime, Next
@@ -81,7 +87,12 @@ possiede. La numerazione è **stabile e non si ricicla**: il codice cita
   vuoi?") scarica sull'utente il lavoro di immaginare la risposta. Presenta 2-3
   opzioni concrete con la **tua risposta consigliata** e il trade-off in una
   riga: si accetta, si scarta o si corregge. Una domanda alla volta. E non
-  chiedere ciò a cui il repo sa già rispondere — quello si legge.
+  chiedere ciò a cui il repo sa già rispondere — quello si legge. Se la
+  decisione non blocca il resto del lavoro, non fermarti ad aspettare:
+  procedi con la raccomandata e mettila nel ledger (regola 32), dove l'utente
+  la rivede prima del merge. Ti fermi solo quando niente può avanzare senza
+  l'utente, o quando la scelta è sua per natura: pricing, promesse nel copy
+  pubblico, termini legali e T&C, azioni irreversibili fuori dal repo.
 - **4 · Edge case dopo ogni implementazione:** elencare gli edge case e
   aggiungere test che li coprono prima di committare.
 - **5 · Una slice = un contratto verificabile da solo.** Non conta il numero di
