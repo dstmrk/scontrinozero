@@ -21,9 +21,7 @@ const PERSISTED_ITEM: CatalogItem = {
   createdAt: new Date("2026-06-15"),
 };
 
-// scrollIntoView richiesto da Radix UI Select e Dialog
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   mockAddCatalogItem.mockResolvedValue({ item: PERSISTED_ITEM });
 });

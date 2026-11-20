@@ -58,6 +58,22 @@ if (typeof window !== "undefined" && globalThis.ResizeObserver === undefined) {
     ResizeObserverStub as unknown as typeof globalThis.ResizeObserver;
 }
 
+// jsdom non implementa `scrollIntoView`, che Radix (Select, Dialog) chiama al
+// mount. Il no-op sta qui, una volta, e non nei file: un'assegnazione diretta
+// su un prototype (`HTMLElement.prototype.scrollIntoView = vi.fn()`) non viene
+// mai ripristinata, e con `isolate: false` sopravviveva al file e oscurava lo
+// spy di un altro, più in basso nella catena dei prototype. Un test che vuole
+// osservare lo scroll usa `vi.spyOn(Element.prototype, "scrollIntoView")`,
+// che il reset fra file ripristina. Gate:
+// `tests/unit/no-prototype-assignment.contract.test.ts`.
+if (typeof window !== "undefined" && !("scrollIntoView" in Element.prototype)) {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: function scrollIntoView() {},
+  });
+}
+
 // jsdom tiene lo stesso Web Storage per tutti i test di un file: quello che un
 // test scrive (il carrello di `useCassa`, le preferenze stampante) lo eredita
 // il successivo. Il reset sta qui e non nei singoli file per lo stesso motivo

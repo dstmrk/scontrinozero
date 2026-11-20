@@ -15,6 +15,12 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminSupabaseClient: vi.fn(),
 }));
 
+// registerNode() importa sentry.server.config: senza mock, un Sentry.init
+// vero aggancia l'instrumentation HTTP (OpenTelemetry) al suo client per
+// tutto il thread, e con `isolate: false` la lascia ai file successivi dello
+// stesso worker. La config Sentry ha la sua suite (tests/unit/sentry-configs).
+vi.mock("../sentry.server.config", () => ({}));
+
 /**
  * `setMaxListeners` scrive `_maxListeners` sull'oggetto su cui è chiamato: sul
  * prototype significa "default per tutte le ServerResponse". Il valore va

@@ -23,9 +23,7 @@ vi.mock("@/server/catalog-actions", () => ({
   updateCatalogItem: (...args: unknown[]) => mockUpdateCatalogItem(...args),
 }));
 
-// scrollIntoView richiesto da Radix UI Dialog
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   mockDeleteCatalogItem.mockResolvedValue({});
   mockGetCatalogItems.mockResolvedValue([]);

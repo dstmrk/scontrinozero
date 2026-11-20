@@ -6,13 +6,8 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { VatSelector } from "./vat-selector";
-
-// jsdom non implementa scrollIntoView — richiesto da Radix UI Select
-beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
-});
 
 describe("VatSelector", () => {
   it("renderizza il trigger mostrando la descrizione del valore corrente", () => {

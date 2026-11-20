@@ -31,7 +31,6 @@ function renderList(members: MemberRow[] = [ANNA]) {
 }
 
 beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
   vi.mocked(removeCollaborator).mockResolvedValue({});
 });
