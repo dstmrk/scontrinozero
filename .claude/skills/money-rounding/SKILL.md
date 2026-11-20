@@ -43,8 +43,9 @@ ragione Postgres, ma se la formula stessa diverge il pannello mostra un incasso
 diverso da quello degli scontrini che lo compongono, e nessuno se ne accorge.
 
 Regola operativa: se tocchi `lineTotalCents`, apri anche `admin-sql.ts`
-nello stesso PR. Se stai per aggiungere un **secondo** gemello SQL, fermati e
-chiedi: la deroga vale per un'aggregazione cross-tenant, non per comodità.
+nello stesso PR. Un **secondo** gemello SQL è ammesso solo per
+un'aggregazione cross-tenant, mai per comodità; se lo aggiungi, va nel ledger
+(regola 32) come decisione, con il commento che cita l'altra formula.
 
 ### Se una superficie mostra UNA riga, c'è un helper anche per quella
 

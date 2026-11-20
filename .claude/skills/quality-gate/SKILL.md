@@ -183,8 +183,11 @@ spuntato, ed è voluto**: non va riattivato come se fosse una svista.
 
 ## Debug di CI failure opachi
 
-Quando un CI fail (Gitleaks, CodeQL, ecc.) **non è visibile** nel diff PR o
-nei log, **STOP e chiedere all'utente** l'info specifica (es. "quale riga segnala
-CodeQL?") invece di tentare blind fix. Tentativi a
-casaccio sprecano CI cycles e oscurano la root cause. Una domanda mirata =
-risposta in secondi; trial-and-error random = ore.
+Prima leggi quello che puoi leggere: log del job (`get_job_logs`) e
+annotazioni del check run (`get_check_run`). Se la causa di un CI fail
+(Gitleaks, CodeQL, ecc.) resta **non visibile** nel diff PR e nei log,
+**chiedi all'utente** l'info specifica (es. "quale riga segnala CodeQL?")
+invece di tentare blind fix, e intanto porti avanti la parte del lavoro che
+non dipende dalla risposta. Tentativi a casaccio sprecano CI cycles e
+oscurano la root cause. Una domanda mirata = risposta in secondi;
+trial-and-error random = ore.

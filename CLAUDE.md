@@ -80,7 +80,13 @@ possiede. La numerazione è **stabile e non si ricicla**: il codice cita
   checks verdi (CI). `merge_pull_request` è bloccato da hook. Il
   ledger lo ripeti anche in chat, perché il merge può avvenire prima che
   l'utente lo legga. Se un check resta rosso, la PR è tua finché non è verde;
-  un errore scoperto dopo il merge si corregge con una nuova PR.
+  un errore scoperto dopo il merge si corregge con una nuova PR. Questa regola
+  già autorizza, senza chiedere: commit e push sul branch di lavoro, aprire la
+  PR, abilitare l'auto-merge, mergiare `main` nel branch quando è `behind`,
+  aprire un'issue senza `ready` (regola 33). Chiedono conferma, ogni volta:
+  un tag di release (deploy in produzione), scritture su Stripe, Supabase o
+  qualunque DB remoto, mail o messaggi a persone, commenti su issue e PR di
+  altri.
 - **2 · TDD.** Test prima dell'implementazione. Ogni file con logica ha il suo
   test file (anche `instrumentation.ts` e simili bootstrap).
 - **3 · Ambiguità: proponi, non chiedere a vuoto.** Una domanda aperta ("come lo
