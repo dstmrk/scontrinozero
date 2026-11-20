@@ -2,7 +2,6 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import prettierConfig from "eslint-config-prettier";
-import prettierPlugin from "eslint-plugin-prettier";
 import vitest from "@vitest/eslint-plugin";
 import sonarjs from "eslint-plugin-sonarjs";
 
@@ -38,9 +37,7 @@ const eslintConfig = defineConfig([
     settings: {
       react: { version: "19" },
     },
-    plugins: { prettier: prettierPlugin },
     rules: {
-      "prettier/prettier": "error",
       // Honor the `_` prefix convention for intentionally unused variables/args.
       // Required when an interface or signature forces a parameter name (e.g.
       // route handlers `GET(_req)`, mock client `submitSale(_payload)`).

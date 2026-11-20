@@ -5,3 +5,8 @@ node_modules
 package-lock.json
 # Copia vendorizzata di cloudflare/security-audit-skill: identica all'upstream.
 .claude/skills/security-audit
+# Come i globalIgnores di eslint.config.mjs: generati, non codice nostro.
+public/sw.js
+public/sw.js.map
+mobile/ios
+mobile/android

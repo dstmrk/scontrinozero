@@ -247,6 +247,12 @@ jobs:
       - uses: ./.github/actions/setup-deps
       - name: Lint
         run: npm run lint
+      # La formattazione non passa più da ESLint (eslint-plugin-prettier era
+      # la regola più lenta, ~1/3 del lint): stesso perimetro, step suo.
+      # Resta nel job lint perché lint è un check obbligatorio del ruleset di
+      # main, un job nuovo non bloccherebbe il merge.
+      - name: Format check
+        run: npm run format:check
 
   type-check:
     needs: changes
