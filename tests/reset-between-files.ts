@@ -13,6 +13,10 @@ import { afterAll, vi } from "vitest";
  *   vi.stubEnv, e 31 file assegnano `process.env.X = …` direttamente. Un
  *   ADE_MODE lasciato da un file cambiava il ramo preso da auth-actions in un
  *   altro (la coverage dei branch variava col seed).
+ * - i listener aggiunti a window e document durante il file: sotto jsdom
+ *   la window è la stessa per tutti i file del worker, e un listener
+ *   registrato all'import da un modulo poi scartato da resetModules restava
+ *   attivo per sempre (install-prompt-store: preventDefault chiamato 2 volte)
  * - useRealTimers: un file che chiude con i fake timer attivi
  * - resetModules: moduli importati (e i loro singleton) e factory vi.mock
  * - i `processSingleton` (limiter, cache di sessione AdE, request context)
@@ -39,6 +43,41 @@ function workerStartEnv(): Readonly<Record<string, string | undefined>> {
 
 workerStartEnv();
 
+type ListenerArgs = Parameters<EventTarget["addEventListener"]>;
+const DOM_LISTENERS = Symbol.for("vitest.reset-between-files.dom-listeners");
+
+/**
+ * Registro dei listener aggiunti a window e document, installato una volta
+ * per worker (la window sopravvive ai file, quindi anche il wrapper).
+ */
+function domListeners(): Array<[EventTarget, ...ListenerArgs]> | null {
+  if (globalThis.window === undefined) return null;
+  const store = globalThis as Record<symbol, unknown>;
+  if (!store[DOM_LISTENERS]) {
+    const added: Array<[EventTarget, ...ListenerArgs]> = [];
+    for (const target of [globalThis.window, globalThis.document]) {
+      const original = target.addEventListener;
+      target.addEventListener = function (...args: ListenerArgs) {
+        added.push([target, ...args]);
+        return Reflect.apply(original, this, args);
+      };
+    }
+    store[DOM_LISTENERS] = added;
+  }
+  return store[DOM_LISTENERS] as Array<[EventTarget, ...ListenerArgs]>;
+}
+
+domListeners();
+
+function removeDomListeners(): void {
+  const added = domListeners();
+  if (!added) return;
+  for (const [target, type, listener, options] of added) {
+    target.removeEventListener(type, listener, options);
+  }
+  added.length = 0;
+}
+
 function restoreEnv(snapshot: Readonly<Record<string, string | undefined>>) {
   for (const key of Object.keys(process.env)) {
     if (!(key in snapshot)) delete process.env[key];
@@ -53,6 +92,7 @@ export function resetSharedStateBetweenFiles(): void {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   restoreEnv(workerStartEnv());
+  removeDomListeners();
   vi.useRealTimers();
   vi.resetModules();
   const store = globalThis as Record<symbol, unknown>;

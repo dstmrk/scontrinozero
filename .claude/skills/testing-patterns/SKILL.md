@@ -372,6 +372,12 @@ vi.fn()` non lo ripristina nessun reset e oscura lo spy di un altro file. I
   `registerNode()` mocka `../sentry.server.config`. Un test che ha davvero
   bisogno dell'SDK vero va in `REAL_SDK_TESTS` (`vitest.config.ts`), che gira
   nel progetto `node-isolated` con un worker suo.
+- **La `window` di jsdom è una per worker.** Proprietà e listener
+  sopravvivono al file. Il reset rimuove i listener aggiunti a `window` e
+  `document` durante il file (un modulo che si registra all'import, come
+  `install-prompt-store`, altrimenti ne lasciava uno per ogni re-import); le
+  proprietà aggiunte (`window.umami`, `window.Capacitor`) le cancella chi le
+  crea, in `afterEach`.
 - **`navigator` è il globale di Node.** jsdom non lo sostituisce, quindi una
   proprietà definita con `Object.defineProperty(navigator, …)` sopravvive al
   file. Chi la definisce la cancella in `afterEach` (`standalone`, `share`), o
