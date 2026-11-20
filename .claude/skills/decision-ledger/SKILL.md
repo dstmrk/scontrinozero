@@ -134,7 +134,12 @@ pending"), e il merge diretto è bloccato da `block-direct-merge.sh`: se aspetti
 i check verdi per abilitarlo, la PR resta ferma finché l'utente non la mergia
 a mano. Successo il 03/11/2026 con #1152 e #1153. Quindi il corpo con il
 ledger si scrive completo già in `create_pull_request`, e l'auto-merge si
-abilita nella chiamata successiva. Se un push successivo cambia una decisione,
+abilita nella chiamata successiva, senza niente in mezzo: la finestra è di
+pochi secondi. Misurato il 20/11/2026: su #1242 la chiamata a ~7s dalla
+creazione è passata; su #1243, a ~40s e accodata a un `update_pull_request`,
+i job veloci erano già verdi e CodeQL ancora in corso, lo stato era
+`unstable` e il tool l'ha rifiutata come "required checks are failing"
+senza alcun check rosso. Se un push successivo cambia una decisione,
 aggiorni il corpo prima che i check finiscano: l'auto-merge parte al verde e
 non aspetta il testo. Se la PR è già `clean`, lo dici in chat e il merge è
 dell'utente.
