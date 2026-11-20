@@ -139,10 +139,12 @@ pochi secondi. Misurato il 20/11/2026: su #1242 la chiamata a ~7s dalla
 creazione è passata; su #1243, a ~40s e accodata a un `update_pull_request`,
 i job veloci erano già verdi e CodeQL ancora in corso, lo stato era
 `unstable` e il tool l'ha rifiutata come "required checks are failing"
-senza alcun check rosso. Se un push successivo cambia una decisione,
-aggiorni il corpo prima che i check finiscano: l'auto-merge parte al verde e
-non aspetta il testo. Se la PR è già `clean`, lo dici in chat e il merge è
-dell'utente.
+senza alcun check rosso. Se un push successivo cambia una decisione o il
+costo, aggiorni il corpo **prima** del push, non dopo: l'auto-merge parte al
+verde e non aspetta il testo, e su una PR di sola doc il verde arriva in
+~15s. Sempre su #1243 il corpo aggiornato subito dopo il push è arrivato
+tardi: lo squash su `main` porta la tabella del costo vecchia. Se la PR è
+già `clean`, lo dici in chat e il merge è dell'utente.
 
 **Branch `behind`: l'auto-merge non riallinea.** Lo fai tu con un merge di
 `main` nel branch.
