@@ -358,7 +358,7 @@ estese alle classi:
 npx prettier --write src/<file>
 ```
 
-Altrimenti `npx prettier --check src/` fallisce in CI (vedi sezione "Pre-PR"
+Altrimenti `npm run format:check` fallisce in CI (vedi sezione "Pre-PR"
 di `CLAUDE.md`).
 
 `cn()` (`src/lib/utils.ts`) usa `tailwind-merge`: in caso di conflitto vince
