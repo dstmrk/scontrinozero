@@ -23,6 +23,12 @@ export default defineConfig({
   plugins: [react()],
   test: {
     testTimeout: 15000,
+    // Ordine casuale di file e test a ogni run: un test che dipende dallo
+    // stato lasciato da un altro (code mockReturnValueOnce non consumate, env,
+    // moduli in cache) fallisce qui invece di restare verde per caso. Il seed
+    // è in testa all'output ("Running tests with seed ..."): si riproduce con
+    // `npx vitest run --sequence.seed=<seed>`. Skill `testing-patterns`.
+    sequence: { shuffle: true },
     // Node ≥ 25 espone localStorage/sessionStorage su globalThis di default,
     // e populateGlobal di vitest salta le chiavi già presenti sul global: lo
     // Storage di jsdom non verrebbe mai installato e i test vedrebbero lo

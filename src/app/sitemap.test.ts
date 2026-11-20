@@ -1,10 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { categorySlugs } from "@/lib/per/categories";
 import { guideSlugs } from "@/lib/guide/articles";
 import { helpSlugs } from "@/lib/help/articles";
 import { toolSlugs } from "@/lib/strumenti/tools";
 
 describe("sitemap", () => {
+  // sitemap.ts calcola la base URL all'import: ogni test parte da un modulo
+  // fresco, e l'env stubbato da un test non deve sopravvivergli. Senza questi
+  // hook il risultato dipendeva dall'ordine dei test (sequence.shuffle).
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("returns all pages with correct structure", async () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
@@ -178,7 +189,6 @@ describe("sitemap", () => {
   it("derives the base from NEXT_PUBLIC_MARKETING_HOSTNAME (marketing apex, not the app domain)", async () => {
     vi.stubEnv("NEXT_PUBLIC_MARKETING_HOSTNAME", "test.scontrinozero.it");
 
-    vi.resetModules();
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
@@ -200,12 +210,9 @@ describe("sitemap", () => {
     ]) {
       expect(urls).toContain(`https://test.scontrinozero.it${path}`);
     }
-
-    vi.unstubAllEnvs();
   });
 
   it("includes lastModified as Date for all entries", async () => {
-    vi.resetModules();
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
@@ -215,7 +222,6 @@ describe("sitemap", () => {
   });
 
   it("uses the real registry dates as lastModified (not the build time)", async () => {
-    vi.resetModules();
     const { default: sitemap } = await import("./sitemap");
     const { guideArticles, guideSlugs } = await import("@/lib/guide/articles");
     const { helpArticles } = await import("@/lib/help/articles");
