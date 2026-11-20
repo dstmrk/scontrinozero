@@ -191,9 +191,9 @@ e bootstrap su DB pre-esistente: skill `db-migrations` (regola 11 sempre).
 ### Pre-PR
 
 ```bash
-npm run lint                # ESLint (NON esegue tsc)
+npm run lint                # ESLint (NON esegue tsc né Prettier)
+npm run format:check        # Prettier sui .js/.ts/.tsx; dopo classi Tailwind: prettier --write
 npm run type-check          # tsc --noEmit — job CI separato, fallisce PRIMA dei test
-npx prettier --check src/   # ⚠️ dopo modifiche a classi Tailwind: prettier --write
 npm run test:coverage       # tutti i test verdi, coverage non in calo
 npm run arch:check          # riferimenti a path e skill in docs/architecture/, .claude/skills/ e CLAUDE.md ancora vivi + codici voce HAR.md unici
 npm run migrations:check    # solo se hai toccato supabase/migrations/
