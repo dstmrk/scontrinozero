@@ -77,12 +77,14 @@ possiede. La numerazione è **stabile e non si ricicla**: il codice cita
 - **1 · Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre.
   Il merge lo fa GitHub: a PR finita (titolo e corpo con il ledger, regola 32)
   abiliti `enable_pr_auto_merge` in squash e GitHub mergia solo a required
-  checks verdi (CI). `merge_pull_request` è bloccato da hook. Il
+  checks verdi (CI). `merge_pull_request` è bloccato da hook, tranne
+  per una PR di Dependabot già `clean` (squash, `expectedHeadSha`). Il
   ledger lo ripeti anche in chat, perché il merge può avvenire prima che
   l'utente lo legga. Se un check resta rosso, la PR è tua finché non è verde;
   un errore scoperto dopo il merge si corregge con una nuova PR. Questa regola
   già autorizza, senza chiedere: commit e push sul branch di lavoro, aprire la
   PR, abilitare l'auto-merge, mergiare `main` nel branch quando è `behind`,
+  mergiare una PR di Dependabot che l'hook lascia passare,
   aprire un'issue senza `ready` (regola 33). Chiedono conferma, ogni volta:
   un tag di release (deploy in produzione), scritture su Stripe, Supabase o
   qualunque DB remoto, mail o messaggi a persone, commenti su issue e PR di
@@ -287,7 +289,9 @@ risolvere a una directory esistente sotto `.claude/skills`.
 - `.claude/hooks/block-commit-on-main.sh` — blocca `git commit` sul branch
   `main` (regola 1)
 - `.claude/hooks/block-direct-merge.sh` — blocca `merge_pull_request`: si usa
-  `enable_pr_auto_merge` (regola 1)
+  `enable_pr_auto_merge`. Unica eccezione, verificata sulla API pubblica di
+  GitHub: PR di `dependabot[bot]` in `mergeable_state` `clean`, squash, SHA
+  fissato (regola 1)
 - `.claude/hooks/check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit
   ai doc meta (regola 26)
 
