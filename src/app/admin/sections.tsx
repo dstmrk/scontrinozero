@@ -1,37 +1,28 @@
+import { cache } from "react";
+
 import { AdminAlert } from "@/components/admin/admin-alert";
 import {
-  AdminPaidUsersTable,
-  AdminRecentProfilesTable,
+  AdminSignupsTable,
   AdminStalePendingDocumentsTable,
-  AdminStalledOnboardingTable,
-  AdminTopMerchantsTables,
   AdminTrialActiveMerchantsTable,
   AdminTrialExpiringTable,
 } from "@/components/admin/admin-directory-tables";
+import { AdminFunnelCard } from "@/components/admin/admin-funnel-card";
+import { AdminTrialActiveKpiCard } from "@/components/admin/admin-kpi-cards";
 import {
-  AdminDocumentKpiCards,
-  AdminUserKpiCards,
-} from "@/components/admin/admin-kpi-cards";
-import { AdminTrialFunnelCard } from "@/components/admin/admin-trial-funnel-card";
-import {
-  getAdminPaidUsers,
-  getAdminRecentProfiles,
+  getAdminSignups,
   getAdminStalePendingDocuments,
-  getAdminStalledOnboarding,
-  getAdminTopMerchants,
-  getAdminTrialActiveMerchants,
+  getAdminTrialActive,
   getAdminTrialExpiring,
 } from "@/server/admin-directory";
-import {
-  getAdminDocumentKpis,
-  getAdminTrialFunnel,
-  getAdminUserKpis,
-} from "@/server/admin-metrics";
+import { getAdminFunnel } from "@/server/admin-metrics";
 import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 /**
- * Le dieci sezioni del pannello amministratore: una lettura, un boundary Suspense,
- * un pezzo di pagina.
+ * Le sezioni del pannello amministratore: un boundary Suspense, un pezzo di
+ * pagina, e di regola una lettura ciascuna. L'eccezione sono le due sezioni
+ * dei trial attivi (KPI e tabella), che condividono una lettura via
+ * `loadTrialActive`.
  *
  * Ognuna è un server component asincrono che `await`a la **sua** query e rende
  * il contenuto o l'avviso di quella query soltanto. È qui che la pagina smette
@@ -55,40 +46,36 @@ interface RangeSectionProps {
   readonly range: AnalyticsRange;
 }
 
-/** Le due card utenti. `col-span-full` sull'avviso: prende il posto di entrambe. */
-export async function AdminUserKpisSection({ range }: RangeSectionProps) {
-  const result = await getAdminUserKpis(range);
+/**
+ * Il funnel di sempre. Occupa due colonne della griglia KPI: anche l'avviso
+ * d'errore, così la riga non cambia forma quando la query cade.
+ */
+export async function AdminFunnelSection() {
+  const result = await getAdminFunnel();
 
   if ("error" in result) {
-    return <AdminAlert message={result.error} className="col-span-full" />;
+    return <AdminAlert message={result.error} className="lg:col-span-2" />;
   }
-  return <AdminUserKpiCards kpis={result.kpis} />;
+  return <AdminFunnelCard funnel={result.funnel} />;
 }
 
 /**
- * Il funnel trial della coorte del periodo. Sta nella stessa riga di griglia
- * delle card utenti/scontrini ma dietro un boundary a sé: tocca
- * `commercial_documents`, e bloccarlo dietro le card utenti le farebbe
- * aspettare la stessa scansione che la separazione da `AdminDocumentKpisSection`
- * vuole evitare.
+ * Una lettura per due sezioni: il KPI "Trial attivi" in cima e la tabella
+ * "Trial attivi con scontrini" più in basso devono mostrare la stessa
+ * fotografia. `cache` di React deduplica dentro la singola richiesta RSC: la
+ * prima sezione che la chiama occupa il posto in coda, la seconda riceve la
+ * stessa promessa. Fuori da un render server è un passthrough.
  */
-export async function AdminTrialFunnelSection({ range }: RangeSectionProps) {
-  const result = await getAdminTrialFunnel(range);
+const loadTrialActive = cache(getAdminTrialActive);
+
+/** Trial attivi adesso, e quanti hanno già emesso scontrini. */
+export async function AdminTrialActiveKpiSection() {
+  const result = await loadTrialActive();
 
   if ("error" in result) {
     return <AdminAlert message={result.error} />;
   }
-  return <AdminTrialFunnelCard funnel={result.funnel} />;
-}
-
-/** Le tre card scontrini — la lettura più lenta del pannello. */
-export async function AdminDocumentKpisSection({ range }: RangeSectionProps) {
-  const result = await getAdminDocumentKpis(range);
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} className="col-span-full" />;
-  }
-  return <AdminDocumentKpiCards kpis={result.kpis} />;
+  return <AdminTrialActiveKpiCard trials={result.trials} />;
 }
 
 /**
@@ -103,16 +90,6 @@ export async function AdminStalePendingDocumentsSection() {
     return <AdminAlert message={result.error} />;
   }
   return <AdminStalePendingDocumentsTable rows={result.rows} />;
-}
-
-/** Le due classifiche esercenti, dalla stessa query. */
-export async function AdminTopMerchantsSection({ range }: RangeSectionProps) {
-  const result = await getAdminTopMerchants(range);
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} />;
-  }
-  return <AdminTopMerchantsTables merchants={result.merchants} />;
 }
 
 /** Trial in scadenza: finestra ancorata ad adesso, nessun range da passare. */
@@ -130,44 +107,24 @@ export async function AdminTrialExpiringSection() {
  * Ancorata ad adesso come "Trial in scadenza", di fianco a cui sta in pagina.
  */
 export async function AdminTrialActiveMerchantsSection() {
-  const result = await getAdminTrialActiveMerchants();
+  const result = await loadTrialActive();
 
   if ("error" in result) {
     return <AdminAlert message={result.error} />;
   }
-  return <AdminTrialActiveMerchantsTable merchants={result.merchants} />;
+  return <AdminTrialActiveMerchantsTable merchants={result.trials.merchants} />;
 }
 
 /**
- * Onboarding fermi: chi ha salvato le credenziali AdE, non le ha mai
- * verificate e ha ancora un trial attivo (PR #957). Ancorata ad
- * adesso, nessun range da passare.
+ * Registrati del periodo più onboarding fermi adesso, in una tabella. Prende
+ * il range per la prima metà; la seconda è ancorata ad adesso dentro la
+ * query stessa.
  */
-export async function AdminStalledOnboardingSection() {
-  const result = await getAdminStalledOnboarding();
+export async function AdminSignupsSection({ range }: RangeSectionProps) {
+  const result = await getAdminSignups(range);
 
   if ("error" in result) {
     return <AdminAlert message={result.error} />;
   }
-  return <AdminStalledOnboardingTable stalled={result.stalled} />;
-}
-
-/** Utenti paganti: fotografia dello stato attuale, nessun range da passare. */
-export async function AdminPaidUsersSection() {
-  const result = await getAdminPaidUsers();
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} />;
-  }
-  return <AdminPaidUsersTable rows={result.rows} />;
-}
-
-/** Registrati di recente nel periodo. */
-export async function AdminRecentProfilesSection({ range }: RangeSectionProps) {
-  const result = await getAdminRecentProfiles(range);
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} />;
-  }
-  return <AdminRecentProfilesTable rows={result.rows} />;
+  return <AdminSignupsTable signups={result.signups} />;
 }

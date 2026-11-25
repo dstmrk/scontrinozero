@@ -32,11 +32,10 @@ vi.mock("@/lib/logger", () => ({
 import { sqlTextOf } from "../../tests/_helpers/sql-text";
 import {
   getAdminPaidUsers,
-  getAdminRecentProfiles,
+  getAdminSignups,
   getAdminStalePendingDocuments,
-  getAdminStalledOnboarding,
   getAdminTopMerchants,
-  getAdminTrialActiveMerchants,
+  getAdminTrialActive,
   getAdminTrialExpiring,
 } from "./admin-directory";
 
@@ -136,61 +135,6 @@ describe("getAdminTopMerchants", () => {
       10_000,
       expect.any(Function),
     );
-  });
-});
-
-describe("getAdminRecentProfiles", () => {
-  it("mappa i profili conservando la data di registrazione", async () => {
-    mockExecute.mockResolvedValueOnce([
-      {
-        rows: [
-          {
-            name: "Anna Bianchi",
-            email: "anna@example.com",
-            created_at: "2026-08-20T09:00:00.000Z",
-          },
-        ],
-      },
-    ]);
-
-    const result = await getAdminRecentProfiles("30d", REFERENCE);
-
-    expect(result).toEqual({
-      rows: [
-        {
-          name: "Anna Bianchi",
-          email: "anna@example.com",
-          createdAt: "2026-08-20T09:00:00.000Z",
-        },
-      ],
-    });
-  });
-
-  it("degrada a lista vuota se il json arriva illeggibile", async () => {
-    mockExecute.mockResolvedValueOnce([{ rows: "{non-json" }]);
-
-    const result = await getAdminRecentProfiles("30d", REFERENCE);
-
-    expect(result).toEqual({ rows: [] });
-  });
-
-  it("degrada a { error } se il DB fallisce", async () => {
-    mockExecute.mockRejectedValueOnce(new Error("boom"));
-
-    const result = await getAdminRecentProfiles("30d", REFERENCE);
-
-    expect(result).toEqual({
-      error:
-        "Impossibile caricare i registrati di recente. Riprova tra qualche istante.",
-    });
-  });
-
-  it("degrada a { error } se la query non restituisce righe", async () => {
-    mockExecute.mockResolvedValueOnce([]);
-
-    const result = await getAdminRecentProfiles("30d", REFERENCE);
-
-    expect(result).toMatchObject({ error: expect.any(String) });
   });
 });
 
@@ -335,7 +279,7 @@ describe("telemetria degli elenchi", () => {
     const messaggi = new Set<string>();
     for (const read of [
       () => getAdminTopMerchants("30d", REFERENCE),
-      () => getAdminRecentProfiles("30d", REFERENCE),
+      () => getAdminSignups("30d", REFERENCE),
       getAdminTrialExpiring,
       getAdminPaidUsers,
     ]) {
@@ -349,144 +293,166 @@ describe("telemetria degli elenchi", () => {
   });
 });
 
-describe("getAdminStalledOnboarding", () => {
-  const STALLED_ROW = {
+describe("getAdminSignups", () => {
+  const SIGNUP_ROW = {
     name: "Mario Rossi",
     email: "fermo@example.com",
+    registered_at: "2026-08-20T08:00:00.000Z",
+    status: "stalled",
     outcome: "auth_error",
     attempts: "3",
-    created_at: "2026-05-19T08:00:00.000Z",
-    last_verify_at: "2026-05-19T08:04:00.000Z",
+    stalled_since: "2026-08-21T08:00:00.000Z",
   };
 
-  it("mappa riga e conteggi, convertendo i bigint che arrivano come stringhe", async () => {
-    mockExecute.mockResolvedValueOnce([
-      {
-        total: "10",
-        recent: "2",
-        weeks: "3",
-        stale: "5",
-        rows: [STALLED_ROW],
-      },
-    ]);
+  function signupsRow(over: Record<string, unknown> = {}) {
+    return {
+      total: "5",
+      recent: "2",
+      weeks: "3",
+      in_range_rows: [SIGNUP_ROW],
+      earlier_rows: [],
+      ...over,
+    };
+  }
 
-    const result = await getAdminStalledOnboarding();
+  it("mappa righe e conteggi, convertendo i bigint che arrivano come stringhe", async () => {
+    mockExecute.mockResolvedValueOnce([signupsRow()]);
+
+    const result = await getAdminSignups("7d", REFERENCE);
 
     if ("error" in result) throw new Error("atteso successo");
-    expect(result.stalled.counts).toEqual({
-      total: 10,
-      recent: 2,
-      weeks: 3,
-      stale: 5,
-    });
-    expect(result.stalled.rows[0]).toEqual({
-      name: "Mario Rossi",
-      email: "fermo@example.com",
-      outcome: "auth_error",
-      attempts: 3,
-      createdAt: "2026-05-19T08:00:00.000Z",
-      lastVerifyAt: "2026-05-19T08:04:00.000Z",
-    });
+    expect(result.signups.counts).toEqual({ total: 5, recent: 2, weeks: 3 });
+    expect(result.signups.inRange).toEqual([
+      {
+        name: "Mario Rossi",
+        email: "fermo@example.com",
+        registeredAt: "2026-08-20T08:00:00.000Z",
+        status: "stalled",
+        outcome: "auth_error",
+        attempts: 3,
+        stalledSince: "2026-08-21T08:00:00.000Z",
+      },
+    ]);
+    expect(result.signups.earlier).toEqual([]);
+  });
+
+  it("tiene separate le due metà: periodo e fermi registrati prima", async () => {
+    mockExecute.mockResolvedValueOnce([
+      signupsRow({
+        in_range_rows: [{ ...SIGNUP_ROW, email: "nuovo@example.com" }],
+        earlier_rows: [{ ...SIGNUP_ROW, email: "vecchio@example.com" }],
+      }),
+    ]);
+
+    const result = await getAdminSignups("7d", REFERENCE);
+
+    if ("error" in result) throw new Error("atteso successo");
+    expect(result.signups.inRange.map((r) => r.email)).toEqual([
+      "nuovo@example.com",
+    ]);
+    expect(result.signups.earlier.map((r) => r.email)).toEqual([
+      "vecchio@example.com",
+    ]);
   });
 
   it("«mai tentato» resta null e non diventa una stringa vuota", async () => {
     mockExecute.mockResolvedValueOnce([
-      {
-        total: "1",
-        recent: "1",
-        weeks: "0",
-        stale: "0",
-        rows: [
-          {
-            ...STALLED_ROW,
-            outcome: null,
-            attempts: "0",
-            last_verify_at: null,
-          },
-        ],
-      },
+      signupsRow({
+        in_range_rows: [{ ...SIGNUP_ROW, outcome: null, attempts: "0" }],
+      }),
     ]);
 
-    const result = await getAdminStalledOnboarding();
+    const result = await getAdminSignups("7d", REFERENCE);
 
     if ("error" in result) throw new Error("atteso successo");
-    // È la distinzione che #107 chiedeva: chi ha salvato le credenziali e non
-    // ha mai premuto Verifica non è chi ha sbagliato password. Se il mapper
-    // collassasse il null su "" i due tornerebbero indistinguibili.
-    expect(result.stalled.rows[0].outcome).toBeNull();
-    expect(result.stalled.rows[0].lastVerifyAt).toBeNull();
-    expect(result.stalled.rows[0].attempts).toBe(0);
+    // Chi ha salvato le credenziali e non ha mai premuto Verifica non è chi
+    // ha sbagliato password (PR #957): collassare il null su "" li
+    // renderebbe indistinguibili.
+    expect(result.signups.inRange[0].outcome).toBeNull();
+    expect(result.signups.inRange[0].attempts).toBe(0);
   });
 
-  it("interroga la popolazione ferma, non tutte le credenziali", async () => {
+  it("riconosce i tre stati e ricade su «none» per un valore ignoto", async () => {
     mockExecute.mockResolvedValueOnce([
-      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
+      signupsRow({
+        in_range_rows: [
+          { ...SIGNUP_ROW, email: "a@x.it", status: "ok" },
+          { ...SIGNUP_ROW, email: "b@x.it", status: "none" },
+          { ...SIGNUP_ROW, email: "c@x.it", status: "boh" },
+        ],
+      }),
     ]);
 
-    await getAdminStalledOnboarding();
+    const result = await getAdminSignups("7d", REFERENCE);
 
-    // La definizione deterministica di "fermo a metà onboarding": credenziali
-    // mai verificate E identità fiscale mai scritta (issue #984, PR #957).
+    if ("error" in result) throw new Error("atteso successo");
+    expect(result.signups.inRange.map((r) => r.status)).toEqual([
+      "ok",
+      "none",
+      "none",
+    ]);
+  });
+
+  it("definisce «fermo» come prima, più il taglio a 30 giorni", async () => {
+    mockExecute.mockResolvedValueOnce([signupsRow()]);
+
+    await getAdminSignups("7d", REFERENCE);
+
+    // Credenziali mai verificate E identità fiscale mai scritta, con trial
+    // attivo (issue #984, PR #957); oltre i 30 giorni non interessa più.
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("c.id IS NOT NULL");
     expect(queried).toContain("c.verified_at IS NULL");
     expect(queried).toContain("b.fiscal_code IS NULL");
-  });
-
-  it("mostra solo chi ha ancora un trial attivo", async () => {
-    mockExecute.mockResolvedValueOnce([
-      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
-    ]);
-
-    await getAdminStalledOnboarding();
-
-    // Chi ha lasciato scadere il trial senza completare l'onboarding non è
-    // più un caso su cui intervenire.
-    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("p.plan");
     expect(queried).toContain("trial_started_at IS NOT NULL");
+    expect(queried).toContain("make_interval(days => ");
   });
 
-  it("i conteggi per età sono ancorati a now(), non al range selezionato", async () => {
-    mockExecute.mockResolvedValueOnce([
-      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
-    ]);
+  it("prende il periodo per i registrati e now() per i fermi", async () => {
+    mockExecute.mockResolvedValueOnce([signupsRow()]);
 
-    await getAdminStalledOnboarding();
+    await getAdminSignups("7d", REFERENCE);
 
-    // Un onboarding arenato a maggio deve comparire anche guardando gli ultimi
-    // sette giorni: è proprio quello il caso interessante.
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("timestamptz");
     expect(queried).toContain("now()");
   });
 
-  it("elenca dal più vecchio: il fondo della lista è chi abbiamo perso", async () => {
+  it("dà a ciascuna metà il proprio limite di righe", async () => {
+    mockExecute.mockResolvedValueOnce([signupsRow()]);
+
+    await getAdminSignups("7d", REFERENCE);
+
+    // Con un limite comune, un periodo lungo riempirebbe la tabella di
+    // registrati e spingerebbe fuori proprio i fermi da recuperare.
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried.match(/LIMIT/g)).toHaveLength(2);
+  });
+
+  it("degrada a lista vuota se il json delle righe arriva illeggibile", async () => {
     mockExecute.mockResolvedValueOnce([
-      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
+      signupsRow({ in_range_rows: "{non-json", earlier_rows: null }),
     ]);
 
-    await getAdminStalledOnboarding();
+    const result = await getAdminSignups("7d", REFERENCE);
 
-    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("ORDER BY created_at ASC");
+    if ("error" in result) throw new Error("atteso successo");
+    expect(result.signups.inRange).toEqual([]);
+    expect(result.signups.earlier).toEqual([]);
   });
 
   it("degrada a { error } se la query fallisce, senza passare l'errore al logger", async () => {
-    mockExecute.mockRejectedValueOnce(new Error("timeout"));
+    mockExecute.mockRejectedValueOnce(new Error("timeout fermo@example.com"));
 
-    const result = await getAdminStalledOnboarding();
+    const result = await getAdminSignups("7d", REFERENCE);
 
     expect(result).toEqual({
-      error:
-        "Impossibile caricare gli onboarding fermi. Riprova tra qualche istante.",
+      error: "Impossibile caricare i registrati. Riprova tra qualche istante.",
     });
-    // Nessun `err` nel payload: un messaggio Postgres può contenere l'email che
-    // ha fatto fallire la query.
+    // Nessun `err` nel payload: un messaggio Postgres può contenere l'email
+    // che ha fatto fallire la query.
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      {
-        errorClass: "admin_directory_load",
-        list: "stalled_onboarding",
-        range: null,
-      },
+      { errorClass: "admin_directory_load", list: "signups", range: "7d" },
       "admin directory: query fallita",
     );
   });
@@ -494,7 +460,7 @@ describe("getAdminStalledOnboarding", () => {
   it("degrada a { error } anche quando la query non restituisce righe", async () => {
     mockExecute.mockResolvedValueOnce([]);
 
-    const result = await getAdminStalledOnboarding();
+    const result = await getAdminSignups("7d", REFERENCE);
 
     expect("error" in result).toBe(true);
   });
@@ -559,14 +525,19 @@ describe("getAdminStalePendingDocuments", () => {
   });
 });
 
-describe("getAdminTrialActiveMerchants", () => {
-  it("converte in numeri i contatori e gli importi restituiti come stringhe", async () => {
-    mockExecute.mockResolvedValueOnce([{ rows: [MERCHANT] }]);
+describe("getAdminTrialActive", () => {
+  it("restituisce conteggi ed elenco dalla stessa lettura, convertiti in numeri", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { active: "24", with_receipts: "9", rows: [MERCHANT] },
+    ]);
 
-    const result = await getAdminTrialActiveMerchants();
+    const result = await getAdminTrialActive();
 
     if ("error" in result) throw new Error("atteso successo");
-    expect(result.merchants[0]).toEqual({
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(result.trials.active).toBe(24);
+    expect(result.trials.withReceipts).toBe(9);
+    expect(result.trials.merchants[0]).toEqual({
       businessId: "b1",
       businessName: "Bar Centrale",
       ownerName: "Mario Rossi",
@@ -577,31 +548,49 @@ describe("getAdminTrialActiveMerchants", () => {
     });
   });
 
-  it("non filtra per periodo: è storico completo, come il trial", async () => {
-    mockExecute.mockResolvedValueOnce([{ rows: [] }]);
+  it("isola prima i trial attivi, poi legge i loro scontrini per business", async () => {
+    // L'inversione che rende la query economica: sommare lo storico di tutti
+    // gli esercenti e filtrare i trial alla fine era la versione lenta.
+    mockExecute.mockResolvedValueOnce([
+      { active: "0", with_receipts: "0", rows: [] },
+    ]);
 
-    await getAdminTrialActiveMerchants();
+    await getAdminTrialActive();
 
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("p.plan");
+    expect(queried).toContain("WITH trial AS");
+    expect(queried).toContain("FROM trial t");
+    expect(queried).toContain("cd.business_id = t.business_id");
     expect(queried).not.toContain("timestamptz");
+  });
+
+  it("tratta come 0 conteggi null e come lista vuota righe mancanti", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { active: null, with_receipts: null, rows: null },
+    ]);
+
+    const result = await getAdminTrialActive();
+
+    expect(result).toEqual({
+      trials: { active: 0, withReceipts: 0, merchants: [] },
+    });
   });
 
   it("degrada a { error } se il DB fallisce", async () => {
     mockExecute.mockRejectedValueOnce(new Error("boom"));
 
-    const result = await getAdminTrialActiveMerchants();
+    const result = await getAdminTrialActive();
 
     expect(result).toEqual({
       error:
-        "Impossibile caricare gli esercenti in trial. Riprova tra qualche istante.",
+        "Impossibile caricare i trial attivi. Riprova tra qualche istante.",
     });
   });
 
   it("degrada a { error } se la query non restituisce righe", async () => {
     mockExecute.mockResolvedValueOnce([]);
 
-    const result = await getAdminTrialActiveMerchants();
+    const result = await getAdminTrialActive();
 
     expect("error" in result).toBe(true);
   });

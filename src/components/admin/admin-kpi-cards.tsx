@@ -1,5 +1,6 @@
 import { KpiCard } from "@/components/kpi-card";
 import { formatCurrency } from "@/lib/utils";
+import type { AdminTrialActive } from "@/server/admin-directory";
 import type {
   AdminDocumentKpis,
   AdminSparklinePoint,
@@ -12,28 +13,16 @@ import { AdminSparkline } from "./admin-sparkline";
 const countFormatter = new Intl.NumberFormat("it-IT");
 
 /**
- * Le cinque card del pannello amministratore, in **due gruppi**: due utenti, tre
- * scontrini.
+ * Le card numeriche del pannello amministratore.
  *
- * Il taglio segue la query che le alimenta, non l'estetica: le card utenti
- * vengono da `profiles`, quelle scontrini da `commercial_documents` (più
- * `ade_credentials` per il conteggio dei metodi di accesso). Ognuno dei due
- * gruppi sta dietro al proprio boundary Suspense, così le card utenti
- * compaiono senza aspettare la scansione dello storico scontrini. Il funnel
- * trial per periodo, che affianca queste card nella stessa griglia, ha una
- * sua lettura e un suo componente a parte (`AdminTrialFunnelCard`): tocca
- * `commercial_documents` come le card scontrini, e bloccarlo dietro lo stesso
- * boundary delle card utenti le farebbe aspettare la stessa scansione che
- * questo taglio vuole evitare.
+ * `AdminTrialActiveKpiCard` sta in cima alla pagina, accanto al funnel.
+ * `AdminUserKpiCards` e `AdminDocumentKpiCards` sono le card del periodo, nella
+ * sezione "Altre metriche": il taglio segue la query che le alimenta
+ * (`profiles` per gli utenti, `commercial_documents` per gli scontrini).
  *
- * Entrambi rendono un **frammento**, non un contenitore: la griglia è della
- * pagina, e `<Suspense>` non produce un nodo DOM, quindi le card restano figlie
- * dirette della griglia sia da skeleton sia da contenuto.
- *
- * La card del periodo (Nuovi utenti, Scontrini, Incasso) porta il totale
- * storico come footnote: sono le due domande che si fanno insieme ("quanti
- * nuovi utenti questo mese" / "quanti in tutto") e separarle in due griglie
- * raddoppiava le card senza aggiungere informazione.
+ * Le card del periodo portano il totale storico come footnote: sono le due
+ * domande che si fanno insieme ("quanti nuovi utenti questo mese" / "quanti in
+ * tutto") e separarle raddoppiava le card senza aggiungere informazione.
  */
 
 interface AdminUserKpiCardsProps {
@@ -70,11 +59,6 @@ export function AdminUserKpiCards({ kpis }: AdminUserKpiCardsProps) {
           label="Andamento cumulato nuovi utenti"
         />
       </KpiCard>
-      <KpiCard
-        title="Trial: onboarding completato"
-        value={countFormatter.format(kpis.trialsOnboarded)}
-        footnote="Trial ancora attivi, credenziali AdE verificate"
-      />
     </>
   );
 }
@@ -106,11 +90,50 @@ export function AdminDocumentKpiCards({ kpis }: AdminDocumentKpiCardsProps) {
           label="Andamento incasso"
         />
       </KpiCard>
-      <KpiCard
-        title="Fisconline vs CIE"
-        value={`${countFormatter.format(kpis.fisconlineUsers)} / ${countFormatter.format(kpis.cieUsers)}`}
-        footnote="Business con credenziali AdE salvate, per metodo di accesso"
-      />
     </>
+  );
+}
+
+const percentFormatter = new Intl.NumberFormat("it-IT", {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
+interface AdminTrialActiveKpiCardProps {
+  readonly trials: Pick<AdminTrialActive, "active" | "withReceipts">;
+}
+
+/**
+ * Trial attivi adesso, e la quota che ha già emesso almeno uno scontrino. La
+ * barra rende leggibile a colpo d'occhio la quota, che è il numero su cui si
+ * agisce: un trial senza scontrini a metà prova è da richiamare.
+ */
+export function AdminTrialActiveKpiCard({
+  trials,
+}: AdminTrialActiveKpiCardProps) {
+  const ratio = trials.active > 0 ? trials.withReceipts / trials.active : 0;
+  return (
+    <KpiCard title="Trial attivi" value={countFormatter.format(trials.active)}>
+      <div
+        role="meter"
+        aria-label="Trial attivi con almeno uno scontrino"
+        aria-valuemin={0}
+        aria-valuemax={trials.active}
+        aria-valuenow={trials.withReceipts}
+        className="bg-muted h-2 overflow-hidden rounded-full"
+      >
+        <div
+          className="bg-chart-1 h-full"
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+      <p className="text-muted-foreground text-xs">
+        <span className="text-foreground font-semibold">
+          {countFormatter.format(trials.withReceipts)}
+        </span>{" "}
+        {trials.withReceipts === 1 ? "ha" : "hanno"} emesso almeno uno scontrino
+        ({percentFormatter.format(ratio)})
+      </p>
+    </KpiCard>
   );
 }

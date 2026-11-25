@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import { type DrizzleTx, withStatementTimeout } from "@/lib/db-timeout";
-import { TRIAL_DAYS } from "@/lib/plans";
+import { PAID_SELF_SERVICE_PLANS, TRIAL_DAYS } from "@/lib/plans";
 import { requireAdmin } from "./admin-guard";
 import { type AnalyticsRange, rangeToBounds } from "./analytics-helpers";
 
@@ -106,6 +106,17 @@ export const trialActiveSql = sql`(
   AND p.trial_started_at IS NOT NULL
   AND ${trialExpiresAtSql} > now()
 )`;
+
+/**
+ * I piani acquistabili come lista di parametri per un `IN (...)`. Owner unico
+ * di "chi paga" per il pannello: lo usano il gradino "Paganti" del funnel e
+ * l'elenco degli utenti paganti, che devono contare la stessa popolazione.
+ * `unlimited` (su invito) e `self_hosted` restano fuori per costruzione.
+ */
+export const paidPlansSql = sql.join(
+  PAID_SELF_SERVICE_PLANS.map((plan) => sql`${plan}`),
+  sql`, `,
+);
 
 /**
  * "Città (Provincia)" di un esercente, o NULL quando mancano entrambe. Assume

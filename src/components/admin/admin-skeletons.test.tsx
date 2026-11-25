@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AdminKpiCardsSkeleton, AdminTableSkeleton } from "./admin-skeletons";
+import {
+  AdminFunnelSkeleton,
+  AdminKpiCardsSkeleton,
+  AdminTableSkeleton,
+} from "./admin-skeletons";
 
 /** Quanti segnaposto grigi contiene la card in posizione `index`. */
 function skeletonsInCard(container: HTMLElement, index: number): number {
@@ -90,5 +94,16 @@ describe("AdminTableSkeleton", () => {
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
       3,
     );
+  });
+});
+
+describe("AdminFunnelSkeleton", () => {
+  it("occupa le stesse due colonne della card vera e annuncia il caricamento", () => {
+    const { container } = render(<AdminFunnelSkeleton />);
+
+    expect(container.firstElementChild).toHaveClass("lg:col-span-2");
+    expect(
+      screen.getByText("Caricamento del funnel in corso"),
+    ).toBeInTheDocument();
   });
 });
