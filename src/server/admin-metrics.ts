@@ -14,9 +14,10 @@ import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
 
 /**
  * Metriche del pannello amministratore (`/admin`) — lettura sola, aggregata su
- * TUTTI i tenant. Server-only: nessun `"use server"`, quindi nessuna action
- * RPC raggiungibile dal browser. Il gate è il layout (`isAdminEmail`), che
- * resta l'unico punto d'ingresso.
+ * TUTTI i tenant. Nessun `"use server"` qui: le chiamano la RSC `/admin` e,
+ * per le card su richiesta, le action di `admin-actions.ts`, che verificano
+ * l'amministratore prima di arrivarci. `runAdminRead` lo verifica di nuovo
+ * sul dato.
  *
  * **Tre letture, non una.** `getAdminFunnel` è il funnel di sempre
  * (registrati → onboarding → scontrini → paganti, con il metodo di accesso

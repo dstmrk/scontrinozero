@@ -3,13 +3,17 @@ import type { Metadata } from "next";
 
 import { AdminRangeTabs } from "@/components/admin/admin-range-tabs";
 import {
-  AdminPaidUsersSkeleton,
   AdminSignupsSkeleton,
   AdminStalePendingDocumentsSkeleton,
-  AdminTopMerchantsSkeleton,
   AdminTrialActiveMerchantsSkeleton,
   AdminTrialExpiringSkeleton,
 } from "@/components/admin/admin-directory-tables";
+import {
+  AdminDocumentKpisOnDemand,
+  AdminPaidUsersOnDemand,
+  AdminTopMerchantsOnDemand,
+  AdminUserKpisOnDemand,
+} from "@/components/admin/admin-on-demand";
 import {
   AdminFunnelSkeleton,
   AdminKpiCardsSkeleton,
@@ -20,33 +24,29 @@ import {
   parseAnalyticsRange,
 } from "@/server/analytics-helpers";
 import {
-  AdminDocumentKpisSection,
   AdminFunnelSection,
-  AdminPaidUsersSection,
   AdminSignupsSection,
   AdminStalePendingDocumentsSection,
-  AdminTopMerchantsSection,
   AdminTrialActiveKpiSection,
   AdminTrialActiveMerchantsSection,
   AdminTrialExpiringSection,
-  AdminUserKpisSection,
 } from "./sections";
 
 /**
  * Pannello amministratore — KPI ed elenchi aggregati su tutti i tenant.
  *
- * Server component, nessuna server action esposta. L'unico JavaScript
- * spedito oltre a quello del root layout è il selettore di periodo
- * (`AdminRangeTabs`), un Client Component minimo — vedi il suo file per il
- * perché. Il periodo è un deep link (`?range=`) validato contro l'allowlist
+ * Server component. Il JavaScript spedito oltre a quello del root layout è
+ * il selettore di periodo (`AdminRangeTabs`) e le card su richiesta di
+ * "Altre metriche", le sole che chiamano server action. Il periodo è un deep link (`?range=`) validato contro l'allowlist
  * di `parseAnalyticsRange`, che su valore ignoto ricade sul default invece di
  * lanciare (regola 19).
  *
  * **Due livelli.** In alto quello che si guarda ogni volta: funnel di
  * sempre, trial attivi, registrati con gli onboarding fermi, trial in scadenza,
- * documenti in sospeso. Sotto, in un `<details>` chiuso, le metriche del
- * periodo che si guardano di rado: nuovi utenti, scontrini e incasso, utenti
- * paganti, classifiche esercenti.
+ * documenti in sospeso. Sotto, in un `<details>` chiuso, le metriche che si
+ * guardano di rado — nuovi utenti, scontrini e incasso, utenti paganti,
+ * classifiche esercenti — che non leggono nulla finché non si preme il loro
+ * "Carica" (`src/components/admin/admin-on-demand.tsx`).
  *
  * **La pagina non aspetta nessuna query.** Il guscio — selettore di periodo —
  * esce subito; ogni lettura sta dietro al suo `<Suspense>` e Next manda in
@@ -136,46 +136,22 @@ export default async function AdminPage({
           <AdminStalePendingDocumentsSection />
         </Suspense>
 
+        {/* Chiusa di default, e anche aperta non legge nulla finché non si
+            preme "Carica" su una card: ognuna chiama la propria server action
+            (`src/server/admin-actions.ts`). `key={range}` le riporta a "non
+            caricato" quando si cambia periodo. */}
         <details className="rounded-xl border border-dashed px-4">
           <summary className="cursor-pointer py-3 text-sm font-semibold">
             Altre metriche
           </summary>
-          <div className="space-y-4 pb-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Suspense
-                key={`user-kpis-${range}`}
-                fallback={
-                  <AdminKpiCardsSkeleton
-                    count={1}
-                    sparklines={1}
-                    label="nuovi utenti"
-                  />
-                }
-              >
-                <AdminUserKpisSection range={range} />
-              </Suspense>
-              <Suspense
-                key={`document-kpis-${range}`}
-                fallback={
-                  <AdminKpiCardsSkeleton
-                    count={2}
-                    sparklines={2}
-                    label="scontrini e incasso"
-                  />
-                }
-              >
-                <AdminDocumentKpisSection range={range} />
-              </Suspense>
-            </div>
-            <Suspense fallback={<AdminPaidUsersSkeleton />}>
-              <AdminPaidUsersSection />
-            </Suspense>
-            <Suspense
-              key={`top-merchants-${range}`}
-              fallback={<AdminTopMerchantsSkeleton />}
-            >
-              <AdminTopMerchantsSection range={range} />
-            </Suspense>
+          <div className="grid gap-3 pb-4 sm:grid-cols-2 xl:grid-cols-4">
+            <AdminUserKpisOnDemand key={`users-${range}`} range={range} />
+            <AdminDocumentKpisOnDemand
+              key={`documents-${range}`}
+              range={range}
+            />
+            <AdminPaidUsersOnDemand />
+            <AdminTopMerchantsOnDemand key={`top-${range}`} range={range} />
           </div>
         </details>
       </div>

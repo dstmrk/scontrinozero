@@ -2,32 +2,20 @@ import { cache } from "react";
 
 import { AdminAlert } from "@/components/admin/admin-alert";
 import {
-  AdminPaidUsersTable,
   AdminSignupsTable,
   AdminStalePendingDocumentsTable,
-  AdminTopMerchantsTables,
   AdminTrialActiveMerchantsTable,
   AdminTrialExpiringTable,
 } from "@/components/admin/admin-directory-tables";
 import { AdminFunnelCard } from "@/components/admin/admin-funnel-card";
+import { AdminTrialActiveKpiCard } from "@/components/admin/admin-kpi-cards";
 import {
-  AdminDocumentKpiCards,
-  AdminTrialActiveKpiCard,
-  AdminUserKpiCards,
-} from "@/components/admin/admin-kpi-cards";
-import {
-  getAdminPaidUsers,
   getAdminSignups,
   getAdminStalePendingDocuments,
-  getAdminTopMerchants,
   getAdminTrialActive,
   getAdminTrialExpiring,
 } from "@/server/admin-directory";
-import {
-  getAdminDocumentKpis,
-  getAdminFunnel,
-  getAdminUserKpis,
-} from "@/server/admin-metrics";
+import { getAdminFunnel } from "@/server/admin-metrics";
 import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 /**
@@ -56,16 +44,6 @@ import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 interface RangeSectionProps {
   readonly range: AnalyticsRange;
-}
-
-/** Le due card utenti. `col-span-full` sull'avviso: prende il posto di entrambe. */
-export async function AdminUserKpisSection({ range }: RangeSectionProps) {
-  const result = await getAdminUserKpis(range);
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} className="col-span-full" />;
-  }
-  return <AdminUserKpiCards kpis={result.kpis} />;
 }
 
 /**
@@ -100,16 +78,6 @@ export async function AdminTrialActiveKpiSection() {
   return <AdminTrialActiveKpiCard trials={result.trials} />;
 }
 
-/** Le due card scontrini e incasso — la lettura più lenta del pannello. */
-export async function AdminDocumentKpisSection({ range }: RangeSectionProps) {
-  const result = await getAdminDocumentKpis(range);
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} className="col-span-full" />;
-  }
-  return <AdminDocumentKpiCards kpis={result.kpis} />;
-}
-
 /**
  * Documenti `SALE` fermi oltre la soglia stale (PR #904). Ancorata ad
  * adesso, nessun range da passare — un orfano di tre settimane fa è
@@ -122,16 +90,6 @@ export async function AdminStalePendingDocumentsSection() {
     return <AdminAlert message={result.error} />;
   }
   return <AdminStalePendingDocumentsTable rows={result.rows} />;
-}
-
-/** Le due classifiche esercenti, dalla stessa query. */
-export async function AdminTopMerchantsSection({ range }: RangeSectionProps) {
-  const result = await getAdminTopMerchants(range);
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} />;
-  }
-  return <AdminTopMerchantsTables merchants={result.merchants} />;
 }
 
 /** Trial in scadenza: finestra ancorata ad adesso, nessun range da passare. */
@@ -155,16 +113,6 @@ export async function AdminTrialActiveMerchantsSection() {
     return <AdminAlert message={result.error} />;
   }
   return <AdminTrialActiveMerchantsTable merchants={result.trials.merchants} />;
-}
-
-/** Utenti paganti: fotografia dello stato attuale, nessun range da passare. */
-export async function AdminPaidUsersSection() {
-  const result = await getAdminPaidUsers();
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} />;
-  }
-  return <AdminPaidUsersTable rows={result.rows} />;
 }
 
 /**

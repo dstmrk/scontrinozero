@@ -46,8 +46,9 @@ import type { AnalyticsRange } from "./analytics-helpers";
  * ancorate ad ADESSO — rispondono a "chi/cosa richiede attenzione oggi", non
  * "cosa è successo nel periodo".
  *
- * Server-only come il gemello: nessun `"use server"`, nessun endpoint RPC,
- * l'unica via d'accesso è la RSC dietro il gate del layout.
+ * Server-only come il gemello: nessun `"use server"` qui. Le vie d'accesso
+ * sono la RSC `/admin` e le action su richiesta di `admin-actions.ts`,
+ * entrambe dietro `requireAdmin`.
  *
  * Sostituisce `metrics_top_merchants`, `metrics_recent_profiles`,
  * `metrics_trial_expiring` e `metrics_paid_users`, le funzioni plpgsql
