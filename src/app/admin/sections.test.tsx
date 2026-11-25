@@ -6,9 +6,8 @@ import type { AdminDocumentKpis, AdminUserKpis } from "@/server/admin-metrics";
 const {
   mockGetAdminDocumentKpis,
   mockGetAdminPaidUsers,
-  mockGetAdminRecentProfiles,
+  mockGetAdminSignups,
   mockGetAdminStalePendingDocuments,
-  mockGetAdminStalledOnboarding,
   mockGetAdminTopMerchants,
   mockGetAdminTrialActive,
   mockGetAdminTrialExpiring,
@@ -17,9 +16,8 @@ const {
 } = vi.hoisted(() => ({
   mockGetAdminDocumentKpis: vi.fn(),
   mockGetAdminPaidUsers: vi.fn(),
-  mockGetAdminRecentProfiles: vi.fn(),
+  mockGetAdminSignups: vi.fn(),
   mockGetAdminStalePendingDocuments: vi.fn(),
-  mockGetAdminStalledOnboarding: vi.fn(),
   mockGetAdminTopMerchants: vi.fn(),
   mockGetAdminTrialActive: vi.fn(),
   mockGetAdminTrialExpiring: vi.fn(),
@@ -37,14 +35,11 @@ vi.mock("@/server/admin-metrics", () => ({
 vi.mock("@/server/admin-directory", () => ({
   getAdminTopMerchants: (...args: unknown[]) =>
     mockGetAdminTopMerchants(...args),
-  getAdminRecentProfiles: (...args: unknown[]) =>
-    mockGetAdminRecentProfiles(...args),
+  getAdminSignups: (...args: unknown[]) => mockGetAdminSignups(...args),
   getAdminTrialExpiring: (...args: unknown[]) =>
     mockGetAdminTrialExpiring(...args),
   getAdminTrialActive: (...args: unknown[]) => mockGetAdminTrialActive(...args),
   getAdminPaidUsers: (...args: unknown[]) => mockGetAdminPaidUsers(...args),
-  getAdminStalledOnboarding: (...args: unknown[]) =>
-    mockGetAdminStalledOnboarding(...args),
   getAdminStalePendingDocuments: (...args: unknown[]) =>
     mockGetAdminStalePendingDocuments(...args),
 }));
@@ -53,9 +48,8 @@ import {
   AdminDocumentKpisSection,
   AdminFunnelSection,
   AdminPaidUsersSection,
-  AdminRecentProfilesSection,
+  AdminSignupsSection,
   AdminStalePendingDocumentsSection,
-  AdminStalledOnboardingSection,
   AdminTopMerchantsSection,
   AdminTrialActiveKpiSection,
   AdminTrialActiveMerchantsSection,
@@ -106,19 +100,19 @@ beforeEach(() => {
   mockGetAdminTopMerchants.mockResolvedValue({
     merchants: { byReceipts: [], byRevenue: [] },
   });
-  mockGetAdminRecentProfiles.mockResolvedValue({ rows: [] });
+  mockGetAdminSignups.mockResolvedValue({
+    signups: {
+      counts: { total: 0, recent: 0, weeks: 0 },
+      inRange: [],
+      earlier: [],
+    },
+  });
   mockGetAdminTrialExpiring.mockResolvedValue({ rows: [] });
   mockGetAdminTrialActive.mockResolvedValue({
     trials: { active: 4, withReceipts: 1, merchants: [MERCHANT] },
   });
   mockGetAdminPaidUsers.mockResolvedValue({ rows: [] });
   mockGetAdminStalePendingDocuments.mockResolvedValue({ rows: [] });
-  mockGetAdminStalledOnboarding.mockResolvedValue({
-    stalled: {
-      counts: { total: 0, recent: 0, weeks: 0, stale: 0 },
-      rows: [],
-    },
-  });
 });
 
 describe("propagazione del periodo", () => {
@@ -126,12 +120,12 @@ describe("propagazione del periodo", () => {
     await AdminUserKpisSection({ range: "90d" });
     await AdminDocumentKpisSection({ range: "90d" });
     await AdminTopMerchantsSection({ range: "90d" });
-    await AdminRecentProfilesSection({ range: "90d" });
+    await AdminSignupsSection({ range: "90d" });
 
     expect(mockGetAdminUserKpis).toHaveBeenCalledWith("90d");
     expect(mockGetAdminDocumentKpis).toHaveBeenCalledWith("90d");
     expect(mockGetAdminTopMerchants).toHaveBeenCalledWith("90d");
-    expect(mockGetAdminRecentProfiles).toHaveBeenCalledWith("90d");
+    expect(mockGetAdminSignups).toHaveBeenCalledWith("90d");
   });
 
   it("non passa nessun range alle letture ancorate ad adesso", async () => {
@@ -139,16 +133,12 @@ describe("propagazione del periodo", () => {
     await AdminTrialExpiringSection();
     await AdminTrialActiveMerchantsSection();
     await AdminPaidUsersSection();
-    await AdminStalledOnboardingSection();
     await AdminStalePendingDocumentsSection();
 
     expect(mockGetAdminFunnel).toHaveBeenCalledWith();
     expect(mockGetAdminTrialExpiring).toHaveBeenCalledWith();
     expect(mockGetAdminTrialActive).toHaveBeenCalledWith();
     expect(mockGetAdminPaidUsers).toHaveBeenCalledWith();
-    // Un onboarding arenato a maggio deve comparire anche col periodo a 7
-    // giorni: filtrarlo sul range nasconderebbe proprio i casi che contano.
-    expect(mockGetAdminStalledOnboarding).toHaveBeenCalledWith();
     expect(mockGetAdminStalePendingDocuments).toHaveBeenCalledWith();
   });
 });
@@ -211,8 +201,10 @@ describe("contenuto delle sezioni", () => {
     expect(screen.getByText("Documenti in sospeso")).toBeInTheDocument();
     stalePending.unmount();
 
-    render(await AdminRecentProfilesSection({ range: "7d" }));
-    expect(screen.getByText("Registrati di recente")).toBeInTheDocument();
+    render(await AdminSignupsSection({ range: "7d" }));
+    expect(
+      screen.getByText("Registrati e onboarding fermi"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -244,8 +236,8 @@ describe("degrado indipendente", () => {
     ["paganti", mockGetAdminPaidUsers, () => AdminPaidUsersSection()],
     [
       "registrati",
-      mockGetAdminRecentProfiles,
-      () => AdminRecentProfilesSection({ range: "7d" }),
+      mockGetAdminSignups,
+      () => AdminSignupsSection({ range: "7d" }),
     ],
     [
       "documenti-in-sospeso",
@@ -337,37 +329,30 @@ describe("documenti in sospeso (PR #904)", () => {
   });
 });
 
-describe("onboarding fermi (PR #957)", () => {
-  it("rende la tabella con i conteggi per età", async () => {
-    mockGetAdminStalledOnboarding.mockResolvedValue({
-      stalled: {
-        counts: { total: 10, recent: 2, weeks: 3, stale: 5 },
-        rows: [
+describe("registrati e onboarding fermi (PR #957)", () => {
+  it("rende la tabella unica con i conteggi per età", async () => {
+    mockGetAdminSignups.mockResolvedValue({
+      signups: {
+        counts: { total: 3, recent: 1, weeks: 2 },
+        inRange: [],
+        earlier: [
           {
             name: "Mario Rossi",
             email: "fermo@example.com",
+            registeredAt: "2026-05-19T08:00:00.000Z",
+            status: "stalled",
             outcome: "auth_error",
             attempts: 3,
-            createdAt: "2026-05-19T08:00:00.000Z",
-            lastVerifyAt: "2026-05-19T08:04:00.000Z",
+            stalledSince: "2026-05-19T08:00:00.000Z",
           },
         ],
       },
     });
 
-    render(await AdminStalledOnboardingSection());
+    render(await AdminSignupsSection({ range: "7d" }));
 
-    expect(screen.getByText("Onboarding fermi")).toBeInTheDocument();
-    expect(screen.getByText(/10 fermi in totale/)).toBeInTheDocument();
+    expect(screen.getByText(/3 fermi in totale/)).toBeInTheDocument();
     expect(screen.getByText("fermo@example.com")).toBeInTheDocument();
     expect(screen.getByText("Credenziali rifiutate")).toBeInTheDocument();
-  });
-
-  it("mostra l'avviso di errore quando la lettura degrada", async () => {
-    mockGetAdminStalledOnboarding.mockResolvedValue({ error: "Query caduta" });
-
-    render(await AdminStalledOnboardingSection());
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Query caduta");
   });
 });

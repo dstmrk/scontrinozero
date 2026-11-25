@@ -4,9 +4,8 @@ import type { Metadata } from "next";
 import { AdminRangeTabs } from "@/components/admin/admin-range-tabs";
 import {
   AdminPaidUsersSkeleton,
-  AdminRecentProfilesSkeleton,
+  AdminSignupsSkeleton,
   AdminStalePendingDocumentsSkeleton,
-  AdminStalledOnboardingSkeleton,
   AdminTopMerchantsSkeleton,
   AdminTrialActiveMerchantsSkeleton,
   AdminTrialExpiringSkeleton,
@@ -24,9 +23,8 @@ import {
   AdminDocumentKpisSection,
   AdminFunnelSection,
   AdminPaidUsersSection,
-  AdminRecentProfilesSection,
+  AdminSignupsSection,
   AdminStalePendingDocumentsSection,
-  AdminStalledOnboardingSection,
   AdminTopMerchantsSection,
   AdminTrialActiveKpiSection,
   AdminTrialActiveMerchantsSection,
@@ -45,7 +43,7 @@ import {
  * lanciare (regola 19).
  *
  * **Due livelli.** In alto quello che si guarda ogni volta: funnel di
- * sempre, trial attivi, registrati e onboarding fermi, trial in scadenza,
+ * sempre, trial attivi, registrati con gli onboarding fermi, trial in scadenza,
  * documenti in sospeso. Sotto, in un `<details>` chiuso, le metriche del
  * periodo che si guardano di rado: nuovi utenti, scontrini e incasso, utenti
  * paganti, classifiche esercenti.
@@ -80,7 +78,7 @@ export const metadata: Metadata = {
  * intoccato: è un piano a pagamento e non si sposta di sotto ai clienti.
  *
  * Sette giorni perché le letture che filtrano davvero su `created_at >=
- * rangeStart` — registrati di recente, classifiche esercenti — aggregano un
+ * rangeStart` — registrati, classifiche esercenti — aggregano un
  * quarto delle righe rispetto a trenta. Le letture ancorate ad adesso (funnel,
  * trial, onboarding fermi, documenti in sospeso, utenti paganti) non lo
  * guardano per scelta.
@@ -121,17 +119,9 @@ export default async function AdminPage({
       </div>
 
       <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Suspense
-            key={`recent-profiles-${range}`}
-            fallback={<AdminRecentProfilesSkeleton />}
-          >
-            <AdminRecentProfilesSection range={range} />
-          </Suspense>
-          <Suspense fallback={<AdminStalledOnboardingSkeleton />}>
-            <AdminStalledOnboardingSection />
-          </Suspense>
-        </div>
+        <Suspense key={`signups-${range}`} fallback={<AdminSignupsSkeleton />}>
+          <AdminSignupsSection range={range} />
+        </Suspense>
 
         <div className="grid gap-4 md:grid-cols-2">
           <Suspense fallback={<AdminTrialExpiringSkeleton />}>

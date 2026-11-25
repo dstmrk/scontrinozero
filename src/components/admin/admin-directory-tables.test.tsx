@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   AdminPaidUsersSkeleton,
   AdminPaidUsersTable,
-  AdminRecentProfilesSkeleton,
-  AdminRecentProfilesTable,
+  AdminSignupsSkeleton,
+  AdminSignupsTable,
   AdminStalePendingDocumentsSkeleton,
   AdminStalePendingDocumentsTable,
-  AdminStalledOnboardingSkeleton,
-  AdminStalledOnboardingTable,
   AdminTopMerchantsSkeleton,
   AdminTopMerchantsTables,
   AdminTrialActiveMerchantsSkeleton,
@@ -19,9 +17,9 @@ import {
 import type {
   AdminMerchant,
   AdminPaidUserRow,
-  AdminProfileRow,
+  AdminSignupRow,
+  AdminSignups,
   AdminStalePendingDocumentRow,
-  AdminStalledOnboarding,
   AdminTopMerchants,
   AdminTrialRow,
 } from "@/server/admin-directory";
@@ -50,14 +48,6 @@ const MERCHANTS: AdminTopMerchants = {
     },
   ],
 };
-
-const PROFILES: readonly AdminProfileRow[] = [
-  {
-    name: "Anna Bianchi",
-    email: "anna@example.com",
-    createdAt: "2026-08-20T09:00:00.000Z",
-  },
-];
 
 const TRIALS: readonly AdminTrialRow[] = [
   {
@@ -252,22 +242,6 @@ describe("AdminPaidUsersTable", () => {
   });
 });
 
-describe("AdminRecentProfilesTable", () => {
-  it("formatta la data di registrazione in formato italiano", () => {
-    render(<AdminRecentProfilesTable rows={PROFILES} />);
-
-    expect(screen.getByText("20/08/2026")).toBeInTheDocument();
-  });
-
-  it("mostra lo stato vuoto quando non c'è nessuna registrazione", () => {
-    render(<AdminRecentProfilesTable rows={[]} />);
-
-    expect(
-      screen.getByText("Nessuna registrazione nel periodo."),
-    ).toBeInTheDocument();
-  });
-});
-
 describe("scheletri delle tabelle", () => {
   /**
    * Ogni skeleton deve portare lo STESSO titolo della sua tabella: è ciò che
@@ -281,8 +255,8 @@ describe("scheletri delle tabelle", () => {
     ["paganti", <AdminPaidUsersSkeleton key="p" />, /utenti paganti/i],
     [
       "registrati",
-      <AdminRecentProfilesSkeleton key="r" />,
-      /registrati di recente/i,
+      <AdminSignupsSkeleton key="r" />,
+      /registrati e onboarding fermi/i,
     ],
   ])(
     "lo skeleton di %s mostra il titolo della tabella vera",
@@ -308,95 +282,170 @@ describe("scheletri delle tabelle", () => {
   });
 });
 
-describe("AdminStalledOnboardingTable", () => {
-  const BASE_ROW = {
+describe("AdminSignupsTable", () => {
+  const STALLED: AdminSignupRow = {
     name: "Mario Rossi",
     email: "fermo@example.com",
+    registeredAt: "2026-08-20T08:00:00.000Z",
+    status: "stalled",
     outcome: "auth_error",
     attempts: 4,
-    createdAt: "2026-05-19T08:00:00.000Z",
-    lastVerifyAt: "2026-05-19T08:04:00.000Z",
+    stalledSince: "2026-08-21T08:00:00.000Z",
+  };
+  const OK: AdminSignupRow = {
+    ...STALLED,
+    email: "ok@example.com",
+    status: "ok",
+    outcome: null,
+    attempts: 0,
+    stalledSince: null,
+  };
+  const NONE: AdminSignupRow = {
+    ...OK,
+    email: "nuovo@example.com",
+    status: "none",
   };
 
-  function stalled(
-    overrides: Partial<AdminStalledOnboarding> = {},
-  ): AdminStalledOnboarding {
+  function signups(overrides: Partial<AdminSignups> = {}): AdminSignups {
     return {
-      counts: { total: 10, recent: 2, weeks: 3, stale: 5 },
-      rows: [BASE_ROW],
+      counts: { total: 7, recent: 2, weeks: 5 },
+      inRange: [NONE, OK, STALLED],
+      earlier: [],
       ...overrides,
     };
   }
 
-  it("traduce l'esito tecnico in un'etichetta leggibile", () => {
-    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+  /** La riga della tabella che contiene `email`. */
+  function rowOf(email: string): HTMLElement {
+    return screen.getByText(email).closest("tr")!;
+  }
 
-    expect(screen.getByText("Credenziali rifiutate")).toBeInTheDocument();
-    expect(screen.queryByText("auth_error")).not.toBeInTheDocument();
+  it("dà a ogni riga lo stato d'onboarding: vuoto, ok o fermo", () => {
+    render(<AdminSignupsTable signups={signups()} />);
+
+    expect(rowOf("nuovo@example.com")).toHaveTextContent("—");
+    expect(rowOf("ok@example.com")).toHaveTextContent("✓ ok");
+    expect(rowOf("fermo@example.com")).toHaveTextContent("fermo");
+  });
+
+  it("mostra esito, tentativi e data solo per le righe ferme", () => {
+    render(<AdminSignupsTable signups={signups()} />);
+
+    expect(rowOf("fermo@example.com")).toHaveTextContent(
+      "Credenziali rifiutate",
+    );
+    expect(rowOf("fermo@example.com")).toHaveTextContent("21/08/2026");
+    expect(rowOf("ok@example.com")).not.toHaveTextContent("Mai tentato");
+    expect(rowOf("ok@example.com")).not.toHaveTextContent("21/08/2026");
   });
 
   it("«mai tentato» è un esito, non una cella vuota", () => {
     render(
-      <AdminStalledOnboardingTable
-        stalled={stalled({
-          rows: [
-            { ...BASE_ROW, outcome: null, attempts: 0, lastVerifyAt: null },
-          ],
+      <AdminSignupsTable
+        signups={signups({
+          inRange: [{ ...STALLED, outcome: null, attempts: 0 }],
         })}
       />,
     );
 
-    // È il caso che #107 non sapeva vedere: ha salvato le credenziali e non ha
-    // mai premuto Verifica. Renderlo come "—" lo rimetterebbe nel mucchio.
+    // Ha salvato le credenziali e non ha mai premuto Verifica (PR #957).
     expect(screen.getByText("Mai tentato")).toBeInTheDocument();
   });
 
-  it("mostra i conteggi per età sull'intera popolazione, non sulle righe elencate", () => {
-    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+  it("un fermo senza data di salvataggio mostra un trattino, non una data inventata", () => {
+    render(
+      <AdminSignupsTable
+        signups={signups({ inRange: [{ ...STALLED, stalledSince: null }] })}
+      />,
+    );
 
-    // Una riga elencata, dieci fermi: l'elenco è tagliato, i totali no.
+    // "Fermo dal" è l'ultima colonna.
+    expect(rowOf("fermo@example.com").lastElementChild).toHaveTextContent(
+      /^—$/,
+    );
+  });
+
+  it("separa con un'etichetta i fermi registrati prima del periodo", () => {
+    render(
+      <AdminSignupsTable
+        signups={signups({
+          inRange: [OK],
+          earlier: [{ ...STALLED, email: "vecchio@example.com" }],
+        })}
+      />,
+    );
+
+    const label = screen.getByRole("rowheader", {
+      name: "Fermi registrati prima del periodo",
+    });
+    expect(label).toBeInTheDocument();
+    // L'etichetta sta fra le due metà, non in cima.
+    const rows = screen.getAllByRole("row").map((row) => row.textContent);
+    const labelAt = rows.findIndex((t) =>
+      t?.includes("Fermi registrati prima"),
+    );
+    expect(rows.findIndex((t) => t?.includes("ok@example.com"))).toBeLessThan(
+      labelAt,
+    );
+    expect(
+      rows.findIndex((t) => t?.includes("vecchio@example.com")),
+    ).toBeGreaterThan(labelAt);
+  });
+
+  it("senza fermi precedenti non disegna l'etichetta", () => {
+    render(<AdminSignupsTable signups={signups()} />);
+
+    expect(screen.queryByText("Fermi registrati prima del periodo")).toBeNull();
+  });
+
+  it("mostra la tabella anche se nel periodo non si è registrato nessuno", () => {
+    render(
+      <AdminSignupsTable
+        signups={signups({ inRange: [], earlier: [STALLED] })}
+      />,
+    );
+
+    expect(screen.getByText("fermo@example.com")).toBeInTheDocument();
+  });
+
+  it("mostra i conteggi per età sull'intera popolazione ferma, senza la fascia oltre 30", () => {
+    render(<AdminSignupsTable signups={signups()} />);
+
     expect(
       screen.getByText(
-        /10 fermi in totale — 2 da meno di 7 giorni, 3 da 7 a 30, 5 da oltre 30\./,
+        "7 fermi in totale — 2 da meno di 7 giorni, 5 da 7 a 30.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("mostra i conteggi dentro la card 'Onboarding fermi', non sopra", () => {
-    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+  it("usa il singolare con un solo fermo", () => {
+    render(
+      <AdminSignupsTable
+        signups={signups({ counts: { total: 1, recent: 1, weeks: 0 } })}
+      />,
+    );
 
-    const counts = screen.getByText(/10 fermi in totale/);
-    const card = counts.closest('[data-slot="card"]');
-    expect(card).not.toBeNull();
-    expect(card).toContainElement(screen.getByText("Onboarding fermi"));
-  });
-
-  it("non mostra più la colonna Accesso", () => {
-    render(<AdminStalledOnboardingTable stalled={stalled()} />);
-
-    expect(screen.queryByText("Accesso")).not.toBeInTheDocument();
+    expect(screen.getByText(/^1 fermo in totale/)).toBeInTheDocument();
   });
 
   it("un esito ignoto (precedente al tracciamento) si riduce a un trattino", () => {
     render(
-      <AdminStalledOnboardingTable
-        stalled={stalled({
-          rows: [{ ...BASE_ROW, outcome: "unknown_pre_tracking" }],
+      <AdminSignupsTable
+        signups={signups({
+          inRange: [{ ...STALLED, outcome: "unknown_pre_tracking" }],
         })}
       />,
     );
 
     expect(screen.queryByText(/ignoto/i)).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("table", { name: /onboarding fermi/i }),
-    ).toHaveTextContent("—");
+    expect(rowOf("fermo@example.com")).toHaveTextContent("—");
   });
 
   it("un esito fuori vocabolario ricade sul valore grezzo invece di sparire", () => {
     render(
-      <AdminStalledOnboardingTable
-        stalled={stalled({
-          rows: [{ ...BASE_ROW, outcome: "qualcosa_di_nuovo" }],
+      <AdminSignupsTable
+        signups={signups({
+          inRange: [{ ...STALLED, outcome: "qualcosa_di_nuovo" }],
         })}
       />,
     );
@@ -404,22 +453,21 @@ describe("AdminStalledOnboardingTable", () => {
     expect(screen.getByText("qualcosa_di_nuovo")).toBeInTheDocument();
   });
 
-  it("mostra lo stato vuoto quando non c'è nessun onboarding fermo", () => {
+  it("mostra lo stato vuoto quando non c'è nessuno da mostrare", () => {
     render(
-      <AdminStalledOnboardingTable
-        stalled={{
-          counts: { total: 0, recent: 0, weeks: 0, stale: 0 },
-          rows: [],
+      <AdminSignupsTable
+        signups={{
+          counts: { total: 0, recent: 0, weeks: 0 },
+          inRange: [],
+          earlier: [],
         }}
       />,
     );
 
-    expect(screen.getByText("Nessun onboarding fermo.")).toBeInTheDocument();
-  });
-
-  it("lo scheletro mostra il titolo vero della tabella", () => {
-    render(<AdminStalledOnboardingSkeleton />);
-
-    expect(screen.getByText("Onboarding fermi")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Nessuna registrazione nel periodo e nessun onboarding fermo.",
+      ),
+    ).toBeInTheDocument();
   });
 });

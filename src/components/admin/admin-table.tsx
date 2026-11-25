@@ -37,6 +37,16 @@ interface AdminTableProps<T> {
   readonly rowKey: (row: T) => string;
   /** Testo mostrato al posto della tabella quando non ci sono righe. */
   readonly empty: string;
+  /**
+   * Un secondo gruppo di righe sotto le prime, introdotto da un'etichetta
+   * che occupa tutta la riga e reso su fondo attenuato. Serve quando una
+   * tabella unisce due popolazioni che vanno lette insieme ma non confuse
+   * (i registrati del periodo e i fermi registrati prima).
+   */
+  readonly appendix?: {
+    readonly label: string;
+    readonly rows: readonly T[];
+  };
 }
 
 export function AdminTable<T>({
@@ -47,7 +57,25 @@ export function AdminTable<T>({
   rows,
   rowKey,
   empty,
+  appendix,
 }: AdminTableProps<T>) {
+  const appendixRows = appendix?.rows ?? [];
+  const renderRow = (row: T, className?: string) => (
+    <tr key={rowKey(row)} className={cn("border-b last:border-0", className)}>
+      {columns.map((column) => (
+        <td
+          key={column.header}
+          className={cn(
+            "py-2 pr-3",
+            column.align === "right" && "pr-0 pl-3 text-right tabular-nums",
+          )}
+        >
+          {column.cell(row)}
+        </td>
+      ))}
+    </tr>
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -58,7 +86,7 @@ export function AdminTable<T>({
         {note}
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
+        {rows.length === 0 && appendixRows.length === 0 ? (
           <p className="text-muted-foreground py-2 text-sm">{empty}</p>
         ) : (
           // La tabella scorre nel proprio contenitore: su mobile il pannello
@@ -82,22 +110,21 @@ export function AdminTable<T>({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={rowKey(row)} className="border-b last:border-0">
-                    {columns.map((column) => (
-                      <td
-                        key={column.header}
-                        className={cn(
-                          "py-2 pr-3",
-                          column.align === "right" &&
-                            "pr-0 pl-3 text-right tabular-nums",
-                        )}
+                {rows.map((row) => renderRow(row))}
+                {appendix && appendixRows.length > 0 && (
+                  <>
+                    <tr className="border-b">
+                      <th
+                        scope="rowgroup"
+                        colSpan={columns.length}
+                        className="text-muted-foreground pt-4 pb-2 text-left text-[11px] font-medium tracking-wide uppercase"
                       >
-                        {column.cell(row)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                        {appendix.label}
+                      </th>
+                    </tr>
+                    {appendixRows.map((row) => renderRow(row, "bg-muted/50"))}
+                  </>
+                )}
               </tbody>
             </table>
           </div>

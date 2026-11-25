@@ -3,9 +3,8 @@ import { cache } from "react";
 import { AdminAlert } from "@/components/admin/admin-alert";
 import {
   AdminPaidUsersTable,
-  AdminRecentProfilesTable,
+  AdminSignupsTable,
   AdminStalePendingDocumentsTable,
-  AdminStalledOnboardingTable,
   AdminTopMerchantsTables,
   AdminTrialActiveMerchantsTable,
   AdminTrialExpiringTable,
@@ -18,9 +17,8 @@ import {
 } from "@/components/admin/admin-kpi-cards";
 import {
   getAdminPaidUsers,
-  getAdminRecentProfiles,
+  getAdminSignups,
   getAdminStalePendingDocuments,
-  getAdminStalledOnboarding,
   getAdminTopMerchants,
   getAdminTrialActive,
   getAdminTrialExpiring,
@@ -159,20 +157,6 @@ export async function AdminTrialActiveMerchantsSection() {
   return <AdminTrialActiveMerchantsTable merchants={result.trials.merchants} />;
 }
 
-/**
- * Onboarding fermi: chi ha salvato le credenziali AdE, non le ha mai
- * verificate e ha ancora un trial attivo (PR #957). Ancorata ad
- * adesso, nessun range da passare.
- */
-export async function AdminStalledOnboardingSection() {
-  const result = await getAdminStalledOnboarding();
-
-  if ("error" in result) {
-    return <AdminAlert message={result.error} />;
-  }
-  return <AdminStalledOnboardingTable stalled={result.stalled} />;
-}
-
 /** Utenti paganti: fotografia dello stato attuale, nessun range da passare. */
 export async function AdminPaidUsersSection() {
   const result = await getAdminPaidUsers();
@@ -183,12 +167,16 @@ export async function AdminPaidUsersSection() {
   return <AdminPaidUsersTable rows={result.rows} />;
 }
 
-/** Registrati di recente nel periodo. */
-export async function AdminRecentProfilesSection({ range }: RangeSectionProps) {
-  const result = await getAdminRecentProfiles(range);
+/**
+ * Registrati del periodo più onboarding fermi adesso, in una tabella. Prende
+ * il range per la prima metà; la seconda è ancorata ad adesso dentro la
+ * query stessa.
+ */
+export async function AdminSignupsSection({ range }: RangeSectionProps) {
+  const result = await getAdminSignups(range);
 
   if ("error" in result) {
     return <AdminAlert message={result.error} />;
   }
-  return <AdminRecentProfilesTable rows={result.rows} />;
+  return <AdminSignupsTable signups={result.signups} />;
 }

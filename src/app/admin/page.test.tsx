@@ -19,13 +19,12 @@ vi.mock("./sections", () => ({
   AdminDocumentKpisSection: () => mockInvoked.push("scontrini") && null,
   AdminStalePendingDocumentsSection: () =>
     mockInvoked.push("in-sospeso") && null,
-  AdminStalledOnboardingSection: () => mockInvoked.push("fermi") && null,
   AdminTopMerchantsSection: () => mockInvoked.push("classifiche") && null,
   AdminTrialExpiringSection: () => mockInvoked.push("trial") && null,
   AdminTrialActiveMerchantsSection: () =>
     mockInvoked.push("trial-esercenti") && null,
   AdminPaidUsersSection: () => mockInvoked.push("paganti") && null,
-  AdminRecentProfilesSection: () => mockInvoked.push("registrati") && null,
+  AdminSignupsSection: () => mockInvoked.push("registrati") && null,
 }));
 
 // Il gate di richiesta ha i suoi test in `src/server/admin-guard.test.ts`: qui
@@ -156,7 +155,7 @@ describe("AdminPage — streaming", () => {
   it("monta tutte le sezioni, ognuna dietro un proprio Suspense", async () => {
     const found = await sectionsOf();
 
-    expect(found).toHaveLength(11);
+    expect(found).toHaveLength(10);
     expect(found.every((section) => section.suspended)).toBe(true);
   });
 
@@ -194,8 +193,7 @@ describe("AdminPage — streaming", () => {
       "AdminFunnelSection",
       "AdminTrialActiveKpiSection",
       // Chi si è appena iscritto e chi si è bloccato subito dopo.
-      "AdminRecentProfilesSection",
-      "AdminStalledOnboardingSection",
+      "AdminSignupsSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
       "AdminStalePendingDocumentsSection",
@@ -247,7 +245,6 @@ describe("AdminPage — periodo", () => {
       // ultimi 7 giorni.
       "AdminFunnelSection",
       "AdminTrialActiveKpiSection",
-      "AdminStalledOnboardingSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
       "AdminStalePendingDocumentsSection",
