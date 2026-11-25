@@ -1,14 +1,14 @@
-import { sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 
 import { logger } from "@/lib/logger";
 import {
   type RawRow,
   adminRangeParams,
   lineCentsSql,
+  paidPlansSql,
   runAdminRead,
   toNumber,
   toRows,
-  trialActiveSql,
 } from "./admin-sql";
 import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
 
@@ -18,14 +18,12 @@ import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
  * RPC raggiungibile dal browser. Il gate è il layout (`isAdminEmail`), che
  * resta l'unico punto d'ingresso.
  *
- * **Tre letture, non una.** `getAdminUserKpis` interroga `profiles`,
- * `getAdminDocumentKpis` interroga `commercial_documents` (e `ade_credentials`
- * per il conteggio fisconline/CIE, che non dipende dal periodo ma vive qui
- * perché sta nella stessa riga di card), `getAdminTrialFunnel` interroga
- * entrambe per la coorte trial del periodo. Ognuna sta dietro il proprio
- * boundary Suspense in `src/app/admin/page.tsx`: le card utenti compaiono
- * senza aspettare la scansione di ogni scontrino mai emesso, che è la query
- * più lenta del pannello.
+ * **Tre letture, non una.** `getAdminFunnel` è il funnel di sempre
+ * (registrati → onboarding → scontrini → paganti, con il metodo di accesso
+ * AdE a ogni gradino) ed è l'unica sempre in pagina. `getAdminUserKpis`
+ * interroga `profiles`, `getAdminDocumentKpis` interroga
+ * `commercial_documents`: sono le card del periodo, che stanno nella
+ * sezione "Altre metriche" di `src/app/admin/page.tsx`.
  *
  * **Perché aggrega in SQL e non in JS** come `analytics-actions.ts`: là il
  * dataset è di un solo esercente e viene riusato per KPI, timeseries e
@@ -53,14 +51,6 @@ export type AdminUserKpis = {
   readonly usersTotal: number;
   readonly usersInRange: number;
   readonly usersSparkline: readonly AdminSparklinePoint[];
-  /**
-   * Trial ancora attivi ADESSO (bonus referral incluso) che hanno completato
-   * l'onboarding — `businesses.fiscal_code` valorizzato, lo stesso segnale
-   * canonico che `onboarding-actions.ts` usa per "onboarding mai completato".
-   * Non filtrato dal range: fotografia dello stato attuale, come lo era il
-   * vecchio KPI "trial attivi" che sostituisce.
-   */
-  readonly trialsOnboarded: number;
 };
 
 export type AdminDocumentKpis = {
@@ -72,32 +62,45 @@ export type AdminDocumentKpis = {
   readonly revenueCentsTotal: number;
   readonly revenueCentsInRange: number;
   readonly revenueSparkline: readonly AdminSparklinePoint[];
-  /**
-   * Business con credenziali AdE salvate, per metodo di accesso —
-   * indipendentemente dall'esito di verifica: risponde a "quale metodo hanno
-   * scelto", non a "chi ha finito l'onboarding". Non filtrato dal range:
-   * fotografia dello stato attuale delle credenziali salvate, come i trial
-   * attivi.
-   */
-  readonly fisconlineUsers: number;
-  readonly cieUsers: number;
+};
+
+/** Metodi di accesso AdE, nell'ordine in cui il funnel li disegna. */
+export const ADMIN_LOGIN_METHODS = ["fisconline", "cie", "spid"] as const;
+export type AdminLoginMethod = (typeof ADMIN_LOGIN_METHODS)[number];
+
+/**
+ * Un gradino del funnel: quanti ci sono arrivati e con quale metodo di
+ * accesso AdE. La somma dei metodi può stare sotto `total`: chi ha completato
+ * l'onboarding e poi ha cancellato le credenziali resta nel gradino, ma non ha
+ * più un metodo da contare.
+ */
+export type AdminFunnelStage = {
+  readonly total: number;
+  readonly methods: Readonly<Record<AdminLoginMethod, number>>;
 };
 
 /**
- * Funnel di attivazione della coorte trial del periodo selezionato: chi ha
- * iniziato il trial nel range **ed è tuttora in trial attivo** (non scaduto,
- * non convertito a pagamento) — quanti di questi hanno completato
- * l'onboarding, quanti hanno emesso almeno uno scontrino.
+ * Funnel di sempre, a gradini **annidati**: ognuno è un sottoinsieme del
+ * precedente, così la percentuale fra due gradini vicini è una conversione
+ * vera.
  *
- * Sostituisce la vecchia "conversione trial" (coorte fissa a 90 giorni,
- * indipendente dal periodo selezionato): quella rispondeva "quanti convertono
- * a pagamento", questa risponde "quanti, di chi è arrivato in questo periodo
- * ed è ancora con noi, stanno effettivamente usando il prodotto".
+ *  - `registered`: ogni profilo (i collaboratori non hanno un profilo);
+ *  - `onboarded`: `businesses.fiscal_code` valorizzato, il segnale canonico
+ *    di `onboarding-actions.ts`;
+ *  - `issuedReceipts`: onboarding completato e almeno uno scontrino `SALE`
+ *    accettato;
+ *  - `paying`: tutto il precedente, più un piano in `paidPlansSql`.
+ *
+ * Un pagante che non ha mai emesso scontrini esce dal funnel per
+ * costruzione: lo conta a parte `payingWithoutReceipts`, perché è un caso
+ * che vale la pena vedere, non un errore di arrotondamento.
  */
-export type AdminTrialFunnel = {
+export type AdminFunnel = {
   readonly registered: number;
-  readonly onboarded: number;
-  readonly issuedReceipts: number;
+  readonly onboarded: AdminFunnelStage;
+  readonly issuedReceipts: AdminFunnelStage;
+  readonly paying: AdminFunnelStage;
+  readonly payingWithoutReceipts: number;
 };
 
 export type AdminUserKpisResult = { kpis: AdminUserKpis } | { error: string };
@@ -105,8 +108,7 @@ export type AdminUserKpisResult = { kpis: AdminUserKpis } | { error: string };
 export type AdminDocumentKpisResult =
   { kpis: AdminDocumentKpis } | { error: string };
 
-export type AdminTrialFunnelResult =
-  { funnel: AdminTrialFunnel } | { error: string };
+export type AdminFunnelResult = { funnel: AdminFunnel } | { error: string };
 
 /**
  * Messaggi distinti per blocco: con più letture indipendenti un unico testo
@@ -117,8 +119,8 @@ const USERS_LOAD_ERROR =
   "Impossibile caricare le metriche utenti. Riprova tra qualche istante.";
 const DOCUMENTS_LOAD_ERROR =
   "Impossibile caricare le metriche scontrini. Riprova tra qualche istante.";
-const TRIAL_FUNNEL_LOAD_ERROR =
-  "Impossibile caricare il funnel trial. Riprova tra qualche istante.";
+const FUNNEL_LOAD_ERROR =
+  "Impossibile caricare il funnel. Riprova tra qualche istante.";
 
 /**
  * Espande le righe `{ date, … }` di una serie giornaliera sull'asse completo
@@ -151,7 +153,7 @@ function fillSeries(
  * pannello ha un problema, non quale.
  */
 function logMetricsFailure(
-  metric: "users" | "documents" | "trial_funnel",
+  metric: "users" | "documents" | "funnel",
   range: AnalyticsRange | null,
   message: string,
   err?: unknown,
@@ -163,8 +165,7 @@ function logMetricsFailure(
 }
 
 /**
- * KPI utenti del pannello amministratore: iscritti nel periodo, totale storico,
- * trial attivi che hanno completato l'onboarding.
+ * KPI utenti del pannello amministratore: iscritti nel periodo e totale storico.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19): la pagina è
  * server-rendered e un throw sostituirebbe il boundary Suspense di questo
@@ -203,16 +204,7 @@ export async function getAdminUserKpis(
             '[]'::json
           )
           FROM by_day
-        ) AS users_sparkline,
-        (
-          -- Onboarding completato = businesses.fiscal_code valorizzato, il
-          -- segnale canonico di onboarding-actions.ts.
-          SELECT count(*)::bigint
-          FROM profiles p
-          JOIN businesses b ON b.profile_id = p.id
-          WHERE ${trialActiveSql}
-            AND b.fiscal_code IS NOT NULL
-        ) AS trials_onboarded
+        ) AS users_sparkline
     `)) as unknown as RawRow[];
     });
 
@@ -235,7 +227,6 @@ export async function getAdminUserKpis(
           from,
           to,
         ),
-        trialsOnboarded: toNumber(row.trials_onboarded),
       },
     };
   } catch (err) {
@@ -250,13 +241,13 @@ export async function getAdminUserKpis(
 }
 
 /**
- * KPI scontrini del pannello amministratore: emessi e incassati nel periodo, totali
- * storici, business per metodo di accesso AdE.
+ * KPI scontrini del pannello amministratore: emessi e incassati nel periodo e
+ * totali storici.
  *
  * È la lettura più cara del pannello — `created_at < rangeEnd` significa tutto
  * lo storico, e il join sulle righe non ha indice utile perché non si filtra
- * per `business_id`. Sta dietro al proprio boundary apposta: è quella che
- * faceva aspettare tutto il resto.
+ * per `business_id`. Per questo si carica solo su richiesta, dalla sezione
+ * "Altre metriche" del pannello.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
  */
@@ -293,20 +284,12 @@ export async function getAdminDocumentKpis(
         FROM totals
         WHERE in_range
         GROUP BY day
-      ),
-      methods AS (
-        SELECT
-          count(*) FILTER (WHERE login_method = 'fisconline')::bigint AS fisconline_users,
-          count(*) FILTER (WHERE login_method = 'cie')::bigint AS cie_users
-        FROM ade_credentials
       )
       SELECT
         count(*)::bigint                                   AS receipts_total,
         count(*) FILTER (WHERE in_range)::bigint            AS receipts_in_range,
         coalesce(sum(cents), 0)::bigint                     AS revenue_cents_total,
         coalesce(sum(cents) FILTER (WHERE in_range), 0)::bigint AS revenue_cents_in_range,
-        (SELECT fisconline_users FROM methods)              AS fisconline_users,
-        (SELECT cie_users FROM methods)                      AS cie_users,
         (
           SELECT coalesce(
             json_agg(
@@ -343,8 +326,6 @@ export async function getAdminDocumentKpis(
         revenueCentsTotal: toNumber(row.revenue_cents_total),
         revenueCentsInRange: toNumber(row.revenue_cents_in_range),
         revenueSparkline: fillSeries(daily, "cents", from, to),
-        fisconlineUsers: toNumber(row.fisconline_users),
-        cieUsers: toNumber(row.cie_users),
       },
     };
   } catch (err) {
@@ -358,74 +339,109 @@ export async function getAdminDocumentKpis(
   }
 }
 
+/** Le colonne di un gradino: il totale e una per metodo di accesso. */
+function stageColumnsSql(stage: string, predicate: SQL): SQL {
+  const perMethod = ADMIN_LOGIN_METHODS.map((method) => {
+    const alias = sql.raw(stage + "_" + method);
+    return sql`count(*) FILTER (WHERE ${predicate} AND method = ${method})::bigint AS ${alias}`;
+  });
+  return sql.join(
+    [
+      sql`count(*) FILTER (WHERE ${predicate})::bigint AS ${sql.raw(stage)}`,
+      ...perMethod,
+    ],
+    sql`,
+`,
+  );
+}
+
+function toStage(row: RawRow, stage: string): AdminFunnelStage {
+  return {
+    total: toNumber(row[stage]),
+    methods: {
+      fisconline: toNumber(row[`${stage}_fisconline`]),
+      cie: toNumber(row[`${stage}_cie`]),
+      spid: toNumber(row[`${stage}_spid`]),
+    },
+  };
+}
+
 /**
- * Funnel di attivazione della coorte trial del periodo selezionato (vedi
- * `AdminTrialFunnel`). Popolazione: trial iniziati dentro `[rangeStart,
- * rangeEnd)` e tuttora attivi ADESSO — chi ha già convertito o il cui trial è
- * scaduto esce dal funnel, perché la domanda è "di chi è arrivato in questo
- * periodo ed è ancora con noi, quanti stanno usando il prodotto".
+ * Funnel di sempre del pannello amministratore (vedi `AdminFunnel`). Nessun
+ * periodo: è la fotografia di dove si perdono gli utenti da quando il
+ * prodotto esiste, e il metodo di accesso a ogni gradino dice se CIE converte
+ * peggio di Fisconline.
  *
- * Tocca `commercial_documents` (per "ha emesso scontrini"), quindi condivide
- * il costo di `getAdminDocumentKpis` — ma filtrato a una coorte tipicamente
- * piccola via `EXISTS` correlato su `business_id`, non una scansione intera.
+ * Una riga per profilo: `businesses.profile_id` e `ade_credentials.business_id`
+ * sono UNIQUE, quindi i due `LEFT JOIN` non moltiplicano nulla. "Ha emesso
+ * scontrini" è un `EXISTS` correlato su `business_id`, che usa l'indice
+ * `(business_id, status)` invece di scandire lo storico.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
  */
-export async function getAdminTrialFunnel(
-  range: AnalyticsRange,
-  reference: Date = new Date(),
-): Promise<AdminTrialFunnelResult> {
-  const { rangeStart, rangeEnd } = adminRangeParams(range, reference);
-
+export async function getAdminFunnel(): Promise<AdminFunnelResult> {
   try {
     const [row] = await runAdminRead(async (tx) => {
       return (await tx.execute(sql`
-      WITH cohort AS (
-        SELECT b.id AS business_id, b.fiscal_code
+      WITH base AS (
+        SELECT
+          p.plan IN (${paidPlansSql}) AS paying,
+          coalesce(b.fiscal_code IS NOT NULL, false) AS onboarded,
+          c.login_method AS method,
+          EXISTS (
+            SELECT 1 FROM commercial_documents cd
+            WHERE cd.business_id = b.id
+              AND cd.kind = 'SALE'
+              AND cd.status = 'ACCEPTED'
+          ) AS has_receipts
         FROM profiles p
-        JOIN businesses b ON b.profile_id = p.id
-        WHERE p.trial_started_at >= ${rangeStart}
-          AND p.trial_started_at <  ${rangeEnd}
-          AND ${trialActiveSql}
+        LEFT JOIN businesses      b ON b.profile_id  = p.id
+        LEFT JOIN ade_credentials c ON c.business_id = b.id
+      ),
+      stages AS (
+        SELECT
+          method,
+          onboarded                              AS s_onboarded,
+          onboarded AND has_receipts             AS s_receipts,
+          onboarded AND has_receipts AND paying  AS s_paying,
+          paying AND NOT (onboarded AND has_receipts) AS s_paying_orphan
+        FROM base
       )
       SELECT
         count(*)::bigint AS registered,
-        count(*) FILTER (WHERE fiscal_code IS NOT NULL)::bigint AS onboarded,
-        count(*) FILTER (
-          WHERE EXISTS (
-            SELECT 1 FROM commercial_documents cd
-            WHERE cd.business_id = cohort.business_id
-              AND cd.kind = 'SALE'
-              AND cd.status = 'ACCEPTED'
-          )
-        )::bigint AS issued_receipts
-      FROM cohort
+        ${stageColumnsSql("onboarded", sql`s_onboarded`)},
+        ${stageColumnsSql("issued_receipts", sql`s_receipts`)},
+        ${stageColumnsSql("paying", sql`s_paying`)},
+        count(*) FILTER (WHERE s_paying_orphan)::bigint AS paying_without_receipts
+      FROM stages
     `)) as unknown as RawRow[];
     });
 
     if (!row) {
       logMetricsFailure(
-        "trial_funnel",
-        range,
-        "admin metrics: query funnel trial senza righe",
+        "funnel",
+        null,
+        "admin metrics: query funnel senza righe",
       );
-      return { error: TRIAL_FUNNEL_LOAD_ERROR };
+      return { error: FUNNEL_LOAD_ERROR };
     }
 
     return {
       funnel: {
         registered: toNumber(row.registered),
-        onboarded: toNumber(row.onboarded),
-        issuedReceipts: toNumber(row.issued_receipts),
+        onboarded: toStage(row, "onboarded"),
+        issuedReceipts: toStage(row, "issued_receipts"),
+        paying: toStage(row, "paying"),
+        payingWithoutReceipts: toNumber(row.paying_without_receipts),
       },
     };
   } catch (err) {
     logMetricsFailure(
-      "trial_funnel",
-      range,
-      "admin metrics: query funnel trial fallita",
+      "funnel",
+      null,
+      "admin metrics: query funnel fallita",
       err,
     );
-    return { error: TRIAL_FUNNEL_LOAD_ERROR };
+    return { error: FUNNEL_LOAD_ERROR };
   }
 }

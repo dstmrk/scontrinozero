@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm";
 
 import { logger } from "@/lib/logger";
-import { PAID_SELF_SERVICE_PLANS } from "@/lib/plans";
 import { staleUpdatedBefore } from "@/lib/services/ade-recovery";
 import {
   type RawRow,
   adminRangeParams,
   lineCentsSql,
   merchantLocationSql,
+  paidPlansSql,
   runAdminRead,
   toNullableText,
   toNumber,
@@ -40,7 +40,7 @@ import type { AnalyticsRange } from "./analytics-helpers";
  *
  * La maggior parte non guarda nemmeno il range selezionato:
  * `getAdminTrialExpiring`, `getAdminPaidUsers`, `getAdminStalledOnboarding`,
- * `getAdminStalePendingDocuments` e `getAdminTrialActiveMerchants` sono
+ * `getAdminStalePendingDocuments` e `getAdminTrialActive` sono
  * ancorate ad ADESSO — rispondono a "chi/cosa richiede attenzione oggi", non
  * "cosa è successo nel periodo".
  *
@@ -155,8 +155,20 @@ export type AdminStalePendingDocumentRow = {
 export type AdminStalePendingDocumentsResult =
   { rows: readonly AdminStalePendingDocumentRow[] } | { error: string };
 
-export type AdminTrialActiveMerchantsResult =
-  { merchants: readonly AdminMerchant[] } | { error: string };
+/**
+ * Trial attivi adesso: quanti sono, quanti hanno emesso almeno uno scontrino
+ * accettato, e l'elenco di questi ultimi. Una sola lettura alimenta sia il
+ * KPI "Trial attivi" sia la tabella "Trial attivi con scontrini": i due
+ * numeri devono tornare con le righe che hanno sotto.
+ */
+export type AdminTrialActive = {
+  readonly active: number;
+  readonly withReceipts: number;
+  readonly merchants: readonly AdminMerchant[];
+};
+
+export type AdminTrialActiveResult =
+  { trials: AdminTrialActive } | { error: string };
 
 /**
  * Un messaggio per elenco: con più letture indipendenti l'avviso compare
@@ -174,8 +186,8 @@ const PAID_USERS_LOAD_ERROR =
   "Impossibile caricare gli utenti paganti. Riprova tra qualche istante.";
 const STALE_PENDING_DOCUMENTS_LOAD_ERROR =
   "Impossibile caricare i documenti in sospeso. Riprova tra qualche istante.";
-const TRIAL_ACTIVE_MERCHANTS_LOAD_ERROR =
-  "Impossibile caricare gli esercenti in trial. Riprova tra qualche istante.";
+const TRIAL_ACTIVE_LOAD_ERROR =
+  "Impossibile caricare i trial attivi. Riprova tra qualche istante.";
 
 /** Quanti esercenti mostrare in ciascuna delle due classifiche. */
 const TOP_MERCHANTS = 5;
@@ -193,12 +205,6 @@ const TRIAL_WINDOW_DAYS = 7;
 
 /** Nome completo, o NULL se il profilo non ne ha uno utilizzabile. */
 const fullNameSql = sql`nullif(trim(concat_ws(' ', p.first_name, p.last_name)), '')`;
-
-/** Elenco dei piani acquistabili, come lista di parametri per un `IN`. */
-const paidPlansSql = sql.join(
-  PAID_SELF_SERVICE_PLANS.map((plan) => sql`${plan}`),
-  sql`, `,
-);
 
 function mapMerchant(row: RawRow): AdminMerchant {
   return {
@@ -312,70 +318,96 @@ export async function getAdminTopMerchants(
 }
 
 /**
- * Utenti in trial attivo che hanno emesso almeno uno scontrino — storico
- * completo, non filtrato dal range selezionato: sta accanto a "Trial in
- * scadenza", che è anch'essa una fotografia di adesso.
+ * Trial attivi adesso e, fra questi, chi ha emesso scontrini (vedi
+ * `AdminTrialActive`), con lo storico completo di ciascuno.
+ *
+ * **Prima la popolazione, poi i documenti.** I trial attivi sono pochi: la
+ * query li isola e solo dopo va a leggere i loro scontrini, per
+ * `business_id` e quindi sull'indice. La versione precedente sommava lo
+ * storico di tutti gli esercenti e filtrava i trial alla fine.
  *
  * Stessa forma di riga e stesso ordinamento di `getAdminTopMerchants`
- * (`AdminMerchant`, scontrini poi incasso poi `business_id` come spareggio
- * deterministico — skill money-rounding), ma senza il tetto a
- * `TOP_MERCHANTS`: qui la domanda è "chi", non "i primi cinque".
+ * (`business_id` come ultima chiave, ordini deterministici: skill
+ * `money-rounding`). Conteggi e righe in una lettura sola, come per gli
+ * onboarding fermi: due fotografie di istanti diversi non tornerebbero.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
  */
-export async function getAdminTrialActiveMerchants(): Promise<AdminTrialActiveMerchantsResult> {
+export async function getAdminTrialActive(): Promise<AdminTrialActiveResult> {
   try {
     const [row] = await runAdminRead(async (tx) => {
       return (await tx.execute(sql`
-      WITH agg AS (
+      WITH trial AS (
         SELECT
-          cd.business_id                            AS business_id,
+          b.id                   AS business_id,
+          b.business_name        AS business_name,
+          ${fullNameSql}         AS owner_name,
+          ${merchantLocationSql} AS location,
+          p.email                AS email
+        FROM profiles p
+        LEFT JOIN businesses b ON b.profile_id = p.id
+        WHERE ${trialActiveSql}
+      ),
+      agg AS (
+        SELECT
+          t.business_id                             AS business_id,
           count(DISTINCT cd.id)::bigint             AS receipts,
           coalesce(sum(${lineCentsSql}), 0)::bigint AS revenue_cents
-        FROM commercial_documents cd
+        FROM trial t
+        JOIN commercial_documents cd
+          ON cd.business_id = t.business_id
+         AND cd.kind = 'SALE'
+         AND cd.status = 'ACCEPTED'
         LEFT JOIN commercial_document_lines l ON l.document_id = cd.id
-        WHERE cd.kind = 'SALE'
-          AND cd.status = 'ACCEPTED'
-        GROUP BY cd.business_id
+        GROUP BY t.business_id
       ),
       merchants AS (
         SELECT
-          a.business_id,
-          b.business_name,
-          ${fullNameSql} AS owner_name,
-          ${merchantLocationSql} AS location,
-          p.email,
+          t.business_id,
+          t.business_name,
+          t.owner_name,
+          t.location,
+          t.email,
           a.receipts,
           a.revenue_cents
         FROM agg a
-        JOIN businesses b ON b.id = a.business_id
-        JOIN profiles   p ON p.id = b.profile_id
-        WHERE ${trialActiveSql}
+        JOIN trial t ON t.business_id = a.business_id
       )
-      SELECT coalesce(
-        json_agg(
-          row_to_json(t)
-          ORDER BY t.receipts DESC, t.revenue_cents DESC, t.business_id
-        ),
-        '[]'::json
-      ) AS rows
-      FROM (
-        SELECT * FROM merchants
-        ORDER BY receipts DESC, revenue_cents DESC, business_id
-        LIMIT ${LIST_LIMIT}
-      ) t
+      SELECT
+        (SELECT count(*)::bigint FROM trial) AS active,
+        (SELECT count(*)::bigint FROM agg)   AS with_receipts,
+        (
+          SELECT coalesce(
+            json_agg(
+              row_to_json(t)
+              ORDER BY t.receipts DESC, t.revenue_cents DESC, t.business_id
+            ),
+            '[]'::json
+          )
+          FROM (
+            SELECT * FROM merchants
+            ORDER BY receipts DESC, revenue_cents DESC, business_id
+            LIMIT ${LIST_LIMIT}
+          ) t
+        ) AS rows
     `)) as unknown as RawRow[];
     });
 
     if (!row) {
-      logDirectoryFailure("trial_active_merchants", null);
-      return { error: TRIAL_ACTIVE_MERCHANTS_LOAD_ERROR };
+      logDirectoryFailure("trial_active", null);
+      return { error: TRIAL_ACTIVE_LOAD_ERROR };
     }
 
-    return { merchants: toRows(row.rows).map(mapMerchant) };
+    return {
+      trials: {
+        active: toNumber(row.active),
+        withReceipts: toNumber(row.with_receipts),
+        merchants: toRows(row.rows).map(mapMerchant),
+      },
+    };
   } catch {
-    logDirectoryFailure("trial_active_merchants", null);
-    return { error: TRIAL_ACTIVE_MERCHANTS_LOAD_ERROR };
+    logDirectoryFailure("trial_active", null);
+    return { error: TRIAL_ACTIVE_LOAD_ERROR };
   }
 }
 

@@ -11,7 +11,10 @@ import {
   AdminTrialActiveMerchantsSkeleton,
   AdminTrialExpiringSkeleton,
 } from "@/components/admin/admin-directory-tables";
-import { AdminKpiCardsSkeleton } from "@/components/admin/admin-skeletons";
+import {
+  AdminFunnelSkeleton,
+  AdminKpiCardsSkeleton,
+} from "@/components/admin/admin-skeletons";
 import { requireAdminOrNotFound } from "@/server/admin-guard";
 import {
   type AnalyticsRange,
@@ -19,14 +22,15 @@ import {
 } from "@/server/analytics-helpers";
 import {
   AdminDocumentKpisSection,
+  AdminFunnelSection,
   AdminPaidUsersSection,
   AdminRecentProfilesSection,
   AdminStalePendingDocumentsSection,
   AdminStalledOnboardingSection,
   AdminTopMerchantsSection,
+  AdminTrialActiveKpiSection,
   AdminTrialActiveMerchantsSection,
   AdminTrialExpiringSection,
-  AdminTrialFunnelSection,
   AdminUserKpisSection,
 } from "./sections";
 
@@ -40,33 +44,30 @@ import {
  * di `parseAnalyticsRange`, che su valore ignoto ricade sul default invece di
  * lanciare (regola 19).
  *
+ * **Due livelli.** In alto quello che si guarda ogni volta: funnel di
+ * sempre, trial attivi, registrati e onboarding fermi, trial in scadenza,
+ * documenti in sospeso. Sotto, in un `<details>` chiuso, le metriche del
+ * periodo che si guardano di rado: nuovi utenti, scontrini e incasso, utenti
+ * paganti, classifiche esercenti.
+ *
  * **La pagina non aspetta nessuna query.** Il guscio — selettore di periodo —
- * esce subito; le dieci letture stanno dietro ad altrettanti `<Suspense>` e
- * Next manda in streaming ogni blocco appena la sua query risponde. Un solo
- * `await Promise.all(...)` in cima non partirebbe finché non c'è l'ultimo
- * dato, e la scansione dello storico scontrini si porterebbe dietro anche i
- * blocchi che sono pronti da un pezzo.
+ * esce subito; ogni lettura sta dietro al suo `<Suspense>` e Next manda in
+ * streaming ogni blocco appena la sua query risponde.
  *
  * **`key={range}` sui boundary che leggono `range`.** Senza, un cambio di
  * periodo è un update dentro lo stesso transition di navigazione: React
  * tiene il contenuto vecchio finché la query nuova non risponde, quindi lo
  * skeleton non si vede mai. La `key` forza React a smontare e rimontare quel
- * `<Suspense>` sul nuovo periodo, che quindi mostra di nuovo il fallback. I
- * boundary ancorati ad "adesso" (documenti in sospeso, onboarding fermi,
- * trial in scadenza, trial attivi, utenti paganti) non hanno la key: non
+ * `<Suspense>`. I boundary ancorati ad "adesso" non hanno la key: non
  * dipendono da `range`, quindi non devono ripartire quando cambia.
  *
- * **Il tetto sul pool viene prima della velocità del pannello.** Le dieci
- * letture NON girano in parallelo: `runAdminRead` (`src/server/admin-sql.ts`)
- * ne lascia passare una per volta, così `/admin` non può mai togliere più di
- * una connessione delle dieci che servono la cassa. Il tempo totale resta
- * quindi la somma delle dieci query; quello che cambia è che si vede arrivare
- * il pannello un pezzo alla volta invece di fissare una pagina bianca.
+ * **Il tetto sul pool viene prima della velocità del pannello.** Le letture
+ * NON girano in parallelo: `runAdminRead` (`src/server/admin-sql.ts`) ne
+ * lascia passare una per volta, così `/admin` non può mai togliere più di una
+ * connessione delle dieci che servono la cassa. Il tempo totale è la somma
+ * delle query, ed è per questo che il pannello ne fa poche.
  *
- * Corollario: l'ordine dei `<Suspense>` qui sotto è l'ordine della coda. In
- * testa ci sono i KPI, che sono ciò che si guarda per primo; il rilevatore dei
- * documenti in sospeso — un `count(*)` senza join, quindi economico — sta
- * subito dopo, appaiato all'onboarding fermi.
+ * Corollario: l'ordine dei `<Suspense>` qui sotto è l'ordine della coda.
  */
 export const metadata: Metadata = {
   title: "Pannello amministratore",
@@ -78,15 +79,11 @@ export const metadata: Metadata = {
  * dell'analytics esercente (`DEFAULT_ANALYTICS_RANGE`, 30 giorni), che resta
  * intoccato: è un piano a pagamento e non si sposta di sotto ai clienti.
  *
- * Sette giorni perché alcune delle dieci letture — classifiche esercenti,
- * registrati di recente, funnel trial — filtrano davvero su `created_at >=
- * rangeStart`, e lì un quarto del periodo è un quarto delle righe da
- * aggregare. Le altre non ne beneficiano: la query scontrini legge
- * `created_at < rangeEnd`, cioè tutto lo storico a prescindere, e le tabelle
- * ancorate ad adesso (trial in scadenza, onboarding fermi, documenti in
- * sospeso, trial attivi con scontrini, utenti paganti) non lo guardano per
- * scelta — un orfano di tre settimane fa, o un onboarding arenato a maggio,
- * sono proprio quello che interessa vedere.
+ * Sette giorni perché le letture che filtrano davvero su `created_at >=
+ * rangeStart` — registrati di recente, classifiche esercenti — aggregano un
+ * quarto delle righe rispetto a trenta. Le letture ancorate ad adesso (funnel,
+ * trial, onboarding fermi, documenti in sospeso, utenti paganti) non lo
+ * guardano per scelta.
  */
 const DEFAULT_ADMIN_RANGE: AnalyticsRange = "7d";
 
@@ -110,47 +107,20 @@ export default async function AdminPage({
 
       {/* La griglia è qui e non nei componenti: `<Suspense>` non produce un
           nodo DOM, quindi card e scheletri restano figli diretti della griglia
-          e si sostituiscono uno a uno senza spostare il layout. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {/* `sparklines` rispecchia il gruppo vero — 1 card su 2 fra gli
-            utenti, 2 su 3 fra gli scontrini — così le card non cambiano
-            altezza quando il contenuto prende il posto dello scheletro. */}
-        <Suspense
-          key={`user-kpis-${range}`}
-          fallback={
-            <AdminKpiCardsSkeleton
-              count={2}
-              sparklines={1}
-              label="metriche utenti"
-            />
-          }
-        >
-          <AdminUserKpisSection range={range} />
+          e si sostituiscono uno a uno senza spostare il layout. Il funnel
+          prende due colonne su tre, i trial attivi la terza. */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Suspense fallback={<AdminFunnelSkeleton />}>
+          <AdminFunnelSection />
         </Suspense>
         <Suspense
-          key={`trial-funnel-${range}`}
-          fallback={<AdminKpiCardsSkeleton count={1} label="funnel trial" />}
+          fallback={<AdminKpiCardsSkeleton count={1} label="trial attivi" />}
         >
-          <AdminTrialFunnelSection range={range} />
-        </Suspense>
-        <Suspense
-          key={`document-kpis-${range}`}
-          fallback={
-            <AdminKpiCardsSkeleton
-              count={3}
-              sparklines={2}
-              label="metriche scontrini"
-            />
-          }
-        >
-          <AdminDocumentKpisSection range={range} />
+          <AdminTrialActiveKpiSection />
         </Suspense>
       </div>
 
       <div className="space-y-4">
-        {/* Registrati di recente e onboarding fermi affiancati: metà larghezza
-            ciascuna su tablet e desktop, incolonnate su mobile. Chi si è
-            appena iscritto e chi si è bloccato subito dopo. */}
         <div className="grid gap-4 md:grid-cols-2">
           <Suspense
             key={`recent-profiles-${range}`}
@@ -172,21 +142,52 @@ export default async function AdminPage({
           </Suspense>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Suspense fallback={<AdminStalePendingDocumentsSkeleton />}>
-            <AdminStalePendingDocumentsSection />
-          </Suspense>
-          <Suspense fallback={<AdminPaidUsersSkeleton />}>
-            <AdminPaidUsersSection />
-          </Suspense>
-        </div>
-
-        <Suspense
-          key={`top-merchants-${range}`}
-          fallback={<AdminTopMerchantsSkeleton />}
-        >
-          <AdminTopMerchantsSection range={range} />
+        <Suspense fallback={<AdminStalePendingDocumentsSkeleton />}>
+          <AdminStalePendingDocumentsSection />
         </Suspense>
+
+        <details className="rounded-xl border border-dashed px-4">
+          <summary className="cursor-pointer py-3 text-sm font-semibold">
+            Altre metriche
+          </summary>
+          <div className="space-y-4 pb-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Suspense
+                key={`user-kpis-${range}`}
+                fallback={
+                  <AdminKpiCardsSkeleton
+                    count={1}
+                    sparklines={1}
+                    label="nuovi utenti"
+                  />
+                }
+              >
+                <AdminUserKpisSection range={range} />
+              </Suspense>
+              <Suspense
+                key={`document-kpis-${range}`}
+                fallback={
+                  <AdminKpiCardsSkeleton
+                    count={2}
+                    sparklines={2}
+                    label="scontrini e incasso"
+                  />
+                }
+              >
+                <AdminDocumentKpisSection range={range} />
+              </Suspense>
+            </div>
+            <Suspense fallback={<AdminPaidUsersSkeleton />}>
+              <AdminPaidUsersSection />
+            </Suspense>
+            <Suspense
+              key={`top-merchants-${range}`}
+              fallback={<AdminTopMerchantsSkeleton />}
+            >
+              <AdminTopMerchantsSection range={range} />
+            </Suspense>
+          </div>
+        </details>
       </div>
     </div>
   );

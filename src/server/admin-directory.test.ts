@@ -36,7 +36,7 @@ import {
   getAdminStalePendingDocuments,
   getAdminStalledOnboarding,
   getAdminTopMerchants,
-  getAdminTrialActiveMerchants,
+  getAdminTrialActive,
   getAdminTrialExpiring,
 } from "./admin-directory";
 
@@ -559,14 +559,19 @@ describe("getAdminStalePendingDocuments", () => {
   });
 });
 
-describe("getAdminTrialActiveMerchants", () => {
-  it("converte in numeri i contatori e gli importi restituiti come stringhe", async () => {
-    mockExecute.mockResolvedValueOnce([{ rows: [MERCHANT] }]);
+describe("getAdminTrialActive", () => {
+  it("restituisce conteggi ed elenco dalla stessa lettura, convertiti in numeri", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { active: "24", with_receipts: "9", rows: [MERCHANT] },
+    ]);
 
-    const result = await getAdminTrialActiveMerchants();
+    const result = await getAdminTrialActive();
 
     if ("error" in result) throw new Error("atteso successo");
-    expect(result.merchants[0]).toEqual({
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(result.trials.active).toBe(24);
+    expect(result.trials.withReceipts).toBe(9);
+    expect(result.trials.merchants[0]).toEqual({
       businessId: "b1",
       businessName: "Bar Centrale",
       ownerName: "Mario Rossi",
@@ -577,31 +582,49 @@ describe("getAdminTrialActiveMerchants", () => {
     });
   });
 
-  it("non filtra per periodo: è storico completo, come il trial", async () => {
-    mockExecute.mockResolvedValueOnce([{ rows: [] }]);
+  it("isola prima i trial attivi, poi legge i loro scontrini per business", async () => {
+    // L'inversione che rende la query economica: sommare lo storico di tutti
+    // gli esercenti e filtrare i trial alla fine era la versione lenta.
+    mockExecute.mockResolvedValueOnce([
+      { active: "0", with_receipts: "0", rows: [] },
+    ]);
 
-    await getAdminTrialActiveMerchants();
+    await getAdminTrialActive();
 
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("p.plan");
+    expect(queried).toContain("WITH trial AS");
+    expect(queried).toContain("FROM trial t");
+    expect(queried).toContain("cd.business_id = t.business_id");
     expect(queried).not.toContain("timestamptz");
+  });
+
+  it("tratta come 0 conteggi null e come lista vuota righe mancanti", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { active: null, with_receipts: null, rows: null },
+    ]);
+
+    const result = await getAdminTrialActive();
+
+    expect(result).toEqual({
+      trials: { active: 0, withReceipts: 0, merchants: [] },
+    });
   });
 
   it("degrada a { error } se il DB fallisce", async () => {
     mockExecute.mockRejectedValueOnce(new Error("boom"));
 
-    const result = await getAdminTrialActiveMerchants();
+    const result = await getAdminTrialActive();
 
     expect(result).toEqual({
       error:
-        "Impossibile caricare gli esercenti in trial. Riprova tra qualche istante.",
+        "Impossibile caricare i trial attivi. Riprova tra qualche istante.",
     });
   });
 
   it("degrada a { error } se la query non restituisce righe", async () => {
     mockExecute.mockResolvedValueOnce([]);
 
-    const result = await getAdminTrialActiveMerchants();
+    const result = await getAdminTrialActive();
 
     expect("error" in result).toBe(true);
   });

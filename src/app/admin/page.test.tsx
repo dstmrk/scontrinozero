@@ -14,7 +14,8 @@ const { mockInvoked } = vi.hoisted(() => ({ mockInvoked: [] as string[] }));
 
 vi.mock("./sections", () => ({
   AdminUserKpisSection: () => mockInvoked.push("utenti") && null,
-  AdminTrialFunnelSection: () => mockInvoked.push("funnel") && null,
+  AdminFunnelSection: () => mockInvoked.push("funnel") && null,
+  AdminTrialActiveKpiSection: () => mockInvoked.push("trial-kpi") && null,
   AdminDocumentKpisSection: () => mockInvoked.push("scontrini") && null,
   AdminStalePendingDocumentsSection: () =>
     mockInvoked.push("in-sospeso") && null,
@@ -152,10 +153,10 @@ describe("AdminPage — gate di richiesta", () => {
 });
 
 describe("AdminPage — streaming", () => {
-  it("monta tutte e dieci le letture, ognuna dietro un proprio Suspense", async () => {
+  it("monta tutte le sezioni, ognuna dietro un proprio Suspense", async () => {
     const found = await sectionsOf();
 
-    expect(found).toHaveLength(10);
+    expect(found).toHaveLength(11);
     expect(found.every((section) => section.suspended)).toBe(true);
   });
 
@@ -185,19 +186,21 @@ describe("AdminPage — streaming", () => {
   it("mette i KPI davanti alle tabelle: è anche l'ordine della coda", async () => {
     // Il pannello tiene una connessione per volta, la coda è FIFO e React
     // invoca i figli nell'ordine dell'albero: chi sta più in alto qui compare
-    // prima in pagina.
+    // prima in pagina. Le metriche del periodo stanno in fondo, in "Altre
+    // metriche".
     const found = await sectionsOf();
 
     expect(found.map((section) => section.name)).toEqual([
-      "AdminUserKpisSection",
-      "AdminTrialFunnelSection",
-      "AdminDocumentKpisSection",
+      "AdminFunnelSection",
+      "AdminTrialActiveKpiSection",
       // Chi si è appena iscritto e chi si è bloccato subito dopo.
       "AdminRecentProfilesSection",
       "AdminStalledOnboardingSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
       "AdminStalePendingDocumentsSection",
+      "AdminUserKpisSection",
+      "AdminDocumentKpisSection",
       "AdminPaidUsersSection",
       "AdminTopMerchantsSection",
     ]);
@@ -228,7 +231,7 @@ describe("AdminPage — periodo", () => {
     const found = await sectionsOf("30d");
 
     const conRange = found.filter((section) => section.range !== undefined);
-    expect(conRange).toHaveLength(5);
+    expect(conRange).toHaveLength(4);
     expect(conRange.every((section) => section.range === "30d")).toBe(true);
   });
 
@@ -239,8 +242,11 @@ describe("AdminPage — periodo", () => {
       .filter((section) => section.range === undefined)
       .map((section) => section.name);
     expect(senzaRange).toEqual([
-      // Un orfano di tre settimane fa, o un onboarding arenato a maggio,
-      // devono restare visibili anche guardando gli ultimi 7 giorni.
+      // Il funnel è di sempre; un orfano di tre settimane fa, o un
+      // onboarding arenato, devono restare visibili anche guardando gli
+      // ultimi 7 giorni.
+      "AdminFunnelSection",
+      "AdminTrialActiveKpiSection",
       "AdminStalledOnboardingSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",

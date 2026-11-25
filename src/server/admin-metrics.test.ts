@@ -37,7 +37,7 @@ vi.mock("@/lib/logger", () => ({
 import { sqlTextOf } from "../../tests/_helpers/sql-text";
 import {
   getAdminDocumentKpis,
-  getAdminTrialFunnel,
+  getAdminFunnel,
   getAdminUserKpis,
 } from "./admin-metrics";
 
@@ -52,7 +52,6 @@ function usersRow(over: Record<string, unknown> = {}) {
     users_total: "120",
     users_in_range: "8",
     users_sparkline: [],
-    trials_onboarded: "3",
     ...over,
   };
 }
@@ -63,8 +62,6 @@ function docsRow(over: Record<string, unknown> = {}) {
     receipts_in_range: "30",
     revenue_cents_total: "1234567",
     revenue_cents_in_range: "45678",
-    fisconline_users: "40",
-    cie_users: "12",
     daily: [],
     ...over,
   };
@@ -72,9 +69,20 @@ function docsRow(over: Record<string, unknown> = {}) {
 
 function funnelRow(over: Record<string, unknown> = {}) {
   return {
-    registered: "10",
-    onboarded: "6",
-    issued_receipts: "4",
+    registered: "85",
+    onboarded: "53",
+    onboarded_fisconline: "39",
+    onboarded_cie: "13",
+    onboarded_spid: "1",
+    issued_receipts: "31",
+    issued_receipts_fisconline: "25",
+    issued_receipts_cie: "6",
+    issued_receipts_spid: "0",
+    paying: "12",
+    paying_fisconline: "10",
+    paying_cie: "2",
+    paying_spid: "0",
+    paying_without_receipts: "2",
     ...over,
   };
 }
@@ -83,8 +91,8 @@ const USERS_ERROR =
   "Impossibile caricare le metriche utenti. Riprova tra qualche istante.";
 const DOCUMENTS_ERROR =
   "Impossibile caricare le metriche scontrini. Riprova tra qualche istante.";
-const TRIAL_FUNNEL_ERROR =
-  "Impossibile caricare il funnel trial. Riprova tra qualche istante.";
+const FUNNEL_ERROR =
+  "Impossibile caricare il funnel. Riprova tra qualche istante.";
 
 const REFERENCE = new Date("2026-08-26T10:00:00Z");
 
@@ -99,7 +107,7 @@ describe("getAdminUserKpis", () => {
     const result = await getAdminUserKpis("30d", REFERENCE);
 
     expect(result).toMatchObject({
-      kpis: { usersTotal: 120, usersInRange: 8, trialsOnboarded: 3 },
+      kpis: { usersTotal: 120, usersInRange: 8 },
     });
   });
 
@@ -232,16 +240,6 @@ describe("getAdminUserKpis", () => {
     expect(queried).toContain("profiles");
     expect(queried).not.toContain("commercial_documents");
   });
-
-  it("conta l'onboarding completato solo fra i trial ancora attivi", async () => {
-    mockExecute.mockResolvedValueOnce([usersRow()]);
-
-    await getAdminUserKpis("30d", REFERENCE);
-
-    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("fiscal_code IS NOT NULL");
-    expect(queried).toContain("p.plan");
-  });
 });
 
 describe("getAdminDocumentKpis", () => {
@@ -256,8 +254,6 @@ describe("getAdminDocumentKpis", () => {
         receiptsInRange: 30,
         revenueCentsTotal: 1234567,
         revenueCentsInRange: 45678,
-        fisconlineUsers: 40,
-        cieUsers: 12,
       },
     });
   });
@@ -383,50 +379,81 @@ describe("getAdminDocumentKpis", () => {
     );
   });
 
-  it("conta i business per metodo di accesso da ade_credentials", async () => {
+  it("non legge più le credenziali AdE: il metodo di accesso è nel funnel", async () => {
     mockExecute.mockResolvedValueOnce([docsRow()]);
 
     await getAdminDocumentKpis("30d", REFERENCE);
 
-    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("ade_credentials");
-    expect(queried).toContain("fisconline");
-    expect(queried).toContain("cie");
+    expect(sqlTextOf(mockExecute.mock.calls[0][0])).not.toContain(
+      "ade_credentials",
+    );
   });
 });
 
-describe("getAdminTrialFunnel", () => {
-  it("converte in numeri i bigint che il driver restituisce come stringhe", async () => {
+describe("getAdminFunnel", () => {
+  it("converte ogni gradino, con lo split per metodo di accesso", async () => {
     mockExecute.mockResolvedValueOnce([funnelRow()]);
 
-    const result = await getAdminTrialFunnel("30d", REFERENCE);
+    const result = await getAdminFunnel();
 
     expect(result).toEqual({
-      funnel: { registered: 10, onboarded: 6, issuedReceipts: 4 },
+      funnel: {
+        registered: 85,
+        onboarded: { total: 53, methods: { fisconline: 39, cie: 13, spid: 1 } },
+        issuedReceipts: {
+          total: 31,
+          methods: { fisconline: 25, cie: 6, spid: 0 },
+        },
+        paying: { total: 12, methods: { fisconline: 10, cie: 2, spid: 0 } },
+        payingWithoutReceipts: 2,
+      },
     });
   });
 
-  it("filtra la coorte su trial_started_at nel range e trial ancora attivo", async () => {
+  it("annida i gradini: pagante vuol dire anche onboarding e scontrini", async () => {
+    // La percentuale fra due gradini vicini è una conversione solo se ognuno
+    // è un sottoinsieme del precedente. Se il gradino "paganti" perdesse le
+    // condizioni di quelli prima, un pagante senza scontrini lo gonfierebbe.
     mockExecute.mockResolvedValueOnce([funnelRow()]);
 
-    await getAdminTrialFunnel("30d", REFERENCE);
+    await getAdminFunnel();
 
     const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
-    expect(queried).toContain("trial_started_at");
-    expect(queried).toContain("p.plan");
-    expect(queried).toContain("commercial_documents");
+    expect(queried).toContain("onboarded AND has_receipts AND paying");
+    expect(queried).toContain("paying AND NOT (onboarded AND has_receipts)");
+  });
+
+  it("non dipende dal periodo e legge lo stato di sempre", async () => {
+    mockExecute.mockResolvedValueOnce([funnelRow()]);
+
+    await getAdminFunnel();
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).not.toContain("timestamptz");
+    expect(queried).toContain("ade_credentials");
+    expect(queried).toContain("fiscal_code IS NOT NULL");
+  });
+
+  it("conta come paganti solo i piani acquistabili, non unlimited", async () => {
+    mockExecute.mockResolvedValueOnce([funnelRow()]);
+
+    await getAdminFunnel();
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("starter");
+    expect(queried).not.toContain("unlimited");
   });
 
   it("degrada a { error } se il DB fallisce, senza propagare (regola 19)", async () => {
     mockExecute.mockRejectedValueOnce(new Error("boom"));
 
-    const result = await getAdminTrialFunnel("30d", REFERENCE);
+    const result = await getAdminFunnel();
 
-    expect(result).toEqual({ error: TRIAL_FUNNEL_ERROR });
+    expect(result).toEqual({ error: FUNNEL_ERROR });
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       expect.objectContaining({
         errorClass: "admin_metrics_load",
-        metric: "trial_funnel",
+        metric: "funnel",
       }),
       expect.any(String),
     );
@@ -435,16 +462,20 @@ describe("getAdminTrialFunnel", () => {
   it("degrada a { error } anche se la query non restituisce righe", async () => {
     mockExecute.mockResolvedValueOnce([]);
 
-    const result = await getAdminTrialFunnel("30d", REFERENCE);
+    const result = await getAdminFunnel();
 
-    expect(result).toEqual({ error: TRIAL_FUNNEL_ERROR });
+    expect(result).toEqual({ error: FUNNEL_ERROR });
   });
 
-  it("tratta come 0 colonne null o non numeriche invece di propagare NaN", async () => {
-    mockExecute.mockResolvedValueOnce([funnelRow({ registered: null })]);
+  it("tratta come 0 colonne null o mancanti invece di propagare NaN", async () => {
+    mockExecute.mockResolvedValueOnce([
+      funnelRow({ registered: null, paying_spid: undefined }),
+    ]);
 
-    const result = await getAdminTrialFunnel("30d", REFERENCE);
+    const result = await getAdminFunnel();
 
-    expect(result).toMatchObject({ funnel: { registered: 0 } });
+    expect(result).toMatchObject({
+      funnel: { registered: 0, paying: { methods: { spid: 0 } } },
+    });
   });
 });

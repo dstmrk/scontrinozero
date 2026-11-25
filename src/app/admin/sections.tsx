@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { AdminAlert } from "@/components/admin/admin-alert";
 import {
   AdminPaidUsersTable,
@@ -8,30 +10,33 @@ import {
   AdminTrialActiveMerchantsTable,
   AdminTrialExpiringTable,
 } from "@/components/admin/admin-directory-tables";
+import { AdminFunnelCard } from "@/components/admin/admin-funnel-card";
 import {
   AdminDocumentKpiCards,
+  AdminTrialActiveKpiCard,
   AdminUserKpiCards,
 } from "@/components/admin/admin-kpi-cards";
-import { AdminTrialFunnelCard } from "@/components/admin/admin-trial-funnel-card";
 import {
   getAdminPaidUsers,
   getAdminRecentProfiles,
   getAdminStalePendingDocuments,
   getAdminStalledOnboarding,
   getAdminTopMerchants,
-  getAdminTrialActiveMerchants,
+  getAdminTrialActive,
   getAdminTrialExpiring,
 } from "@/server/admin-directory";
 import {
   getAdminDocumentKpis,
-  getAdminTrialFunnel,
+  getAdminFunnel,
   getAdminUserKpis,
 } from "@/server/admin-metrics";
 import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 /**
- * Le dieci sezioni del pannello amministratore: una lettura, un boundary Suspense,
- * un pezzo di pagina.
+ * Le sezioni del pannello amministratore: un boundary Suspense, un pezzo di
+ * pagina, e di regola una lettura ciascuna. L'eccezione sono le due sezioni
+ * dei trial attivi (KPI e tabella), che condividono una lettura via
+ * `loadTrialActive`.
  *
  * Ognuna è un server component asincrono che `await`a la **sua** query e rende
  * il contenuto o l'avviso di quella query soltanto. È qui che la pagina smette
@@ -66,22 +71,38 @@ export async function AdminUserKpisSection({ range }: RangeSectionProps) {
 }
 
 /**
- * Il funnel trial della coorte del periodo. Sta nella stessa riga di griglia
- * delle card utenti/scontrini ma dietro un boundary a sé: tocca
- * `commercial_documents`, e bloccarlo dietro le card utenti le farebbe
- * aspettare la stessa scansione che la separazione da `AdminDocumentKpisSection`
- * vuole evitare.
+ * Il funnel di sempre. Occupa due colonne della griglia KPI: anche l'avviso
+ * d'errore, così la riga non cambia forma quando la query cade.
  */
-export async function AdminTrialFunnelSection({ range }: RangeSectionProps) {
-  const result = await getAdminTrialFunnel(range);
+export async function AdminFunnelSection() {
+  const result = await getAdminFunnel();
+
+  if ("error" in result) {
+    return <AdminAlert message={result.error} className="lg:col-span-2" />;
+  }
+  return <AdminFunnelCard funnel={result.funnel} />;
+}
+
+/**
+ * Una lettura per due sezioni: il KPI "Trial attivi" in cima e la tabella
+ * "Trial attivi con scontrini" più in basso devono mostrare la stessa
+ * fotografia. `cache` di React deduplica dentro la singola richiesta RSC: la
+ * prima sezione che la chiama occupa il posto in coda, la seconda riceve la
+ * stessa promessa. Fuori da un render server è un passthrough.
+ */
+const loadTrialActive = cache(getAdminTrialActive);
+
+/** Trial attivi adesso, e quanti hanno già emesso scontrini. */
+export async function AdminTrialActiveKpiSection() {
+  const result = await loadTrialActive();
 
   if ("error" in result) {
     return <AdminAlert message={result.error} />;
   }
-  return <AdminTrialFunnelCard funnel={result.funnel} />;
+  return <AdminTrialActiveKpiCard trials={result.trials} />;
 }
 
-/** Le tre card scontrini — la lettura più lenta del pannello. */
+/** Le due card scontrini e incasso — la lettura più lenta del pannello. */
 export async function AdminDocumentKpisSection({ range }: RangeSectionProps) {
   const result = await getAdminDocumentKpis(range);
 
@@ -130,12 +151,12 @@ export async function AdminTrialExpiringSection() {
  * Ancorata ad adesso come "Trial in scadenza", di fianco a cui sta in pagina.
  */
 export async function AdminTrialActiveMerchantsSection() {
-  const result = await getAdminTrialActiveMerchants();
+  const result = await loadTrialActive();
 
   if ("error" in result) {
     return <AdminAlert message={result.error} />;
   }
-  return <AdminTrialActiveMerchantsTable merchants={result.merchants} />;
+  return <AdminTrialActiveMerchantsTable merchants={result.trials.merchants} />;
 }
 
 /**

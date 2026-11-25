@@ -109,3 +109,23 @@ export function AdminTableSkeleton({
     </Card>
   );
 }
+
+/**
+ * Scheletro del funnel: quattro barre su due colonne della griglia KPI, come
+ * la card vera, così la riga non cambia altezza quando arriva il dato.
+ */
+export function AdminFunnelSkeleton() {
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <Skeleton className="h-3 w-32" aria-hidden="true" />
+      </CardHeader>
+      <CardContent className="space-y-3" aria-hidden="true">
+        {ROW_KEYS.slice(0, 4).map((key) => (
+          <Skeleton key={key} className="h-6 w-full" />
+        ))}
+      </CardContent>
+      <span className="sr-only">Caricamento del funnel in corso</span>
+    </Card>
+  );
+}
