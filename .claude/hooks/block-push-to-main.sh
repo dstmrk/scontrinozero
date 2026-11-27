@@ -14,7 +14,10 @@ cmd=$(jq -r '.tool_input.command // ""')
 # di un comando successivo (`git push origin feat; gh pr create --base main`,
 # falso positivo trovato 2026-11-27). Spezzare anche dentro le virgolette
 # non apre bypass: un push verso main resta sulla riga del suo `git push`.
-normalized=$(printf '%s' "$cmd" | tr -s ' ' | sed -E 's/(\|\||&&|[;|&])/\
+# Le virgolette si tolgono come fa la shell: `git push origin "main"` spinge
+# main, ma `"`/`'` non stanno nella classe di confine delle regex
+# (issue #1256).
+normalized=$(printf '%s' "$cmd" | tr -d "\"'" | tr -s ' ' | sed -E 's/(\|\||&&|[;|&])/\
 /g')
 
 # Catch any refspec whose destination is `main`. The previous regex only

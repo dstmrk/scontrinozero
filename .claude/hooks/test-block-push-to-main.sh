@@ -116,6 +116,20 @@ assert_block "git fetch -q origin || git push origin HEAD:main"
 assert_block "git fetch --all; git push --mirror origin"
 assert_block "npm test 2>&1 | tail -1 && git push origin main"
 
+# --- BLOCK cases: refspec tra virgolette. La shell toglie le virgolette e il
+# push arriva a main, ma `"`/`'` non stanno nella classe di confine
+# (issue #1256). ---
+assert_block "git push origin \"main\""
+assert_block "git push origin 'main'"
+assert_block "git push origin \"HEAD:main\""
+assert_block "git push origin develop:\"main\""
+assert_block "git push origin 'refs/heads/main'"
+assert_block "git push -f origin \"+main\""
+
+# Un branch tra virgolette che non e' main resta libero.
+assert_pass "git push -u origin \"feature/main-fix\""
+assert_pass "git push origin 'maintenance'"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
   exit 1
