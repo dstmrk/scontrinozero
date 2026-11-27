@@ -13,18 +13,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mockInvoked } = vi.hoisted(() => ({ mockInvoked: [] as string[] }));
 
 vi.mock("./sections", () => ({
-  AdminUserKpisSection: () => mockInvoked.push("utenti") && null,
-  AdminTrialFunnelSection: () => mockInvoked.push("funnel") && null,
-  AdminDocumentKpisSection: () => mockInvoked.push("scontrini") && null,
-  AdminStalePendingDocumentsSection: () =>
-    mockInvoked.push("in-sospeso") && null,
-  AdminStalledOnboardingSection: () => mockInvoked.push("fermi") && null,
-  AdminTopMerchantsSection: () => mockInvoked.push("classifiche") && null,
+  AdminFunnelSection: () => mockInvoked.push("funnel") && null,
+  AdminTrialActiveKpiSection: () => mockInvoked.push("trial-kpi") && null,
+  AdminSignupsSection: () => mockInvoked.push("registrati") && null,
   AdminTrialExpiringSection: () => mockInvoked.push("trial") && null,
   AdminTrialActiveMerchantsSection: () =>
     mockInvoked.push("trial-esercenti") && null,
-  AdminPaidUsersSection: () => mockInvoked.push("paganti") && null,
-  AdminRecentProfilesSection: () => mockInvoked.push("registrati") && null,
+  AdminStalePendingDocumentsSection: () =>
+    mockInvoked.push("in-sospeso") && null,
+}));
+
+/**
+ * Le card su richiesta sono Client Component che chiamano server action: qui
+ * interessa solo dove stanno e quale periodo ricevono. Stub che non rendono
+ * nulla e non importano le action.
+ */
+vi.mock("@/components/admin/admin-on-demand", () => ({
+  AdminUserKpisOnDemand: () => null,
+  AdminDocumentKpisOnDemand: () => null,
+  AdminPaidUsersOnDemand: () => null,
+  AdminTopMerchantsOnDemand: () => null,
 }));
 
 // Il gate di richiesta ha i suoi test in `src/server/admin-guard.test.ts`: qui
@@ -37,6 +45,7 @@ vi.mock("@/server/admin-guard", () => ({
   requireAdminOrNotFound: () => mockRequireAdminOrNotFound(),
 }));
 
+import * as onDemand from "@/components/admin/admin-on-demand";
 import * as sections from "./sections";
 import AdminPage from "./page";
 
@@ -152,10 +161,10 @@ describe("AdminPage — gate di richiesta", () => {
 });
 
 describe("AdminPage — streaming", () => {
-  it("monta tutte e dieci le letture, ognuna dietro un proprio Suspense", async () => {
+  it("monta tutte le sezioni, ognuna dietro un proprio Suspense", async () => {
     const found = await sectionsOf();
 
-    expect(found).toHaveLength(10);
+    expect(found).toHaveLength(6);
     expect(found.every((section) => section.suspended)).toBe(true);
   });
 
@@ -185,21 +194,18 @@ describe("AdminPage — streaming", () => {
   it("mette i KPI davanti alle tabelle: è anche l'ordine della coda", async () => {
     // Il pannello tiene una connessione per volta, la coda è FIFO e React
     // invoca i figli nell'ordine dell'albero: chi sta più in alto qui compare
-    // prima in pagina.
+    // prima in pagina. Le metriche del periodo stanno in fondo, in "Altre
+    // metriche".
     const found = await sectionsOf();
 
     expect(found.map((section) => section.name)).toEqual([
-      "AdminUserKpisSection",
-      "AdminTrialFunnelSection",
-      "AdminDocumentKpisSection",
+      "AdminFunnelSection",
+      "AdminTrialActiveKpiSection",
       // Chi si è appena iscritto e chi si è bloccato subito dopo.
-      "AdminRecentProfilesSection",
-      "AdminStalledOnboardingSection",
+      "AdminSignupsSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
       "AdminStalePendingDocumentsSection",
-      "AdminPaidUsersSection",
-      "AdminTopMerchantsSection",
     ]);
   });
 });
@@ -228,7 +234,7 @@ describe("AdminPage — periodo", () => {
     const found = await sectionsOf("30d");
 
     const conRange = found.filter((section) => section.range !== undefined);
-    expect(conRange).toHaveLength(5);
+    expect(conRange).toHaveLength(1);
     expect(conRange.every((section) => section.range === "30d")).toBe(true);
   });
 
@@ -239,13 +245,14 @@ describe("AdminPage — periodo", () => {
       .filter((section) => section.range === undefined)
       .map((section) => section.name);
     expect(senzaRange).toEqual([
-      // Un orfano di tre settimane fa, o un onboarding arenato a maggio,
-      // devono restare visibili anche guardando gli ultimi 7 giorni.
-      "AdminStalledOnboardingSection",
+      // Il funnel è di sempre; un orfano di tre settimane fa, o un
+      // onboarding arenato, devono restare visibili anche guardando gli
+      // ultimi 7 giorni.
+      "AdminFunnelSection",
+      "AdminTrialActiveKpiSection",
       "AdminTrialExpiringSection",
       "AdminTrialActiveMerchantsSection",
       "AdminStalePendingDocumentsSection",
-      "AdminPaidUsersSection",
     ]);
   });
 });
@@ -265,5 +272,79 @@ describe("AdminPage — guscio", () => {
       "aria-current",
       "page",
     );
+  });
+});
+
+const ON_DEMAND_NAMES = new Map<unknown, string>(
+  Object.entries(onDemand).map(([name, component]) => [component, name]),
+);
+
+type FoundOnDemand = {
+  readonly name: string;
+  readonly range: unknown;
+  readonly key: string | null;
+  /** True se sta dentro il `<details>` di "Altre metriche". */
+  readonly inDetails: boolean;
+};
+
+function collectOnDemand(
+  node: ReactNode,
+  inDetails = false,
+  out: FoundOnDemand[] = [],
+): FoundOnDemand[] {
+  if (Array.isArray(node)) {
+    for (const child of node) collectOnDemand(child, inDetails, out);
+    return out;
+  }
+  if (!isValidElement(node)) return out;
+  const element = node as ReactElement<WalkableProps>;
+  const name = ON_DEMAND_NAMES.get(element.type);
+  if (name) {
+    out.push({ name, range: element.props.range, key: element.key, inDetails });
+    return out;
+  }
+  return collectOnDemand(
+    element.props.children,
+    inDetails || element.type === "details",
+    out,
+  );
+}
+
+describe("AdminPage — altre metriche su richiesta", () => {
+  async function onDemandOf(range?: string): Promise<FoundOnDemand[]> {
+    const tree = await AdminPage({ searchParams: Promise.resolve({ range }) });
+    return collectOnDemand(tree);
+  }
+
+  it("monta le quattro card su richiesta dentro il blocco chiuso, fuori da ogni Suspense", async () => {
+    // Non sono letture al render: nessuna query parte finché non si preme
+    // "Carica", quindi non stanno in coda dietro le sezioni sempre visibili.
+    const found = await onDemandOf();
+
+    expect(found.map((card) => card.name)).toEqual([
+      "AdminUserKpisOnDemand",
+      "AdminDocumentKpisOnDemand",
+      "AdminPaidUsersOnDemand",
+      "AdminTopMerchantsOnDemand",
+    ]);
+    expect(found.every((card) => card.inDetails)).toBe(true);
+  });
+
+  it("dà il periodo a chi lo usa, e una key che cambia col periodo", async () => {
+    // La key riporta la card a "non caricato" quando si cambia periodo:
+    // senza, mostrerebbe i numeri del periodo vecchio sotto quello nuovo.
+    const found = await onDemandOf("90d");
+    const ranged = found.filter((card) => card.range !== undefined);
+
+    expect(ranged).toHaveLength(3);
+    expect(ranged.every((card) => card.range === "90d")).toBe(true);
+    expect(ranged.every((card) => card.key?.endsWith("90d"))).toBe(true);
+  });
+
+  it("lascia il blocco «Altre metriche» chiuso all'apertura della pagina", async () => {
+    render(await AdminPage({ searchParams: Promise.resolve({}) }));
+
+    const details = screen.getByText("Altre metriche").closest("details");
+    expect(details).not.toHaveAttribute("open");
   });
 });

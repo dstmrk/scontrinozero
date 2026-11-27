@@ -1,14 +1,15 @@
 import { AdminTableSkeleton } from "./admin-skeletons";
+import { Badge } from "@/components/ui/badge";
 import { AdminTable, type AdminTableColumn } from "./admin-table";
+import { TRIAL_DAYS } from "@/lib/plans-shared";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RecordedVerifyOutcome } from "@/lib/ade/verify-outcome";
 import type {
   AdminMerchant,
   AdminPaidUserRow,
-  AdminProfileRow,
+  AdminSignupRow,
+  AdminSignups,
   AdminStalePendingDocumentRow,
-  AdminStalledOnboarding,
-  AdminStalledOnboardingRow,
   AdminTopMerchants,
   AdminTrialRow,
 } from "@/server/admin-directory";
@@ -58,16 +59,11 @@ const HEADINGS = {
   paid: {
     title: "Utenti paganti",
     description:
-      "Piani Starter e Pro attivi. «Paga dal» è l'inizio del periodo di fatturazione corrente, non il primo pagamento in assoluto.",
+      "Piani Starter, Pro e Team attivi. «Paga dal» è l'inizio del periodo di fatturazione corrente, non il primo pagamento in assoluto.",
   },
-  profiles: {
-    title: "Registrati di recente",
-    description: "Nel periodo selezionato, dal più recente.",
-  },
-  stalled: {
-    title: "Onboarding fermi",
-    description:
-      "Credenziali AdE salvate ma mai verificate, trial ancora attivo, dal più vecchio. Finestra ancorata a oggi, indipendente dal periodo selezionato.",
+  signups: {
+    title: "Registrati e onboarding fermi",
+    description: `Registrati nel periodo selezionato, dal più recente, più chi è fermo adesso anche se si è registrato prima. Fermo: credenziali AdE salvate ma onboarding non completato, trial attivo, fermo da non più della durata della prova (${TRIAL_DAYS} giorni).`,
   },
   stalePending: {
     title: "Documenti in sospeso",
@@ -120,20 +116,54 @@ function outcomeLabel(outcome: string | null): string {
   return OUTCOME_LABELS[outcome as RecordedVerifyOutcome] ?? outcome;
 }
 
-const STALLED_COLUMNS: ReadonlyArray<
-  AdminTableColumn<AdminStalledOnboardingRow>
-> = [
+/**
+ * Lo stato d'onboarding come etichetta: vuoto per chi non ha ancora
+ * cominciato (la riga vuota è l'informazione), un badge per gli altri due.
+ */
+function statusCell(row: AdminSignupRow): React.ReactNode {
+  if (row.status === "ok") {
+    return (
+      <Badge className="bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200">
+        ✓ ok
+      </Badge>
+    );
+  }
+  if (row.status === "stalled") {
+    return (
+      <Badge className="bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        fermo
+      </Badge>
+    );
+  }
+  return DASH;
+}
+
+/** Il resto della diagnosi vale solo per le righe ferme. */
+function ifStalled(
+  row: AdminSignupRow,
+  cell: (r: AdminSignupRow) => string,
+): string {
+  return row.status === "stalled" ? cell(row) : "";
+}
+
+const SIGNUP_COLUMNS: ReadonlyArray<AdminTableColumn<AdminSignupRow>> = [
   { header: "Nome", cell: (r) => text(r.name) },
   { header: "Email", cell: (r) => r.email },
-  { header: "Ultimo esito", cell: (r) => outcomeLabel(r.outcome) },
+  { header: "Registrato", cell: (r) => formatDate(r.registeredAt) },
+  { header: "Onboarding", cell: statusCell },
+  {
+    header: "Ultimo esito",
+    cell: (r) => ifStalled(r, (s) => outcomeLabel(s.outcome)),
+  },
   {
     header: "Tentativi",
-    cell: (r) => countFormatter.format(r.attempts),
+    cell: (r) => ifStalled(r, (s) => countFormatter.format(s.attempts)),
     align: "right",
   },
   {
     header: "Fermo dal",
-    cell: (r) => formatDate(r.createdAt),
+    cell: (r) =>
+      ifStalled(r, (s) => (s.stalledSince ? formatDate(s.stalledSince) : DASH)),
     align: "right",
   },
 ];
@@ -156,16 +186,6 @@ function merchantColumns(): ReadonlyArray<AdminTableColumn<AdminMerchant>> {
     },
   ];
 }
-
-const PROFILE_COLUMNS: ReadonlyArray<AdminTableColumn<AdminProfileRow>> = [
-  { header: "Nome", cell: (p) => text(p.name) },
-  { header: "Email", cell: (p) => p.email },
-  {
-    header: "Registrato il",
-    cell: (p) => formatDate(p.createdAt),
-    align: "right",
-  },
-];
 
 /** Millisecondi in un giorno, per il conto alla rovescia del trial. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -369,62 +389,44 @@ export function AdminPaidUsersSkeleton() {
   return <AdminTableSkeleton {...HEADINGS.paid} />;
 }
 
-interface AdminRecentProfilesTableProps {
-  readonly rows: readonly AdminProfileRow[];
-}
-
-export function AdminRecentProfilesTable({
-  rows,
-}: AdminRecentProfilesTableProps) {
-  return (
-    <AdminTable
-      {...HEADINGS.profiles}
-      columns={PROFILE_COLUMNS}
-      rows={rows}
-      rowKey={(p) => p.email}
-      empty="Nessuna registrazione nel periodo."
-    />
-  );
-}
-
-export function AdminRecentProfilesSkeleton() {
-  return <AdminTableSkeleton {...HEADINGS.profiles} />;
-}
-
-interface AdminStalledOnboardingTableProps {
-  readonly stalled: AdminStalledOnboarding;
+interface AdminSignupsTableProps {
+  readonly signups: AdminSignups;
 }
 
 /**
- * Onboarding fermi, con il conteggio per fascia d'età nell'header della card.
+ * Registrati del periodo e onboarding fermi in una tabella (vedi
+ * `AdminSignups`): prima il periodo, poi, sotto un'etichetta, chi è fermo
+ * ma si è registrato prima.
  *
- * Il conteggio non è decorazione: le righe sono tagliate a 50, i totali no, e
- * «fermo da tre giorni» e «fermo da quattro mesi» sono due problemi diversi che
- * l'esito da solo non separa.
+ * Il conteggio per età nell'header non è decorazione: le righe sono tagliate
+ * a 50, i totali no, e «fermo da tre giorni» e «fermo da tre settimane» sono
+ * due problemi diversi che l'esito da solo non separa.
  */
-export function AdminStalledOnboardingTable({
-  stalled,
-}: AdminStalledOnboardingTableProps) {
-  const { counts } = stalled;
+export function AdminSignupsTable({ signups }: AdminSignupsTableProps) {
+  const { counts } = signups;
   return (
     <AdminTable
-      {...HEADINGS.stalled}
+      {...HEADINGS.signups}
       note={
         <p className="text-muted-foreground text-xs">
-          {countFormatter.format(counts.total)} fermi in totale —{" "}
+          {countFormatter.format(counts.total)}{" "}
+          {counts.total === 1 ? "fermo" : "fermi"} in totale —{" "}
           {countFormatter.format(counts.recent)} da meno di 7 giorni,{" "}
-          {countFormatter.format(counts.weeks)} da 7 a 30,{" "}
-          {countFormatter.format(counts.stale)} da oltre 30.
+          {countFormatter.format(counts.weeks)} da 7 a {TRIAL_DAYS}.
         </p>
       }
-      columns={STALLED_COLUMNS}
-      rows={stalled.rows}
+      columns={SIGNUP_COLUMNS}
+      rows={signups.inRange}
+      appendix={{
+        label: "Fermi registrati prima del periodo",
+        rows: signups.earlier,
+      }}
       rowKey={(r) => r.email}
-      empty="Nessun onboarding fermo."
+      empty="Nessuna registrazione nel periodo e nessun onboarding fermo."
     />
   );
 }
 
-export function AdminStalledOnboardingSkeleton() {
-  return <AdminTableSkeleton {...HEADINGS.stalled} note />;
+export function AdminSignupsSkeleton() {
+  return <AdminTableSkeleton {...HEADINGS.signups} note />;
 }

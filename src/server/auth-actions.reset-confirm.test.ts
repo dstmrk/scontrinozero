@@ -243,8 +243,8 @@ describe("confirmPasswordReset — il clic che consuma il token", () => {
   );
 
   it.each([
-    { status: 500, errorClass: "auth_provider_5xx" },
-    { status: 429, errorClass: "auth_provider_throttled" },
+    { status: 500, errorClass: "supabase_5xx" },
+    { status: 429, errorClass: "supabase_throttled" },
   ])(
     "keeps the user on the page to retry when Supabase answers $status",
     async ({ status, errorClass }) => {

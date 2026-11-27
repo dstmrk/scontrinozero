@@ -309,7 +309,7 @@ Pattern obbligato:
    della call esterna
 2. **Limite funzionale post-call** invariato per brute-force applicativo
 3. **Log strutturati separati** (`errorClass: "captcha_prelimit"` vs
-   `"auth_rate_limit"`)
+   `"action_rate_limit"`)
 4. **Bucket keys namespaced** (`captchaPre:<action>:<ip>` vs `<action>:<ip>`)
 5. **Test invariant cardinale**: con pre-limit failure, `fetch`/external call
    NON deve essere invocata (`expect(mockFetch).not.toHaveBeenCalled()`).
@@ -612,7 +612,11 @@ per i server component); è chiamato da `layout.tsx`, da `page.tsx` e da
 in `cache()`: il controllo ripetuto costa una sola chiamata a Supabase Auth per
 render. Una nuova pagina o lettura admin eredita il gate passando da
 `runAdminRead`; una nuova pagina sotto `/admin` che legge il dato in altro modo
-deve chiamare `requireAdminOrNotFound()` per prima cosa.
+deve chiamare `requireAdminOrNotFound()` per prima cosa. Una server action
+admin (`src/server/admin-actions.ts`) è un endpoint RPC raggiungibile da
+chiunque ne conosca l'id: verifica `requireAdmin()` come prima istruzione e
+risponde `{ error }` al rifiuto, prima di validare qualunque input — un non-admin
+non deve poter distinguere un argomento valido da uno invalido.
 
 Origine: audit `security-audit` run-1 (candidato letto dal sorgente di Next
 16.4.1: `walk-tree-with-flight-router-state` salta i layout dei segmenti già

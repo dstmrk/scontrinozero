@@ -172,7 +172,7 @@ async function markFisconlineCredentialsRejected(
         err,
         businessId,
         outcome,
-        errorClass: "ade_credentials_rejected_write",
+        errorClass: "ade_rejection_write_failed",
       },
       "markFisconlineCredentialsRejected: rifiuto non registrato",
     );

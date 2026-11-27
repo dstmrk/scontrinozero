@@ -350,7 +350,7 @@ describe("auth-actions", () => {
     });
 
     it("rate-limit warning log uses ipHash, never raw IP", async () => {
-      // Pre-limit pass, post-limit fail — exercises the auth_rate_limit log.
+      // Pre-limit pass, post-limit fail — exercises the action_rate_limit log.
       mockRateLimiterCheck
         .mockReturnValueOnce({ success: true, remaining: 29 })
         .mockReturnValueOnce({ success: false, remaining: 0 });
@@ -381,7 +381,7 @@ describe("auth-actions", () => {
       // Hash for "127.0.0.1" should be a short hex string, not the raw IP.
       expect(payload.ipHash).not.toBe("127.0.0.1");
       expect(typeof payload.ipHash).toBe("string");
-      expect(payload).toMatchObject({ errorClass: "auth_rate_limit" });
+      expect(payload).toMatchObject({ errorClass: "action_rate_limit" });
     });
 
     it("pre-captcha gate blocks the request before Turnstile siteverify is called", async () => {

@@ -144,7 +144,14 @@ costo, aggiorni il corpo **prima** del push, non dopo: l'auto-merge parte al
 verde e non aspetta il testo, e su una PR di sola doc il verde arriva in
 ~15s. Sempre su #1243 il corpo aggiornato subito dopo il push è arrivato
 tardi: lo squash su `main` porta la tabella del costo vecchia. Se la PR è
-già `clean`, lo dici in chat e il merge è dell'utente.
+già `clean`, lo dici in chat e il merge è dell'utente. Fa eccezione una PR
+di Dependabot `clean`: la mergi tu con `merge_pull_request`, `merge_method`
+`squash` ed `expectedHeadSha` uguale allo SHA di testa; l'hook rilegge la PR
+da GitHub e blocca tutto il resto. Se invece è `behind`, Dependabot non la
+riallinea da solo (rebasa solo sui conflitti): `update_pull_request_branch`,
+i check ripartono e abiliti l'auto-merge come per ogni PR. Il commit di
+merge non suo ferma i rebase automatici di Dependabot su quella PR, che va
+bene per una PR che stai chiudendo.
 
 **Branch `behind`: l'auto-merge non riallinea.** Lo fai tu con un merge di
 `main` nel branch.

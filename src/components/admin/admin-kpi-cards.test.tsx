@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { AdminDocumentKpiCards, AdminUserKpiCards } from "./admin-kpi-cards";
+import {
+  AdminDocumentKpiCards,
+  AdminTrialActiveKpiCard,
+  AdminUserKpiCards,
+} from "./admin-kpi-cards";
 import type { AdminDocumentKpis, AdminUserKpis } from "@/server/admin-metrics";
 
 const USER_KPIS: AdminUserKpis = {
@@ -10,7 +14,6 @@ const USER_KPIS: AdminUserKpis = {
     { date: "2026-08-25", value: 5 },
     { date: "2026-08-26", value: 7 },
   ],
-  trialsOnboarded: 9,
 };
 
 const DOCUMENT_KPIS: AdminDocumentKpis = {
@@ -20,8 +23,6 @@ const DOCUMENT_KPIS: AdminDocumentKpis = {
   revenueCentsTotal: 123456789,
   revenueCentsInRange: 4567800,
   revenueSparkline: [{ date: "2026-08-26", value: 4567800 }],
-  fisconlineUsers: 40,
-  cieUsers: 12,
 };
 
 describe("AdminUserKpiCards", () => {
@@ -30,15 +31,6 @@ describe("AdminUserKpiCards", () => {
 
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText(/1\.?234 in totale/)).toBeInTheDocument();
-  });
-
-  it("mostra i trial attivi che hanno completato l'onboarding", () => {
-    render(<AdminUserKpiCards kpis={USER_KPIS} />);
-
-    expect(
-      screen.getByText("Trial: onboarding completato"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("9")).toBeInTheDocument();
   });
 
   it("etichetta la sparkline come cumulata", () => {
@@ -88,13 +80,6 @@ describe("AdminDocumentKpiCards", () => {
     expect(screen.getByText(/45\.?678,00/)).toBeInTheDocument();
   });
 
-  it("mostra fisconline e CIE fianco a fianco", () => {
-    render(<AdminDocumentKpiCards kpis={DOCUMENT_KPIS} />);
-
-    expect(screen.getByText("Fisconline vs CIE")).toBeInTheDocument();
-    expect(screen.getByText("40 / 12")).toBeInTheDocument();
-  });
-
   it("etichetta ogni sparkline con la metrica che rappresenta", () => {
     render(<AdminDocumentKpiCards kpis={DOCUMENT_KPIS} />);
 
@@ -106,14 +91,11 @@ describe("AdminDocumentKpiCards", () => {
     render(<AdminDocumentKpiCards kpis={DOCUMENT_KPIS} />);
 
     expect(screen.queryByText("Nuovi utenti")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Trial: onboarding completato"),
-    ).not.toBeInTheDocument();
   });
 });
 
 describe("le due metà insieme", () => {
-  it("compongono le cinque card del pannello senza sovrapporsi", () => {
+  it("compongono le tre card del periodo senza sovrapporsi", () => {
     render(
       <>
         <AdminUserKpiCards kpis={USER_KPIS} />
@@ -121,14 +103,38 @@ describe("le due metà insieme", () => {
       </>,
     );
 
-    for (const title of [
-      "Nuovi utenti",
-      "Trial: onboarding completato",
-      "Scontrini",
-      "Incasso",
-      "Fisconline vs CIE",
-    ]) {
+    for (const title of ["Nuovi utenti", "Scontrini", "Incasso"]) {
       expect(screen.getByText(title)).toBeInTheDocument();
     }
+  });
+});
+
+describe("AdminTrialActiveKpiCard", () => {
+  it("mostra i trial attivi e la quota con almeno uno scontrino", () => {
+    render(
+      <AdminTrialActiveKpiCard trials={{ active: 24, withReceipts: 9 }} />,
+    );
+
+    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(
+      screen.getByText(/hanno emesso almeno uno scontrino/),
+    ).toHaveTextContent("9 hanno emesso almeno uno scontrino (38%)");
+    expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "9");
+  });
+
+  it("usa il singolare quando ne ha emessi uno solo", () => {
+    render(<AdminTrialActiveKpiCard trials={{ active: 3, withReceipts: 1 }} />);
+
+    expect(
+      screen.getByText(/ha emesso almeno uno scontrino/),
+    ).toHaveTextContent("1 ha emesso almeno uno scontrino (33%)");
+  });
+
+  it("con zero trial attivi mostra 0% invece di una divisione per zero", () => {
+    render(<AdminTrialActiveKpiCard trials={{ active: 0, withReceipts: 0 }} />);
+
+    expect(screen.getByText(/emesso almeno uno scontrino/)).toHaveTextContent(
+      "(0%)",
+    );
   });
 });
