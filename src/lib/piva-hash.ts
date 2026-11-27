@@ -32,7 +32,7 @@ function getPivaHashSecret(): string {
   if (!warnedMissingSecret) {
     warnedMissingSecret = true;
     logger.warn(
-      { errorClass: "piva_hash_secret_missing" },
+      { errorClass: "piva_hash_key_missing" },
       "PIVA_HASH_SECRET non impostato: uso il fallback dev (NON valido in produzione)",
     );
   }

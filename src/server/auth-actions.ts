@@ -31,6 +31,7 @@ import {
 } from "@/lib/referral-code";
 import { referralRedemptions } from "@/db/schema/referral-redemptions";
 import { extractPartnerSlug } from "@/lib/partners/partner-host";
+import { classifySupabaseAuthError } from "@/lib/supabase-auth-error";
 import { getPartnerBySlug } from "@/lib/partners/partner-context";
 import {
   CURRENT_COLLABORATOR_TERMS_VERSION,
@@ -101,7 +102,7 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
     // (Sentry, log shipping, retention). La correlazione tra eventi dallo
     // stesso source resta possibile via hash deterministico (vedi `hashIp`).
     logger.warn(
-      { ipHash: hashIp(ip), action, errorClass: "auth_rate_limit" },
+      { ipHash: hashIp(ip), action, errorClass: "action_rate_limit" },
       "Auth rate limit exceeded",
     );
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
@@ -777,27 +778,6 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
   redirect(isSafeRelativeRedirect(redirectTo) ? redirectTo : "/dashboard");
 }
 
-/**
- * Maps a Supabase Auth error to a small, machine-readable category.
- * The category names are stable across deploys and safe to put on a dashboard;
- * the underlying error.message is not (it can change with Supabase upgrades).
- */
-function classifySupabaseAuthError(err: {
-  message?: string;
-  status?: number;
-}): string {
-  const status = err.status ?? 0;
-  const msg = (err.message ?? "").toLowerCase();
-  if (status === 400 && msg.includes("invalid login"))
-    return "invalid_credentials";
-  if (status === 400 && msg.includes("email not confirmed"))
-    return "email_not_confirmed";
-  if (status === 422) return "validation_error";
-  if (status === 429) return "auth_provider_throttled";
-  if (status >= 500) return "auth_provider_5xx";
-  return "other";
-}
-
 export async function signOut(): Promise<void> {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
@@ -961,10 +941,7 @@ export async function confirmPasswordReset(
     const errorClass = classifySupabaseAuthError(error);
     // Link scaduto o già usato è input utente prevedibile (regola 20).
     logger.warn({ errorClass }, "Password reset confirm: verifyOtp failed");
-    if (
-      errorClass === "auth_provider_5xx" ||
-      errorClass === "auth_provider_throttled"
-    ) {
+    if (errorClass === "supabase_5xx" || errorClass === "supabase_throttled") {
       return {
         error: "Non siamo riusciti a verificare il link. Riprova tra poco.",
       };

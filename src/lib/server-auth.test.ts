@@ -676,7 +676,7 @@ describe("server-auth", () => {
         expect(mockLoggerWarn).toHaveBeenCalledWith(
           expect.objectContaining({
             businessId: "biz-789",
-            errorClass: "ade_credentials_rejected_write",
+            errorClass: "ade_rejection_write_failed",
           }),
           expect.any(String),
         );
