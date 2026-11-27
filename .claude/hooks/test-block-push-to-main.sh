@@ -66,6 +66,13 @@ assert_pass "git fetch origin main"
 assert_pass "git -C /repo push origin feature"
 assert_pass "git -C /repo fetch origin main"
 assert_pass "git -c protocol.version=2 push origin feature"
+# `main` in a LATER command of the same line is not the push destination
+# (false positive found 2026-11-27 with `gh pr create --base main`).
+assert_pass "git push -u origin feature; gh pr create --base main"
+assert_pass "git push -u origin feature && gh pr create --base main --head feature"
+assert_pass "git push origin feature 2>&1 | grep main"
+assert_pass "git push origin feature || echo main"
+assert_pass "git push origin feature; git log --all"
 
 # --- BLOCK cases: any refspec whose destination is main ---
 assert_block "git push origin main"
@@ -100,6 +107,14 @@ assert_block "git -C /repo push --all origin"
 assert_pass "git fetch --all"
 assert_pass "git log --all --oneline"
 assert_pass "git branch --all"
+
+# --- BLOCK cases: a push to main chained after other commands. Splitting the
+# line into commands must not let these through. ---
+assert_block "echo ok; git push origin main"
+assert_block "git status && git push origin develop:main"
+assert_block "git fetch -q origin || git push origin HEAD:main"
+assert_block "git fetch --all; git push --mirror origin"
+assert_block "npm test 2>&1 | tail -1 && git push origin main"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
