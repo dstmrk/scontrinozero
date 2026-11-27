@@ -215,6 +215,39 @@ gli avrebbe scritto che sono sospesi mentre emettono.
 
 ---
 
+## Configurazione lato Stripe (dashboard): cosa ci si aspetta, come leggerla
+
+Verificata il 2026-11-21 su entrambi gli account (live e test). Il codice
+non la vede, quindi la si controlla a mano.
+
+- **Email ai clienti accese:** pagamento con carta fallito, carta in
+  scadenza, link di conferma 3D Secure (con promemoria), ricevute per
+  pagamenti riusciti e rimborsi. L'app non manda nessuna email ai clienti
+  per eventi di billing (`src/lib/operator-notification.ts` scrive solo
+  all'operatore): spente queste, un rinnovo fallito o in attesa di SCA
+  diventa una cancellazione silenziosa dopo i retry.
+- **Aggiornamento del metodo di pagamento:** pagina ospitata da Stripe. Il
+  passaggio dalla modalità "mista (precedente)" è **irreversibile**: la
+  dashboard lo chiede con una conferma esplicita.
+- **Smart Retries:** 8 tentativi in 2 settimane, poi annulla l'abbonamento
+  → `customer.subscription.deleted` → trial.
+
+Tre letture dell'API che ingannano (due falsi allarmi già presi):
+
+1. `billing_portal.configuration.business_profile.privacy_policy_url` /
+   `terms_of_service_url` a `null` **non** vuol dire link assenti: il
+   portale eredita quelli dei dettagli pubblici dell'account.
+2. `subscription_update.products[].adjustable_quantity.enabled: true` è
+   inerte se `default_allowed_updates` non contiene `quantity`: conta
+   l'interruttore globale in dashboard.
+3. Il connettore MCP Stripe di questa sessione è in sola lettura: le
+   scritture si fanno dalla dashboard.
+
+Prima di segnalare una discrepanza letta dall'API, confermarla in
+dashboard.
+
+---
+
 ## Stale recovery AdE → skill `ade-integration`
 
 La sezione sul recovery delle mutazioni AdE idempotenti (soglia 30 min
