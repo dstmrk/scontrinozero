@@ -31,20 +31,27 @@ mkdir -p "$TMP/non-repo"
 failures=0
 
 # Run the hook with the given fake Bash command, from the given directory.
+# Optional third arg: the payload's session `cwd`. Claude Code launches the
+# hook from the project root, which for a worktree session is the main
+# checkout (on main): the branch must come from the session cwd.
 run_hook() {
   local cmd="$1"
   local dir="$2"
+  local session_cwd="${3:-}"
   local payload
-  payload=$(printf '%s' "$cmd" | python3 -c '
-import json, sys
-print(json.dumps({"tool_input": {"command": sys.stdin.read()}}))')
+  payload=$(printf '%s' "$cmd" | SESSION_CWD="$session_cwd" python3 -c '
+import json, os, sys
+p = {"tool_input": {"command": sys.stdin.read()}}
+if os.environ["SESSION_CWD"]:
+    p["cwd"] = os.environ["SESSION_CWD"]
+print(json.dumps(p))')
   printf '%s' "$payload" | (cd "$dir" && bash "$HOOK") >/dev/null 2>&1
   rc=$?
 }
 
 assert_block() {
-  local cmd="$1" dir="$2"
-  run_hook "$cmd" "$dir"
+  local cmd="$1" dir="$2" session_cwd="${3:-}"
+  run_hook "$cmd" "$dir" "$session_cwd"
   if [ "$rc" -ne 2 ]; then
     echo "FAIL: expected BLOCK (exit 2) but got exit $rc for: $cmd (in $dir)" >&2
     failures=$((failures + 1))
@@ -52,8 +59,8 @@ assert_block() {
 }
 
 assert_pass() {
-  local cmd="$1" dir="$2"
-  run_hook "$cmd" "$dir"
+  local cmd="$1" dir="$2" session_cwd="${3:-}"
+  run_hook "$cmd" "$dir" "$session_cwd"
   if [ "$rc" -ne 0 ]; then
     echo "FAIL: expected PASS (exit 0) but got exit $rc for: $cmd (in $dir)" >&2
     failures=$((failures + 1))
@@ -70,6 +77,8 @@ assert_pass "git log --grep commit" "$TMP/on-main"
 assert_pass "git checkout -b feature" "$TMP/on-main"
 assert_pass "npm run lint" "$TMP/on-main"
 assert_pass "git commit -m 'x'" "$TMP/non-repo"
+# Worktree session: hook launched from the main checkout, session on a branch.
+assert_pass "git commit -m 'feat: x'" "$TMP/on-main" "$TMP/on-feature"
 
 # --- BLOCK cases: any commit while the current branch is main ---
 assert_block "git commit -m 'feat: x'" "$TMP/on-main"
@@ -77,6 +86,10 @@ assert_block "git commit --amend --no-edit" "$TMP/on-main"
 assert_block "git add -A && git commit -m 'feat: x'" "$TMP/on-main"
 assert_block "git -C . commit -m 'feat: x'" "$TMP/on-main"
 assert_block "git -c user.name=x commit -m 'feat: x'" "$TMP/on-main"
+# The session cwd decides, not the directory the hook was launched from.
+assert_block "git commit -m 'feat: x'" "$TMP/on-feature" "$TMP/on-main"
+# A session cwd that no longer exists falls back to the launch directory.
+assert_block "git commit -m 'feat: x'" "$TMP/on-main" "$TMP/gone"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
