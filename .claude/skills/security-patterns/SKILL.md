@@ -309,7 +309,7 @@ Pattern obbligato:
    della call esterna
 2. **Limite funzionale post-call** invariato per brute-force applicativo
 3. **Log strutturati separati** (`errorClass: "captcha_prelimit"` vs
-   `"auth_rate_limit"`)
+   `"action_rate_limit"`)
 4. **Bucket keys namespaced** (`captchaPre:<action>:<ip>` vs `<action>:<ip>`)
 5. **Test invariant cardinale**: con pre-limit failure, `fetch`/external call
    NON deve essere invocata (`expect(mockFetch).not.toHaveBeenCalled()`).

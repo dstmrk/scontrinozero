@@ -538,7 +538,18 @@ Query canoniche, già supportate dai tag che il repo emette:
 errorClass:ade_user_error environment:production
 errorClass:ade_transient environment:production
 errorClass:sentinel sentinelId:<id>   # validazione drain (R21)
+errorClass:invalid_login              # signIn con email/password errate
 ```
+
+**`[Filtered]` su un valore che non è un segreto.** Lo scrubbing lato
+server di Sentry oscura ogni _valore_ che contiene `auth`, `credentials`,
+`token`, `secret`, `password` (lista completa nel gate), non solo le chiavi
+con quei nomi. `invalid_credentials` arrivava così come `[Filtered]` su tutti
+i `signIn failed`. Si rinomina il valore, non si allenta lo scrubbing: il gate
+`src/lib/log-scrubbing.contract.test.ts` boccia ogni letterale
+`errorClass: "..."` che contenga una di quelle stringhe. I campi che non sono
+`errorClass` (es. `outcome: "auth_error"`, la chiave `credentialsRejected`) il
+gate non li copre.
 
 **Sentry Issues (default `errors`)** — eventi che hanno superato il
 `level≥50` hook:
