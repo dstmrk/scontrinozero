@@ -8,8 +8,14 @@ set -euo pipefail
 
 cmd=$(jq -r '.tool_input.command // ""')
 
-# Strip leading "cd <dir> && " noise so the regex sees the actual git command.
-normalized=$(printf '%s' "$cmd" | tr -s ' ')
+# Un comando per riga: `;`, `&&`, `||`, `|` e `&` diventano a capo, e grep
+# valuta ogni riga da sola. Senza lo split il `.*` delle regex sotto
+# attraversava i separatori e prendeva per destinazione del push un `main`
+# di un comando successivo (`git push origin feat; gh pr create --base main`,
+# falso positivo trovato 2026-11-27). Spezzare anche dentro le virgolette
+# non apre bypass: un push verso main resta sulla riga del suo `git push`.
+normalized=$(printf '%s' "$cmd" | tr -s ' ' | sed -E 's/(\|\||&&|[;|&])/\
+/g')
 
 # Catch any refspec whose destination is `main`. The previous regex only
 # matched `main` after a literal space, leaving the following bypasses:
